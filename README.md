@@ -1,102 +1,143 @@
 # OpenMIDIControl
 
-**OpenMIDIControl** is a Cubase-first, DAW-agnostic MIDI control surface project.
-
-- **Simple users** get a **plug-and-play** Android MIDI CC controller (no Bridge).
-- **Advanced users** can later opt into a **Bridge** workflow for higher-level features (Cubase-exclusive control, macros, multi-device, etc.) while preserving existing setups via **Compatibility mode**.
-
-> Primary initial use case: record MIDI notes from a keyboard (e.g., Arturia MiniLab 3) while simultaneously riding **CC1 (Modulation)** and **CC11 (Expression)** on a multi-touch surface.
+> **A multi-touch MIDI CC control surface, DAW-agnostic open MIDI standards.**  
+> Built for Android first, with an optional PC Bridge for advanced features later.
 
 ---
 
-## Goals (high level)
+## About
 
-### v0.1.0 (Android-only, no Bridge)
-- Wired USB connection to a Windows 11 host
-- **2 faders**: CC11 + CC1
-- Multi-touch (move both faders simultaneously)
-- Real-time value readout
-- **Bidirectional MIDI (feedback):** if the DAW sends MIDI back (standard MIDI), the UI updates (“motor fader” style)
-- Keep CPU/battery usage low via coalescing/rate limiting
+OpenMIDIControl is a performance-focused MIDI controller app designed for composers/producers who want to record notes on a keyboard while riding expression controls on a touch surface—especially **CC11 (Expression)** and **CC1 (Modulation)**.
 
-### Post v0.1.0 (Bridge added before v1.0.0)
-- Optional PC Bridge app for advanced workflows:
-  - **Compatibility mode:** single virtual port to preserve early user mappings
-  - **Advanced mode:** multi-port, Cubase-exclusive features (macros/commands/PLE/MIDI Remote integration)
-- Wireless support (LAN + hotspot “road mode”)
-- Windows native multi-touch client for large touch displays (later milestone)
+The project is **Cubase-first by default**, but the baseline feature set uses **open MIDI standards**, so it can work with **any DAW**.
+
+Two modes are supported:
+
+- **Simple mode (no Bridge):** plug-and-play wired MIDI CC control (Android).
+- **Advanced mode (Bridge, later):** optional PC Bridge adds Cubase-exclusive macros/commands and advanced routing, while supporting a **Compatibility mode** so users can migrate without breaking existing mappings.
 
 ---
 
-## Roadmap / Timeline (v0.1.0 → v1.0.0)
+## Feature Roadmap
+
+| Version | Milestone |
+|---------|-----------|
+| **v0.1.0** | Android wired plug-and-play — 2 faders (CC11 + CC1), multi-touch, real-time readout, **MIDI feedback (MIDI IN → UI)** |
+| v0.2.0 | Config & stability — mappings/presets, pickup/jump modes, smoothing controls, improved feedback-loop prevention |
+| v0.3.0 | More controls (MIDI-only) — buttons/switches, basic transport via MIDI where possible |
+| v0.4.0 | Wireless beta — LAN (UDP faders + reliable buttons), hotspot “on the road mode” + reduced update rate |
+| v0.5.0 | Bridge introduction (Windows tray) — Compatibility mode (single port) + groundwork for Advanced mode |
+| v0.6.0 | Cubase-exclusive actions (Bridge mode) — Cubase setup pack (MIDI Remote + Macros + PLE guidance) |
+| v0.7.0 | Windows touch client prototype — native multi-touch client for large touch displays |
+| v0.8.0 | Bridge Advanced mode — multi-port option, pair-once discovery |
+| v0.9.0 | Polish & templates — Cubase templates/profiles, multi-device layout roles |
+| **v1.0.0** | Stable release — stable wired + wireless + Bridge, stable feedback sync behavior, contributor-ready extension points |
 
 > Versions follow **SemVer**. Dates are intentionally not promised (feature-driven milestones).
 
-### v0.1.0 — “Wired basics”
-- Android app:
-  - Two faders (default: CC11 + CC1; optional in-app mapping if time permits)
-  - Multi-touch
-  - Real-time display
-  - Wired USB MIDI, plug-and-play (no Bridge)
-  - MIDI IN feedback to update UI (DAW-agnostic)
+---
 
-### v0.2.0 — “Config & stability”
-- Presets (save/load CC/channel mappings)
-- UI/transport performance tuning (rate limit, smoothing options, pickup/jump modes)
-- Improved MIDI feedback loop prevention
+## Tech Stack (planned / evolving)
 
-### v0.3.0 — “More controls”
-- Add buttons/switches (still MIDI-only)
-- Basic transport mappings via MIDI where possible (DAW-agnostic)
-
-### v0.4.0 — “Wireless beta”
-- Wi‑Fi LAN:
-  - UDP stream for faders (low latency, last-value-wins)
-  - reliable channel for buttons
-- Hotspot mode support (reduced update rate option)
-
-### v0.5.0 — “Bridge introduction (Windows tray)”
-- Optional Bridge app (advanced users):
-  - Compatibility mode (single-port behavior)
-  - Groundwork for Advanced mode (multi-port)
-- Cubase-first “setup pack” (MIDI Remote mappings / Macros / PLE guidance)
-
-### v0.6.0 — “Cubase-exclusive actions (Bridge lane)”
-- Cubase command/macro triggering via mapped MIDI (user imports/setup pack)
-- Device/session management groundwork for multiple controllers
-
-### v0.7.0 — “Windows touch client (prototype)”
-- Native Windows multi-touch controller client (for large touch displays)
-- Uses same message model as Android app (where feasible)
-
-### v0.8.0 — “Bridge Advanced mode”
-- Multi-port option (e.g., separate faders vs commands)
-- Pair-once discovery (mDNS) + lightweight pairing
-
-### v0.9.0 — “Polish & templates”
-- Cubase templates/profiles
-- Multi-device “tetris” layout assignments (left/right/center roles)
-
-### v1.0.0 — “Stable release”
-- Stable wired + wireless
-- Stable Bridge feature set (Cubase-first)
-- Stable feedback sync behaviors
-- Contributor-friendly docs and extension points
+| Layer | Technology |
+|------|------------|
+| Android App UI | Flutter |
+| Android MIDI I/O | Native Android (Kotlin) as needed + Flutter integration |
+| PC Bridge (later) | Windows-first tray app (language/tooling TBD) |
+| Windows Touch Client (later) | Native Windows multi-touch client (not web) |
+| Protocols (later) | Wired USB, LAN Wi‑Fi (UDP for faders), reliable channel for buttons |
 
 ---
 
-## Non-goals (for now)
-- Direct Vienna Ensemble Pro control (no public API integration). VE Pro workflows are supported indirectly through Cubase routing.
-- DAW-specific features for non-Cubase DAWs (beyond generic MIDI control).
+## Getting Started
+
+### Prerequisites
+- Android device (targeting modern Android; primary test device: Android 16 class)
+- A Windows 11 PC running a DAW (Cubase 15/FL Studio 25 or any DAW)
+- A wired USB connection (PC USB-A/C → Android USB‑C)
+
+### Setup (once code exists)
+```bash
+# Clone the repository
+git clone https://github.com/PetersDigital/OpenMIDIControl.git
+cd OpenMIDIControl
+
+# Install dependencies (when Flutter project exists)
+flutter pub get
+
+# Run on your connected device
+flutter run
+```
+
+---
+
+## Building (once code exists)
+
+```bash
+# Android APK (debug)
+flutter build apk --debug
+```
+
+---
+
+## Release process
+
+Releases are triggered by pushing **signed SemVer tags**:
+
+```bash
+git tag -s v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+Notes:
+- Version numbers must **not** appear in commit subjects (Conventional Commits rule).
+- Version bumps are done via tags + changelog entries.
+
+---
+
+## Clean Build
+
+```bash
+flutter clean
+flutter pub get
+```
+
+If build_runner outputs are added later:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+```
+
+---
+
+## Running Tests / Linting (once code exists)
+
+```bash
+flutter test
+flutter analyze --fatal-infos
+```
+
+---
+
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a detailed description of the project structure, state management approach, navigation, and coding conventions.
+
+For AI coding agent instructions (setup, testing, PR, and guardrails), see [AGENTS.md](AGENTS.md).
+
+---
+
+## Credits
+
+- **LLM Prompter? Vibe-Coder? Integrator?:** [Dencel K Babu](https://github.com/dencelkbabu)
+- **Organization:** [PetersDigital](https://github.com/PetersDigital)
+
+For full tool, AI, and audio attributions, see [CREDITS.md](CREDITS.md).
 
 ---
 
 ## License
+
 Dual-licensed:
-- **GPL-3.0** (open source)
-- **Commercial license** available separately (see `LICENSE`)
-
----
-
-## Contributing
-See `CONTRIBUTING.md`.
+- Open source: **GPL-3.0** (see [LICENSE](LICENSE))
+- Commercial license: available separately from PetersDigital

@@ -6,13 +6,10 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 ### Added
-- Initial documentation set and project roadmap.
+- Final viability + implementation plan in `ARCHITECTURE.md`.
 
 ### Changed
-- N/A
-
-### Fixed
-- N/A
+- Clarified Bridge compatibility/advanced mode migration approach.
 
 ## [0.0.0] - 2026-03-19
 ### Added
