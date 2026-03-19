@@ -1,0 +1,91 @@
+name: Dev CI & Telegram
+
+on:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      
+      # Enforces Section 3 of AGENTS.md (Lints)
+      - name: Static Analysis
+        run: flutter analyze --fatal-infos
+        
+      # Unit Tests
+      - name: Unit Tests
+        run: flutter test
+
+      # Sends immediate notification if lints or tests fail
+      - name: Notify Failure to Telegram
+        if: failure()
+        run: |
+          MESSAGE="❌ CI Failure on branch: ${{ github.ref_name }}%0AStatus: Analyze or Test job failed.%0A%0ASee details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+               -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+               -d text="$MESSAGE"
+
+  telegram-push:
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      
+      - run: flutter pub get
+      # Enforces Section 3 of AGENTS.md (A split arm64 release APK is sent to Telegram)
+      - run: flutter build apk --release --split-per-abi
+
+      - name: Normalize Branch, Name APK & Generate Log
+        run: |
+          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          # Clean branch name per AGENTS.md Section 1 rules
+          CLEAN_BRANCH=$(echo "$GITHUB_REF_NAME" | sed -E 's/^(feature|fix|refactor|docs)\///')
+          CLEAN_BRANCH=$(echo $CLEAN_BRANCH | sed -E 's/-[0-9]{10,}$//')
+          CLEAN_BRANCH=$(echo ${CLEAN_BRANCH//\//-} | cut -c1-20)
+          
+          FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/$FINAL_NAME
+          
+          # Extract changelog since previous build using Conventional Commits logic
+          CHANGELOG=$(git log -n 10 --pretty=format:"- %s" ${{ github.event.before }}..${{ github.sha }} 2>/dev/null || git log -n 5 --pretty=format:"- %s")
+          
+          echo "FINAL_NAME=$FINAL_NAME" >> $GITHUB_ENV
+          {
+            echo "CHANGELOG<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Send APK to Telegram
+        run: |
+          CAPTION=$(printf '🛠 <b>Dev Build Ready</b>\n\n📦 File: %s\n🌿 Branch: %s\n🔖 Commit: %s\n\n📝 Changes:\n%s' "${{ env.FINAL_NAME }}" "${{ github.ref_name }}" "${GITHUB_SHA:0:7}" "${{ env.CHANGELOG }}")
+
+          curl -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+               -F document=@"build/app/outputs/flutter-apk/${{ env.FINAL_NAME }}" \
+               -F parse_mode="HTML" \
+               --form-string caption="$CAPTION" \
+               "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendDocument"
