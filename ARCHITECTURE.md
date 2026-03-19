@@ -1,155 +1,130 @@
 # Architecture
 
-## 1. Vision
+This document defines the current architecture for OpenMIDIControl.
 
-OpenMIDIControl is a MIDI control surface ecosystem with two modess:
+## 1. Purpose
 
-1) **Simple mode (no Bridge):** Android device provides plug-and-play MIDI CC control over wired USB.
-2) **Advanced mode (Bridge):** optional PC Bridge adds Cubase-exclusive workflows (macros/commands, templates, routing) and optional wireless, without breaking simple-user setups.
+OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 
-**Cubase-first policy**
-- Baseline: standard MIDI works with any DAW.
-- Advanced: Cubase-exclusive capabilities are delivered via Bridge mode and optional Cubase setup packs.
+- low-latency expressive control
+- reliable bidirectional feedback
+- deterministic behavior under rapid input
+- clear layering so future integrations are optional and isolated
 
-**VE Pro**
-- Supported indirectly through Cubase routing.
-- No direct VE Pro API integration.
+## 2. Core Constraints
 
----
+- Multi-touch must support simultaneous controls without pointer conflicts.
+- MIDI output must remain responsive under high event rates.
+- Incoming MIDI must update UI when local touch is inactive.
+- Feedback loops must be prevented with value-based deduplication.
+- Battery and thermal load must remain stable during long sessions.
 
-## 2. Requirements (non-negotiable)
+## 3. System Model
 
-- **Multi-touch**: user must be able to ride multiple faders simultaneously while playing a MIDI keyboard.
-- **Low latency / low jitter**: “feels immediate” for performance control.
-- **Bidirectional MIDI**: incoming MIDI can update UI (“motor fader” behavior) using standard MIDI (DAW-agnostic).
-- **Feedback loop prevention**: avoid echo/oscillation when DAW echoes messages back.
-- **Battery/thermal awareness**: rate limiting and coalescing must prevent excessive CPU usage.
-- **Future Windows touch**: plan for a native Windows multi-touch client for large touch displays.
+Initial target is wired MIDI with three logical layers:
 
----
+1. Touch/UI layer
+2. MIDI service layer
+3. Transport/port adapter layer
 
-## 3. Components
+Each layer can reject duplicate or unsafe events independently.
 
-### 3.1 Android app (v0.1.0)
-- Touch engine:
-  - pointer capture per control
-  - optional smoothing
-  - rate limit + coalescing (last value wins)
-- MIDI engine:
-  - send CC
-  - receive CC for UI feedback
-  - echo suppression policy
+## 4. Event Semantics
 
-### 3.2 PC Bridge (post v0.1.0, pre v1.0.0)
-- **Compatibility mode** (migration-friendly):
-  - single virtual MIDI port behavior to preserve existing setups
-- **Advanced mode** (opt-in):
-  - multi-port separation (e.g., faders vs commands)
-  - Cubase command/macro workflows
-  - pairing + discovery
+- Internal values are normalized to `0.0..1.0`.
+- Outgoing CC values are encoded to `0..127` or 14-bit pairs where needed.
+- Local touch owns control state while active.
+- External MIDI owns control state when touch is inactive.
+- On touch release, control returns to external-follow mode immediately.
 
-### 3.3 Windows touch client (later)
-- Native multi-touch client (not web)
-- Targets large touch displays (e.g., 21–32" multi-touch)
-- Designed for low latency and clean pointer routing
+## 5. Feedback Loop Prevention
 
----
+Use value-first suppression, not timing-only suppression.
 
-## 4. Event model
+Required strategy:
 
-- Internal values normalized to `0.0..1.0`
-- Mapping to MIDI:
-  - CC: 0..127
-  - Buttons: Note On/Off or CC toggles (later)
-- Feedback model:
-  - UI follows external MIDI when not touching
-  - Touch overrides while active
-  - pickup/jump per control (configurable later)
+1. Cache the last transmitted value per logical control.
+2. Cache the last received value per logical control.
+3. If incoming value equals recently sent value in a short window, suppress UI mutation.
+4. If outgoing value equals recently applied external value in a short window, suppress retransmit.
 
----
+Recommended default window: 50-100ms, measured in milliseconds.
 
-# 5. Viability & Implementation Plan (Final)
+## 6. MIDI Protocol Baseline
 
-## 5.1 Viability summary
+### 6.1 Required support
 
-### Feasible with high confidence
-- Multi-touch faders on Android with responsive UI.
-- MIDI CC output for CC1/CC11.
-- DAW-agnostic MIDI feedback display using incoming MIDI.
+- Channel CC (7-bit)
+- Optional 14-bit CC (MSB/LSB pairs)
+- Basic SysEx framing for project-specific metadata only
 
-### Main risk
-**Android wired USB “pure plug-and-play MIDI peripheral” behavior can be device/ROM dependent.**
+### 6.2 14-bit policy
 
-Mitigation strategy:
-- v0.1.0 targets the best practical implementation for modern Android.
-- If necessary, Bridge mode becomes the “works everywhere” fallback for wired and wireless later (without forcing Bridge on simple users).
+- Use 14-bit for high-resolution expressive controls.
+- Always reconstruct full value before dedup checks.
+- Never deduplicate on MSB alone.
 
----
+### 6.3 SysEx policy
 
-## 5.2 v0.1.0 scope (Android-only, no Bridge)
+- Keep message schema explicit and versioned.
+- Prefer human-readable payload encoding for diagnostics.
+- Treat unknown command bytes as non-fatal.
 
-### Goals
-A minimal, reliable performance controller:
-- Two faders (default CC11 + CC1)
-- Multi-touch
-- Real-time value readout
-- Wired, plug-and-play MIDI
-- MIDI IN feedback updates UI (“motor fader” visuals)
+## 7. Connection Lifecycle
 
-### Behavior requirements
-- Send updates while moving at a capped rate (avoid heating).
-- On release, send final value.
-- MIDI feedback:
-  - update UI on incoming CC
-  - avoid obvious feedback loops (initial heuristics)
+1. Initialize ports and start listeners.
+2. Send optional handshake/ready probe.
+3. Enter active stream mode after readiness is confirmed or timeout policy passes.
+4. On disconnect, transition to recovery state and retry with backoff.
 
-### Non-goals
-- Wireless
-- Bridge
-- Cubase macros/PLE packs
-- Windows touch client
+State machine must be explicit and testable.
 
-### Acceptance criteria
-- User can record keyboard notes and ride both faders simultaneously.
-- Cubase (and other DAWs) can learn CC1/CC11.
-- UI stays stable and responsive over long sessions.
+## 8. Performance Guardrails
 
----
+- Coalesce rapid touch events using last-value-wins semantics.
+- Cap outbound send frequency per control to avoid thermal spikes.
+- Always send final control value on touch release.
+- Keep parsing and dedup operations O(1) using map-based caches.
 
-## 5.3 v0.2.0–v0.4.0 (MIDI-only expansion + wireless groundwork)
-- User mappings/presets
-- pickup/jump configuration and smoothing controls
-- Buttons/switches (MIDI-only)
-- Wireless beta:
-  - LAN: UDP for faders (loss-tolerant last-value-wins)
-  - reliable channel for buttons
-  - hotspot road mode + reduced update rate
+## 9. Error Handling
 
----
+- Invalid MIDI frames: ignore and continue.
+- Partial 14-bit pairs: buffer briefly, then drop safely on timeout.
+- Unknown SysEx commands: log and ignore.
+- Port loss: preserve UI state, signal disconnected mode, retry connection.
 
-## 5.4 v0.5.0–v0.9.0 (Bridge mode + Cubase-first scaling)
-- Bridge tray app:
-  - Compatibility mode (single port)
-  - Advanced mode (multi-port opt-in)
-  - pair-once discovery
-- Cubase setup packs:
-  - MIDI Remote mappings
-  - Macro + PLE guidance
-- Multi-device groundwork (“tetris” layouts and roles)
+## 10. Milestone Blueprint
 
----
+### Milestone A: Core control path
 
-## 5.5 v1.0.0 milestone
-- Stable wired + wireless
-- Stable Bridge compatibility + advanced modes
-- Stable feedback sync model (touch override + follow external)
-- Stable Windows touch client
-- Clear extension points for contributors
+- Two expressive faders
+- Multi-touch pointer capture
+- Bidirectional CC feedback
+- Dedup and thermal guardrails
 
----
+### Milestone B: Configurable behavior
 
-## 6. References in-repo
-- Roadmap: `README.md`
-- Contributions: `CONTRIBUTING.md`
-- Agent guardrails: `AGENTS.md`
-- Versions: `CHANGELOG.md`
+- Mapping/preset storage
+- Pickup/jump modes
+- Adjustable smoothing/rate limits
+
+### Milestone C: Expanded messaging
+
+- Optional NRPN/state messages
+- Optional metadata SysEx channel
+- Integration adapters kept isolated from core touch/MIDI path
+
+## 11. Verification Checklist
+
+- Two simultaneous touches produce independent MIDI streams.
+- No oscillation when host echoes MIDI values.
+- UI remains stable during rapid automation feedback.
+- CPU/thermal behavior remains acceptable in long sessions.
+- Disconnect/reconnect recovers without restart.
+
+## 12. References
+
+- [README.md](README.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [USERGUIDE.md](USERGUIDE.md)
+- [CHANGELOG.md](CHANGELOG.md)

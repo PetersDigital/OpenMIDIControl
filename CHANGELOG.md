@@ -6,10 +6,14 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 ### Added
-- Final viability + implementation plan in `ARCHITECTURE.md`.
+- Documentation refresh for current development goals.
+- Project docs aligned with current technical learnings and implementation goals.
+- New architecture baseline covering multi-touch, MIDI feedback, dedup, and thermal guardrails.
+- New user guide focused on first-iteration validation and troubleshooting.
 
 ### Changed
-- Clarified Bridge compatibility/advanced mode migration approach.
+- Updated repository positioning, milestones, and contributor guidance.
+- Refined wording and structure across core docs for consistency.
 
 ## [0.0.0] - 2026-03-19
 ### Added
