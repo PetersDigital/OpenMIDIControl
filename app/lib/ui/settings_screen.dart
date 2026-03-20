@@ -147,7 +147,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               value: faderOnRight,
-              activeColor: Theme.of(context).colorScheme.primaryContainer,
+              activeThumbColor: Theme.of(context).colorScheme.primaryContainer,
               onChanged: (_) =>
                   ref.read(layoutHandProvider.notifier).toggle(),
             );
