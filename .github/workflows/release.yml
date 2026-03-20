@@ -40,6 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: verify-tag-on-main
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
+    defaults:
+      run:
+        working-directory: app
     permissions:
       contents: read
     steps:
@@ -60,6 +63,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [verify-tag-on-main, analyze-and-test]
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
+    defaults:
+      run:
+        working-directory: app
     permissions:
       contents: read
     steps:
@@ -82,13 +88,16 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/openmidicontrol-*-android.apk
+          path: app/build/app/outputs/flutter-apk/openmidicontrol-*-android.apk
 
 
   build-windows:
     runs-on: windows-latest
     needs: [verify-tag-on-main, analyze-and-test]
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
+    defaults:
+      run:
+        working-directory: app
     permissions:
       contents: read
     steps:
@@ -108,7 +117,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: openmidicontrol-*-windows.zip
+          path: app/openmidicontrol-*-windows.zip
 
 
   publish-release:
