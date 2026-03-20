@@ -1,118 +1,219 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class HybridTouchFader extends ConsumerStatefulWidget {
+import 'open_midi_screen.dart'; // For FaderBehavior type
+
+// Common CC options for the popup menu
+const List<Map<String, dynamic>> _kCCOptions = [
+  {'cc': 1, 'name': 'Modulation'},
+  {'cc': 2, 'name': 'Breath'},
+  {'cc': 7, 'name': 'Volume'},
+  {'cc': 10, 'name': 'Pan'},
+  {'cc': 11, 'name': 'Expression'},
+  {'cc': 64, 'name': 'Sustain'},
+  {'cc': 71, 'name': 'Resonance'},
+  {'cc': 74, 'name': 'Brightness'},
+];
+
+class HybridTouchFader extends StatefulWidget {
   final int ccNumber;
   final String label;
   final Color activeColor;
-  final double initialValue; // 0.0 to 1.0
+  final Color labelColor;
+  final double initialValue;
+  final bool isMobile;
+  final FaderBehavior behavior;
 
   const HybridTouchFader({
-    Key? key,
+    super.key,
     required this.ccNumber,
     required this.label,
     required this.activeColor,
+    required this.labelColor,
     this.initialValue = 0.0,
-  }) : super(key: key);
+    this.isMobile = true,
+    this.behavior = FaderBehavior.jump,
+  });
 
   @override
-  ConsumerState<HybridTouchFader> createState() => _HybridTouchFaderState();
+  State<HybridTouchFader> createState() => _HybridTouchFaderState();
 }
 
-class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
+class _HybridTouchFaderState extends State<HybridTouchFader> {
   late double _currentValue;
-  final double _faderResolution = 400.0; // Pixels for a full 0-1 sweep
+  late int _ccNumber;
+  late String _ccLabel;
 
   @override
   void initState() {
     super.initState();
-    _currentValue = widget.initialValue;
+    _currentValue = widget.initialValue.clamp(0.0, 1.0);
+    _ccNumber = widget.ccNumber;
+    _ccLabel = widget.label;
   }
 
-  void _handleDragUpdate(DragUpdateDetails details) {
-    setState(() {
-      // Moving UP is negative Y in Flutter, so we subtract
-      double change = -(details.delta.dy / _faderResolution);
-      _currentValue = (_currentValue + change).clamp(0.0, 1.0);
-    });
+  void _handleDragUpdate(
+    DragUpdateDetails details,
+    BoxConstraints constraints,
+  ) {
+    _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+  }
 
-    // TODO for Jules: Wire this to the Riverpod Notifier to send to Kotlin MIDI Bridge
-    // ref.read(midiProvider.notifier).sendCC(widget.ccNumber, _currentValue);
+  void _handleDragDown(DragDownDetails details, BoxConstraints constraints) {
+    _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+  }
+
+  void _applyAbsolutePosition(double localY, double maxHeight) {
+    setState(() {
+      _currentValue = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
+    });
+  }
+
+  void _showCCMenu(BuildContext context, Offset offset) async {
+    final selected = await showMenu<Map<String, dynamic>>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy,
+        offset.dx + 1,
+        offset.dy + 1,
+      ),
+      color: const Color(0xFF1E2024),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      items: _kCCOptions.map((option) {
+        final isSelected = option['cc'] == _ccNumber;
+        return PopupMenuItem<Map<String, dynamic>>(
+          value: option,
+          child: Text(
+            'CC${option['cc']} – ${option['name']}',
+            style: GoogleFonts.inter(
+              color: isSelected ? const Color(0xFFA6C9F8) : Colors.white,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+    if (selected != null) {
+      setState(() {
+        _ccNumber = selected['cc'] as int;
+        _ccLabel =
+            'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    int midiValue = (_currentValue * 127).round();
+    final int ccValue = (_currentValue * 127).round();
+    final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
+    final double displayFontSize = widget.isMobile ? 56.0 : 72.0;
 
-    return GestureDetector(
-      onVerticalDragUpdate: _handleDragUpdate,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF0C0E12), // surface-container-lowest
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            // --- THE SOLID FILL RIBBON ---
-            FractionallySizedBox(
-              heightFactor: _currentValue,
-              widthFactor: 1.0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
+          onPanDown: (d) => _handleDragDown(d, constraints),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: const Color(0xFF111318),
+            child: Stack(
               alignment: Alignment.bottomCenter,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: widget.activeColor,
-                  borderRadius: BorderRadius.circular(4),
+              children: [
+                // Filled active track
+                FractionallySizedBox(
+                  heightFactor: _currentValue,
+                  widthFactor: 1.0,
+                  alignment: Alignment.bottomCenter,
+                  child: Container(color: widget.activeColor),
                 ),
-              ),
-            ),
 
-            // --- BOTTOM ANCHORED GLASSMORPHISM READOUT ---
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0C0E12).withOpacity(0.4),
-                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-                  ),
+                // Full-width TM1637 Display pinned at top with visible gap
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          color: widget.activeColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2.0,
+                      // Black readout box — full width, top-padded
+                      IgnorePointer(
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            widget.isMobile ? 20 : 28,
+                            12,
+                            8,
+                          ),
+                          color: const Color(0xFF0C0E12),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Ghost segments — very faint
+                              Text(
+                                "888",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'DSEG7Modern',
+                                  fontSize: displayFontSize,
+                                  color: Colors.red.withValues(alpha: 0.06),
+                                  height: 1.0,
+                                ),
+                              ),
+                              // Active value
+                              Text(
+                                ccValue.toString().padLeft(3, ' '),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'DSEG7Modern',
+                                  fontSize: displayFontSize,
+                                  color: Colors.red,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        midiValue.toString().padLeft(3, '0'),
-                        style: const TextStyle(
-                          fontFamily: 'DSEG7Modern',
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          height: 1.0,
+
+                      // CC Name Label (long-press to open CC picker)
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (labelContext) => GestureDetector(
+                          onLongPressStart: (details) {
+                            _showCCMenu(context, details.globalPosition);
+                          },
+                          behavior: HitTestBehavior.translucent,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                              vertical: 4.0,
+                            ),
+                            child: Text(
+                              _ccLabel,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: labelFontSize,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2.0,
+                                // No text shadow — easier to read as requested
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
