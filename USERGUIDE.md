@@ -77,8 +77,8 @@ Notes:
 ### 6.3 Long-session stability test
 
 1. Run continuous interaction for at least 20 minutes.
-2. Verify consistent responsiveness.
-3. Observe battery/thermal behavior for abnormal spikes.
+2. Verify consistent responsiveness (latency <10 ms median, <20 ms p95).
+3. Observe battery/thermal behavior for abnormal spikes; device surface temp stays within OEM comfort range.
 
 ### 6.4 Reconnect test
 
@@ -86,7 +86,19 @@ Notes:
 2. Reconnect USB.
 3. Verify automatic recovery without restarting the app.
 
-## 7. Troubleshooting
+### 6.5 Rate-limit verification
+1. Sweep a fader rapidly for 5 seconds.
+2. Confirm outbound MIDI rate caps at the configured limit (target 60–120 Hz per control) and still emits final value on release.
+
+## 7. Cubase Mapping Appendix (initial)
+- Purpose: document how core controls map when using Cubase host adapters.
+- Default proposal:
+  - Fader A: CC11/CC43 (14-bit pair), Channel 1, pickup mode.
+  - Fader B: CC1/CC33 (14-bit pair), Channel 1, pickup mode.
+- Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup.
+- See reference scripts and mappings under [references/cubase](references/cubase) for vendor-specific examples.
+
+## 8. Troubleshooting
 
 ### Device not visible on host
 
@@ -106,12 +118,13 @@ Notes:
 - Verify suppression window is enabled.
 - Verify outbound event cap and coalescing are active.
 
-## 8. Design References
+## 9. Design References
 
 - Architecture and event model: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Change history: [CHANGELOG.md](CHANGELOG.md)
+- Cubase reference mappings: [references/cubase](references/cubase)
 
-## 9. License
+## 10. License
 
 See [LICENSE](LICENSE) for licensing terms.

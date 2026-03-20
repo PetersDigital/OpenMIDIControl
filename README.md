@@ -11,6 +11,13 @@ This repository currently documents the new direction, design constraints, and i
 - Optional host-specific integrations only after the baseline is stable
 - Deterministic behavior and defensive feedback-loop prevention
 
+## Platform & Stack (baseline)
+
+- Android 10+ (API 29+)
+- React Native UI with a native android.media.midi bridge module
+- Target transport: wired USB-MIDI first; BLE/Wi‑Fi to be considered after Milestone C
+- Build variants: debug (verbose logging, test harness) and release (reduced logging)
+
 ## Project Goals
 
 1. Ship a clean baseline with low-latency fader control and reliable feedback.
@@ -41,6 +48,7 @@ The project uses feature milestones instead of date promises.
 - Documentation and implementation are evolving together
 - Implementation code is intentionally not yet committed
 - Decisions are tracked in [ARCHITECTURE.md](ARCHITECTURE.md), [USERGUIDE.md](USERGUIDE.md), and [CHANGELOG.md](CHANGELOG.md)
+- Cubase-specific reference mappings live under [references/cubase](references/cubase) and inform optional host adapters
 
 ## Development Workflow
 

@@ -19,15 +19,26 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 - Feedback loops must be prevented with value-based deduplication.
 - Battery and thermal load must remain stable during long sessions.
 
+## 2.1 Platform & Runtime
+
+- Android 10+ (API 29+), React Native UI, native android.media.midi bridge.
+- Main render thread for UI; dedicated MIDI I/O thread for low-latency events; bounded queue between UI and MIDI layers.
+- Wired USB-MIDI only in Milestones A–B; BLE/Wi‑Fi may follow after Milestone C.
+
 ## 3. System Model
 
-Initial target is wired MIDI with three logical layers:
+Initial target is wired MIDI with three logical layers (see diagram below):
 
 1. Touch/UI layer
 2. MIDI service layer
 3. Transport/port adapter layer
 
 Each layer can reject duplicate or unsafe events independently.
+
+Connection lifecycle (text diagram):
+```
+INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
+```
 
 ## 4. Event Semantics
 
@@ -48,7 +59,9 @@ Required strategy:
 3. If incoming value equals recently sent value in a short window, suppress UI mutation.
 4. If outgoing value equals recently applied external value in a short window, suppress retransmit.
 
-Recommended default window: 50-100ms, measured in milliseconds.
+Recommended defaults:
+- Dedup suppression window: 50–100 ms
+- Per-control outbound rate cap: 120 Hz max; typical 60 Hz; always send final value on release
 
 ## 6. MIDI Protocol Baseline
 
@@ -114,6 +127,12 @@ State machine must be explicit and testable.
 - Optional metadata SysEx channel
 - Integration adapters kept isolated from core touch/MIDI path
 
+### Milestone D: Host integrations (Cubase first)
+
+- Host adapters live outside the core touch/MIDI path.
+- Mapping schema per control: {cc/chan, mode (pickup/jump), resolution (7/14-bit), feedback policy}.
+- Reference controller scripts and mappings live under references/cubase/*.
+
 ## 11. Verification Checklist
 
 - Two simultaneous touches produce independent MIDI streams.
@@ -122,7 +141,15 @@ State machine must be explicit and testable.
 - CPU/thermal behavior remains acceptable in long sessions.
 - Disconnect/reconnect recovers without restart.
 
-## 12. References
+## 12. Host Integration Boundary (Cubase)
+
+- Core app remains DAW-agnostic; Cubase adapters are optional modules.
+- Host adapter responsibilities:
+  - Translate app control events to host-specific scripts/mappings.
+  - Provide feedback normalization back to core in normalized `0.0..1.0`.
+- Host adapter must not modify core dedup or coalescing rules.
+
+## 13. References
 
 - [README.md](README.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)

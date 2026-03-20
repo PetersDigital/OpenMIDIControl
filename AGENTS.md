@@ -20,6 +20,9 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
    - reliable MIDI behavior
    - multi-touch correctness
    - battery/thermal considerations on Android
+6. Do not modify or add code under references/ (including references/cubase/*). 
+   - That tree is for reference materials only. 
+   - Host-specific adapters and mappings must live in the core codebase or designated integration modules, not in references/.
 
 ## Coding standards
 - Write code that is easy to read and test.
