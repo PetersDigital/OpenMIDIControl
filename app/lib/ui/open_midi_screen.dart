@@ -88,7 +88,7 @@ class OpenMIDIMainScreen extends ConsumerWidget {
 // MOBILE PORTRAIT LAYOUT
 // ===========================================================================
 class _MobilePortraitLayout extends ConsumerWidget {
-  const _MobilePortraitLayout({super.key});
+  const _MobilePortraitLayout();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -266,7 +266,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
 // DESKTOP / TABLET LANDSCAPE LAYOUT
 // ===========================================================================
 class _DesktopLandscapeLayout extends ConsumerWidget {
-  const _DesktopLandscapeLayout({super.key});
+  const _DesktopLandscapeLayout();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -444,7 +444,6 @@ class _StatusDisplay extends StatelessWidget {
   final bool alignRight;
 
   const _StatusDisplay({
-    super.key,
     required this.label,
     required this.value,
     this.alignRight = false,
@@ -489,7 +488,6 @@ class _GridButton extends StatelessWidget {
   final Color shadowColor;
 
   const _GridButton({
-    super.key,
     required this.icon,
     this.bgColor = const Color(0xFF1E2024),
     this.iconColor = const Color(0xFFC3C7CA),
