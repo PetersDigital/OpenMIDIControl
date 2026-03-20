@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>OpenMIDIControl | Pro Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@300;500;700;900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .font-space-grotesk { font-family: 'Space Grotesk', sans-serif; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+        }
+        /* Custom scrollbar for technical look */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #111318; }
+        ::-webkit-scrollbar-thumb { background: #333539; border-radius: 2px; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "tertiary-container": "#a1cfce",
+                "surface-container-high": "#282a2e",
+                "secondary-fixed": "#d6e3f9",
+                "inverse-surface": "#e2e2e8",
+                "background": "#111318",
+                "primary-container": "#a6c9f8",
+                "on-tertiary-fixed": "#002020",
+                "on-error": "#690005",
+                "surface-variant": "#333539",
+                "error": "#ffb4ab",
+                "secondary": "#bbc7dc",
+                "on-tertiary": "#013737",
+                "primary-fixed-dim": "#a6c9f8",
+                "outline": "#8d9199",
+                "on-tertiary-fixed-variant": "#204e4d",
+                "surface": "#111318",
+                "on-surface": "#e2e2e8",
+                "outline-variant": "#43474e",
+                "on-secondary-container": "#a9b6ca",
+                "inverse-primary": "#3d608a",
+                "tertiary": "#bdebea",
+                "secondary-fixed-dim": "#bbc7dc",
+                "on-primary": "#033258",
+                "surface-container": "#1e2024",
+                "on-surface-variant": "#c3c6cf",
+                "on-primary-fixed": "#001c37",
+                "surface-container-highest": "#333539",
+                "surface-bright": "#37393e",
+                "surface-dim": "#111318",
+                "surface-container-low": "#1a1c20",
+                "on-secondary-fixed": "#101c2b",
+                "on-primary-container": "#30547d",
+                "tertiary-fixed": "#bdebea",
+                "tertiary-fixed-dim": "#a1cfce",
+                "on-tertiary-container": "#2d5959",
+                "surface-container-lowest": "#0c0e12",
+                "secondary-container": "#3b4859",
+                "inverse-on-surface": "#2f3035",
+                "surface-tint": "#a6c9f8",
+                "primary-fixed": "#d2e4ff",
+                "on-secondary-fixed-variant": "#3b4859",
+                "on-error-container": "#ffdad6",
+                "error-container": "#93000a",
+                "on-background": "#e2e2e8",
+                "primary": "#d2e4ff",
+                "on-secondary": "#253141",
+                "on-primary-fixed-variant": "#234870"
+              },
+              fontFamily: {
+                "headline": ["Space Grotesk"],
+                "body": ["Inter"],
+                "label": ["Space Grotesk"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-surface-dim text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex justify-between items-center w-full px-8 bg-[#111318] fixed top-0 z-50 border-b border-outline-variant/20 h-20">
+<div class="text-2xl font-bold tracking-widest text-[#a6c9f8] font-space-grotesk">OPENMIDICONTROL</div>
+<nav class="hidden md:flex h-full items-center">
+<div class="h-full px-8 bg-primary-container flex items-center">
+<a class="text-on-primary-container font-space-grotesk text-sm font-bold uppercase tracking-wider" href="#">Performance</a>
+</div>
+<a class="text-[#a1cfce] opacity-60 font-space-grotesk text-sm font-medium uppercase tracking-wider hover:bg-[#282a2e] hover:opacity-100 transition-colors duration-300 px-6 py-2 rounded-full mx-2" href="#">Sequencer</a>
+<a class="text-[#a1cfce] opacity-60 font-space-grotesk text-sm font-medium uppercase tracking-wider hover:bg-[#282a2e] hover:opacity-100 transition-colors duration-300 px-6 py-2 rounded-full mx-2" href="#">Library</a>
+<a class="text-[#a1cfce] opacity-60 font-space-grotesk text-sm font-medium uppercase tracking-wider hover:bg-[#282a2e] hover:opacity-100 transition-colors duration-300 px-6 py-2 rounded-full mx-2" href="#">Mixer</a>
+</nav>
+<div class="flex items-center gap-6">
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-[#282a2e] p-2 rounded-md transition-colors !text-3xl" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-[#282a2e] p-2 rounded-md transition-colors !text-3xl" data-icon="settings">settings</button>
+<div class="w-10 h-10 rounded-md bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline/20">
+<img class="w-full h-full object-cover" data-alt="Operator profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBu7pqi6Ef76KZIYom3bLAYfyMe5nhBKhPRoQeqTuKsEEbBy036JCbc8SIHK745qpVlnAnR020wY7scgMu83e_oULwiXK1DuXJZJge0Xjx005-8cNQgfO6QcFzKLErOkDFbFmjxq56qT-D7O8M__Ih_ZTGuBApG_-3Th0D0JJxDh5kM9TFhtL8vSehMy6p_YNN66vHLXM73ukYxf_Ff9mf_4-ylNyFb2E6DfA-0Hf3SXYvpZ5nMvcnCr8o8LwmF5Eom4nrRL2YAlSLt"/>
+</div>
+</div>
+</header>
+<!-- Side Navigation Bar -->
+<aside class="fixed left-0 top-0 h-full z-40 flex flex-col items-center py-6 w-24 bg-[#1e2024] pt-24 border-r border-outline-variant/10">
+<div class="flex flex-col gap-8 items-center flex-1">
+<button class="text-[#a6c9f8] bg-[#282a2e] rounded-md p-4 transition-transform duration-150 active:scale-95 group">
+<span class="material-symbols-outlined !text-4xl" data-icon="tune">tune</span>
+</button>
+<button class="text-[#a1cfce] opacity-40 p-4 hover:opacity-100 hover:bg-[#282a2e] rounded-md transition-all">
+<span class="material-symbols-outlined !text-4xl" data-icon="grid_view">grid_view</span>
+</button>
+<button class="text-[#a1cfce] opacity-40 p-4 hover:opacity-100 hover:bg-[#282a2e] rounded-md transition-all">
+<span class="material-symbols-outlined !text-4xl" data-icon="router">router</span>
+</button>
+<button class="text-[#a1cfce] opacity-40 p-4 hover:opacity-100 hover:bg-[#282a2e] rounded-md transition-all">
+<span class="material-symbols-outlined !text-4xl" data-icon="blur_on">blur_on</span>
+</button>
+</div>
+<div class="flex flex-col gap-6 items-center mb-6">
+<button class="text-[#a1cfce] opacity-40 p-4 hover:opacity-100 hover:bg-[#282a2e] rounded-md transition-all">
+<span class="material-symbols-outlined !text-4xl" data-icon="analytics">analytics</span>
+</button>
+<button class="text-[#a1cfce] opacity-40 p-4 hover:opacity-100 hover:bg-[#282a2e] rounded-md transition-all">
+<span class="material-symbols-outlined !text-4xl" data-icon="help">help</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-24 pt-20 h-screen flex">
+<!-- Left Column: The Performance Zone (60%) -->
+<section class="w-[60%] flex flex-col items-center justify-start p-8 bg-surface-dim pt-40">
+<div class="flex justify-center items-end gap-[48px] h-[750px] w-full max-w-2xl relative">
+<!-- CC1 Dynamics Fader Group -->
+<div class="flex flex-col h-full flex-1 max-w-[140px] relative">
+<!-- Value Display Above -->
+<div class="text-center mb-6">
+<span class="font-space-grotesk text-6xl font-bold text-[#a6c9f8] tracking-tighter">092</span>
+</div>
+<div class="flex-1 w-full bg-surface-container-lowest rounded-md relative overflow-hidden border border-outline-variant/30">
+<!-- Fader Ribbon -->
+<div class="absolute bottom-0 left-0 w-full bg-[#a6c9f8] border-t border-white/20" style="height: 72%;"></div>
+<!-- Subtle track markings -->
+<div class="absolute inset-0 flex flex-col justify-between py-10 pointer-events-none opacity-10">
+
+</div>
+<!-- Label at Bottom -->
+<div class="absolute bottom-0 inset-x-0 p-4 z-10 pointer-events-none text-center">
+<label class="font-inter text-[14px] font-black uppercase tracking-[0.2em] text-on-primary-container/90 whitespace-normal leading-tight">CC1 DYNAMICS</label>
+</div>
+</div>
+</div>
+<!-- CC11 Expression Fader Group -->
+<div class="flex flex-col h-full flex-1 max-w-[140px] relative">
+<!-- Value Display Above -->
+<div class="text-center mb-6">
+<span class="font-space-grotesk text-6xl font-bold text-[#a1cfce] tracking-tighter">061</span>
+</div>
+<div class="flex-1 w-full bg-surface-container-lowest rounded-md relative overflow-hidden border border-outline-variant/30">
+<!-- Fader Ribbon -->
+<div class="absolute bottom-0 left-0 w-full bg-[#a1cfce] border-t border-white/20" style="height: 48%;"></div>
+<!-- Subtle track markings -->
+<div class="absolute inset-0 flex flex-col justify-between py-10 pointer-events-none opacity-10">
+</div>
+<!-- Label at Bottom -->
+<div class="absolute bottom-0 inset-x-0 p-4 z-10 pointer-events-none text-center">
+<label class="font-inter text-[14px] font-black uppercase tracking-[0.2em] text-on-tertiary-container/90 whitespace-normal leading-tight">CC11 EXPRESSION</label>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Column: The Command Center (40%) -->
+<section class="w-[40%] bg-surface-container-low p-8 flex flex-col gap-8 pt-40">
+<!-- Top Section: Status Indicators -->
+<div class="grid grid-cols-2 gap-6">
+<div class="bg-surface-container-lowest p-8 rounded-md flex flex-col justify-center min-h-[140px]">
+<label class="font-inter text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4 block">PROJECT BPM</label>
+<div class="font-space-grotesk text-4xl font-bold text-primary leading-none">120</div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-md flex flex-col justify-center min-h-[140px]">
+<label class="font-inter text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4 block">TIMECODE</label>
+<div class="font-space-grotesk text-2xl font-medium text-tertiary leading-none whitespace-nowrap">001:01:000</div>
+</div>
+</div>
+<!-- Middle Section: Track Control -->
+<div class="bg-surface-container-lowest p-8 rounded-md flex items-center justify-between">
+<div class="flex flex-col">
+<label class="font-inter text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-3">SELECTED TRACK</label>
+<span class="font-inter text-2xl font-medium text-on-surface">01 - Cinematic Violins</span>
+</div>
+<span class="material-symbols-outlined text-primary-container !text-5xl" data-icon="piano">piano</span>
+</div>
+<!-- Integrated Navigation & Transport Control Grid -->
+<div class="flex flex-col gap-6 flex-1">
+<label class="font-inter text-sm font-bold uppercase tracking-[0.2em] text-on-surface-variant">CONSOLE CONTROLS</label>
+<div class="grid grid-cols-3 w-full aspect-square max-w-[500px] mx-auto rounded-md overflow-hidden border border-outline-variant/10 shadow-2xl">
+<!-- Row 1 -->
+<!-- Forward (Horizontal) -->
+<button class="bg-[#282a2e] flex items-center justify-center hover:bg-[#333539] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-4xl" data-icon="fast_forward">fast_forward</span>
+</button>
+<!-- Up (Vertical) -->
+<button class="bg-[#1e2024] flex items-center justify-center hover:bg-[#282a2e] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-4xl" data-icon="keyboard_arrow_up">keyboard_arrow_up</span>
+</button>
+<!-- Record -->
+<button class="bg-[#ffb59e] flex items-center justify-center hover:opacity-90 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-error !text-5xl" data-icon="fiber_manual_record" style="font-variation-settings: 'FILL' 1;">fiber_manual_record</span>
+</button>
+<!-- Row 2 -->
+<!-- Left (Vertical) -->
+<button class="bg-[#1e2024] flex items-center justify-center hover:bg-[#282a2e] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-5xl" data-icon="keyboard_arrow_left">keyboard_arrow_left</span>
+</button>
+<!-- Stop (Accent) -->
+<button class="bg-[#333539] flex items-center justify-center hover:bg-[#43474e] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-primary-fixed !text-5xl" data-icon="stop" style="font-variation-settings: 'FILL' 1;">stop</span>
+</button>
+<!-- Right (Vertical) -->
+<button class="bg-[#1e2024] flex items-center justify-center hover:bg-[#282a2e] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-4xl" data-icon="keyboard_arrow_right">keyboard_arrow_right</span>
+</button>
+<!-- Row 3 -->
+<!-- Rewind (Horizontal) -->
+<button class="bg-[#282a2e] flex items-center justify-center hover:bg-[#333539] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-4xl" data-icon="fast_rewind">fast_rewind</span>
+</button>
+<!-- Down (Vertical) -->
+<button class="bg-[#1e2024] flex items-center justify-center hover:bg-[#282a2e] transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-on-surface !text-4xl" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
+</button>
+<!-- Play/Pause -->
+<button class="bg-[#a6c9f8] flex items-center justify-center hover:opacity-90 transition-all active:scale-[0.98]">
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined !text-4xl" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span class="material-symbols-outlined !text-4xl" data-icon="pause" style="font-variation-settings: 'FILL' 1;">pause</span>
+</div>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Aesthetic Decorative Overlay -->
+<div class="fixed inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_20%_30%,#a6c9f80a_0%,transparent_50%),radial-gradient(circle_at_80%_70%,#a1cfce0a_0%,transparent_50%)]"></div>
+</body></html>
