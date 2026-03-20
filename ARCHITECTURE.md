@@ -21,9 +21,11 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 
 ## 2.1 Platform & Runtime
 
-- Android 10+ (API 29+), React Native UI, native android.media.midi bridge.
-- Main render thread for UI; dedicated MIDI I/O thread for low-latency events; bounded queue between UI and MIDI layers.
-- Wired USB-MIDI only in Milestones A–B; BLE/Wi‑Fi may follow after Milestone C.
+- Android 10+ (API 29+) (expanding to iOS/iPadOS/Windows touch displays).
+- Flutter UI (Dart) relying on `LayoutBuilder` for responsive adaptation.
+- "Absolute/Relative" hybrid touch faders to capture interactions without jarring volume changes.
+- Internal state management strictly emitting "Intent" events to remain transport-agnostic.
+- Wired USB-MIDI only in Runs 1–3 (via Custom SysEx/Standard CC). Future runs (Run 4+) may implement WebSockets/OSC strictly for heavy Macro integrations over Wi-Fi, keeping fader data hardwired.
 
 ## 3. System Model
 

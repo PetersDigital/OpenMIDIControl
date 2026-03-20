@@ -13,9 +13,10 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Platform & Stack (baseline)
 
-- Android 10+ (API 29+)
-- React Native UI with a native android.media.midi bridge module
-- Target transport: wired USB-MIDI first; BLE/Wi‑Fi to be considered after Milestone C
+- Android 10+ (API 29+), scaling to tablets (iPadOS/Android) and Windows touch displays
+- Flutter UI (Dart) for high-performance, cross-platform Material 3 rendering
+- Core app is isolated in a subdirectory (e.g., `app/`) to maintain modularity for future host adapters and desktop bridges
+- Target transport: wired USB-MIDI (Milestone 1-3); WebSockets/OSC (Milestone 4+) for advanced macro integration
 - Build variants: debug (verbose logging, test harness) and release (reduced logging)
 
 ## Project Goals
@@ -27,6 +28,11 @@ This repository currently documents the new direction, design constraints, and i
 ## Technical Baseline
 
 - Multi-touch pointer capture per control
+- "Absolute/Relative" hybrid touch behavior: touch anywhere to capture, slide to change relatively (prevents jarring value jumps)
+- Responsive LayoutBuilder UI:
+  - **Phones (Portrait):** Top 30% dummy display/controls, Bottom 70% extra-long CC1/CC11 faders.
+  - **Tablets/Windows (Landscape):** Grid layout (Faders on left, Display top-center, Macro space on right).
+- State Management (Riverpod/Bloc) emitting "Intent" events to strictly decouple UI from transport layers
 - Normalized internal value domain (`0.0..1.0`)
 - MIDI CC output with optional 14-bit precision (MSB/LSB pairs)
 - MIDI input-driven UI feedback with touch override behavior
