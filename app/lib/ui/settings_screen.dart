@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 import 'open_midi_screen.dart';
 
-
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
+  return await PackageInfo.fromPlatform();
+});
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentBehavior = ref.watch(faderBehaviorProvider);
+    final packageInfoAsync = ref.watch(packageInfoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -42,12 +47,16 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'v0.1.0 (Build: abcdef)',
-                  style: GoogleFonts.inter(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
+                packageInfoAsync.when(
+                  data: (info) => Text(
+                    'v${info.version}',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
+                  loading: () => const SizedBox(height: 14),
+                  error: (_, _) => const SizedBox(height: 14),
                 ),
                 Text(
                   '© PetersDigital',
