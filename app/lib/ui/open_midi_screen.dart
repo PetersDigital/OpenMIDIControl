@@ -20,8 +20,8 @@ class FaderBehaviorNotifier extends Notifier<FaderBehavior> {
 
 final faderBehaviorProvider =
     NotifierProvider<FaderBehaviorNotifier, FaderBehavior>(
-  FaderBehaviorNotifier.new,
-);
+      FaderBehaviorNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // State: Layout hand (faders left vs. right)
@@ -39,8 +39,9 @@ class LayoutHandNotifier extends Notifier<LayoutHand> {
   }
 }
 
-final layoutHandProvider =
-    NotifierProvider<LayoutHandNotifier, LayoutHand>(LayoutHandNotifier.new);
+final layoutHandProvider = NotifierProvider<LayoutHandNotifier, LayoutHand>(
+  LayoutHandNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // Navigation helpers
@@ -102,8 +103,11 @@ class _MobilePortraitLayout extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.settings_input_component,
-                  color: Color(0xFFA6C9F8), size: 26),
+              const Icon(
+                Icons.settings_input_component,
+                color: Color(0xFFA6C9F8),
+                size: 26,
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -112,14 +116,16 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       child: Text(
                         "DISCONNECTED",
                         style: GoogleFonts.inter(
                           color: Colors.red.shade400,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2.5,
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ),
@@ -130,8 +136,11 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     child: const Padding(
                       padding: EdgeInsets.all(8),
-                      child: Icon(Icons.more_vert,
-                          color: Color(0xFFC3C7CA), size: 24),
+                      child: Icon(
+                        Icons.more_vert,
+                        color: Color(0xFFC3C7CA),
+                        size: 24,
+                      ),
                     ),
                   ),
                 ],
@@ -149,13 +158,15 @@ class _MobilePortraitLayout extends ConsumerWidget {
               children: [
                 // Status row
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
-                          child: _StatusDisplay(
-                              label: "TEMPO", value: "120 BPM")),
+                        child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
+                      ),
                       Expanded(
                         child: Column(
                           children: [
@@ -170,7 +181,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                             ),
                             Text(
                               "01 - Cinematic Violins",
-                              style: GoogleFonts.manrope(
+                              style: GoogleFonts.inter(
                                 color: const Color(0xFFA6C9F8),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -182,10 +193,12 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         ),
                       ),
                       Expanded(
-                          child: _StatusDisplay(
-                              label: "TIMECODE",
-                              value: "001:01:000",
-                              alignRight: true)),
+                        child: _StatusDisplay(
+                          label: "TIMECODE",
+                          value: "001:01:000",
+                          alignRight: true,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -197,25 +210,77 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     child: Column(
                       children: [
                         Expanded(
-                          child: Row(children: const [
-                            Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                            Expanded(child: _GridButton(icon: Icons.keyboard_arrow_up, bgColor: Color(0xFF282A2E))),
-                            Expanded(child: _GridButton(icon: Icons.fiber_manual_record, bgColor: Color(0xFFFFB59E), iconColor: Color(0xFF690005), isSolid: true, shadowColor: Color(0xFFFFB59E))),
-                          ]),
+                          child: Row(
+                            children: const [
+                              Expanded(
+                                child: _GridButton(icon: Icons.fast_rewind),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.keyboard_arrow_up,
+                                  bgColor: Color(0xFF282A2E),
+                                ),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.fiber_manual_record,
+                                  bgColor: Color(0xFFFFB59E),
+                                  iconColor: Color(0xFF690005),
+                                  isSolid: true,
+                                  shadowColor: Color(0xFFFFB59E),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         Expanded(
-                          child: Row(children: const [
-                            Expanded(child: _GridButton(icon: Icons.keyboard_arrow_left, bgColor: Color(0xFF282A2E))),
-                            Expanded(child: _GridButton(icon: Icons.stop, bgColor: Color(0xFF33353A), iconColor: Colors.white)),
-                            Expanded(child: _GridButton(icon: Icons.keyboard_arrow_right, bgColor: Color(0xFF282A2E))),
-                          ]),
+                          child: Row(
+                            children: const [
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.keyboard_arrow_left,
+                                  bgColor: Color(0xFF282A2E),
+                                ),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.stop,
+                                  bgColor: Color(0xFF33353A),
+                                  iconColor: Colors.white,
+                                ),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.keyboard_arrow_right,
+                                  bgColor: Color(0xFF282A2E),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         Expanded(
-                          child: Row(children: const [
-                            Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                            Expanded(child: _GridButton(icon: Icons.keyboard_arrow_down, bgColor: Color(0xFF282A2E))),
-                            Expanded(child: _GridButton(icon: Icons.play_arrow, bgColor: Color(0xFFA6C9F8), iconColor: Color(0xFF033258), isSolid: true, shadowColor: Color(0xFFA6C9F8))),
-                          ]),
+                          child: Row(
+                            children: const [
+                              Expanded(
+                                child: _GridButton(icon: Icons.fast_forward),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.keyboard_arrow_down,
+                                  bgColor: Color(0xFF282A2E),
+                                ),
+                              ),
+                              Expanded(
+                                child: _GridButton(
+                                  icon: Icons.play_arrow,
+                                  bgColor: Color(0xFFA6C9F8),
+                                  iconColor: Color(0xFF033258),
+                                  isSolid: true,
+                                  shadowColor: Color(0xFFA6C9F8),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -277,10 +342,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       flex: 40,
       child: _buildCommandCenter(context),
     );
-    final faderPanel = Expanded(
-      flex: 60,
-      child: _buildPerformanceZone(),
-    );
+    final faderPanel = Expanded(flex: 60, child: _buildPerformanceZone());
 
     return Row(
       children: faderOnRight
@@ -317,21 +379,26 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       child: Text(
                         "DISCONNECTED",
                         style: GoogleFonts.inter(
                           color: Colors.red.shade400,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2.5,
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.more_vert,
-                        color: Color(0xFFC3C7CA), size: 28),
+                    icon: const Icon(
+                      Icons.more_vert,
+                      color: Color(0xFFC3C7CA),
+                      size: 28,
+                    ),
                     onPressed: () => _showAppSettings(context),
                   ),
                 ],
@@ -344,10 +411,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           Row(
             children: const [
               Expanded(
-                  child: _StatusDisplay(label: "TEMPO", value: "120 BPM")),
+                child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
+              ),
               Expanded(
-                  child: _StatusDisplay(
-                      label: "TIMECODE", value: "001:01:000")),
+                child: _StatusDisplay(label: "TIMECODE", value: "001:01:000"),
+              ),
             ],
           ),
           const SizedBox(height: 32),
@@ -357,7 +425,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             width: double.infinity,
             child: Text(
               "01 - Cinematic Violins",
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.inter(
                 color: const Color(0xFFA6C9F8),
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -374,25 +442,73 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: Row(children: const [
-                      Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                      Expanded(child: _GridButton(icon: Icons.keyboard_arrow_up, bgColor: Color(0xFF282A2E))),
-                      Expanded(child: _GridButton(icon: Icons.fiber_manual_record, bgColor: Color(0xFFFFB59E), iconColor: Color(0xFF690005), isSolid: true, shadowColor: Color(0xFFFFB59E))),
-                    ]),
+                    child: Row(
+                      children: const [
+                        Expanded(child: _GridButton(icon: Icons.fast_rewind)),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_up,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.fiber_manual_record,
+                            bgColor: Color(0xFFFFB59E),
+                            iconColor: Color(0xFF690005),
+                            isSolid: true,
+                            shadowColor: Color(0xFFFFB59E),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Expanded(
-                    child: Row(children: const [
-                      Expanded(child: _GridButton(icon: Icons.keyboard_arrow_left, bgColor: Color(0xFF282A2E))),
-                      Expanded(child: _GridButton(icon: Icons.stop, bgColor: Color(0xFF33353A), iconColor: Colors.white)),
-                      Expanded(child: _GridButton(icon: Icons.keyboard_arrow_right, bgColor: Color(0xFF282A2E))),
-                    ]),
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_left,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.stop,
+                            bgColor: Color(0xFF33353A),
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_right,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Expanded(
-                    child: Row(children: const [
-                      Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                      Expanded(child: _GridButton(icon: Icons.keyboard_arrow_down, bgColor: Color(0xFF282A2E))),
-                      Expanded(child: _GridButton(icon: Icons.play_arrow, bgColor: Color(0xFFA6C9F8), iconColor: Color(0xFF033258), isSolid: true, shadowColor: Color(0xFFA6C9F8))),
-                    ]),
+                    child: Row(
+                      children: const [
+                        Expanded(child: _GridButton(icon: Icons.fast_forward)),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_down,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.play_arrow,
+                            bgColor: Color(0xFFA6C9F8),
+                            iconColor: Color(0xFF033258),
+                            isSolid: true,
+                            shadowColor: Color(0xFFA6C9F8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -452,8 +568,9 @@ class _StatusDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignRight
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -468,7 +585,7 @@ class _StatusDisplay extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             value,
-            style: GoogleFonts.manrope(
+            style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.bold,
