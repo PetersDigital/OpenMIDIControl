@@ -18,7 +18,8 @@ void main() {
       ),
     );
 
-    // 3. Verify it builds without throwing RenderFlex errors
+    // 3. Verify it builds without throwing RenderFlex overflow errors
+    expect(tester.takeException(), isNull);
     expect(find.byType(HybridTouchFader), findsNWidgets(2));
 
     // 4. CRITICAL: Reset the view so it doesn't bleed into other tests
