@@ -107,7 +107,7 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
   Widget build(BuildContext context) {
     final int ccValue = (_currentValue * 127).round();
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
-    final double displayFontSize = widget.isMobile ? 56.0 : 72.0;
+    final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -142,12 +142,7 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
                       IgnorePointer(
                         child: Container(
                           width: double.infinity,
-                          padding: EdgeInsets.fromLTRB(
-                            12,
-                            widget.isMobile ? 20 : 28,
-                            12,
-                            8,
-                          ),
+                          padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
                           color: const Color(0xFF0C0E12),
                           child: Stack(
                             alignment: Alignment.center,
@@ -198,8 +193,8 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
                               style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: labelFontSize,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2.0,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.0,
                                 // No text shadow — easier to read as requested
                               ),
                             ),
