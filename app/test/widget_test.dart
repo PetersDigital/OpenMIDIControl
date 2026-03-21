@@ -11,6 +11,11 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3.0;
 
+    // CRITICAL: Register tearDowns immediately after setting the view so they
+    // are always run even if pumpWidget or expect throws below.
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     // 2. Pump the widget
     await tester.pumpWidget(
       const ProviderScope( // Since Jules is using Riverpod
@@ -20,9 +25,5 @@ void main() {
 
     // 3. Verify it builds without throwing RenderFlex errors
     expect(find.byType(HybridTouchFader), findsNWidgets(2));
-
-    // 4. CRITICAL: Reset the view so it doesn't bleed into other tests
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
   });
 }
