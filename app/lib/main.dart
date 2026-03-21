@@ -25,7 +25,7 @@ class OpenMIDIApp extends StatelessWidget {
           seedColor: const Color(0xFF033258),
           brightness: Brightness.dark,
         ),
-        fontFamily: 'Roboto', // Default modern font for non-DSEG elements
+        fontFamily: 'Inter', // Default modern font for non-DSEG elements, as per DESIGN.md
       ),
       home: const OpenMIDIMainScreen(),
     );
