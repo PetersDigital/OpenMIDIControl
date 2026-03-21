@@ -306,6 +306,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     labelColor: const Color(0xFF033258),
                     initialValue: 1.0,
                     isMobile: true,
+                    behavior: ref.watch(faderBehaviorProvider),
                   ),
                 ),
                 Expanded(
