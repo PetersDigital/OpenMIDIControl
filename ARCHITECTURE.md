@@ -21,9 +21,11 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 
 ## 2.1 Platform & Runtime
 
-- Android 10+ (API 29+), React Native UI, native android.media.midi bridge.
-- Main render thread for UI; dedicated MIDI I/O thread for low-latency events; bounded queue between UI and MIDI layers.
-- Wired USB-MIDI only in Milestones A–B; BLE/Wi‑Fi may follow after Milestone C.
+- Android 10+ (API 29+) (expanding to iOS/iPadOS/Windows touch displays).
+- Flutter UI (Dart) relying on `LayoutBuilder` for responsive adaptation.
+- "Absolute/Relative" hybrid touch faders to capture interactions without jarring volume changes.
+- Internal state management strictly emitting "Intent" events to remain transport-agnostic.
+- Wired USB-MIDI only in v0.1.0–v0.3.0 (via Custom SysEx/Standard CC). Future versions (v0.4.0+) may implement WebSockets/OSC strictly for heavy Macro integrations over Wi-Fi, keeping fader data hardwired.
 
 ## 3. System Model
 
@@ -106,28 +108,28 @@ State machine must be explicit and testable.
 - Unknown SysEx commands: log and ignore.
 - Port loss: preserve UI state, signal disconnected mode, retry connection.
 
-## 10. Milestone Blueprint
+## 10. Version Roadmap
 
-### Milestone A: Core control path
+### v0.1.0: Core control path
 
 - Two expressive faders
 - Multi-touch pointer capture
 - Bidirectional CC feedback
 - Dedup and thermal guardrails
 
-### Milestone B: Configurable behavior
+### v0.2.0: Configurable behavior
 
 - Mapping/preset storage
 - Pickup/jump modes
 - Adjustable smoothing/rate limits
 
-### Milestone C: Expanded messaging
+### v0.3.0: Expanded messaging
 
 - Optional NRPN/state messages
 - Optional metadata SysEx channel
 - Integration adapters kept isolated from core touch/MIDI path
 
-### Milestone D: Host integrations (Cubase first)
+### v1.0.0: Host integrations (Cubase first)
 
 - Host adapters live outside the core touch/MIDI path.
 - Mapping schema per control: {cc/chan, mode (pickup/jump), resolution (7/14-bit), feedback policy}.

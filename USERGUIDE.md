@@ -48,6 +48,20 @@ Expected baseline:
 - Rapid motion is coalesced with last-value-wins semantics.
 - Final value is always emitted on release.
 
+### 4.4 Behavior & layout settings
+
+- Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
+- The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
+- A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
+- The version + build metadata at the top helps confirm you are on the `v0.1.0` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
+
+### 4.5 MIDI settings preview
+
+- Tap the **status badge** or USB icon in the top bar to open the `MIDI Settings` placeholder.
+- The view currently shows a “DEVICE DISCONNECTED” banner and a single list tile that reports the app is “Searching for CoreMIDI / Android MIDI devices...”.
+- Use this screen to verify that the UI is ready for the upcoming Kotlin MIDI bridge and host port selectors before physical wiring is available.
+
 ## 5. MIDI Mapping Reference (Initial)
 
 Default proposal for expressive controls:
