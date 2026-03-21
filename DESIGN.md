@@ -86,3 +86,13 @@ To prevent accidental simultaneous activation in high-stakes environments:
 * **DON'T** use pure black (#000000). Always use the `surface` tokens to maintain the deep charcoal "Obsidian" depth.
 * **DON'T** use standard 1px borders. If you feel you need one, try increasing the spacing or changing the background color first.
 * **DON'T** use rounded-full (pills) for functional buttons; stick to the technical `rounded-md` (0.375rem) to maintain the "Console" precision.
+
+## 7. Command Center & Layout Momentum
+
+Treat the command center as the "instrument cluster" for the console: 30% of the portrait canvas and 40% of the landscape canvas are reserved for it so the status row, timecode, and nav grid never compete with the faders.
+
+- **Status row:** Tempo, track name, and timecode live in a compact row with a 60/40 split so the track name can truncate gracefully, and the `DISCONNECTED` badge doubles as the future MIDI port launcher.
+- **Control grid:** The 3×3 grid of transport controls serves primarily as a visual anchor and layout testbed for future macros, so keep the glyphs aligned and consistent with the `surface_container` tiers.
+- **Responsive placements:** The same grid + faders reorder depending on the screen width, so avoid resizing or cropping the command panel text; the layout toggle on the settings screen flips the whole stack left/right without reflowing the grid elements.
+
+Preserve the Ethereal Console photon glow rules when building any future overlays that share the command center space (glassy surfaces, diffused shadows, no hard outlines).
