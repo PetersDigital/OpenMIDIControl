@@ -16,6 +16,8 @@ permissions:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    outputs:
+      has_windows: ${{ steps.windows_check.outputs.has_windows }}
     defaults:
       run:
         working-directory: app
@@ -23,6 +25,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Check Windows Support
+        id: windows_check
+        run: if [ -d "app/windows" ]; then echo "has_windows=true" >> "$GITHUB_OUTPUT"; else echo "has_windows=false" >> "$GITHUB_OUTPUT"; fi
+        working-directory: .
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -55,7 +61,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     needs: analyze-and-test
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.analyze-and-test.outputs.has_windows == 'true'
     defaults:
       run:
         working-directory: app
