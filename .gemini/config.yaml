@@ -1,0 +1,7 @@
+code_review:
+  disable: true  # Prevents Gemini from automatically reviewing pull requests
+
+pull_request_opened:
+  summary: false      # Stops the automatic PR summary comment
+  code_review: false  # Stops the automatic initial review
+  help: false         # Keeps the PR thread clean
