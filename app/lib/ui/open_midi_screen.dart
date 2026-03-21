@@ -98,7 +98,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
         // Top bar
         Container(
           height: 64,
-          color: const Color(0xFF0D131E),
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
