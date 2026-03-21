@@ -3,8 +3,9 @@
 ### Stage 1: Touch/UI & State Management (Run 1)
 This stage focuses entirely on the user-facing interface and internal logic, independent of any actual MIDI hardware.
 
-- Key Tasks: Building the responsive Flutter UI (the mobile portrait and tablet landscape "Ethereal Console" layouts).
-- Core Mechanisms: Implementing multi-touch pointer capture for the two expressive faders (CC1 and CC11) and setting up the state management (using Riverpod) to track the internal values from 0.0 to 1.0.
+- Key Tasks: Building the responsive Flutter UI (the mobile portrait and tablet landscape "Ethereal Console" layouts) plus the command center grid, status row, and top-bar actions that open the Settings and MIDI Settings views.
+- Core Mechanisms: Implementing multi-touch pointer capture for the two expressive faders (CC1 and CC11), the `HybridTouchFader` readout (DSEG7 font, long-press CC picker, color-coded tracks), and Riverpod state management so the UI can toggle fader behavior, layout hand, and future transport intents.
+	* Additional focus: The Settings screen now surfaces Jump/Hybrid/Catch-Up modes, layout placement, and version metadata, while the MIDI Settings placeholder displays the "device disconnected" banner and upcoming device list.
 
 ### Stage 2: The Native MIDI Service Bridge (Run 2)
 This is where the app physically connects to the outside world.
