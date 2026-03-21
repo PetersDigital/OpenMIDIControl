@@ -4,6 +4,26 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 This repository currently documents the new direction, design constraints, and implementation baseline.
 
+## Release Status
+
+- **v0.1.0 (Run 1)** ships the Flutter UI baseline from `app/`, including the responsive command center, dual `HybridTouchFader` controls, and placeholder MIDI configuration screens. Real MIDI transport (Kotlin bridge, host adapters) remains in later runs.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the UI that went into the release build.
+
+## Current UI & Controls
+
+- **Responsive command center:** Layout switches between a portrait-focused command center (status row, 3×3 control pad, navigation icons) on phones and a desktop landscape layout with flexible panel ordering plus a dedicated track card.
+- **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
+- **Settings & MIDI placeholders:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle, and the MIDI settings view shows the future device list + connection banner that will drive the Kotlin bridge.
+- **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the Ethereal Console system.
+
+## Getting Started
+
+1. Install Flutter 3.x and target Android 10+ or desktop/Windows devices.
+2. Run `flutter pub get` inside the `app/` folder to fetch Riverpod, `google_fonts`, and other dependencies.
+3. Use `flutter run -d <device>` to start the UI; the command center and fader layout automatically adapt to the screen width.
+4. Launch the settings or MIDI settings screens from the top-right icons to preview future configuration hooks.
+
+
 ## Project Direction
 
 - Android-first touch control for expressive MIDI performance
