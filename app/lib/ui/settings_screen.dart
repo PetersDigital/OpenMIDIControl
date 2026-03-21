@@ -43,7 +43,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'v1.0.0 (Build: abcdef)',
+                  'v0.1.0 (Build: abcdef)',
                   style: GoogleFonts.inter(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
