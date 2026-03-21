@@ -1,4 +1,4 @@
-package com.example.app
+package com.PetersDigital.OpenMIDIControl
 
 import io.flutter.embedding.android.FlutterActivity
 
