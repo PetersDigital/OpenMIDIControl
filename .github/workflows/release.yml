@@ -78,6 +78,24 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
+
+      # --- NEW STEP: Construct the Keystore from GitHub Secrets ---
+      - name: Configure Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          # 1. Decode the Base64 secret back into the .jks file
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/upload-keystore.jks
+          
+          # 2. Dynamically create the key.properties file
+          echo "storePassword=$STORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=app/upload-keystore.jks" >> android/key.properties
+
       - run: flutter build apk --release
 
       - name: Rename APK
@@ -189,6 +207,6 @@ jobs:
             MESSAGE=$(printf '❌ *OpenMIDIControl %s release pipeline failed.*\n\n🛠 Workflow logs: %s' "${TAG}" "${RUN_URL}")
           fi
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-               -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-               -d parse_mode="Markdown" \
-               --data-urlencode "text=${MESSAGE}"
+                 -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+                 -d parse_mode="Markdown" \
+                 --data-urlencode "text=${MESSAGE}"
