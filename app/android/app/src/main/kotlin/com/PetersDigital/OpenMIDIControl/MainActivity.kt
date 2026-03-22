@@ -4,9 +4,12 @@ import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiManager
-import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -52,6 +55,21 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "Device ID is required", null)
                     }
                 }
+                "vibrate" -> {
+                    val patternRaw = call.argument<List<*>>("pattern")
+                    val amplitudeRaw = call.argument<List<*>>("amplitude")
+
+                    if (patternRaw != null && amplitudeRaw != null) {
+                        val pattern = patternRaw.map { (it as Number).toLong() }.toLongArray()
+                        val amplitude = amplitudeRaw.map { (it as Number).toInt() }.toIntArray()
+                        vibrate(pattern, amplitude)
+                        result.success(null)
+                    } else {
+                        val duration = call.argument<Number>("duration")?.toLong() ?: 50L
+                        vibrate(duration)
+                        result.success(null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -79,6 +97,40 @@ class MainActivity : FlutterActivity() {
         }
 
         return devicesList
+    }
+
+    private fun vibrate(duration: Long) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
+
+    private fun vibrate(pattern: LongArray, amplitudes: IntArray) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, amplitudes, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(pattern, -1)
+        }
     }
 
     private fun connectToDevice(id: String, result: MethodChannel.Result) {

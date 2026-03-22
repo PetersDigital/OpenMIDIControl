@@ -93,7 +93,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 ## Credits
 
 - Project: PetersDigital
--- Contributors: maintainers and community contributors (see Git history)
+- Contributors: maintainers and community contributors (see Git history)
 
 Full attributions: [CREDITS.md](CREDITS.md)
 

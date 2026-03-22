@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,16 +24,25 @@ class MidiDevice {
 }
 
 class MidiService {
-  static const MethodChannel _channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
-  static const EventChannel _eventsChannel = EventChannel('com.petersdigital.openmidicontrol/midi_events');
+  static const MethodChannel _channel = MethodChannel(
+    'com.petersdigital.openmidicontrol/midi',
+  );
+  static const EventChannel _eventsChannel = EventChannel(
+    'com.petersdigital.openmidicontrol/midi_events',
+  );
 
-  Stream<dynamic> get midiEventsStream => _eventsChannel.receiveBroadcastStream();
+  Stream<dynamic> get midiEventsStream =>
+      _eventsChannel.receiveBroadcastStream();
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
-      final List<dynamic>? result = await _channel.invokeMethod('getMidiDevices');
+      final List<dynamic>? result = await _channel.invokeMethod(
+        'getMidiDevices',
+      );
       if (result != null) {
-        return result.map((e) => MidiDevice.fromMap(e as Map<dynamic, dynamic>)).toList();
+        return result
+            .map((e) => MidiDevice.fromMap(e as Map<dynamic, dynamic>))
+            .toList();
       }
       return [];
     } catch (e) {
@@ -43,11 +53,38 @@ class MidiService {
 
   Future<bool> connectToDevice(String id) async {
     try {
-      final bool? result = await _channel.invokeMethod('connectToDevice', {'id': id});
+      final bool? result = await _channel.invokeMethod('connectToDevice', {
+        'id': id,
+      });
       return result ?? false;
     } catch (e) {
       debugPrint('Failed to connect to device $id: $e');
       return false;
+    }
+  }
+
+  Future<void> vibrate({
+    int? duration,
+    List<int>? pattern,
+    List<int>? amplitude,
+  }) async {
+    try {
+      if (pattern != null && amplitude != null) {
+        await _channel.invokeMethod('vibrate', {
+          'pattern': pattern,
+          'amplitude': amplitude,
+        });
+      } else {
+        await _channel.invokeMethod('vibrate', {'duration': duration ?? 50});
+      }
+    } catch (e) {
+      debugPrint('Failed to trigger native haptic: $e');
+      // Fallback to Flutter haptics if native fails
+      if (duration != null && duration > 100) {
+        HapticFeedback.vibrate();
+      } else {
+        HapticFeedback.mediumImpact();
+      }
     }
   }
 }
@@ -60,7 +97,6 @@ final midiDevicesProvider = FutureProvider<List<MidiDevice>>((ref) async {
   final service = ref.watch(midiServiceProvider);
   return await service.getAvailableDevices();
 });
-
 
 class MidiConnectionState {
   final MidiDevice? connectedDevice;
@@ -106,10 +142,20 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // If the removed device is our currently connected device
           if (state.connectedDevice?.id == id) {
             state = state.disconnect(connectionLost: true);
+            service.vibrate(
+              pattern: [0, 100, 100, 100],
+              amplitude: [0, 255, 0, 255],
+            );
+          } else {
+            // General removal of a non-connected device
+            service.vibrate(duration: 500);
           }
           // Refresh the available devices list
           ref.invalidate(midiDevicesProvider);
         } else if (type == 'added') {
+          if (state.isConnectionLost) {
+            state = state.disconnect(connectionLost: false);
+          }
           ref.invalidate(midiDevicesProvider);
         }
       }
@@ -120,9 +166,14 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
   Future<bool> connect(MidiDevice device) async {
     final service = ref.read(midiServiceProvider);
+    service.vibrate(duration: 50); // Stronger lightImpact equivalent
     final success = await service.connectToDevice(device.id);
     if (success) {
-      state = MidiConnectionState(connectedDevice: device, isConnectionLost: false);
+      state = MidiConnectionState(
+        connectedDevice: device,
+        isConnectionLost: false,
+      );
+      service.vibrate(duration: 100); // Stronger mediumImpact equivalent
     } else {
       state = state.disconnect();
     }
@@ -130,20 +181,18 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   }
 
   void disconnect() {
+    final service = ref.read(midiServiceProvider);
+    service.vibrate(duration: 50);
     state = state.disconnect(connectionLost: false);
   }
 }
 
-final connectedMidiDeviceProvider = NotifierProvider<ConnectedMidiDeviceNotifier, MidiConnectionState>(
-  ConnectedMidiDeviceNotifier.new,
-);
+final connectedMidiDeviceProvider =
+    NotifierProvider<ConnectedMidiDeviceNotifier, MidiConnectionState>(
+      ConnectedMidiDeviceNotifier.new,
+    );
 
-enum MidiStatus {
-  disconnected,
-  available,
-  connected,
-  connectionLost
-}
+enum MidiStatus { disconnected, available, connected, connectionLost }
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
