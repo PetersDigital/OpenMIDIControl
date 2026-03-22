@@ -88,6 +88,7 @@ key.properties
 .env
 .env.*
 !.env.example
+!.env.example.ps1
 
 # Coverage
 coverage/
