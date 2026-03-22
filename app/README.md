@@ -1,6 +1,6 @@
 # app
 
-This folder contains the Flutter-based UI for OpenMIDIControl that ships as the **v0.1.0 Run 1** release.
+This folder contains the Flutter-based UI for OpenMIDIControl that ships as the **v0.1.0 release**.
 
 ## Overview
 
@@ -44,5 +44,5 @@ This folder contains the Flutter-based UI for OpenMIDIControl that ships as the 
 ## References
 
 - Design intent: [DESIGN.md](../DESIGN.md)
-- Implementation milestones: [IMPLEMENTATION.md](../IMPLEMENTATION.md)
+- Implementation roadmap: [IMPLEMENTATION.md](../IMPLEMENTATION.md)
 - Change history: [CHANGELOG.md](../CHANGELOG.md)

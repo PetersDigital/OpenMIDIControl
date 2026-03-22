@@ -1,12 +1,16 @@
 # OpenMIDIControl
 
+![Release](https://img.shields.io/github/v/release/PetersDigital/OpenMIDIControl?style=for-the-badge&color=blue)
+![CI Build](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/ci.yml?branch=main&style=for-the-badge&label=CI%20Build)
+![License](https://img.shields.io/github/license/PetersDigital/OpenMIDIControl?style=for-the-badge&color=green)
+
 OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 This repository currently documents the new direction, design constraints, and implementation baseline.
 
 ## Release Status
 
-- **v0.1.0 (Run 1)** ships the Flutter UI baseline from `app/`, including the responsive command center, dual `HybridTouchFader` controls, and placeholder MIDI configuration screens. Real MIDI transport (Kotlin bridge, host adapters) remains in later runs.
+- **v0.1.0** ships the Flutter UI baseline from `app/`, including the responsive command center, dual `HybridTouchFader` controls, and placeholder MIDI configuration screens. Real MIDI transport (Kotlin bridge, host adapters) remains in later versions.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the UI that went into the release build.
 
 ## Current UI & Controls
@@ -36,7 +40,7 @@ This repository currently documents the new direction, design constraints, and i
 - Android 10+ (API 29+), scaling to tablets (iPadOS/Android) and Windows touch displays
 - Flutter UI (Dart) for high-performance, cross-platform Material 3 rendering
 - Core app is isolated in a subdirectory (e.g., `app/`) to maintain modularity for future host adapters and desktop bridges
-- Target transport: wired USB-MIDI (Milestone 1-3); WebSockets/OSC (Milestone 4+) for advanced macro integration
+- Target transport: wired USB-MIDI (v0.1.0 to v0.3.0); WebSockets/OSC (v0.4.0+) for advanced macro integration
 - Build variants: debug (verbose logging, test harness) and release (reduced logging)
 
 ## Project Goals
@@ -59,15 +63,15 @@ This repository currently documents the new direction, design constraints, and i
 - Value-based deduplication and short time-window suppression to avoid echo loops
 - Rate limiting/coalescing to protect battery and thermal stability
 
-## Planned Milestones
+## Version Roadmap (v0.1.0 to v1.0.0)
 
-The project uses feature milestones instead of date promises.
+The project uses SemVer feature tracking instead of date promises.
 
-1. Core wired control: two expressive faders, stable feedback, test harness
-2. Configurability: mappings, pickup/jump modes, smoothing controls
-3. Expanded controls: buttons/switches and richer state sync
-4. Optional desktop bridge and wireless transport
-5. Stable contributor-ready architecture and documentation
+- ✅ **v0.1.0**: Core wired control (UI baseline), two expressive faders, test harness.
+- ⏳ **v0.2.0**: Configurability (mappings, pickup/jump modes, smoothing controls) and MIDI service constraints.
+- ⏳ **v0.3.0**: Expanded controls (buttons/switches) and richer bidirectional state sync.
+- ⏳ **v0.4.0+**: Optional desktop bridge and wireless transport (OSC/WebSockets).
+- ⏳ **v1.0.0**: Stable contributor-ready architecture and official DAW integrations (Cubase, etc.).
 
 ## Repository Status
 
