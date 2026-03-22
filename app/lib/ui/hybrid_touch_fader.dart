@@ -44,6 +44,10 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
   late int _ccNumber;
   late String _ccLabel;
 
+  // State for catchUp behavior
+  bool _isCatchingUp = false;
+  bool _mustCrossMovingUp = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,14 +56,52 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
     _ccLabel = widget.label;
   }
 
-  void _handleDragUpdate(
-    DragUpdateDetails details,
-    BoxConstraints constraints,
-  ) {
-    _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+  void _handleDragDown(DragDownDetails details, BoxConstraints constraints) {
+    if (widget.behavior == FaderBehavior.jump) {
+      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+      return;
+    }
+
+    if (widget.behavior == FaderBehavior.catchUp) {
+      final handleY = (1.0 - _currentValue) * constraints.maxHeight;
+      final touchY = details.localPosition.dy;
+      
+      // If we touch almost exactly on the handle line (within 20 pixels), grab immediately
+      if ((touchY - handleY).abs() < 20.0) {
+        _isCatchingUp = false;
+        _applyAbsolutePosition(touchY, constraints.maxHeight);
+      } else {
+        _isCatchingUp = true;
+        // If touch is physically lower on screen (higher Y value), we must drag UP (decreasing Y) to cross
+        _mustCrossMovingUp = touchY > handleY;
+      }
+    }
   }
 
-  void _handleDragDown(DragDownDetails details, BoxConstraints constraints) {
+  void _handleDragUpdate(DragUpdateDetails details, BoxConstraints constraints) {
+    if (widget.behavior == FaderBehavior.hybrid) {
+      setState(() {
+        _currentValue = (_currentValue - (details.delta.dy / constraints.maxHeight)).clamp(0.0, 1.0);
+      });
+      return;
+    }
+
+    if (widget.behavior == FaderBehavior.catchUp && _isCatchingUp) {
+      final handleY = (1.0 - _currentValue) * constraints.maxHeight;
+      final touchY = details.localPosition.dy;
+
+      bool crossed = false;
+      if (_mustCrossMovingUp && touchY <= handleY) crossed = true;
+      if (!_mustCrossMovingUp && touchY >= handleY) crossed = true;
+
+      if (crossed) {
+        _isCatchingUp = false;
+      } else {
+        return; // Waiting to cross the threshold, ignore this interaction
+      }
+    }
+
+    // Standard Jump response
     _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
   }
 

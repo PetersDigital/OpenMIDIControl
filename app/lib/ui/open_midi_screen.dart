@@ -317,6 +317,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     labelColor: const Color(0xFF013737),
                     initialValue: 0.5,
                     isMobile: true,
+                    behavior: ref.watch(faderBehaviorProvider),
                   ),
                 ),
               ],
@@ -343,7 +344,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       flex: 40,
       child: _buildCommandCenter(context),
     );
-    final faderPanel = Expanded(flex: 60, child: _buildPerformanceZone());
+    final faderPanel = Expanded(flex: 60, child: _buildPerformanceZone(ref));
 
     return Row(
       children: faderOnRight
@@ -520,7 +521,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildPerformanceZone() {
+  Widget _buildPerformanceZone(WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -533,6 +534,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               labelColor: const Color(0xFF033258),
               initialValue: 1.0,
               isMobile: false,
+              behavior: ref.watch(faderBehaviorProvider),
             ),
           ),
           const SizedBox(width: 16),
@@ -544,6 +546,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               labelColor: const Color(0xFF013737),
               initialValue: 0.98,
               isMobile: false,
+              behavior: ref.watch(faderBehaviorProvider),
             ),
           ),
         ],
