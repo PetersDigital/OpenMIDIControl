@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'hybrid_touch_fader.dart';
+import 'midi_service.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
 
@@ -92,6 +93,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final connectedDevice = ref.watch(connectedMidiDeviceProvider);
+    final isConnected = connectedDevice != null;
+
     return Column(
       children: [
         // Top bar
@@ -118,11 +122,11 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: const Text(
-                        "DISCONNECTED",
+                      child: Text(
+                        isConnected ? "CONNECTED" : "DISCONNECTED",
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          color: Color(0xFFE57373), // Colors.red.shade400
+                          color: isConnected ? Colors.green.shade400 : const Color(0xFFE57373),
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
@@ -344,7 +348,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
 
     final commandPanel = Expanded(
       flex: 40,
-      child: _buildCommandCenter(context),
+      child: _buildCommandCenter(context, ref),
     );
     final faderPanel = Expanded(flex: 60, child: _buildPerformanceZone(ref));
 
@@ -355,7 +359,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildCommandCenter(BuildContext context) {
+  Widget _buildCommandCenter(BuildContext context, WidgetRef ref) {
+    final connectedDevice = ref.watch(connectedMidiDeviceProvider);
+    final isConnected = connectedDevice != null;
+
     return Container(
       color: const Color(0xFF1A1C20),
       padding: const EdgeInsets.all(32),
@@ -387,11 +394,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: const Text(
-                        "DISCONNECTED",
+                      child: Text(
+                        isConnected ? "CONNECTED" : "DISCONNECTED",
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          color: Color(0xFFE57373),
+                          color: isConnected ? Colors.green.shade400 : const Color(0xFFE57373),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
