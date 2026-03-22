@@ -63,6 +63,7 @@ jobs:
       
       - run: flutter pub get
 
+      # --- NEW STEP: Construct the Keystore from GitHub Secrets ---
       - name: Configure Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -70,14 +71,15 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          # 1. Decode the Base64 secret back into the .jks file
-          echo "$KEYSTORE_BASE64" | base64 --decode --ignore-garbage > android/app/upload-keystore.jks
+          # 1. Use printf to ensure the raw Base64 string is decoded correctly
+          printf "%s" "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
           
           # 2. Dynamically create the key.properties file
+          # The storeFile path must be relative to the 'app/android/app' folder
           echo "storePassword=$STORE_PASSWORD" > android/key.properties
           echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
           echo "keyAlias=$KEY_ALIAS" >> android/key.properties
-          echo "storeFile=app/upload-keystore.jks" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties 
 
       # Enforces Section 3 of AGENTS.md (A split arm64 release APK is sent to Telegram)
       - run: flutter build apk --release --split-per-abi
