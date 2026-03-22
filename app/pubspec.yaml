@@ -35,7 +35,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^3.3.1
-  google_fonts: ^8.0.2
   package_info_plus: ^9.0.0
 
 dev_dependencies:
@@ -74,6 +73,12 @@ flutter:
         - asset: assets/fonts/DSEG7Modern-Regular.ttf
         - asset: assets/fonts/DSEG7Modern-Bold.ttf
           weight: 700
+    - family: 'Inter'
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    - family: 'Space Grotesk'
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -20,10 +19,11 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        title: Text(
+        title: const Text(
           'Settings',
-          style: GoogleFonts.spaceGrotesk(
-            color: Theme.of(context).colorScheme.primaryContainer,
+          style: TextStyle(
+            fontFamily: 'Space Grotesk',
+            color: Color(0xFFC3C7CA), // Primary container color from theme seed
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -38,9 +38,10 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.settings_input_component, color: Color(0xFFA6C9F8), size: 40),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'OpenMIDIControl',
-                  style: GoogleFonts.spaceGrotesk(
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -50,7 +51,8 @@ class SettingsScreen extends ConsumerWidget {
                 packageInfoAsync.when(
                   data: (info) => Text(
                     'v${info.version}',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
+                      fontFamily: 'Inter',
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                     ),
@@ -60,7 +62,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 Text(
                   '© PetersDigital',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
@@ -74,10 +77,11 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Fader Behavior Section
-          Text(
+          const Text(
             'FADER CONFIGURATION',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.primaryContainer,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -91,7 +95,8 @@ class SettingsScreen extends ConsumerWidget {
               contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
               title: Text(
                 behavior.name.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -99,7 +104,8 @@ class SettingsScreen extends ConsumerWidget {
               ),
               subtitle: Text(
                 _getBehaviorDescription(behavior),
-                style: GoogleFonts.inter(
+                style: TextStyle(
+                  fontFamily: 'Inter',
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
                 ),
@@ -122,10 +128,11 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Layout Section
-          Text(
+          const Text(
             'LAYOUT',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.primaryContainer,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -140,7 +147,8 @@ class SettingsScreen extends ConsumerWidget {
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
               title: Text(
                 faderOnRight ? 'FADER ON RIGHT' : 'FADER ON LEFT',
-                style: GoogleFonts.inter(
+                style: const TextStyle(
+                  fontFamily: 'Inter',
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -150,7 +158,8 @@ class SettingsScreen extends ConsumerWidget {
                 faderOnRight
                     ? 'Controls on left — slide faders with right hand.'
                     : 'Controls on right — slide faders with left hand.',
-                style: GoogleFonts.inter(
+                style: TextStyle(
+                  fontFamily: 'Inter',
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 12,
                 ),
@@ -168,7 +177,8 @@ class SettingsScreen extends ConsumerWidget {
 
           Text(
             'ADVANCED (COMING SOON)',
-            style: GoogleFonts.inter(
+            style: TextStyle(
+              fontFamily: 'Inter',
               color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 11,
               fontWeight: FontWeight.bold,

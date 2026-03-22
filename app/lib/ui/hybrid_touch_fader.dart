@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
 
@@ -128,7 +127,8 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
           value: option,
           child: Text(
             'CC${option['cc']} – ${option['name']}',
-            style: GoogleFonts.inter(
+            style: TextStyle(
+              fontFamily: 'Inter',
               color: isSelected ? const Color(0xFFA6C9F8) : Colors.white,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
@@ -232,7 +232,8 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
                             child: Text(
                               _ccLabel,
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
+                                fontFamily: 'Inter',
                                 color: Colors.white,
                                 fontSize: labelFontSize,
                                 fontWeight: FontWeight.w700,

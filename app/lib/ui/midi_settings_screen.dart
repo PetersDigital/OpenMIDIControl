@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class MidiSettingsScreen extends ConsumerWidget {
   const MidiSettingsScreen({super.key});
@@ -10,10 +9,11 @@ class MidiSettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        title: Text(
+        title: const Text(
           'MIDI Ports Configuration',
-          style: GoogleFonts.spaceGrotesk(
-            color: Theme.of(context).colorScheme.primaryContainer,
+          style: TextStyle(
+            fontFamily: 'Space Grotesk',
+            color: Color(0xFFC3C7CA),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -40,7 +40,8 @@ class MidiSettingsScreen extends ConsumerWidget {
                     Flexible(
                       child: Text(
                         'DEVICE DISCONNECTED',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
+                          fontFamily: 'Inter',
                           color: Colors.red.shade400,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -53,7 +54,8 @@ class MidiSettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Text(
                   'MIDI Input/Output port configuration will be implemented here.',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 14,
                   ),
@@ -61,7 +63,8 @@ class MidiSettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Currently operating in UI-only mode.',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
+                    fontFamily: 'Inter',
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
@@ -71,10 +74,11 @@ class MidiSettingsScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: 24),
-          Text(
+          const Text(
             'AVAILABLE DEVICES',
-            style: GoogleFonts.inter(
-              color: Theme.of(context).colorScheme.primaryContainer,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -85,9 +89,14 @@ class MidiSettingsScreen extends ConsumerWidget {
           ListTile(
             tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
             leading: const Icon(Icons.usb, color: Colors.white54),
-            title: Text(
+            title: const Text(
               'Searching for CoreMIDI / Android MIDI devices...',
-              style: GoogleFonts.inter(color: Colors.white70, fontStyle: FontStyle.italic, fontSize: 14),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: Colors.white70,
+                fontStyle: FontStyle.italic,
+                fontSize: 14,
+              ),
             ),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),

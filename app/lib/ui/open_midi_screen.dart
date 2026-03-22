@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'hybrid_touch_fader.dart';
 import 'settings_screen.dart';
@@ -119,10 +118,11 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: Text(
+                      child: const Text(
                         "DISCONNECTED",
-                        style: GoogleFonts.inter(
-                          color: Colors.red.shade400,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFFE57373), // Colors.red.shade400
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
@@ -170,19 +170,21 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       Expanded(
                         child: Column(
                           children: [
-                            Text(
+                            const Text(
                               "TRACK",
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
+                                fontFamily: 'Inter',
                                 color: Colors.white60,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 2.0,
                               ),
                             ),
-                            Text(
+                            const Text(
                               "01 - Cinematic Violins",
-                              style: GoogleFonts.inter(
-                                color: const Color(0xFFA6C9F8),
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Color(0xFFA6C9F8),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -364,10 +366,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 "OPENMIDI",
-                style: GoogleFonts.inter(
-                  color: const Color(0xFFA6C9F8),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Color(0xFFA6C9F8),
                   fontWeight: FontWeight.w900,
                   fontSize: 24,
                   letterSpacing: -0.5,
@@ -384,10 +387,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: Text(
+                      child: const Text(
                         "DISCONNECTED",
-                        style: GoogleFonts.inter(
-                          color: Colors.red.shade400,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFFE57373),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
@@ -425,10 +429,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           // Track name
           SizedBox(
             width: double.infinity,
-            child: Text(
+            child: const Text(
               "01 - Cinematic Violins",
-              style: GoogleFonts.inter(
-                color: const Color(0xFFA6C9F8),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: Color(0xFFA6C9F8),
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -578,7 +583,8 @@ class _StatusDisplay extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: const TextStyle(
+            fontFamily: 'Inter',
             color: Colors.white60,
             fontSize: 8,
             fontWeight: FontWeight.bold,
@@ -589,7 +595,8 @@ class _StatusDisplay extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             value,
-            style: GoogleFonts.inter(
+            style: const TextStyle(
+              fontFamily: 'Inter',
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.bold,
