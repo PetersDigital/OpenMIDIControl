@@ -111,7 +111,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+                  _ConnectionStatusButton(
+                    onTap: () => _showMidiSettings(context),
+                  ),
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _showAppSettings(context),
@@ -361,7 +363,9 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+                  _ConnectionStatusButton(
+                    onTap: () => _showMidiSettings(context),
+                  ),
                   IconButton(
                     icon: const Icon(
                       Icons.more_vert,
@@ -532,10 +536,12 @@ class _ConnectionStatusButton extends ConsumerStatefulWidget {
   const _ConnectionStatusButton({required this.onTap});
 
   @override
-  ConsumerState<_ConnectionStatusButton> createState() => _ConnectionStatusButtonState();
+  ConsumerState<_ConnectionStatusButton> createState() =>
+      _ConnectionStatusButtonState();
 }
 
-class _ConnectionStatusButtonState extends ConsumerState<_ConnectionStatusButton>
+class _ConnectionStatusButtonState
+    extends ConsumerState<_ConnectionStatusButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _glowAnimation;
@@ -547,11 +553,8 @@ class _ConnectionStatusButtonState extends ConsumerState<_ConnectionStatusButton
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    _glowAnimation = Tween<double>(begin: 6.0, end: 12.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+    _glowAnimation = Tween<double>(begin: 8.0, end: 24.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
   }
 
@@ -602,22 +605,29 @@ class _ConnectionStatusButtonState extends ConsumerState<_ConnectionStatusButton
         animation: _glowAnimation,
         builder: (context, child) {
           return Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 8,
-            ),
-            decoration: showGlow
-                ? BoxDecoration(
-                    boxShadow: [
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: statusColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+              boxShadow: showGlow
+                  ? [
                       BoxShadow(
-                        color: statusColor.withValues(alpha: 0.3),
+                        color: statusColor.withValues(alpha: 0.4),
                         blurRadius: _glowAnimation.value,
                         spreadRadius: 2,
-                      )
-                    ],
-                    borderRadius: BorderRadius.circular(4),
-                  )
-                : null,
+                      ),
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.1),
+                        blurRadius: _glowAnimation.value * 2,
+                        spreadRadius: 4,
+                      ),
+                    ]
+                  : null,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
