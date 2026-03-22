@@ -25,7 +25,7 @@ This repository currently documents the new direction, design constraints, and i
 1. Install Flutter 3.x and target Android 10+ or desktop/Windows devices.
 2. Run `flutter pub get` inside the `app/` folder to fetch Riverpod, `google_fonts`, and other dependencies.
 3. Use `flutter run -d <device>` to start the UI; the command center and fader layout automatically adapt to the screen width.
-4. Launch the settings or MIDI settings screens from the top-right icons to preview future configuration hooks.
+4. Launch the settings or MIDI settings screens from the top-right icons or the connection status text (e.g. "AVAILABLE", "DISCONNECTED") to preview future configuration hooks.
 
 
 ## Project Direction
@@ -93,7 +93,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 ## Credits
 
 - Project: PetersDigital
-- Contributors: maintainers and community contributors (see Git history)
+-- Contributors: maintainers and community contributors (see Git history)
 
 Full attributions: [CREDITS.md](CREDITS.md)
 
