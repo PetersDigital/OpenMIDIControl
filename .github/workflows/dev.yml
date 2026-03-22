@@ -79,7 +79,7 @@ jobs:
           echo "storePassword=$STORE_PASSWORD" > android/key.properties
           echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
           echo "keyAlias=$KEY_ALIAS" >> android/key.properties
-          echo "storeFile=upload-keystore.jks" >> android/key.properties 
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
 
       # Enforces Section 3 of AGENTS.md (A split arm64 release APK is sent to Telegram)
       - run: flutter build apk --release --split-per-abi

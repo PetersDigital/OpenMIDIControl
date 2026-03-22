@@ -9,17 +9,35 @@ import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.petersdigital.openmidicontrol/midi"
+    private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
     private var midiManager: MidiManager? = null
     private var activeDevice: MidiDevice? = null
+    private var eventSink: EventChannel.EventSink? = null
+    private var deviceCallback: MidiManager.DeviceCallback? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         midiManager = context.getSystemService(Context.MIDI_SERVICE) as MidiManager?
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENTS_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    eventSink = events
+                    setupMidiDeviceCallback()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    eventSink = null
+                    teardownMidiDeviceCallback()
+                }
+            }
+        )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -80,5 +98,44 @@ class MainActivity : FlutterActivity() {
                 result.error("CONNECTION_FAILED", "Failed to open device", null)
             }
         }, Handler(Looper.getMainLooper()))
+    }
+
+    private fun setupMidiDeviceCallback() {
+        if (deviceCallback == null) {
+            deviceCallback = object : MidiManager.DeviceCallback() {
+                override fun onDeviceAdded(device: MidiDeviceInfo) {
+                    val event = mapOf(
+                        "type" to "added",
+                        "id" to device.id.toString()
+                    )
+                    Handler(Looper.getMainLooper()).post {
+                        eventSink?.success(event)
+                    }
+                }
+
+                override fun onDeviceRemoved(device: MidiDeviceInfo) {
+                    val event = mapOf(
+                        "type" to "removed",
+                        "id" to device.id.toString()
+                    )
+                    Handler(Looper.getMainLooper()).post {
+                        eventSink?.success(event)
+                    }
+                }
+            }
+            midiManager?.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+        }
+    }
+
+    private fun teardownMidiDeviceCallback() {
+        deviceCallback?.let {
+            midiManager?.unregisterDeviceCallback(it)
+            deviceCallback = null
+        }
+    }
+
+    override fun onDestroy() {
+        teardownMidiDeviceCallback()
+        super.onDestroy()
     }
 }

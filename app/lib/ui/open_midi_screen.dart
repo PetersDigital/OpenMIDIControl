@@ -93,8 +93,31 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final connectedDevice = ref.watch(connectedMidiDeviceProvider);
-    final isConnected = connectedDevice != null;
+    final midiStatus = ref.watch(midiStatusProvider);
+
+    String statusText;
+    Color statusColor;
+    bool showGlow = false;
+
+    switch (midiStatus) {
+      case MidiStatus.connected:
+        statusText = "CONNECTED";
+        statusColor = Colors.green.shade400;
+        break;
+      case MidiStatus.available:
+        statusText = "AVAILABLE";
+        statusColor = const Color(0xFFFFCA28); // Amber
+        showGlow = true;
+        break;
+      case MidiStatus.connectionLost:
+        statusText = "CONNECTION LOST";
+        statusColor = const Color(0xFFE57373); // Red
+        break;
+      case MidiStatus.disconnected:
+        statusText = "DISCONNECTED";
+        statusColor = const Color(0xFFE57373); // Red
+        break;
+    }
 
     return Column(
       children: [
@@ -122,15 +145,50 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: Text(
-                        isConnected ? "CONNECTED" : "DISCONNECTED",
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: isConnected ? Colors.green.shade400 : const Color(0xFFE57373),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
+                      decoration: showGlow
+                          ? BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: statusColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                )
+                              ],
+                              borderRadius: BorderRadius.circular(4),
+                            )
+                          : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showGlow) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: statusColor,
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -360,8 +418,31 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
   }
 
   Widget _buildCommandCenter(BuildContext context, WidgetRef ref) {
-    final connectedDevice = ref.watch(connectedMidiDeviceProvider);
-    final isConnected = connectedDevice != null;
+    final midiStatus = ref.watch(midiStatusProvider);
+
+    String statusText;
+    Color statusColor;
+    bool showGlow = false;
+
+    switch (midiStatus) {
+      case MidiStatus.connected:
+        statusText = "CONNECTED";
+        statusColor = Colors.green.shade400;
+        break;
+      case MidiStatus.available:
+        statusText = "AVAILABLE";
+        statusColor = const Color(0xFFFFCA28); // Amber
+        showGlow = true;
+        break;
+      case MidiStatus.connectionLost:
+        statusText = "CONNECTION LOST";
+        statusColor = const Color(0xFFE57373); // Red
+        break;
+      case MidiStatus.disconnected:
+        statusText = "DISCONNECTED";
+        statusColor = const Color(0xFFE57373); // Red
+        break;
+    }
 
     return Container(
       color: const Color(0xFF1A1C20),
@@ -394,15 +475,50 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      child: Text(
-                        isConnected ? "CONNECTED" : "DISCONNECTED",
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: isConnected ? Colors.green.shade400 : const Color(0xFFE57373),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
+                      decoration: showGlow
+                          ? BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: statusColor.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                )
+                              ],
+                              borderRadius: BorderRadius.circular(4),
+                            )
+                          : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (showGlow) ...[
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: statusColor,
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

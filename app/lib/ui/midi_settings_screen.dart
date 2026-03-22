@@ -8,8 +8,9 @@ class MidiSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final connectedDevice = ref.watch(connectedMidiDeviceProvider);
-    final isConnected = connectedDevice != null;
+    final connectionState = ref.watch(connectedMidiDeviceProvider);
+    final connectedDevice = connectionState.connectedDevice;
+    final midiStatus = ref.watch(midiStatusProvider);
     final midiDevicesAsyncValue = ref.watch(midiDevicesProvider);
 
     return Scaffold(
@@ -29,67 +30,7 @@ class MidiSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         children: [
           // Status banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isConnected
-                    ? Colors.green.shade900.withValues(alpha: 0.5)
-                    : Colors.red.shade900.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      isConnected ? Icons.check_circle_outline : Icons.warning_amber_rounded,
-                      color: isConnected ? Colors.green.shade400 : Colors.red.shade400,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        isConnected ? 'CONNECTED' : 'DEVICE DISCONNECTED',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: isConnected ? Colors.green.shade400 : Colors.red.shade400,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  isConnected
-                      ? 'Connected to ${connectedDevice.name} (${connectedDevice.manufacturer})'
-                      : 'MIDI Input/Output port configuration will be implemented here.',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 14,
-                  ),
-                ),
-                if (!isConnected) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Currently operating in UI-only mode.',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          _buildStatusBanner(context, midiStatus, connectedDevice),
 
           const SizedBox(height: 24),
           Row(
@@ -109,6 +50,7 @@ class MidiSettingsScreen extends ConsumerWidget {
                 icon: const Icon(Icons.refresh, size: 20),
                 color: const Color(0xFFC3C7CA),
                 onPressed: () {
+                  ref.read(connectedMidiDeviceProvider.notifier).disconnect();
                   ref.invalidate(midiDevicesProvider);
                 },
               ),
@@ -229,6 +171,93 @@ class MidiSettingsScreen extends ConsumerWidget {
                 ),
               ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner(BuildContext context, MidiStatus status, MidiDevice? connectedDevice) {
+    Color borderColor;
+    IconData icon;
+    Color iconColor;
+    String titleText;
+    Color titleColor;
+    String subText;
+
+    switch (status) {
+      case MidiStatus.connected:
+        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        icon = Icons.check_circle_outline;
+        iconColor = Colors.green.shade400;
+        titleText = 'CONNECTED';
+        titleColor = Colors.green.shade400;
+        subText = connectedDevice != null
+            ? 'Connected to ${connectedDevice.name} (${connectedDevice.manufacturer})'
+            : 'Connected to a MIDI device';
+        break;
+      case MidiStatus.available:
+        borderColor = const Color(0xFFFFCA28).withValues(alpha: 0.5); // Amber
+        icon = Icons.usb;
+        iconColor = const Color(0xFFFFCA28);
+        titleText = 'MIDI DEVICES AVAILABLE';
+        titleColor = const Color(0xFFFFCA28);
+        subText = 'Tap a device below to initialize connection.';
+        break;
+      case MidiStatus.connectionLost:
+        borderColor = Colors.red.shade900.withValues(alpha: 0.5);
+        icon = Icons.warning_amber_rounded;
+        iconColor = Colors.red.shade400;
+        titleText = 'CONNECTION LOST';
+        titleColor = Colors.red.shade400;
+        subText = 'Device was physically disconnected. Please reconnect.';
+        break;
+      case MidiStatus.disconnected:
+        borderColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+        icon = Icons.usb_off;
+        iconColor = Colors.grey.shade500;
+        titleText = 'NO MIDI DEVICES DETECTED';
+        titleColor = Colors.grey.shade500;
+        subText = 'Please plug in a USB MIDI device.';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 28),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  titleText,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: titleColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            subText,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
             ),
           ),
         ],
