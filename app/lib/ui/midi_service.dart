@@ -3,22 +3,45 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+class MidiPort {
+  final int number;
+  final String name;
+
+  MidiPort({required this.number, required this.name});
+
+  factory MidiPort.fromMap(Map<dynamic, dynamic> map) {
+    return MidiPort(
+      number: map['number'] as int? ?? 0,
+      name: map['name'] as String? ?? 'Unknown Port',
+    );
+  }
+}
+
 class MidiDevice {
   final String id;
   final String name;
   final String manufacturer;
+  final List<MidiPort> inputPorts;
+  final List<MidiPort> outputPorts;
 
   MidiDevice({
     required this.id,
     required this.name,
     required this.manufacturer,
+    this.inputPorts = const [],
+    this.outputPorts = const [],
   });
 
   factory MidiDevice.fromMap(Map<dynamic, dynamic> map) {
+    final rawInPorts = map['inputPorts'] as List<dynamic>? ?? [];
+    final rawOutPorts = map['outputPorts'] as List<dynamic>? ?? [];
+
     return MidiDevice(
       id: map['id'] as String? ?? 'unknown',
       name: map['name'] as String? ?? 'Unknown MIDI Device',
       manufacturer: map['manufacturer'] as String? ?? 'Unknown Manufacturer',
+      inputPorts: rawInPorts.map((p) => MidiPort.fromMap(p as Map)).toList(),
+      outputPorts: rawOutPorts.map((p) => MidiPort.fromMap(p as Map)).toList(),
     );
   }
 }
@@ -32,7 +55,10 @@ class MidiService {
   );
 
   Stream<dynamic> get midiEventsStream =>
-      _eventsChannel.receiveBroadcastStream();
+      _eventsChannel.receiveBroadcastStream().map((event) {
+        debugPrint("MIDI FLUTTER IN: $event");
+        return event;
+      });
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -51,11 +77,13 @@ class MidiService {
     }
   }
 
-  Future<bool> connectToDevice(String id) async {
+  Future<bool> connectToDevice(String id, {int? inputPort, int? outputPort}) async {
     try {
       final bool? result = await _channel.invokeMethod('connectToDevice', {
         'id': id,
-      });
+        'inputPort': inputPort,
+        'outputPort': outputPort,
+      }..removeWhere((key, value) => value == null));
       return result ?? false;
     } catch (e) {
       debugPrint('Failed to connect to device $id: $e');
@@ -189,10 +217,14 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     return const MidiConnectionState();
   }
 
-  Future<bool> connect(MidiDevice device) async {
+  Future<bool> connect(MidiDevice device, {int? inputPort, int? outputPort}) async {
     final service = ref.read(midiServiceProvider);
     service.vibrate(duration: 50); // Stronger lightImpact equivalent
-    final success = await service.connectToDevice(device.id);
+    final success = await service.connectToDevice(
+      device.id,
+      inputPort: inputPort,
+      outputPort: outputPort,
+    );
     if (success) {
       state = MidiConnectionState(
         connectedDevice: device,

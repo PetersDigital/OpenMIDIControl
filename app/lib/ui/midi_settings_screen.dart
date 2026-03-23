@@ -80,67 +80,9 @@ class MidiSettingsScreen extends ConsumerWidget {
               return Column(
                 children: devices.map((device) {
                   final isThisDeviceConnected = connectedDevice?.id == device.id;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ListTile(
-                      tileColor: isThisDeviceConnected
-                          ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1)
-                          : Theme.of(context).colorScheme.surfaceContainerLow,
-                      leading: Icon(
-                        Icons.usb,
-                        color: isThisDeviceConnected
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white54,
-                      ),
-                      title: Text(
-                        device.name,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: isThisDeviceConnected ? Colors.white : Colors.white70,
-                          fontWeight: isThisDeviceConnected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        device.manufacturer,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: isThisDeviceConnected
-                              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
-                      ),
-                      onTap: () async {
-                        // Prevent connecting to already connected device to avoid unnecessary bridging
-                        if (isThisDeviceConnected) return;
-
-                        // Show simple loading feedback
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Connecting to ${device.name}...')),
-                        );
-
-                        final success = await ref.read(connectedMidiDeviceProvider.notifier).connect(device);
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          if (!success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to connect to ${device.name}'),
-                                backgroundColor: Colors.red.shade800,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
+                  return _DeviceExpansionTile(
+                    device: device,
+                    isThisDeviceConnected: isThisDeviceConnected,
                   );
                 }).toList(),
               );
@@ -261,6 +203,206 @@ class MidiSettingsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DeviceExpansionTile extends ConsumerStatefulWidget {
+  final MidiDevice device;
+  final bool isThisDeviceConnected;
+
+  const _DeviceExpansionTile({
+    required this.device,
+    required this.isThisDeviceConnected,
+  });
+
+  @override
+  ConsumerState<_DeviceExpansionTile> createState() => _DeviceExpansionTileState();
+}
+
+class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
+  int? _selectedInputPort;
+  int? _selectedOutputPort;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.device.inputPorts.isNotEmpty) {
+      _selectedInputPort = widget.device.inputPorts.first.number;
+    }
+    if (widget.device.outputPorts.isNotEmpty) {
+      _selectedOutputPort = widget.device.outputPorts.first.number;
+    }
+  }
+
+  Future<void> _connect(BuildContext context) async {
+    if (widget.isThisDeviceConnected) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connecting to ${widget.device.name}...')),
+    );
+
+    final success = await ref.read(connectedMidiDeviceProvider.notifier).connect(
+      widget.device,
+      inputPort: _selectedInputPort,
+      outputPort: _selectedOutputPort,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to connect to ${widget.device.name}'),
+            backgroundColor: Colors.red.shade800,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          collapsedBackgroundColor: widget.isThisDeviceConnected
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.surfaceContainerLow,
+          backgroundColor: widget.isThisDeviceConnected
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1)
+              : Theme.of(context).colorScheme.surfaceContainerLow,
+          leading: Icon(
+            Icons.usb,
+            color: widget.isThisDeviceConnected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.white54,
+          ),
+          title: Text(
+            widget.device.name,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: widget.isThisDeviceConnected ? Colors.white : Colors.white70,
+              fontWeight: widget.isThisDeviceConnected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
+            ),
+          ),
+          subtitle: Text(
+            widget.device.manufacturer,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: widget.isThisDeviceConnected
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                  : Colors.transparent,
+            ),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: widget.isThisDeviceConnected
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                  : Colors.transparent,
+            ),
+          ),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              color: Theme.of(context).colorScheme.surface,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        flex: 1,
+                        child: Text(
+                          'Input Port:',
+                          style: TextStyle(fontSize: 14, color: Colors.white70),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: widget.device.inputPorts.isEmpty
+                            ? const Text('None available', style: TextStyle(color: Colors.white38))
+                            : DropdownButton<int>(
+                                isExpanded: true,
+                                value: _selectedInputPort,
+                                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                                items: widget.device.inputPorts.map((port) {
+                                  return DropdownMenuItem<int>(
+                                    value: port.number,
+                                    child: Text('${port.name} (Port ${port.number})', overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: widget.isThisDeviceConnected
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _selectedInputPort = value;
+                                        });
+                                      },
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Expanded(
+                        flex: 1,
+                        child: Text(
+                          'Output Port:',
+                          style: TextStyle(fontSize: 14, color: Colors.white70),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: widget.device.outputPorts.isEmpty
+                            ? const Text('None available', style: TextStyle(color: Colors.white38))
+                            : DropdownButton<int>(
+                                isExpanded: true,
+                                value: _selectedOutputPort,
+                                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                                items: widget.device.outputPorts.map((port) {
+                                  return DropdownMenuItem<int>(
+                                    value: port.number,
+                                    child: Text('${port.name} (Port ${port.number})', overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: widget.isThisDeviceConnected
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _selectedOutputPort = value;
+                                        });
+                                      },
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: widget.isThisDeviceConnected ? null : () => _connect(context),
+                      child: Text(widget.isThisDeviceConnected ? 'Connected' : 'Connect'),
+                    ),
+                  )
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

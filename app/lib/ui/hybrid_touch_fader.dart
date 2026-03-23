@@ -65,7 +65,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
     ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue);
   }
 
-  void _handleDragDown(DragDownDetails details, BoxConstraints constraints) {
+  void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
     _isActive = true;
     if (widget.behavior == FaderBehavior.jump) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
@@ -179,10 +179,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
+          onVerticalDragStart: (d) => _handleDragStart(d, constraints),
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
-          onPanDown: (d) => _handleDragDown(d, constraints),
-          onPanCancel: () => _isActive = false,
-          onPanEnd: (_) => _isActive = false,
+          onVerticalDragCancel: () => _isActive = false,
+          onVerticalDragEnd: (_) => _isActive = false,
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,
