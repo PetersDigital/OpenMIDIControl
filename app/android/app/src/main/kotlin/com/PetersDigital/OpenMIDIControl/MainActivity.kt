@@ -19,6 +19,10 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        var activeInstance: MainActivity? = null
+    }
+
     private val CHANNEL = "com.petersdigital.openmidicontrol/midi"
     private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
     private var midiManager: MidiManager? = null
@@ -31,6 +35,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        activeInstance = this
 
         midiManager = context.getSystemService(Context.MIDI_SERVICE) as MidiManager?
 
@@ -55,8 +60,10 @@ class MainActivity : FlutterActivity() {
                 }
                 "connectToDevice" -> {
                     val id = call.argument<String>("id")
+                    val inputPort = call.argument<Int>("inputPort")
+                    val outputPort = call.argument<Int>("outputPort")
                     if (id != null) {
-                        connectToDevice(id, result)
+                        connectToDevice(id, inputPort, outputPort, result)
                     } else {
                         result.error("INVALID_ARGUMENT", "Device ID is required", null)
                     }
@@ -72,7 +79,11 @@ class MainActivity : FlutterActivity() {
                     if (cc != null && value != null) {
                         try {
                             val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                            android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
+                            // Send to physically connected hardware (if any)
                             inputPort?.send(msg, 0, msg.size)
+                            // Send to virtual DAW out (e.g. FL Studio Mobile)
+                            VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -103,8 +114,8 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getMidiDevices(): List<Map<String, String>> {
-        val devicesList = mutableListOf<Map<String, String>>()
+    private fun getMidiDevices(): List<Map<String, Any>> {
+        val devicesList = mutableListOf<Map<String, Any>>()
         val devices: Array<MidiDeviceInfo>? = midiManager?.devices
 
         devices?.forEach { deviceInfo ->
@@ -113,11 +124,29 @@ class MainActivity : FlutterActivity() {
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
             val manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER) ?: "Unknown Manufacturer"
 
+            val inputPorts = mutableListOf<Map<String, Any>>()
+            val outputPorts = mutableListOf<Map<String, Any>>()
+
+            deviceInfo.ports.forEach { portInfo ->
+                val portName = portInfo.name ?: "Port ${portInfo.portNumber}"
+                val portData = mapOf(
+                    "number" to portInfo.portNumber,
+                    "name" to portName
+                )
+                if (portInfo.type == android.media.midi.MidiDeviceInfo.PortInfo.TYPE_INPUT) {
+                    inputPorts.add(portData)
+                } else if (portInfo.type == android.media.midi.MidiDeviceInfo.PortInfo.TYPE_OUTPUT) {
+                    outputPorts.add(portData)
+                }
+            }
+
             devicesList.add(
                 mapOf(
                     "id" to id,
                     "name" to name,
-                    "manufacturer" to manufacturer
+                    "manufacturer" to manufacturer,
+                    "inputPorts" to inputPorts,
+                    "outputPorts" to outputPorts
                 )
             )
         }
@@ -159,7 +188,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun connectToDevice(id: String, result: MethodChannel.Result) {
+    private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
         val devices: Array<MidiDeviceInfo>? = midiManager?.devices
         val deviceInfo = devices?.find { it.id.toString() == id }
 
@@ -172,16 +201,17 @@ class MainActivity : FlutterActivity() {
             if (device != null) {
                 activeDevice = device
 
-                // Open ports
-                val numOutputs = device.info.outputPortCount
-                if (numOutputs > 0) {
-                    outputPort = device.openOutputPort(0)
+                // Open output port (receives from device into Android)
+                val outPortToOpen = outputPortNumber ?: if (device.info.outputPortCount > 0) 0 else -1
+                if (outPortToOpen >= 0 && outPortToOpen < device.info.outputPortCount) {
+                    outputPort = device.openOutputPort(outPortToOpen)
                     setupMidiReceiver()
                 }
 
-                val numInputs = device.info.inputPortCount
-                if (numInputs > 0) {
-                    inputPort = device.openInputPort(0)
+                // Open input port (sends from Android to device)
+                val inPortToOpen = inputPortNumber ?: if (device.info.inputPortCount > 0) 0 else -1
+                if (inPortToOpen >= 0 && inPortToOpen < device.info.inputPortCount) {
+                    inputPort = device.openInputPort(inPortToOpen)
                 }
 
                 result.success(true)
@@ -223,6 +253,8 @@ class MainActivity : FlutterActivity() {
                         val ccNumber = msg[offset + 1].toInt() and 0xFF
                         val ccValue = msg[offset + 2].toInt() and 0xFF
 
+                    android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
+
                         val event = mapOf(
                             "type" to "cc",
                             "cc" to ccNumber,
@@ -236,6 +268,29 @@ class MainActivity : FlutterActivity() {
                 }
             }
             outputPort?.connect(midiReceiver)
+        }
+    }
+
+    fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int) {
+        if (count < 3) return
+
+        // Check if it's a Control Change message on Channel 1 (0xB0)
+        val statusByte = msg[offset].toInt() and 0xFF
+        if (statusByte == 0xB0) {
+            val ccNumber = msg[offset + 1].toInt() and 0xFF
+            val ccValue = msg[offset + 2].toInt() and 0xFF
+
+            android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
+
+            val event = mapOf(
+                "type" to "cc",
+                "cc" to ccNumber,
+                "value" to ccValue
+            )
+
+            Handler(Looper.getMainLooper()).post {
+                eventSink?.success(event)
+            }
         }
     }
 
@@ -279,6 +334,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         teardownMidiDeviceCallback()
         disconnectDevice()
+        activeInstance = null
         super.onDestroy()
     }
 }

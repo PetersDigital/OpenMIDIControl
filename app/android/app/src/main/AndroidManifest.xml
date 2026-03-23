@@ -40,6 +40,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <service
+            android:name=".VirtualMidiService"
+            android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.midi.MidiDeviceService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.media.midi.MidiDeviceService"
+                android:resource="@xml/midi_device_info" />
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
