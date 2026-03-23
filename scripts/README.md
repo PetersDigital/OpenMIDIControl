@@ -2,22 +2,49 @@
 
 This folder contains organizational and build-assistance scripts to standardize testing and release workflows across contributors.
 
+## Key Features
+
+### 🚀 Project-Agnostic Discovery
+Both scripts automatically locate the Flutter project by searching for a `pubspec.yaml` file in the project root or its immediate subdirectories (e.g., `app/`, `appname/`). You can run these scripts from the repository root without worrying about the internal folder structure.
+
+### 📱 Interactive Target Selection
+The scripts hook into the `flutter devices` daemon to parse your connected hardware and virtual targets. They present an interactive, numbered list of all available simulators, physical devices, and web endpoints, allowing you to select a target with a single keystroke.
+
+---
+
+## Local Debug Testing (`run_debug.ps1`)
+
+For regular development and debugging with hot reload, use `run_debug.ps1`. This script provides a streamlined way to launch the app without manual device ID management.
+
+### Launch the Script
+Open a PowerShell terminal from the project root and run:
+```powershell
+.\scripts\run_debug.ps1
+```
+
+**The script will:**
+1. Dynamically find the Flutter project directory.
+2. List all available targets.
+3. Automatically execute `flutter run` on your chosen device.
+
+---
+
 ## Local Release Testing (`run_release.ps1`)
 
-To test the application's performance on mobile devices locally, it is critically important to run the app in **Release Mode**. `Profile` mode retains the constant Dart VM telemetry websockets needed for external tooling to connect, which severely obfuscates device thermal load and UI jitter. 
+To test application performance and thermal load, it is critically important to run the app in **Release Mode**. `Profile` mode retains telemetry websockets that obfuscate device load and UI jitter.
 
-Because OpenMIDIControl's Android component strictly requires a securely signed `release` configuration in `build.gradle` (which pulls from GitHub Secrets in the CI environment), you cannot run `--release` locally out of the box without the keys. To safely test releases locally without tracking secrets in Git, follow these steps:
+Because OpenMIDIControl's Android component requires a securely signed release configuration, you must configure local secrets to run this script:
 
 ### 1. Configure the `.env.ps1` file
-1. Create a copy of the template `scripts/.env.example.ps1` and name it `.env.ps1`.
+1. Create a local copy of the environment template:
    ```bash
    cp scripts/.env.example.ps1 scripts/.env.ps1
    ```
-2. Open `scripts/.env.ps1` and paste the `upload-keystore.jks` Base64 string and the three associated key passwords. Ask the repository maintainer for these values.
-*(Note: `.env.ps1` is deliberately ignored by the `.gitignore` policy and will never be tracked).*
+2. Open `scripts/.env.ps1` and add the `upload-keystore.jks` Base64 string and credentials provided by the repository maintainer.
+*(Note: `.env.ps1` is ignored by Git and will never be tracked).*
 
 ### 2. Launch the Script
-Open a PowerShell terminal from the project root and run the launcher:
+Open a PowerShell terminal from the project root and run:
 ```powershell
 .\scripts\run_release.ps1
 ```
