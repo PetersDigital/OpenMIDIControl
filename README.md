@@ -10,14 +10,15 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.1.0** ships the Flutter UI baseline from `app/`, including the responsive command center, dual `HybridTouchFader` controls, and placeholder MIDI configuration screens. Real MIDI transport (Kotlin bridge, host adapters) remains in later versions.
-- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the UI that went into the release build.
+- **v0.1.5** (Current) Refines the MIDI bridge with metadata-based reconnection persistence, virtual MIDI port support (Android), and high-precision discrete port selection.
+- **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.1.5 implementation.
 
 ## Current UI & Controls
 
 - **Responsive command center:** Layout switches between a portrait-focused command center (status row, 3×3 control pad, navigation icons) on phones and a desktop landscape layout with flexible panel ordering plus a dedicated track card.
 - **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
-- **Settings & MIDI placeholders:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle, and the MIDI settings view shows the future device list + connection banner that will drive the Kotlin bridge.
+- **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle. The MIDI settings view allows discrete port selection with active-port highlighting (Blue/Green) and automatic persistence.
 - **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the Ethereal Console system.
 
 ## Getting Started
@@ -25,7 +26,7 @@ This repository currently documents the new direction, design constraints, and i
 1. Install Flutter 3.x and target Android 10+ or desktop/Windows devices.
 2. Run `flutter pub get` inside the `app/` folder to fetch Riverpod, `google_fonts`, and other dependencies.
 3. Use `flutter run -d <device>` to start the UI; the command center and fader layout automatically adapt to the screen width.
-4. Launch the settings or MIDI settings screens from the top-right icons or the connection status text (e.g. "AVAILABLE", "DISCONNECTED") to preview future configuration hooks.
+4. Launch the settings or MIDI settings screens from the top-right icons or the connection status text (e.g. "AVAILABLE", "DISCONNECTED") to configure your MIDI ports.
 
 
 ## Project Direction
@@ -61,6 +62,8 @@ This repository currently documents the new direction, design constraints, and i
 - MIDI CC output with optional 14-bit precision (MSB/LSB pairs)
 - MIDI input-driven UI feedback with touch override behavior
 - Value-based deduplication and short time-window suppression to avoid echo loops
+- **Virtual MIDI Port**: Exposes the app as a native MIDI source/sink for other mobile DAWs.
+- **Metadata Persistence**: Uses device name and manufacturer fingerprints to maintain connections across USB hot-plugs.
 - Rate limiting/coalescing to protect battery and thermal stability
 
 ## Version Roadmap (v0.1.0 to v1.0.0)
@@ -68,16 +71,16 @@ This repository currently documents the new direction, design constraints, and i
 The project uses SemVer feature tracking instead of date promises.
 
 - ✅ **v0.1.0**: Core wired control (UI baseline), two expressive faders, test harness.
-- ⏳ **v0.2.0**: Configurability (mappings, pickup/jump modes, smoothing controls) and MIDI service constraints.
+- ✅ **v0.1.5**: **Refinement Phase**: Metadata reconnection, Virtual MIDI, and discrete port selection.
+- ⏳ **v0.2.0**: Native MIDI service bridge (Finalizing wired USB/DIN transport baseline).
 - ⏳ **v0.3.0**: Expanded controls (buttons/switches) and richer bidirectional state sync.
 - ⏳ **v0.4.0+**: Optional desktop bridge and wireless transport (OSC/WebSockets).
 - ⏳ **v1.0.0**: Stable contributor-ready architecture and official DAW integrations (Cubase, etc.).
 
 ## Repository Status
 
-- Documentation and implementation are evolving together
-- Implementation code is intentionally not yet committed
-- Decisions are tracked in [ARCHITECTURE.md](ARCHITECTURE.md), [USERGUIDE.md](USERGUIDE.md), and [CHANGELOG.md](CHANGELOG.md)
+- Documentation and implementation are evolving together.
+- Decisions are tracked in [ARCHITECTURE.md](ARCHITECTURE.md), [USERGUIDE.md](USERGUIDE.md), and [CHANGELOG.md](CHANGELOG.md).
 - Cubase-specific reference mappings live under [references/cubase](references/cubase) and inform optional host adapters
 
 ## Development Workflow

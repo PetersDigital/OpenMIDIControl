@@ -2,6 +2,20 @@
 
 This repository is primarily developed using AI coding agents (LLMs) via GitHub Copilot and other tools.
 
+## Milestone Status: v0.1.5 (Phase 2 Refinement)
+
+### ✅ Completed Tasks
+- [x] Consolidate Fader Gesture Logic in `onVerticalDragStart`.
+- [x] Apply Behavior Logic (Catch-up) to incoming hardware MIDI.
+- [x] Implement Metadata-based Reconnection (Name/Manufacturer match).
+- [x] Enhanced UI Highlighting for active MIDI ports.
+- [x] Virtual MIDI Port implementation.
+
+### ⏳ Current Focus: Phase 3 (App as Peripheral)
+- [ ] USB MIDI Class Compliance validation.
+- [ ] Pivot `MainActivity.kt` to Peripheral handshake as primary role.
+- [ ] Logic for Windows-to-Android fader resolution (high-precision MIDI 2.0 readiness).
+
 ## Human roles
 - **Owner/Maintainer:** PetersDigital
 - **Primary development method:** AI-assisted / agent-driven coding

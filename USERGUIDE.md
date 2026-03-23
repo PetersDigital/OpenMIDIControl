@@ -53,14 +53,16 @@ Expected baseline:
 - Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
 - The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
 - A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.1.0` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- The version + build metadata at the top helps confirm you are on the `v0.1.5` UI, and this screen will later house pick-up, smoothing, and transport preferences.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 
-### 4.5 MIDI settings preview
+### 4.5 Configuring MIDI Ports
 
-- Tap the **status badge** or USB icon in the top bar to open the `MIDI Settings` placeholder.
-- The view currently shows a “DEVICE DISCONNECTED” banner and a single list tile that reports the app is “Searching for CoreMIDI / Android MIDI devices...”.
-- Use this screen to verify that the UI is ready for the upcoming Kotlin MIDI bridge and host port selectors before physical wiring is available.
+1. Open **Settings > MIDI Ports Configuration** (or tap the **status badge** in the top bar).
+2. Expand your device tile (e.g., Arturia Minilab3).
+3. **Select Ports:** Standard CC users should select **Port 0** for both Input and Output.
+4. **Active State:** When a port is successfully engaged, the entire port row will be **highlighted in Blue/Green**.
+5. **Persistence:** If you unplug your device, the app will remember your port selection and automatically reconnect as soon as you plug it back in.
 
 ## 5. MIDI Mapping Reference (Initial)
 

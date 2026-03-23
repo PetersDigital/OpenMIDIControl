@@ -7,6 +7,17 @@ This stage focuses entirely on the user-facing interface and internal logic, ind
 - Core Mechanisms: Implementing multi-touch pointer capture for the two expressive faders (CC1 and CC11), the `HybridTouchFader` readout (DSEG7 font, long-press CC picker, color-coded tracks), and Riverpod state management so the UI can toggle fader behavior, layout hand, and future transport intents.
 	* Additional focus: The Settings screen now surfaces Jump/Hybrid/Catch-Up modes, layout placement, and version metadata, while the MIDI Settings placeholder displays the "device disconnected" banner and upcoming device list.
 
+### MIDI Stack Implementation (v0.1.5 Refinement)
+- **Device Identification:** Shifted from ID-based tracking to Metadata-based tracking (Name + Manufacturer). This resolves the "Transient ID" issue where Android re-indexes devices upon USB replugging.
+- **Virtual MIDI Bridge:** Leverages `VirtualMidiService.kt` to expose an internal output port, enabling the app to act as a bridge for mobile DAWs like FL Studio.
+- **Bi-directional Logic Engine:** The behavior logic (Catch-up/Hybrid) is now applied both to UI interactions (`onVerticalDragUpdate`) and incoming MIDI streams (`ref.listen` in the fader state).
+- **Android MIDI compatibility:** Implemented transport-aware `MidiManager.getDevicesForTransport` with TIRAMISU+ path and legacy fallback for older OS versions.
+- **Null-safety hardening:** Ensured `MidiReceiver` usage is null-safe during connect/disconnect, and `copyWith` now preserves prior connected device unless overridden.
+- **Orientation policy:** Applied portrait-first mobile UX in `OpenMIDIMainScreen`; landscape desktop-like layout used only on tablets currently.
+
+### UI Interaction & Highlighting
+- **Active Port UI:** Implemented state-aware row highlighting in `midi_settings_screen.dart`. When a port is active, its container background is styled with a translucent version of the theme's `primaryContainer` color to indicate an active "data pipe."
+
 ### v0.2.0: The Native MIDI Service Bridge
 This is where the app physically connects to the outside world.
 - Key Tasks: Establishing the Flutter Platform Channels to communicate with Android's native android.media.midi stack.

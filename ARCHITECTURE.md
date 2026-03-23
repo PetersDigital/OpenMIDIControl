@@ -26,6 +26,7 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 - "Absolute/Relative" hybrid touch faders to capture interactions without jarring volume changes.
 - Internal state management strictly emitting "Intent" events to remain transport-agnostic.
 - Wired USB-MIDI only in v0.1.0–v0.3.0 (via Custom SysEx/Standard CC). Future versions (v0.4.0+) may implement WebSockets/OSC strictly for heavy Macro integrations over Wi-Fi, keeping fader data hardwired.
+- Phone UI is portrait-first for expressive fader controls; tablet landscape remains the preferred mode for grid-style pads and extended control surfaces.
 
 ## 3. System Model
 
@@ -84,6 +85,13 @@ Recommended defaults:
 - Keep message schema explicit and versioned.
 - Prefer human-readable payload encoding for diagnostics.
 - Treat unknown command bytes as non-fatal.
+
+### 6.4 MIDI Device Persistence
+In v0.1.5, the app maintains a "Last Known Good" metadata fingerprint. This allows the system to remain robust against Android's dynamic hardware indexing.
+- **Reconnection Loop:** `ConnectionLost` -> `DeviceAdded` -> `Metadata Match` -> `Auto-Handshake`.
+
+### 6.5 Global Behavior Engine
+The fader behavior logic (Jump/Hybrid/Catch-up) is centralized. It intercepts both local touch deltas and external MIDI CC updates, ensuring that the "Ethereal Console" logic is consistent regardless of the data source.
 
 ## 7. Connection Lifecycle
 
