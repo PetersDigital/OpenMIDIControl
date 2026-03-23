@@ -554,7 +554,7 @@ class _ConnectionStatusButtonState
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    _glowAnimation = Tween<double>(begin: 8.0, end: 24.0).animate(
+    _glowAnimation = Tween<double>(begin: 6.0, end: 12.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
   }
