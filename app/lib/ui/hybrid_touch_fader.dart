@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
+import 'midi_service.dart';
 
 // Common CC options for the popup menu
 const List<Map<String, dynamic>> _kCCOptions = [
@@ -14,7 +16,7 @@ const List<Map<String, dynamic>> _kCCOptions = [
   {'cc': 74, 'name': 'Brightness'},
 ];
 
-class HybridTouchFader extends StatefulWidget {
+class HybridTouchFader extends ConsumerStatefulWidget {
   final int ccNumber;
   final String label;
   final Color activeColor;
@@ -35,13 +37,16 @@ class HybridTouchFader extends StatefulWidget {
   });
 
   @override
-  State<HybridTouchFader> createState() => _HybridTouchFaderState();
+  ConsumerState<HybridTouchFader> createState() => _HybridTouchFaderState();
 }
 
-class _HybridTouchFaderState extends State<HybridTouchFader> {
+class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
   late double _currentValue;
   late int _ccNumber;
   late String _ccLabel;
+
+  // Track if user is actively dragging to prevent external MIDI echo feedback
+  bool _isActive = false;
 
   // State for catchUp behavior
   bool _isCatchingUp = false;
@@ -55,7 +60,13 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
     _ccLabel = widget.label;
   }
 
+  void _sendMidiUpdate() {
+    final int ccValue = (_currentValue * 127).round();
+    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue);
+  }
+
   void _handleDragDown(DragDownDetails details, BoxConstraints constraints) {
+    _isActive = true;
     if (widget.behavior == FaderBehavior.jump) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
       return;
@@ -82,6 +93,7 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
       setState(() {
         _currentValue = (_currentValue - (details.delta.dy / constraints.maxHeight)).clamp(0.0, 1.0);
       });
+      _sendMidiUpdate();
       return;
     }
 
@@ -108,6 +120,7 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
     setState(() {
       _currentValue = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
     });
+    _sendMidiUpdate();
   }
 
   void _showCCMenu(BuildContext context, Offset offset) async {
@@ -147,6 +160,18 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to external MIDI CC updates
+    ref.listen<CCState>(ccValuesProvider, (previous, next) {
+      if (_isActive) return; // Prevent echo feedback loop
+
+      final incomingValue = next.values[_ccNumber];
+      if (incomingValue != null) {
+        setState(() {
+          _currentValue = (incomingValue / 127.0).clamp(0.0, 1.0);
+        });
+      }
+    });
+
     final int ccValue = (_currentValue * 127).round();
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
@@ -156,6 +181,8 @@ class _HybridTouchFaderState extends State<HybridTouchFader> {
         return GestureDetector(
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
           onPanDown: (d) => _handleDragDown(d, constraints),
+          onPanCancel: () => _isActive = false,
+          onPanEnd: (_) => _isActive = false,
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,
