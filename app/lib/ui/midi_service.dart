@@ -55,10 +55,7 @@ class MidiService {
   );
 
   Stream<dynamic> get midiEventsStream =>
-      _eventsChannel.receiveBroadcastStream().map((event) {
-        debugPrint("MIDI FLUTTER IN: $event");
-        return event;
-      });
+      _eventsChannel.receiveBroadcastStream();
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -181,6 +178,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
     // Listen to device connection events from Kotlin
     service.midiEventsStream.listen((event) {
+      debugPrint("MIDI FLUTTER IN: $event");
       if (event is Map) {
         final type = event['type'];
         final id = event['id'];
