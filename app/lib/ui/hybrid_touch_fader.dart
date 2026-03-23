@@ -48,9 +48,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
   // Track if user is actively dragging to prevent external MIDI echo feedback
   bool _isActive = false;
 
-  // State for catchUp behavior
+  // State for touch Catch-up behavior (App -> Hardware)
   bool _isCatchingUp = false;
   bool _mustCrossMovingUp = false;
+
+  // State for hardware Catch-up behavior (Hardware -> App)
+  bool _hardwareIsCatchingUp = true;
+  bool _hardwareMustCrossMovingUp = false;
+  double? _lastHardwareValue;
 
   @override
   void initState() {
@@ -65,12 +70,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
     ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue);
   }
 
-  void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
+  void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
+    // Only lock the fader from incoming MIDI, don't change values yet
     _isActive = true;
-    if (widget.behavior == FaderBehavior.jump) {
-      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
-      return;
-    }
 
     if (widget.behavior == FaderBehavior.catchUp) {
       final handleY = (1.0 - _currentValue) * constraints.maxHeight;
@@ -79,12 +81,22 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
       // If we touch almost exactly on the handle line (within 20 pixels), grab immediately
       if ((touchY - handleY).abs() < 20.0) {
         _isCatchingUp = false;
-        _applyAbsolutePosition(touchY, constraints.maxHeight);
       } else {
         _isCatchingUp = true;
         // If touch is physically lower on screen (higher Y value), we must drag UP (decreasing Y) to cross
         _mustCrossMovingUp = touchY > handleY;
       }
+    }
+  }
+
+  void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
+    if (widget.behavior == FaderBehavior.jump) {
+      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+      return;
+    }
+
+    if (widget.behavior == FaderBehavior.catchUp && !_isCatchingUp) {
+      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
     }
   }
 
@@ -162,13 +174,54 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
   Widget build(BuildContext context) {
     // Listen to external MIDI CC updates
     ref.listen<CCState>(ccValuesProvider, (previous, next) {
-      if (_isActive) return; // Prevent echo feedback loop
+      if (_isActive) {
+        // If we are touching it, the hardware is now out of sync with our finger.
+        // So the next time we let go, the hardware will need to catch up again.
+        _hardwareIsCatchingUp = true;
+        _lastHardwareValue = null;
+        return; // Prevent echo feedback loop
+      }
 
-      final incomingValue = next.values[_ccNumber];
-      if (incomingValue != null) {
-        setState(() {
-          _currentValue = (incomingValue / 127.0).clamp(0.0, 1.0);
-        });
+      final incomingRawValue = next.values[_ccNumber];
+      if (incomingRawValue != null) {
+        final incomingNormalized = (incomingRawValue / 127.0).clamp(0.0, 1.0);
+
+        if (widget.behavior == FaderBehavior.jump) {
+          setState(() {
+            _currentValue = incomingNormalized;
+          });
+          return;
+        }
+
+        if (widget.behavior == FaderBehavior.catchUp || widget.behavior == FaderBehavior.hybrid) {
+          // If the hardware was just moved after the user let go of the screen, determine direction
+          if (_hardwareIsCatchingUp) {
+            if (_lastHardwareValue == null) {
+              // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
+              _hardwareMustCrossMovingUp = incomingNormalized < _currentValue;
+              _lastHardwareValue = incomingNormalized;
+              return;
+            }
+
+            // Check if it has crossed the threshold
+            bool crossed = false;
+            if (_hardwareMustCrossMovingUp && incomingNormalized >= _currentValue) crossed = true;
+            if (!_hardwareMustCrossMovingUp && incomingNormalized <= _currentValue) crossed = true;
+
+            if (crossed) {
+              _hardwareIsCatchingUp = false;
+              setState(() {
+                _currentValue = incomingNormalized;
+              });
+            }
+            _lastHardwareValue = incomingNormalized;
+          } else {
+            // Already caught up, track normally
+            setState(() {
+              _currentValue = incomingNormalized;
+            });
+          }
+        }
       }
     });
 
@@ -179,6 +232,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return GestureDetector(
+          onPanDown: (d) => _handlePanDown(d, constraints),
           onVerticalDragStart: (d) => _handleDragStart(d, constraints),
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
           onVerticalDragCancel: () => _isActive = false,

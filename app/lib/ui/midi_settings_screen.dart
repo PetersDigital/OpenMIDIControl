@@ -83,6 +83,8 @@ class MidiSettingsScreen extends ConsumerWidget {
                   return _DeviceExpansionTile(
                     device: device,
                     isThisDeviceConnected: isThisDeviceConnected,
+                    activeInputPort: isThisDeviceConnected ? connectionState.inputPort : null,
+                    activeOutputPort: isThisDeviceConnected ? connectionState.outputPort : null,
                   );
                 }).toList(),
               );
@@ -211,10 +213,14 @@ class MidiSettingsScreen extends ConsumerWidget {
 class _DeviceExpansionTile extends ConsumerStatefulWidget {
   final MidiDevice device;
   final bool isThisDeviceConnected;
+  final int? activeInputPort;
+  final int? activeOutputPort;
 
   const _DeviceExpansionTile({
     required this.device,
     required this.isThisDeviceConnected,
+    this.activeInputPort,
+    this.activeOutputPort,
   });
 
   @override
@@ -228,11 +234,30 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
   @override
   void initState() {
     super.initState();
-    if (widget.device.inputPorts.isNotEmpty) {
-      _selectedInputPort = widget.device.inputPorts.first.number;
+    _initializePorts();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DeviceExpansionTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isThisDeviceConnected != oldWidget.isThisDeviceConnected ||
+        widget.activeInputPort != oldWidget.activeInputPort ||
+        widget.activeOutputPort != oldWidget.activeOutputPort) {
+      _initializePorts();
     }
-    if (widget.device.outputPorts.isNotEmpty) {
-      _selectedOutputPort = widget.device.outputPorts.first.number;
+  }
+
+  void _initializePorts() {
+    if (widget.isThisDeviceConnected) {
+      _selectedInputPort = widget.activeInputPort;
+      _selectedOutputPort = widget.activeOutputPort;
+    } else {
+      if (widget.device.inputPorts.isNotEmpty) {
+        _selectedInputPort = widget.device.inputPorts.first.number;
+      }
+      if (widget.device.outputPorts.isNotEmpty) {
+        _selectedOutputPort = widget.device.outputPorts.first.number;
+      }
     }
   }
 
@@ -339,9 +364,35 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                                 value: _selectedInputPort,
                                 dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
                                 items: widget.device.inputPorts.map((port) {
+                                  final isActive = widget.isThisDeviceConnected && widget.activeInputPort == port.number;
                                   return DropdownMenuItem<int>(
                                     value: port.number,
-                                    child: Text('${port.name} (Port ${port.number})', overflow: TextOverflow.ellipsis),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                      decoration: isActive ? BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                        ),
+                                      ) : null,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${port.name} (Port ${port.number})',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
+                                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isActive)
+                                            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 16),
+                                        ],
+                                      ),
+                                    ),
                                   );
                                 }).toList(),
                                 onChanged: widget.isThisDeviceConnected
@@ -374,9 +425,35 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                                 value: _selectedOutputPort,
                                 dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
                                 items: widget.device.outputPorts.map((port) {
+                                  final isActive = widget.isThisDeviceConnected && widget.activeOutputPort == port.number;
                                   return DropdownMenuItem<int>(
                                     value: port.number,
-                                    child: Text('${port.name} (Port ${port.number})', overflow: TextOverflow.ellipsis),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                      decoration: isActive ? BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                                        ),
+                                      ) : null,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '${port.name} (Port ${port.number})',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
+                                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isActive)
+                                            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 16),
+                                        ],
+                                      ),
+                                    ),
                                   );
                                 }).toList(),
                                 onChanged: widget.isThisDeviceConnected

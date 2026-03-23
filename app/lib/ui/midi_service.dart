@@ -145,28 +145,40 @@ final midiDevicesProvider = FutureProvider<List<MidiDevice>>((ref) async {
 class MidiConnectionState {
   final MidiDevice? connectedDevice;
   final bool isConnectionLost;
+  final int? inputPort;
+  final int? outputPort;
 
   const MidiConnectionState({
     this.connectedDevice,
     this.isConnectionLost = false,
+    this.inputPort,
+    this.outputPort,
   });
 
   MidiConnectionState copyWith({
     MidiDevice? connectedDevice,
     bool? isConnectionLost,
+    int? inputPort,
+    int? outputPort,
   }) {
     return MidiConnectionState(
       // using a specific pattern here for nullable copyWith if needed,
       // but simpler to just re-instantiate
       connectedDevice: connectedDevice,
       isConnectionLost: isConnectionLost ?? this.isConnectionLost,
+      inputPort: inputPort ?? this.inputPort,
+      outputPort: outputPort ?? this.outputPort,
     );
   }
 
   MidiConnectionState disconnect({bool connectionLost = false}) {
+    // We only wipe the ports if it was intentionally disconnected by the user.
+    // If connection was lost, we keep the ports around for silent auto-reconnect.
     return MidiConnectionState(
-      connectedDevice: null,
+      connectedDevice: connectionLost ? connectedDevice : null,
       isConnectionLost: connectionLost,
+      inputPort: connectionLost ? inputPort : null,
+      outputPort: connectionLost ? outputPort : null,
     );
   }
 }
@@ -198,10 +210,34 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // Refresh the available devices list
           ref.invalidate(midiDevicesProvider);
         } else if (type == 'added') {
+          // Check for auto-reconnect if we previously lost connection
           if (state.isConnectionLost) {
-            state = state.disconnect(connectionLost: false);
+            final previousDevice = state.connectedDevice;
+            final previousInput = state.inputPort;
+            final previousOutput = state.outputPort;
+
+            // Immediately check the new device name/manufacturer to see if it's the one we lost
+            if (previousDevice != null) {
+              // Wait for the new device list to populate from Android
+              Future.delayed(const Duration(milliseconds: 500), () async {
+                final devices = await service.getAvailableDevices();
+                final newDevice = devices.cast<MidiDevice?>().firstWhere(
+                  (d) => d != null && d.id == id &&
+                         d.name == previousDevice.name &&
+                         d.manufacturer == previousDevice.manufacturer,
+                  orElse: () => null,
+                );
+
+                if (newDevice != null) {
+                  // Found the matching fingerprint under a new ID. Auto-reconnect!
+                  connect(newDevice, inputPort: previousInput, outputPort: previousOutput);
+                }
+              });
+            }
+          } else {
+            // General addition, just refresh UI
+            ref.invalidate(midiDevicesProvider);
           }
-          ref.invalidate(midiDevicesProvider);
         } else if (type == 'cc') {
           final ccNumber = event['cc'] as int?;
           final value = event['value'] as int?;
@@ -227,6 +263,8 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       state = MidiConnectionState(
         connectedDevice: device,
         isConnectionLost: false,
+        inputPort: inputPort,
+        outputPort: outputPort,
       );
       service.vibrate(duration: 100); // Stronger mediumImpact equivalent
     } else {
