@@ -3,7 +3,10 @@ package com.PetersDigital.OpenMIDIControl
 import android.content.Context
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
+import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
+import android.media.midi.MidiOutputPort
+import android.media.midi.MidiReceiver
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -20,6 +23,9 @@ class MainActivity : FlutterActivity() {
     private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
     private var midiManager: MidiManager? = null
     private var activeDevice: MidiDevice? = null
+    private var inputPort: MidiInputPort? = null
+    private var outputPort: MidiOutputPort? = null
+    private var midiReceiver: MidiReceiver? = null
     private var eventSink: EventChannel.EventSink? = null
     private var deviceCallback: MidiManager.DeviceCallback? = null
 
@@ -53,6 +59,26 @@ class MainActivity : FlutterActivity() {
                         connectToDevice(id, result)
                     } else {
                         result.error("INVALID_ARGUMENT", "Device ID is required", null)
+                    }
+                }
+                "disconnectDevice" -> {
+                    disconnectDevice()
+                    result.success(null)
+                }
+                "sendMidiCC" -> {
+                    val cc = call.argument<Int>("cc")
+                    val value = call.argument<Int>("value")
+
+                    if (cc != null && value != null) {
+                        try {
+                            val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                            inputPort?.send(msg, 0, msg.size)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "CC and value are required", null)
                     }
                 }
                 "vibrate" -> {
@@ -145,11 +171,72 @@ class MainActivity : FlutterActivity() {
         midiManager?.openDevice(deviceInfo, { device ->
             if (device != null) {
                 activeDevice = device
+
+                // Open ports
+                val numOutputs = device.info.outputPortCount
+                if (numOutputs > 0) {
+                    outputPort = device.openOutputPort(0)
+                    setupMidiReceiver()
+                }
+
+                val numInputs = device.info.inputPortCount
+                if (numInputs > 0) {
+                    inputPort = device.openInputPort(0)
+                }
+
                 result.success(true)
             } else {
                 result.error("CONNECTION_FAILED", "Failed to open device", null)
             }
         }, Handler(Looper.getMainLooper()))
+    }
+
+    private fun disconnectDevice() {
+        try {
+            outputPort?.disconnect(midiReceiver)
+            midiReceiver = null
+        } catch (e: Exception) { }
+        try {
+            outputPort?.close()
+            outputPort = null
+        } catch (e: Exception) { }
+        try {
+            inputPort?.close()
+            inputPort = null
+        } catch (e: Exception) { }
+        try {
+            activeDevice?.close()
+            activeDevice = null
+        } catch (e: Exception) { }
+    }
+
+    private fun setupMidiReceiver() {
+        if (midiReceiver == null) {
+            midiReceiver = object : MidiReceiver() {
+                override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
+                    if (msg == null || count < 3) return
+
+                    // Check if it's a Control Change message on Channel 1 (0xB0)
+                    // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
+                    val statusByte = msg[offset].toInt() and 0xFF
+                    if (statusByte == 0xB0) {
+                        val ccNumber = msg[offset + 1].toInt() and 0xFF
+                        val ccValue = msg[offset + 2].toInt() and 0xFF
+
+                        val event = mapOf(
+                            "type" to "cc",
+                            "cc" to ccNumber,
+                            "value" to ccValue
+                        )
+
+                        Handler(Looper.getMainLooper()).post {
+                            eventSink?.success(event)
+                        }
+                    }
+                }
+            }
+            outputPort?.connect(midiReceiver)
+        }
     }
 
     private fun setupMidiDeviceCallback() {
@@ -166,6 +253,9 @@ class MainActivity : FlutterActivity() {
                 }
 
                 override fun onDeviceRemoved(device: MidiDeviceInfo) {
+                    if (activeDevice?.info?.id == device.id) {
+                        disconnectDevice()
+                    }
                     val event = mapOf(
                         "type" to "removed",
                         "id" to device.id.toString()
@@ -188,6 +278,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         teardownMidiDeviceCallback()
+        disconnectDevice()
         super.onDestroy()
     }
 }

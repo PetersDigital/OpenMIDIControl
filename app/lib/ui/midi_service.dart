@@ -63,6 +63,25 @@ class MidiService {
     }
   }
 
+  Future<void> disconnectDevice() async {
+    try {
+      await _channel.invokeMethod('disconnectDevice');
+    } catch (e) {
+      debugPrint('Failed to disconnect device: $e');
+    }
+  }
+
+  Future<void> sendCC(int cc, int value) async {
+    try {
+      await _channel.invokeMethod('sendMidiCC', {
+        'cc': cc,
+        'value': value,
+      });
+    } catch (e) {
+      debugPrint('Failed to send CC $cc: $e');
+    }
+  }
+
   Future<void> vibrate({
     int? duration,
     List<int>? pattern,
@@ -157,6 +176,12 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
             state = state.disconnect(connectionLost: false);
           }
           ref.invalidate(midiDevicesProvider);
+        } else if (type == 'cc') {
+          final ccNumber = event['cc'] as int?;
+          final value = event['value'] as int?;
+          if (ccNumber != null && value != null) {
+            ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+          }
         }
       }
     });
@@ -183,6 +208,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   void disconnect() {
     final service = ref.read(midiServiceProvider);
     service.vibrate(duration: 50);
+    service.disconnectDevice();
     state = state.disconnect(connectionLost: false);
   }
 }
@@ -193,6 +219,34 @@ final connectedMidiDeviceProvider =
     );
 
 enum MidiStatus { disconnected, available, connected, connectionLost }
+
+// State is stored as an integer (0-127).
+// In Riverpod 2.x/3.x, passing arguments to a Notifier happens via Family.
+// For CC, we just want a simple state to sync inbound and outbound.
+// A simpler alternative to FamilyNotifier is to just expose a map or use a custom class.
+class CCState {
+  final Map<int, int> values;
+  CCState({this.values = const {}});
+
+  CCState copyWith(int cc, int val) {
+    final newValues = Map<int, int>.from(values);
+    newValues[cc] = val;
+    return CCState(values: newValues);
+  }
+}
+
+class CcNotifier extends Notifier<CCState> {
+  @override
+  CCState build() {
+    return CCState();
+  }
+
+  void updateCC(int cc, int value) {
+    state = state.copyWith(cc, value);
+  }
+}
+
+final ccValuesProvider = NotifierProvider<CcNotifier, CCState>(CcNotifier.new);
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
