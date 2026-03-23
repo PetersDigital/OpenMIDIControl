@@ -1,6 +1,6 @@
 # OpenMIDIControl Scripts
 
-This folder contains organizational and build-assistance scripts to standardize testing and release workflows across contributors.
+This folder contains organizational and build-assistance scripts to standardize testing and release workflows across contributors. These scripts provide an interactive device-selection layer (via `flutter devices --machine`) to ensure the app targets the correct hardware during high-frequency MIDI testing.
 
 ## Key Features
 
@@ -57,3 +57,16 @@ Open a PowerShell terminal from the project root and run:
 3. Hook into the `flutter devices` daemon to parse your connected hardware targets.
 4. Present an interactive numbered list of your connected simulators and physical endpoints.
 5. Safely execute `flutter run --release` on your chosen target and clean up.
+
+## Local Debug Testing (`run_debug.ps1`)
+
+For active development and debugging (with hot reload and verbose Kotlin logging), use the debug launcher. This script skips the keystore/signing steps but retains the interactive device picker.
+
+```powershell
+.\scripts\run_debug.ps1
+```
+
+**Features:**
+1. **Interactive Device Picker**: Parses connected Android/Windows targets.
+2. **Auto-CWD Management**: Consistently targets the `app/` directory from the root.
+3. **Verbose Logs**: Ensures `android.util.Log` output is visible in the console.
