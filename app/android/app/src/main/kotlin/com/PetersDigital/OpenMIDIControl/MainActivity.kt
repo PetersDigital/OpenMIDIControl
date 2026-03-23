@@ -128,7 +128,22 @@ class MainActivity : FlutterActivity() {
             val outputPorts = mutableListOf<Map<String, Any>>()
 
             deviceInfo.ports.forEach { portInfo ->
-                val portName = portInfo.name ?: "Port ${portInfo.portNumber}"
+                var portName = portInfo.name
+                if (portName.isNullOrEmpty()) {
+                    // Try to provide intelligent fallbacks based on device name
+                    if (name.contains("Minilab 3", ignoreCase = true) || name.contains("MiniLab3", ignoreCase = true)) {
+                        portName = when (portInfo.portNumber) {
+                            0 -> "MiniLab 3 MIDI"
+                            1 -> "MiniLab 3 DIN Thru"
+                            2 -> "MiniLab 3 MCU"
+                            3 -> "MiniLab 3 ALV"
+                            else -> "Port ${portInfo.portNumber}"
+                        }
+                    } else {
+                        portName = "Port ${portInfo.portNumber}"
+                    }
+                }
+
                 val portData = mapOf(
                     "number" to portInfo.portNumber,
                     "name" to portName
