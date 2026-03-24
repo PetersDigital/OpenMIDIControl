@@ -22,10 +22,14 @@ class UsbConnectionStateNotifier extends Notifier<String> {
   String build() {
     final service = ref.watch(midiServiceProvider);
 
-    service.midiEventsStream.listen((event) {
+    final sub = service.midiEventsStream.listen((event) {
       if (event is Map && event['type'] == 'usb_state') {
         state = event['state'] as String;
       }
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
     });
 
     return 'INIT';
@@ -207,7 +211,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final service = ref.watch(midiServiceProvider);
 
     // Listen to device connection events from Kotlin
-    service.midiEventsStream.listen((event) {
+    final sub = service.midiEventsStream.listen((event) {
       debugPrint("MIDI FLUTTER IN: $event");
       if (event is Map) {
         final type = event['type'];
@@ -269,8 +273,24 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           if (ccNumber != null && value != null) {
             ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
           }
+        } else if (type == 'usb_state') {
+          // If we receive a USB disconnect and we are connected to the USB device (which may not send a 'removed' event if it was our own service)
+          if (event['state'] == 'DISCONNECTED') {
+            if (state.connectedDevice != null && state.connectedDevice!.name.contains("USB")) {
+              state = state.disconnect(connectionLost: true);
+              service.vibrate(
+                pattern: [0, 100, 100, 100],
+                amplitude: [0, 255, 0, 255],
+              );
+              ref.invalidate(midiDevicesProvider);
+            }
+          }
         }
       }
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
     });
 
     return const MidiConnectionState();

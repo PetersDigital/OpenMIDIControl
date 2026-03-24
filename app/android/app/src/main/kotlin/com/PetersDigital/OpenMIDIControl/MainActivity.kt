@@ -9,6 +9,8 @@ import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import android.os.Build
@@ -48,15 +50,50 @@ class MainActivity : FlutterActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "android.hardware.usb.action.USB_STATE") {
                 val connected = intent.extras?.getBoolean("connected") ?: false
+                val configured = intent.extras?.getBoolean("configured") ?: false
+                val midi = intent.extras?.getBoolean("midi") ?: false
 
-                val event = mapOf(
-                    "type" to "usb_state",
-                    "state" to if (connected) "AVAILABLE" else "INIT"
-                )
-                Handler(Looper.getMainLooper()).post {
-                    eventSink?.success(event)
+                val isMidiConnected = connected && configured && midi
+
+                if (isMidiConnected) {
+                    updatePeripheralServiceState(true)
+                    val event = mapOf(
+                        "type" to "usb_state",
+                        "state" to "AVAILABLE"
+                    )
+                    Handler(Looper.getMainLooper()).post {
+                        eventSink?.success(event)
+                    }
+                } else if (!connected) {
+                    updatePeripheralServiceState(false)
+                    val event = mapOf(
+                        "type" to "usb_state",
+                        "state" to "DISCONNECTED"
+                    )
+                    Handler(Looper.getMainLooper()).post {
+                        eventSink?.success(event)
+                    }
                 }
             }
+        }
+    }
+
+    private fun updatePeripheralServiceState(enable: Boolean) {
+        try {
+            val pm = packageManager
+            val componentName = ComponentName(this, PeripheralMidiService::class.java)
+            val currentState = pm.getComponentEnabledSetting(componentName)
+            val newState = if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+
+            if (currentState != newState) {
+                pm.setComponentEnabledSetting(
+                    componentName,
+                    newState,
+                    PackageManager.DONT_KILL_APP
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("OpenMIDIControl", "Failed to toggle PeripheralMidiService", e)
         }
     }
 
@@ -67,7 +104,7 @@ class MainActivity : FlutterActivity() {
         midiManager = getSystemService(Context.MIDI_SERVICE) as MidiManager?
 
         val filter = IntentFilter("android.hardware.usb.action.USB_STATE")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val stickyIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(usbStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(usbStateReceiver, filter)
@@ -78,6 +115,33 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
                     setupMidiDeviceCallback()
+
+                    // Immediately evaluate the initial sticky intent if available
+                    stickyIntent?.let {
+                        val connected = it.extras?.getBoolean("connected") ?: false
+                        val configured = it.extras?.getBoolean("configured") ?: false
+                        val midi = it.extras?.getBoolean("midi") ?: false
+                        val isMidiConnected = connected && configured && midi
+
+                        if (isMidiConnected) {
+                            updatePeripheralServiceState(true)
+                            val initEvent = mapOf(
+                                "type" to "usb_state",
+                                "state" to "AVAILABLE"
+                            )
+                            eventSink?.success(initEvent)
+                        } else if (!connected) {
+                            updatePeripheralServiceState(false)
+                            val initEvent = mapOf(
+                                "type" to "usb_state",
+                                "state" to "DISCONNECTED"
+                            )
+                            eventSink?.success(initEvent)
+                        }
+                    } ?: run {
+                        // If no intent, assume disabled initially
+                        updatePeripheralServiceState(false)
+                    }
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -193,6 +257,11 @@ class MainActivity : FlutterActivity() {
             val properties = deviceInfo.properties
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
             val manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER) ?: "Unknown Manufacturer"
+
+            // Filter out the app's own Virtual and USB ports from the UI
+            if (manufacturer == "PetersDigital") {
+                return@forEach
+            }
 
             val inputPorts = mutableListOf<Map<String, Any>>()
             val outputPorts = mutableListOf<Map<String, Any>>()
