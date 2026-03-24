@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -120,7 +121,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getMidiDevices(): List<Map<String, Any>> {
         val devicesList = mutableListOf<Map<String, Any>>()
-        val devices: Array<MidiDeviceInfo>? = midiManager?.devices
+        val devices: Array<MidiDeviceInfo>? = midiManager?.getDevices()
 
         devices?.forEach { deviceInfo ->
             val id = deviceInfo.id.toString()
@@ -208,7 +209,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
-        val devices: Array<MidiDeviceInfo>? = midiManager?.devices
+        val devices: Array<MidiDeviceInfo>? = midiManager?.getDevices()
         val deviceInfo = devices?.find { it.id.toString() == id }
 
         if (deviceInfo == null) {
@@ -339,7 +340,16 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
-            midiManager?.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+            midiManager?.let { mgr ->
+                try {
+                    // Use Executor overload when available (latest API), fallback to Handler otherwise
+                    val method = mgr.javaClass.getMethod("registerDeviceCallback", MidiManager.DeviceCallback::class.java, java.util.concurrent.Executor::class.java)
+                    method.invoke(mgr, deviceCallback, ContextCompat.getMainExecutor(this))
+                } catch (e: NoSuchMethodException) {
+                    @Suppress("DEPRECATION")
+                    mgr.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+                }
+            }
         }
     }
 
