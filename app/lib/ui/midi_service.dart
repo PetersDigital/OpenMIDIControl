@@ -211,6 +211,9 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // Refresh the available devices list
           ref.invalidate(midiDevicesProvider);
         } else if (type == 'added') {
+          // Refresh device list on any new added event.
+          ref.invalidate(midiDevicesProvider);
+
           // Check for auto-reconnect if we previously lost connection
           if (state.isConnectionLost) {
             final previousDevice = state.connectedDevice;
@@ -238,12 +241,10 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
                     inputPort: previousInput,
                     outputPort: previousOutput,
                   );
+                  ref.invalidate(midiDevicesProvider);
                 }
               });
             }
-          } else {
-            // General addition, just refresh UI
-            ref.invalidate(midiDevicesProvider);
           }
         } else if (type == 'cc') {
           final ccNumber = event['cc'] as int?;
