@@ -2,19 +2,26 @@
 
 This repository is primarily developed using AI coding agents (LLMs) via GitHub Copilot and other tools.
 
-## Milestone Status: v0.1.5 (Phase 2 Refinement)
+## Milestone Status: v0.1.5 (MIDI Reliability & Logic Polish)
 
-### ✅ Completed Tasks
-- [x] Consolidate Fader Gesture Logic in `onVerticalDragStart`.
-- [x] Apply Behavior Logic (Catch-up) to incoming hardware MIDI.
-- [x] Implement Metadata-based Reconnection (Name/Manufacturer match).
-- [x] Enhanced UI Highlighting for active MIDI ports.
-- [x] Virtual MIDI Port implementation.
+### ✅ Completed (v0.1.5)
+- [x] **Virtual MIDI Port**: Native Android MIDI device for local routing.
+- [x] **Metadata Reconnection**: Fingerprint matching for USB hot-plug stability.
+- [x] **Bi-directional Logic**: Jump/Hybrid/Catch-up applied to hardware MIDI.
+- [x] **Responsive UI**: Dedicated landscape layout for ultra-wide phones (S24 Ultra).
+- [x] **UI Highlighting**: Active MIDI port visualization in settings.
+- [x] **Gesture Fixes**: Fader initialization moved to `onVerticalDragStart`.
+- [x] **Haptic Stability**: JVM crash fix for vibration durations.
 
-### ⏳ Current Focus: Phase 3 (App as Peripheral)
-- [ ] USB MIDI Class Compliance validation.
-- [ ] Pivot `MainActivity.kt` to Peripheral handshake as primary role.
-- [ ] Logic for Windows-to-Android fader resolution (high-precision MIDI 2.0 readiness).
+### ⏳ Current Focus: v0.2.0 (Advanced USB MIDI & Logic)
+- **Phase 3 (Peripheral Pivot):**
+  - [ ] Implement native `MidiDeviceService` for USB Peripheral role.
+  - [ ] Update `AndroidManifest.xml` and `midi_device_info.xml` for Class Compliance.
+  - [ ] Initialize "Device Server" logic in `MainActivity.kt`.
+- **Phase 4 (Compliance & Stability):**
+  - [ ] Driverless validation on Windows 11.
+  - [ ] Sub-millisecond timing audit using `System.nanoTime()`.
+  - [ ] Jitter reduction and 14-bit readiness.
 
 ## Human roles
 - **Owner/Maintainer:** PetersDigital

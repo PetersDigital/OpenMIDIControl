@@ -68,14 +68,56 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Version Roadmap (v0.1.0 to v1.0.0)
 
-The project uses SemVer feature tracking instead of date promises.
+This roadmap tracks feature progress using Semantic Versioning. Progress is measured by functional milestones rather than specific dates.
 
-- ✅ **v0.1.0**: Core wired control (UI baseline), two expressive faders, test harness.
-- ✅ **v0.1.5**: **Refinement Phase**: Metadata reconnection, Virtual MIDI, and discrete port selection.
-- ⏳ **v0.2.0**: Native MIDI service bridge (Finalizing wired USB/DIN transport baseline).
-- ⏳ **v0.3.0**: Expanded controls (buttons/switches) and richer bidirectional state sync.
-- ⏳ **v0.4.0+**: Optional desktop bridge and wireless transport (OSC/WebSockets).
-- ⏳ **v1.0.0**: Stable contributor-ready architecture and official DAW integrations (Cubase, etc.).
+### ✅ v0.1.0: Baseline
+* Established core wired control and UI baseline.
+* Implemented two expressive faders with high-precision tracking.
+* Integrated internal MIDI test harness.
+
+### ✅ v0.1.5: MIDI Reliability & Logic Polish
+* **Virtual MIDI Port**: Implemented a native Android MIDI device ("OpenMIDIControl") for local data routing.
+* **Metadata Reconnection**: Added "fingerprint" matching (Name/Manufacturer) to handle transient Android IDs during USB hot-plugging.
+* **Bi-directional Logic**: Applied Jump, Hybrid, and Catch-up behaviors to incoming hardware MIDI data.
+* **UI Feedback**: Added translucent row highlighting for active input/output ports in MIDI settings.
+* **Responsive UI**: Dedicated ultra-wide phone landscape layout (optimized for S24 Ultra).
+* **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
+* **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
+
+### ⏳ v0.2.0: Advanced USB MIDI & Logic (Current Focus)
+* **Peripheral Mode**: Pivoting the app to act as a USB Peripheral for Windows 11 and DAW recognition.
+* **USB Class Compliance**: Validation of standardized MIDI communication without custom drivers.
+* **Logic Refinement**: Finalizing "Catch-up" and "Hybrid" fader physics for professional mixing workflows.
+
+### ⏳ v0.3.0: Control Expansion
+* **Grid System**: Addition of a 3×3 performance pad grid.
+* **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
+* **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.
+
+### ⏳ v0.4.0: Mackie Control Universal (MCU) & HUI
+* **High Resolution**: Support for 14-bit fader resolution via Pitch Bend messages.
+* **DAW Handshake**: Native MCU/HUI protocols for instant integration with major DAWs.
+* **LCD Logic**: Automatic track naming and bank switching feedback.
+
+### ⏳ v0.5.0: Native DAW Integrations
+* **Remote Scripts**: Official integration scripts for Cubase, Ableton Live, and Logic Pro.
+* **Cubase Focus**: Deep integration with the Cubase MIDI Remote API.
+
+### ⏳ v0.6.0: Preset Engine & Snapshots
+* **Snapshots**: Save and load fader/CC configurations as project-specific presets.
+* **Dynamic Mapping**: Quick-flip between layout modes (e.g., Orchestral CC1/11 vs. Synth CC74/71).
+
+### ⏳ v0.7.0: Ethereal Layout Editor
+* **Visual Customization**: Drag-and-drop editor to resize and reposition UI elements.
+* **Aesthetic Polish**: Implementation of "Ethereal Console" visual effects, including glow trails and friction physics.
+
+### ⏳ v0.8.0+: Desktop Bridge & Wireless Transport
+* **Wireless MIDI**: Support for rtpMIDI (Wi-Fi) and Bluetooth MIDI.
+* **Advanced Transport**: OSC and WebSocket support for custom desktop bridge applications.
+
+### ⏳ v1.0.0: Contributor-Ready Release
+* **Stable Architecture**: Documented API for third-party layout and integration contributors.
+* **Performance Optimization**: Final tuning for ultra-low latency and jitter-free performance.
 
 ## Repository Status
 

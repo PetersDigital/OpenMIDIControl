@@ -25,18 +25,18 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 - Flutter UI (Dart) relying on `LayoutBuilder` for responsive adaptation.
 - "Absolute/Relative" hybrid touch faders to capture interactions without jarring volume changes.
 - Internal state management strictly emitting "Intent" events to remain transport-agnostic.
-- Wired USB-MIDI only in v0.1.0–v0.3.0 (via Custom SysEx/Standard CC). Future versions (v0.4.0+) may implement WebSockets/OSC strictly for heavy Macro integrations over Wi-Fi, keeping fader data hardwired.
+- **Transport Role Pivot:** v0.2.0 shifts the app from a simple "MIDI Host" (controlling hardware) to a **"USB MIDI Peripheral"** (acting as a standard MIDI device for PCs). This pivot requires a native `MidiDeviceService` implementation to ensure driverless Windows 11 compatibility.
 - Phone UI is portrait-first for expressive fader controls; tablet landscape remains the preferred mode for grid-style pads and extended control surfaces.
 
 ## 3. System Model
 
-Initial target is wired MIDI with three logical layers (see diagram below):
+Initial target is wired MIDI with three logical layers:
 
 1. Touch/UI layer
 2. MIDI service layer
-3. Transport/port adapter layer
+3. Transport/port adapter layer (Host vs. Peripheral roles)
 
-Each layer can reject duplicate or unsafe events independently.
+Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the Transport layer is optimized for **USB Class Compliance**, ensuring that the phone appears as a high-precision controller to the desktop OS.
 
 Connection lifecycle (text diagram):
 ```
@@ -116,32 +116,58 @@ State machine must be explicit and testable.
 - Unknown SysEx commands: log and ignore.
 - Port loss: preserve UI state, signal disconnected mode, retry connection.
 
-## 10. Version Roadmap
+## 10. Version Roadmap (v0.1.0 to v1.0.0)
 
-### v0.1.0: Core control path
+This roadmap tracks feature progress using Semantic Versioning. Progress is measured by functional milestones rather than specific dates.
 
-- Two expressive faders
-- Multi-touch pointer capture
-- Bidirectional CC feedback
-- Dedup and thermal guardrails
+### ✅ v0.1.0: Baseline
+* Established core wired control and UI baseline.
+* Implemented two expressive faders with high-precision tracking.
+* Integrated internal MIDI test harness.
 
-### v0.2.0: Configurable behavior
+### ✅ v0.1.5: MIDI Reliability & Logic Polish
+* **Virtual MIDI Port**: Implemented a native Android MIDI device ("OpenMIDIControl") for local data routing.
+* **Metadata Reconnection**: Added "fingerprint" matching (Name/Manufacturer) to handle transient Android IDs during USB hot-plugging.
+* **Bi-directional Logic**: Applied Jump, Hybrid, and Catch-up behaviors to incoming hardware MIDI data.
+* **UI Feedback**: Added translucent row highlighting for active input/output ports in MIDI settings.
+* **Responsive UI**: Dedicated ultra-wide phone landscape layout (optimized for S24 Ultra).
+* **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
+* **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
 
-- Mapping/preset storage
-- Pickup/jump modes
-- Adjustable smoothing/rate limits
+### ⏳ v0.2.0: Advanced USB MIDI & Logic (Current Focus)
+* **Peripheral Mode**: Pivoting the app to act as a USB Peripheral for Windows 11 and DAW recognition.
+* **USB Class Compliance**: Validation of standardized MIDI communication without custom drivers.
+* **Logic Refinement**: Finalizing "Catch-up" and "Hybrid" fader physics for professional mixing workflows.
 
-### v0.3.0: Expanded messaging
+### ⏳ v0.3.0: Control Expansion
+* **Grid System**: Addition of a 3×3 performance pad grid.
+* **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
+* **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.
 
-- Optional NRPN/state messages
-- Optional metadata SysEx channel
-- Integration adapters kept isolated from core touch/MIDI path
+### ⏳ v0.4.0: Mackie Control Universal (MCU) & HUI
+* **High Resolution**: Support for 14-bit fader resolution via Pitch Bend messages.
+* **DAW Handshake**: Native MCU/HUI protocols for instant integration with major DAWs.
+* **LCD Logic**: Automatic track naming and bank switching feedback.
 
-### v1.0.0: Host integrations (Cubase first)
+### ⏳ v0.5.0: Native DAW Integrations
+* **Remote Scripts**: Official integration scripts for Cubase, Ableton Live, and Logic Pro.
+* **Cubase Focus**: Deep integration with the Cubase MIDI Remote API.
 
-- Host adapters live outside the core touch/MIDI path.
-- Mapping schema per control: {cc/chan, mode (pickup/jump), resolution (7/14-bit), feedback policy}.
-- Reference controller scripts and mappings live under references/cubase/*.
+### ⏳ v0.6.0: Preset Engine & Snapshots
+* **Snapshots**: Save and load fader/CC configurations as project-specific presets.
+* **Dynamic Mapping**: Quick-flip between layout modes (e.g., Orchestral CC1/11 vs. Synth CC74/71).
+
+### ⏳ v0.7.0: Ethereal Layout Editor
+* **Visual Customization**: Drag-and-drop editor to resize and reposition UI elements.
+* **Aesthetic Polish**: Implementation of "Ethereal Console" visual effects, including glow trails and friction physics.
+
+### ⏳ v0.8.0+: Desktop Bridge & Wireless Transport
+* **Wireless MIDI**: Support for rtpMIDI (Wi-Fi) and Bluetooth MIDI.
+* **Advanced Transport**: OSC and WebSocket support for custom desktop bridge applications.
+
+### ⏳ v1.0.0: Contributor-Ready Release
+* **Stable Architecture**: Documented API for third-party layout and integration contributors.
+* **Performance Optimization**: Final tuning for ultra-low latency and jitter-free performance.
 
 ## 11. Verification Checklist
 
