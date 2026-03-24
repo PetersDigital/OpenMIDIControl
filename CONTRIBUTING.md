@@ -34,8 +34,8 @@ Examples:
 Releases are triggered by pushing **signed SemVer tags**:
 
 ```bash
-git tag -s v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -s v0.1.5 -m "Release v0.1.5"
+git push origin v0.1.5
 ```
 
 1. Ensure the `CHANGELOG.md` is updated with the version header and changes.
