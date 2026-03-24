@@ -1,5 +1,6 @@
 // Utility class to check MIDI support at runtime
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MidiSupportChecker {
@@ -23,7 +24,7 @@ class MidiSupportChecker {
     // Initial check
     bool isSupported = await isMidiSupported();
     yield isSupported;
-    
+
     // Note: We don't have a real-time stream for MIDI support changes
     // as it's generally a static device property
     // But we could re-check periodically if needed
