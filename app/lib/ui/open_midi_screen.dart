@@ -68,16 +68,25 @@ class OpenMIDIMainScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mq = MediaQuery.of(context);
+    final isLandscape = mq.orientation == Orientation.landscape;
+    final isTablet = mq.size.shortestSide >= 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 900) {
-              return const _DesktopLandscapeLayout();
-            } else {
-              return const _MobilePortraitLayout();
+            // Adaptive layout selection
+            if (isLandscape) {
+              if (isTablet && constraints.maxWidth > 900) {
+                return const _DesktopLandscapeLayout();
+              }
+              // Landscape on phones (including ultra-wide 19.5:9+)
+              return const _MobileLandscapeLayout();
             }
+            // Default portrait for mobile
+            return const _MobilePortraitLayout();
           },
         ),
       ),
@@ -311,6 +320,205 @@ class _MobilePortraitLayout extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ===========================================================================
+// MOBILE LANDSCAPE LAYOUT
+// ===========================================================================
+class _MobileLandscapeLayout extends ConsumerWidget {
+  const _MobileLandscapeLayout();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final faderOnRight =
+        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
+
+    final commandPanel = Expanded(
+      flex: 38,
+      child: _buildCommandCenter(context, ref),
+    );
+    final faderPanel = Expanded(flex: 62, child: _buildPerformanceZone(ref));
+
+    return Row(
+      children: faderOnRight
+          ? [commandPanel, faderPanel]
+          : [faderPanel, commandPanel],
+    );
+  }
+
+  Widget _buildCommandCenter(BuildContext context, WidgetRef ref) {
+    return Container(
+      color: const Color(0xFF1E2024),
+      child: Column(
+        children: [
+          // Compact Header Strip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Icon(
+                  Icons.settings_input_component,
+                  color: Color(0xFFA6C9F8),
+                  size: 20,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ConnectionStatusButton(
+                      onTap: () => _showMidiSettings(context),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: Color(0xFFC3C7CA),
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showAppSettings(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Status Row (Tempo/TC)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
+                ),
+                Expanded(
+                  child: _StatusDisplay(
+                    label: "TIMECODE",
+                    value: "001:01:000",
+                    alignRight: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Transport Grid (Full bleed)
+          Expanded(
+            child: Container(
+              color: const Color(0xFF111318),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(child: _GridButton(icon: Icons.fast_rewind)),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_up,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.fiber_manual_record,
+                            bgColor: Color(0xFFFFB59E),
+                            iconColor: Color(0xFF690005),
+                            isSolid: true,
+                            shadowColor: Color(0xFFFFB59E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_left,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.stop,
+                            bgColor: Color(0xFF33353A),
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_right,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(child: _GridButton(icon: Icons.fast_forward)),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.keyboard_arrow_down,
+                            bgColor: Color(0xFF282A2E),
+                          ),
+                        ),
+                        Expanded(
+                          child: _GridButton(
+                            icon: Icons.play_arrow,
+                            bgColor: Color(0xFFA6C9F8),
+                            iconColor: Color(0xFF033258),
+                            isSolid: true,
+                            shadowColor: Color(0xFFA6C9F8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerformanceZone(WidgetRef ref) {
+    return Container(
+      color: const Color(0xFF111318),
+      child: Row(
+        children: [
+          Expanded(
+            child: HybridTouchFader(
+              ccNumber: 1,
+              label: "CC1\nDYNAMICS",
+              activeColor: const Color(0xFFA6C9F8),
+              labelColor: const Color(0xFF033258),
+              initialValue: 1.0,
+              isMobile: true,
+              behavior: ref.watch(faderBehaviorProvider),
+            ),
+          ),
+          Expanded(
+            child: HybridTouchFader(
+              ccNumber: 11,
+              label: "CC11\nEXPRESSION",
+              activeColor: const Color(0xFFA1CFCE),
+              labelColor: const Color(0xFF013737),
+              initialValue: 0.5,
+              isMobile: true,
+              behavior: ref.watch(faderBehaviorProvider),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
