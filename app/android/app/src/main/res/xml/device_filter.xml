@@ -1,0 +1,4 @@
+<resources>
+    <!-- Restrict to USB MIDI-class devices (Audio class 0x01, MIDI streaming subclass 0x03) -->
+    <usb-device class="1" subclass="3" />
+</resources>

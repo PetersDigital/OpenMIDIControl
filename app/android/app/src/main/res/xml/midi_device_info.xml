@@ -1,0 +1,6 @@
+<devices>
+    <device manufacturer="PetersDigital" product="OpenMIDIControl" name="OpenMIDIControl Virtual Port">
+        <input-port name="OpenMIDIControl In" />
+        <output-port name="OpenMIDIControl Out" />
+    </device>
+</devices>
