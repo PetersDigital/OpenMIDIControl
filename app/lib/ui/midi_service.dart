@@ -17,6 +17,23 @@ class MidiPort {
   }
 }
 
+class UsbConnectionStateNotifier extends Notifier<String> {
+  @override
+  String build() {
+    final service = ref.watch(midiServiceProvider);
+
+    service.midiEventsStream.listen((event) {
+      if (event is Map && event['type'] == 'usb_state') {
+        state = event['state'] as String;
+      }
+    });
+
+    return 'INIT';
+  }
+}
+
+final usbConnectionStateProvider = NotifierProvider<UsbConnectionStateNotifier, String>(UsbConnectionStateNotifier.new);
+
 class MidiDevice {
   final String id;
   final String name;
@@ -100,9 +117,9 @@ class MidiService {
     }
   }
 
-  Future<void> sendCC(int cc, int value) async {
+  Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
     try {
-      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value});
+      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value, 'isFinal': isFinal});
     } catch (e) {
       debugPrint('Failed to send CC $cc: $e');
     }
@@ -331,6 +348,7 @@ final ccValuesProvider = NotifierProvider<CcNotifier, CCState>(CcNotifier.new);
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
   final devicesAsync = ref.watch(midiDevicesProvider);
+  final usbState = ref.watch(usbConnectionStateProvider);
 
   if (connectionState.isConnectionLost) {
     return MidiStatus.connectionLost;
@@ -338,6 +356,10 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
 
   if (connectionState.connectedDevice != null) {
     return MidiStatus.connected;
+  }
+
+  if (usbState == 'AVAILABLE') {
+    return MidiStatus.available;
   }
 
   final devices = devicesAsync.value ?? [];
