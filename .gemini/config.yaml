@@ -1,5 +1,5 @@
 code_review:
-  disable: true  # Prevents Gemini from automatically reviewing pull requests
+  disable: false  # Must be false to allow the review engine to run when called
 
 pull_request_opened:
   summary: false      # Stops the automatic PR summary comment
