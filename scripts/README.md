@@ -22,6 +22,8 @@ Open a PowerShell terminal from the project root and run:
 .\scripts\run_debug.ps1
 ```
 
+> Requires PowerShell 7+ (the scripts use `Get-ChildItem -Depth` and other modern cmdlets).
+
 **The script will:**
 1. Dynamically find the Flutter project directory.
 2. List all available targets.
