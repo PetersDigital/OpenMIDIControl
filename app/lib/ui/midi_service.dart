@@ -274,16 +274,17 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
             ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
           }
         } else if (type == 'usb_state') {
-          // If we receive a USB disconnect and we are connected to the USB device (which may not send a 'removed' event if it was our own service)
-          if (event['state'] == 'DISCONNECTED') {
-            if (state.connectedDevice != null && state.connectedDevice!.name.contains("USB")) {
-              state = state.disconnect(connectionLost: true);
-              service.vibrate(
-                pattern: [0, 100, 100, 100],
-                amplitude: [0, 255, 0, 255],
-              );
-              ref.invalidate(midiDevicesProvider);
-            }
+          final usbStatus = event['state'];
+
+          if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
+            // FORCE the teardown. Do NOT hide this behind a connectedDevice != null check.
+            // The physical cable is gone; the state must reflect it immediately.
+            state = state.disconnect(connectionLost: true);
+            service.vibrate(
+              pattern: [0, 100, 100, 100],
+              amplitude: [0, 255, 0, 255],
+            );
+            ref.invalidate(midiDevicesProvider);
           }
         }
       }
