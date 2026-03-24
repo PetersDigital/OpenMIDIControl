@@ -65,9 +65,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
     _ccLabel = widget.label;
   }
 
-  void _sendMidiUpdate() {
+  void _sendMidiUpdate({bool isFinal = false}) {
     final int ccValue = (_currentValue * 127).round();
-    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue);
+    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue, isFinal: isFinal);
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
@@ -235,8 +235,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
           onPanDown: (d) => _handlePanDown(d, constraints),
           onVerticalDragStart: (d) => _handleDragStart(d, constraints),
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
-          onVerticalDragCancel: () => _isActive = false,
-          onVerticalDragEnd: (_) => _isActive = false,
+          onVerticalDragCancel: () {
+            _isActive = false;
+            _sendMidiUpdate(isFinal: true);
+          },
+          onVerticalDragEnd: (_) {
+            _isActive = false;
+            _sendMidiUpdate(isFinal: true);
+          },
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,

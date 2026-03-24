@@ -1,6 +1,10 @@
 package com.PetersDigital.OpenMIDIControl
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.usb.UsbManager
 import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiInputPort
@@ -34,11 +38,40 @@ class MainActivity : FlutterActivity() {
     private var eventSink: EventChannel.EventSink? = null
     private var deviceCallback: MidiManager.DeviceCallback? = null
 
+    // Rate-limiting and Deduplication state
+    private val lastSentValue = mutableMapOf<Int, Int>()
+    private val lastSentTime = mutableMapOf<Int, Long>()
+    private val suppressionWindowNs = 75_000_000L // 75ms
+    private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
+
+    private val usbStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == "android.hardware.usb.action.USB_STATE") {
+                val connected = intent.extras?.getBoolean("connected") ?: false
+
+                val event = mapOf(
+                    "type" to "usb_state",
+                    "state" to if (connected) "AVAILABLE" else "INIT"
+                )
+                Handler(Looper.getMainLooper()).post {
+                    eventSink?.success(event)
+                }
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         activeInstance = this
 
         midiManager = getSystemService(Context.MIDI_SERVICE) as MidiManager?
+
+        val filter = IntentFilter("android.hardware.usb.action.USB_STATE")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(usbStateReceiver, filter)
+        }
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENTS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
@@ -80,18 +113,45 @@ class MainActivity : FlutterActivity() {
                 "sendMidiCC" -> {
                     val cc = call.argument<Int>("cc")
                     val value = call.argument<Int>("value")
+                    val isFinal = call.argument<Boolean>("isFinal") ?: false
 
                     if (cc != null && value != null) {
-                        try {
-                            val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
-                            android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
-                            // Send to physically connected hardware (if any)
-                            inputPort?.send(msg, 0, msg.size)
-                            // Send to virtual DAW out (e.g. FL Studio Mobile)
-                            VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
+                        val nowNs = System.nanoTime()
+                        val lastTime = lastSentTime[cc] ?: 0L
+                        val timeDiff = nowNs - lastTime
+
+                        // Rate-limiting and Deduplication checks unless it's the final message
+                        var shouldSend = true
+                        if (!isFinal) {
+                            // Deduplication: if value hasn't changed and within suppression window, drop it
+                            if (lastSentValue[cc] == value && timeDiff < suppressionWindowNs) {
+                                shouldSend = false
+                            }
+                            // Rate Limiting: ensure we don't send faster than ~120Hz
+                            else if (timeDiff < rateLimitNs) {
+                                shouldSend = false
+                            }
+                        }
+
+                        if (shouldSend) {
+                            lastSentValue[cc] = value
+                            lastSentTime[cc] = nowNs
+
+                            try {
+                                val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                                android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
+                                // Send to physically connected hardware (if any)
+                                inputPort?.send(msg, 0, msg.size)
+                                // Send to virtual DAW out (e.g. FL Studio Mobile)
+                                VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
+                                // Send to Host PC/Mac via USB
+                                PeripheralMidiService.activeInstance?.sendToHost(msg, 0, msg.size)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
+                            }
+                        } else {
+                            result.success(true) // Acknowledge without sending
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "CC and value are required", null)
@@ -310,6 +370,17 @@ class MainActivity : FlutterActivity() {
             val ccNumber = msg[offset + 1].toInt() and 0xFF
             val ccValue = msg[offset + 2].toInt() and 0xFF
 
+            // Bidirectional Feedback Loop Prevention
+            val lastTime = lastSentTime[ccNumber] ?: 0L
+            val nowNs = System.nanoTime()
+            val timeDiff = nowNs - lastTime
+
+            if (timeDiff < suppressionWindowNs) {
+                // Ignore message from host if we recently sent *any* value for this CC.
+                // This prevents delayed echoes from older values causing oscillation during rapid movement.
+                return
+            }
+
             android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
 
             val event = mapOf(
@@ -368,6 +439,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         teardownMidiDeviceCallback()
+        try {
+            unregisterReceiver(usbStateReceiver)
+        } catch (e: Exception) { }
         disconnectDevice()
         activeInstance = null
         super.onDestroy()
