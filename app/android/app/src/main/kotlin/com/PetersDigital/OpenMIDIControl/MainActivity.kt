@@ -121,7 +121,12 @@ class MainActivity : FlutterActivity() {
 
     private fun getMidiDevices(): List<Map<String, Any>> {
         val devicesList = mutableListOf<Map<String, Any>>()
-        val devices: Array<MidiDeviceInfo>? = midiManager?.getDevices()
+        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+        } else {
+            @Suppress("DEPRECATION")
+            midiManager?.getDevices()
+        }
 
         devices?.forEach { deviceInfo ->
             val id = deviceInfo.id.toString()
@@ -209,7 +214,12 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
-        val devices: Array<MidiDeviceInfo>? = midiManager?.getDevices()
+        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+        } else {
+            @Suppress("DEPRECATION")
+            midiManager?.getDevices()
+        }
         val deviceInfo = devices?.find { it.id.toString() == id }
 
         if (deviceInfo == null) {
@@ -340,15 +350,11 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
-            midiManager?.let { mgr ->
-                try {
-                    // Use Executor overload when available (latest API), fallback to Handler otherwise
-                    val method = mgr.javaClass.getMethod("registerDeviceCallback", MidiManager.DeviceCallback::class.java, java.util.concurrent.Executor::class.java)
-                    method.invoke(mgr, deviceCallback, ContextCompat.getMainExecutor(this))
-                } catch (e: NoSuchMethodException) {
-                    @Suppress("DEPRECATION")
-                    mgr.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
+            } else {
+                @Suppress("DEPRECATION")
+                midiManager?.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
             }
         }
     }
