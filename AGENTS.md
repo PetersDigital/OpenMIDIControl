@@ -54,3 +54,55 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [ ] Tests added/updated (where applicable)
 - [ ] Docs updated (README/ARCHITECTURE/CHANGELOG)
 - [ ] No secrets in code or configs
+- [ ] PR opened as draft
+- [ ] Assignee: @dencelkbabu
+- [ ] Reviewers: @dencelkbabu + @copilot-pull-request-reviewer + @gemini-code-assist
+- [ ] Labels: draft, needs review
+
+## GitHub CLI guide
+Recommended `gh` steps during PR workflow (PowerShell/Bash):
+
+Windows PowerShell:
+
+```powershell
+# 1. Check out and push branch
+git checkout feat-android-midi-bridge-v0.1.5
+git push -u origin feat-android-midi-bridge-v0.1.5
+
+# 2. Create draft PR
+ gh pr create --base main --head feat-android-midi-bridge-v0.1.5 `
+  --title "feat(midi): v0.1.5 milestone" `
+  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" `
+  --draft --assignee dencelkbabu --reviewer dencelkbabu `
+  --label "draft, needs review"
+
+# 3. GitHub UI bot reviewers (if needed)
+# - copilot-pull-request-reviewer
+# - gemini-code-assist
+
+# 4. Open PR in browser
+gh pr view --web
+```
+
+Unix/Bash:
+
+```bash
+# 1. Check out and push branch
+git checkout feat-android-midi-bridge-v0.1.5
+git push -u origin feat-android-midi-bridge-v0.1.5
+
+# 2. Create draft PR
+gh pr create --base main --head feat-android-midi-bridge-v0.1.5 \
+  --title "feat(midi): v0.1.5 milestone" \
+  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" \
+  --draft --assignee dencelkbabu --reviewer dencelkbabu \
+  --label "draft, needs review"
+
+# 3. GitHub UI bot reviewers (if needed)
+# - copilot-pull-request-reviewer
+# - gemini-code-assist
+
+# 4. Open PR in browser
+gh pr view --web
+```
+

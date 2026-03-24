@@ -47,6 +47,58 @@ git push origin v0.1.5
 - Update `CHANGELOG.md` for user-visible changes.
 - Include tests when feasible.
 
+### Review bots & draft process
+- Open PR as draft for in-progress feature updates.
+- Assignee: `@dencelkbabu`.
+- Reviewers: `@dencelkbabu`, `@copilot-pull-request-reviewer`, `@gemini-code-assist`.
+- Labels: `draft`, `needs review`.
+- When ready, convert draft to ready for review and remove `draft` label.
+
+### GitHub CLI workflow
+Use `gh` in terminal to create and manage PRs quickly (PowerShell + Unix syntax).
+
+Windows PowerShell (line continuation with backtick `):
+
+```powershell
+# 1. Check out and push branch
+git checkout feat-android-midi-bridge-v0.1.5
+git push -u origin feat-android-midi-bridge-v0.1.5
+
+# 2. Create draft PR
+gh pr create --base main --head feat-android-midi-bridge-v0.1.5 `
+  --title "feat(midi): v0.1.5 milestone" `
+  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" `
+  --draft --assignee dencelkbabu --reviewer dencelkbabu `
+  --label "draft, needs review"
+
+# 3. Add bot reviewers in GitHub UI (if not automatic):
+#   copilot-pull-request-reviewer, gemini-code-assist
+
+# 4. Open PR in browser
+gh pr view --web
+```
+
+Unix/Bash style (line continuation with backslash `\`):
+
+```bash
+# 1. Check out and push branch
+git checkout feat-android-midi-bridge-v0.1.5
+git push -u origin feat-android-midi-bridge-v0.1.5
+
+# 2. Create draft PR
+gh pr create --base main --head feat-android-midi-bridge-v0.1.5 \
+  --title "feat(midi): v0.1.5 milestone" \
+  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" \
+  --draft --assignee dencelkbabu --reviewer dencelkbabu \
+  --label "draft, needs review"
+
+# 3. Add bot reviewers in GitHub UI:
+#   copilot-pull-request-reviewer, gemini-code-assist
+
+# 4. Open PR in browser
+gh pr view --web
+```
+
 ## Reporting issues
 Please include:
 - OS (Windows 11 version)
