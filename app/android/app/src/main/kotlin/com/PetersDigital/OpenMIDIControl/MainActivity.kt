@@ -46,6 +46,9 @@ class MainActivity : FlutterActivity() {
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
+    private var currentUsbMode = "peripheral"
+    private var lastUsbStateIsConnected = false
+
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "android.hardware.usb.action.USB_STATE") {
@@ -56,15 +59,19 @@ class MainActivity : FlutterActivity() {
                 val isMidiConnected = connected && configured && midi
 
                 if (isMidiConnected) {
-                    updatePeripheralServiceState(true)
-                    val event = mapOf(
-                        "type" to "usb_state",
-                        "state" to "AVAILABLE"
-                    )
-                    Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(event)
+                    lastUsbStateIsConnected = true
+                    if (currentUsbMode == "peripheral") {
+                        updatePeripheralServiceState(true)
+                        val event = mapOf(
+                            "type" to "usb_state",
+                            "state" to "AVAILABLE"
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            eventSink?.success(event)
+                        }
                     }
                 } else if (!connected) {
+                    lastUsbStateIsConnected = false
                     updatePeripheralServiceState(false)
                     val event = mapOf(
                         "type" to "usb_state",
@@ -124,13 +131,17 @@ class MainActivity : FlutterActivity() {
                         val isMidiConnected = connected && configured && midi
 
                         if (isMidiConnected) {
-                            updatePeripheralServiceState(true)
-                            val initEvent = mapOf(
-                                "type" to "usb_state",
-                                "state" to "AVAILABLE"
-                            )
-                            eventSink?.success(initEvent)
+                            lastUsbStateIsConnected = true
+                            if (currentUsbMode == "peripheral") {
+                                updatePeripheralServiceState(true)
+                                val initEvent = mapOf(
+                                    "type" to "usb_state",
+                                    "state" to "AVAILABLE"
+                                )
+                                eventSink?.success(initEvent)
+                            }
                         } else if (!connected) {
+                            lastUsbStateIsConnected = false
                             updatePeripheralServiceState(false)
                             val initEvent = mapOf(
                                 "type" to "usb_state",
@@ -153,6 +164,29 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "setUsbMode" -> {
+                    val mode = call.argument<String>("mode")
+                    if (mode != null) {
+                        currentUsbMode = mode
+                        if (currentUsbMode == "host") {
+                            // Turn off peripheral mode immediately if switched to host
+                            updatePeripheralServiceState(false)
+                        } else if (currentUsbMode == "peripheral" && lastUsbStateIsConnected) {
+                            // Turn on peripheral mode if plugged in
+                            updatePeripheralServiceState(true)
+                            val event = mapOf(
+                                "type" to "usb_state",
+                                "state" to "AVAILABLE"
+                            )
+                            Handler(Looper.getMainLooper()).post {
+                                eventSink?.success(event)
+                            }
+                        }
+                        result.success(true)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Mode is required", null)
+                    }
+                }
                 "getMidiDevices" -> {
                     result.success(getMidiDevices())
                 }
@@ -258,10 +292,7 @@ class MainActivity : FlutterActivity() {
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
             val manufacturer = properties.getString(MidiDeviceInfo.PROPERTY_MANUFACTURER) ?: "Unknown Manufacturer"
 
-            // Filter out the app's own Virtual and USB ports from the UI
-            if (manufacturer == "PetersDigital") {
-                return@forEach
-            }
+            // Send all devices to Flutter; Dart will decide whether to hide our internal ports.
 
             val inputPorts = mutableListOf<Map<String, Any>>()
             val outputPorts = mutableListOf<Map<String, Any>>()

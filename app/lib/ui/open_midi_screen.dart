@@ -24,6 +24,37 @@ final faderBehaviorProvider =
     );
 
 // ---------------------------------------------------------------------------
+// State: Settings
+// ---------------------------------------------------------------------------
+enum UsbMode { peripheral, host }
+
+class UsbModeNotifier extends Notifier<UsbMode> {
+  @override
+  UsbMode build() => UsbMode.peripheral;
+
+  void updateMode(UsbMode mode) {
+    state = mode;
+    // Tell native layer to update peripheral service state
+    ref.read(midiServiceProvider).setUsbMode(mode.name);
+  }
+}
+
+final usbModeProvider = NotifierProvider<UsbModeNotifier, UsbMode>(
+  UsbModeNotifier.new,
+);
+
+class ManualPortSelectionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final manualPortSelectionProvider = NotifierProvider<ManualPortSelectionNotifier, bool>(
+  ManualPortSelectionNotifier.new,
+);
+
+// ---------------------------------------------------------------------------
 // State: Layout hand (faders left vs. right)
 // ---------------------------------------------------------------------------
 enum LayoutHand { faderOnLeft, faderOnRight }
@@ -782,6 +813,11 @@ class _ConnectionStatusButtonState
     bool showGlow = false;
 
     switch (midiStatus) {
+      case MidiStatus.usbActive:
+        statusText = "USB MODE ACTIVE";
+        statusColor = Colors.green.shade400;
+        _animationController.stop();
+        break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
         statusColor = Colors.green.shade400;
