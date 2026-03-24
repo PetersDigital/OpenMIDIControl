@@ -8,7 +8,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ### Added
 - Kotlin / host integration work (v0.2.0) will add the native MIDI bridge, port selectors, and defensive correspondence for wired USB transport.
 
-## [v0.1.5] - 2026-03-24
+## [0.1.5] - 2026-03-24
 ### Added
 - **Virtual MIDI Port:** App now publishes itself as a native Android MIDI device ("OpenMIDIControl").
 - **Metadata-Based Reconnection:** Implemented "fingerprint" matching using device name and manufacturer to allow automatic reconnection when Android assigns a new transient ID to hot-plugged hardware.
