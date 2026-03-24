@@ -74,13 +74,17 @@ class MidiService {
     }
   }
 
-  Future<bool> connectToDevice(String id, {int? inputPort, int? outputPort}) async {
+  Future<bool> connectToDevice(
+    String id, {
+    int? inputPort,
+    int? outputPort,
+  }) async {
     try {
-      final bool? result = await _channel.invokeMethod('connectToDevice', {
-        'id': id,
-        'inputPort': inputPort,
-        'outputPort': outputPort,
-      }..removeWhere((key, value) => value == null));
+      final bool? result = await _channel.invokeMethod(
+        'connectToDevice',
+        {'id': id, 'inputPort': inputPort, 'outputPort': outputPort}
+          ..removeWhere((key, value) => value == null),
+      );
       return result ?? false;
     } catch (e) {
       debugPrint('Failed to connect to device $id: $e');
@@ -98,10 +102,7 @@ class MidiService {
 
   Future<void> sendCC(int cc, int value) async {
     try {
-      await _channel.invokeMethod('sendMidiCC', {
-        'cc': cc,
-        'value': value,
-      });
+      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value});
     } catch (e) {
       debugPrint('Failed to send CC $cc: $e');
     }
@@ -162,9 +163,9 @@ class MidiConnectionState {
     int? outputPort,
   }) {
     return MidiConnectionState(
-      // using a specific pattern here for nullable copyWith if needed,
-      // but simpler to just re-instantiate
-      connectedDevice: connectedDevice,
+      // preserve existing connection when parameter is omitted.
+      // To intentionally clear connectedDevice, provide explicit null sentinel support.
+      connectedDevice: connectedDevice ?? this.connectedDevice,
       isConnectionLost: isConnectionLost ?? this.isConnectionLost,
       inputPort: inputPort ?? this.inputPort,
       outputPort: outputPort ?? this.outputPort,
@@ -222,15 +223,21 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
               Future.delayed(const Duration(milliseconds: 500), () async {
                 final devices = await service.getAvailableDevices();
                 final newDevice = devices.cast<MidiDevice?>().firstWhere(
-                  (d) => d != null && d.id == id &&
-                         d.name == previousDevice.name &&
-                         d.manufacturer == previousDevice.manufacturer,
+                  (d) =>
+                      d != null &&
+                      d.id == id &&
+                      d.name == previousDevice.name &&
+                      d.manufacturer == previousDevice.manufacturer,
                   orElse: () => null,
                 );
 
                 if (newDevice != null) {
                   // Found the matching fingerprint under a new ID. Auto-reconnect!
-                  connect(newDevice, inputPort: previousInput, outputPort: previousOutput);
+                  connect(
+                    newDevice,
+                    inputPort: previousInput,
+                    outputPort: previousOutput,
+                  );
                 }
               });
             }
@@ -251,7 +258,11 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     return const MidiConnectionState();
   }
 
-  Future<bool> connect(MidiDevice device, {int? inputPort, int? outputPort}) async {
+  Future<bool> connect(
+    MidiDevice device, {
+    int? inputPort,
+    int? outputPort,
+  }) async {
     final service = ref.read(midiServiceProvider);
     service.vibrate(duration: 50); // Stronger lightImpact equivalent
     final success = await service.connectToDevice(
