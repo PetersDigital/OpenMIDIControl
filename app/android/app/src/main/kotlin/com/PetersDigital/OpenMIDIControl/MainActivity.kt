@@ -253,7 +253,7 @@ class MainActivity : FlutterActivity() {
 
     private fun disconnectDevice() {
         try {
-            outputPort?.disconnect(midiReceiver)
+            midiReceiver?.let { outputPort?.disconnect(it) }
             midiReceiver = null
         } catch (e: Exception) { }
         try {
@@ -297,7 +297,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
-            outputPort?.connect(midiReceiver)
+            midiReceiver?.let { outputPort?.connect(it) }
         }
     }
 
