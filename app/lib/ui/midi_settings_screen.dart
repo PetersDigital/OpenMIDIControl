@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'midi_service.dart';
+import 'open_midi_screen.dart' show manualPortSelectionProvider;
 
 class MidiSettingsScreen extends ConsumerWidget {
   const MidiSettingsScreen({super.key});
@@ -59,7 +60,9 @@ class MidiSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 4),
 
           midiDevicesAsyncValue.when(
-            data: (devices) {
+            data: (allDevices) {
+              final manualSelection = ref.watch(manualPortSelectionProvider);
+              final devices = allDevices.where((d) => manualSelection || d.manufacturer != 'PetersDigital').toList();
               if (devices.isEmpty) {
                 return ListTile(
                   tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -131,6 +134,14 @@ class MidiSettingsScreen extends ConsumerWidget {
     String subText;
 
     switch (status) {
+      case MidiStatus.usbActive:
+        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        icon = Icons.check_circle_outline;
+        iconColor = Colors.green.shade400;
+        titleText = 'USB HOST MODE ACTIVE';
+        titleColor = Colors.green.shade400;
+        subText = 'Device is acting as a USB MIDI peripheral to host PC.';
+        break;
       case MidiStatus.connected:
         borderColor = Colors.green.shade900.withValues(alpha: 0.5);
         icon = Icons.check_circle_outline;

@@ -127,6 +127,85 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
 
+          // Connections Section
+          const Text(
+            'CONNECTIONS',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Builder(builder: (ctx) {
+            final usbMode = ref.watch(usbModeProvider);
+            final isPeripheral = usbMode == UsbMode.peripheral;
+            return SwitchListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              title: Text(
+                isPeripheral ? 'USB PERIPHERAL MODE' : 'USB HOST MODE',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                isPeripheral
+                    ? 'Acts as a MIDI device for your PC.'
+                    : 'Connect external USB MIDI keyboards to this app.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+              value: isPeripheral,
+              activeThumbColor: Theme.of(context).colorScheme.primaryContainer,
+              onChanged: (_) {
+                final newMode = isPeripheral ? UsbMode.host : UsbMode.peripheral;
+                ref.read(usbModeProvider.notifier).updateMode(newMode);
+              },
+            );
+          }),
+          Builder(builder: (ctx) {
+            final manualSelection = ref.watch(manualPortSelectionProvider);
+            return SwitchListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              title: const Text(
+                'MANUAL PORT SELECTION',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              subtitle: Text(
+                manualSelection
+                    ? 'Showing internal virtual ports in device list.'
+                    : 'Hiding internal virtual ports (auto-routing).',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
+              value: manualSelection,
+              activeThumbColor: Theme.of(context).colorScheme.primaryContainer,
+              onChanged: (_) => ref.read(manualPortSelectionProvider.notifier).toggle(),
+            );
+          }),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+
           // Layout Section
           const Text(
             'LAYOUT',

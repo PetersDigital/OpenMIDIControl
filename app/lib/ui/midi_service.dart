@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'open_midi_screen.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
+
 class MidiPort {
   final int number;
   final String name;
@@ -126,6 +128,14 @@ class MidiService {
       await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value, 'isFinal': isFinal});
     } catch (e) {
       debugPrint('Failed to send CC $cc: $e');
+    }
+  }
+
+  Future<void> setUsbMode(String mode) async {
+    try {
+      await _channel.invokeMethod('setUsbMode', {'mode': mode});
+    } catch (e) {
+      debugPrint('Failed to set USB mode: $e');
     }
   }
 
@@ -336,7 +346,7 @@ final connectedMidiDeviceProvider =
       ConnectedMidiDeviceNotifier.new,
     );
 
-enum MidiStatus { disconnected, available, connected, connectionLost }
+enum MidiStatus { disconnected, available, connected, connectionLost, usbActive }
 
 // State is stored as an integer (0-127).
 // In Riverpod 2.x/3.x, passing arguments to a Notifier happens via Family.
@@ -370,6 +380,12 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
   final devicesAsync = ref.watch(midiDevicesProvider);
   final usbState = ref.watch(usbConnectionStateProvider);
+  final usbMode = ref.watch(usbModeProvider);
+
+  // USB Mode takes highest precedence if in peripheral mode and connected
+  if (usbMode == UsbMode.peripheral && usbState == 'AVAILABLE') {
+    return MidiStatus.usbActive;
+  }
 
   if (connectionState.isConnectionLost) {
     return MidiStatus.connectionLost;
@@ -379,12 +395,13 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
     return MidiStatus.connected;
   }
 
-  if (usbState == 'AVAILABLE') {
-    return MidiStatus.available;
-  }
-
   final devices = devicesAsync.value ?? [];
-  if (devices.isNotEmpty) {
+  // Exclude internal ports from the "available" check if manual selection is off,
+  // otherwise the UI will always show AVAILABLE because of the virtual ports.
+  final manualSelection = ref.read(manualPortSelectionProvider);
+  final externalDevices = devices.where((d) => manualSelection || d.manufacturer != 'PetersDigital').toList();
+
+  if (externalDevices.isNotEmpty) {
     return MidiStatus.available;
   }
 
