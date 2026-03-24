@@ -37,7 +37,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         activeInstance = this
 
-        midiManager = context.getSystemService(Context.MIDI_SERVICE) as MidiManager?
+        midiManager = getSystemService(Context.MIDI_SERVICE) as MidiManager?
 
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENTS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
