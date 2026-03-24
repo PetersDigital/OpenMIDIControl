@@ -68,16 +68,21 @@ class OpenMIDIMainScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mq = MediaQuery.of(context);
+    final isLandscape = mq.orientation == Orientation.landscape;
+    final isTablet = mq.size.shortestSide >= 600;
+
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 900) {
+            // Phones always use portrait UI for fader controls.
+            // Tablets may use landscape desktop layout.
+            if (isTablet && isLandscape && constraints.maxWidth > 900) {
               return const _DesktopLandscapeLayout();
-            } else {
-              return const _MobilePortraitLayout();
             }
+            return const _MobilePortraitLayout();
           },
         ),
       ),
