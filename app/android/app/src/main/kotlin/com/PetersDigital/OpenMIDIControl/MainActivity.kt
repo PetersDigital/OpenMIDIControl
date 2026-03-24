@@ -58,6 +58,10 @@ class MainActivity : FlutterActivity() {
                 "getMidiDevices" -> {
                     result.success(getMidiDevices())
                 }
+                "isMidiSupported" -> {
+                    val supported = context.packageManager.hasSystemFeature("android.software.midi")
+                    result.success(supported)
+                }
                 "connectToDevice" -> {
                     val id = call.argument<String>("id")
                     val inputPort = call.argument<Int>("inputPort")
