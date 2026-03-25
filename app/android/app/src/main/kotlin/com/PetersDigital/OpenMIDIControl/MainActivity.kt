@@ -69,9 +69,7 @@ class MainActivity : FlutterActivity() {
                 if (isMidiConnected) {
                     lastUsbStateIsConnected = true
                     if (currentUsbMode == "peripheral") {
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            connectToUsbPeripheral()
-                        }, 500)
+                        connectToUsbPeripheral()
                     }
                 } else if (!connected) {
                     lastUsbStateIsConnected = false
@@ -221,9 +219,7 @@ class MainActivity : FlutterActivity() {
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
                             if (currentUsbMode == "peripheral") {
-                                Handler(Looper.getMainLooper()).postDelayed({
-                                    connectToUsbPeripheral()
-                                }, 500)
+                                connectToUsbPeripheral()
                             }
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
@@ -254,9 +250,7 @@ class MainActivity : FlutterActivity() {
                             disconnectUsbPeripheral()
                         } else if (currentUsbMode == "peripheral" && lastUsbStateIsConnected) {
                             // Turn on peripheral mode if plugged in
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                connectToUsbPeripheral()
-                            }, 500)
+                            connectToUsbPeripheral()
                         }
                         result.success(true)
                     } else {
@@ -319,8 +313,9 @@ class MainActivity : FlutterActivity() {
                                 // Send to virtual DAW out (e.g. FL Studio Mobile)
                                 VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
                                 // Send to Host PC/Mac via USB
+                                // We send directly to the actively opened physical hardware input port.
+                                // Do not use VirtualMidiService to attempt to reach the host PC.
                                 peripheralInputPort?.send(msg, 0, msg.size, nowNs)
-                                PeripheralMidiService.activeInstance?.sendToHost(msg, 0, msg.size, nowNs)
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
