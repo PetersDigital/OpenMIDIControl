@@ -418,7 +418,7 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   final devices = devicesAsync.value ?? [];
   // Exclude internal ports from the "available" check if manual selection is off,
   // otherwise the UI will always show AVAILABLE because of the virtual ports.
-  final manualSelection = ref.read(manualPortSelectionProvider);
+  final manualSelection = ref.watch(manualPortSelectionProvider);
   final externalDevices = devices.where((d) => manualSelection || d.manufacturer != 'PetersDigital').toList();
 
   if (externalDevices.isNotEmpty) {
