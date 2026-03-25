@@ -166,23 +166,34 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private inline fun safeExecute(label: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            android.util.Log.w("OpenMIDIControl", "Error during $label: ${e.message}")
+        }
+    }
+
     private fun disconnectUsbPeripheral() {
-        try {
+        safeExecute("peripheral_receiver_disconnect") {
             peripheralMidiReceiver?.let { peripheralOutputPort?.disconnect(it) }
-            peripheralMidiReceiver = null
-        } catch (e: Exception) { }
-        try {
+        }
+        peripheralMidiReceiver = null
+
+        safeExecute("peripheral_output_close") {
             peripheralOutputPort?.close()
-            peripheralOutputPort = null
-        } catch (e: Exception) { }
-        try {
+        }
+        peripheralOutputPort = null
+
+        safeExecute("peripheral_input_close") {
             peripheralInputPort?.close()
-            peripheralInputPort = null
-        } catch (e: Exception) { }
-        try {
+        }
+        peripheralInputPort = null
+
+        safeExecute("peripheral_device_close") {
             peripheralDevice?.close()
-            peripheralDevice = null
-        } catch (e: Exception) { }
+        }
+        peripheralDevice = null
     }
 
     private fun setupPeripheralMidiReceiver() {
@@ -496,22 +507,25 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun disconnectDevice() {
-        try {
+        safeExecute("device_receiver_disconnect") {
             midiReceiver?.let { outputPort?.disconnect(it) }
-            midiReceiver = null
-        } catch (e: Exception) { }
-        try {
+        }
+        midiReceiver = null
+
+        safeExecute("output_port_close") {
             outputPort?.close()
-            outputPort = null
-        } catch (e: Exception) { }
-        try {
+        }
+        outputPort = null
+
+        safeExecute("input_port_close") {
             inputPort?.close()
-            inputPort = null
-        } catch (e: Exception) { }
-        try {
+        }
+        inputPort = null
+
+        safeExecute("active_device_close") {
             activeDevice?.close()
-            activeDevice = null
-        } catch (e: Exception) { }
+        }
+        activeDevice = null
     }
 
     private fun setupMidiReceiver() {
