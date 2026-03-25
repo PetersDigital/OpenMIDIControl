@@ -4,9 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
-## [Unreleased]
+## [0.2.0] - 2026-03-26
+
 ### Added
-- Kotlin / host integration work (v0.2.0) will add the native MIDI bridge, port selectors, and defensive correspondence for wired USB transport.
+- **True Peripheral Mode:** Native Android `MidiDeviceService` implementation for plug-and-play class compliance on Windows 11.
+- **Dual-Path MIDI Routing:** Native Kotlin transport for USB Peripheral mode bypassing the Flutter event loop for ultra-low latency.
+- **Kotlin Coroutines Dispatcher:** Non-blocking `Channel` buffering for high-frequency MIDI event handling.
+- **Batched Event Dispatching:** 8ms polling (120Hz) logic to batch MIDI payloads to Flutter, drastically reducing UI thread starvation.
+- **Manual Port Selection Override:** UI toggle in settings to forcefully reveal internal ports for debugging and advanced routing.
+- **USB Peripheral Mode UI:** Dedicated status banners and configuration toggles in `MidiSettingsScreen`.
+
+### Fixed
+- **Binder Collision Crash:** Resolved "port 0 already open" by hiding the physical hardware port from Flutter's device query.
+- **CPU/Thermal Throttling:** Fixed a critical background service loop by replacing dynamic manifest component enabling with a static manifest declaration.
+- **USB Outbound Data Dropouts:** Established a direct hardware data pipe by writing CC bytes directly to the `MidiInputPort` transport.
+- **Dead Receiver Quarantine:** Added logic to isolate and ignore disconnected hardware receivers to prevent system-wide IO crashes during hotplugging.
+- **Thread Safety:** Migrated state maps to `ConcurrentHashMap` to prevent crashes during concurrent MIDI processing and UI updates.
+- **Immediate Handshake UX:** Removed legacy startup delays from USB broadcast receivers for instant UI state switching.
+- **Memory Leak Prevention:** Rigorous hardware instance teardown sequence on application destruction and physical disconnect.
+- **Riverpod State Dropping:** Fixed Dart-side exceptions when casting native MIDI payloads as `List`.
 
 ## [0.1.5] - 2026-03-24
 ### Added

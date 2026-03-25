@@ -91,8 +91,14 @@ To prevent accidental simultaneous activation in high-stakes environments:
 
 Treat the command center as the "instrument cluster" for the console: 30% of the portrait canvas and 40% of the landscape canvas are reserved for it so the status row, timecode, and nav grid never compete with the faders.
 
-- **Status row:** Tempo, track name, and timecode live in a compact row with a 60/40 split so the track name can truncate gracefully, and the `DISCONNECTED` badge doubles as the future MIDI port launcher.
+- **Status Banners:**
+    - `usbActive`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB HOST MODE ACTIVE".
+    - `available`: Amber border/title. "MIDI DEVICES AVAILABLE".
+    - `connectionLost`: Red border/title. "CONNECTION LOST" (transient state).
 - **Control grid:** The 3×3 grid of transport controls serves primarily as a visual anchor and layout testbed for future macros, so keep the glyphs aligned and consistent with the `surface_container` tiers.
+- **Connections Branding:**
+    - Manual overrides and USB mode toggles use the `primary_container` color for active switches.
+    - Device tiles use `surface_container_low` with `primary_container` translucent highlighting (10% alpha) when active.
 - **Responsive placements:** The same grid + faders reorder depending on the screen width, so avoid resizing or cropping the command panel text; the layout toggle on the settings screen flips the whole stack left/right without reflowing the grid elements.
 
 Preserve the Ethereal Console photon glow rules when building any future overlays that share the command center space (glassy surfaces, diffused shadows, no hard outlines).
