@@ -28,6 +28,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 
 class MainActivity : FlutterActivity() {
@@ -59,7 +60,7 @@ class MainActivity : FlutterActivity() {
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
     // Thread Separation: Coroutine Channel for incoming MIDI events
-    private val incomingEventsChannel = Channel<Map<String, Any>>(Channel.UNLIMITED)
+    private val incomingEventsChannel = Channel<Map<String, Any>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
