@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'midi_service.dart';
-import 'open_midi_screen.dart'
+import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
 class MidiSettingsScreen extends ConsumerWidget {

@@ -1,0 +1,36 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'midi_service.dart';
+
+// ---------------------------------------------------------------------------
+// State: USB Peripheral/Host Mode
+// ---------------------------------------------------------------------------
+enum UsbMode { peripheral, host }
+
+class UsbModeNotifier extends Notifier<UsbMode> {
+  @override
+  UsbMode build() => UsbMode.peripheral;
+
+  void updateMode(UsbMode mode) {
+    state = mode;
+    // Tell native layer to update peripheral service state
+    ref.read(midiServiceProvider).setUsbMode(mode.name);
+  }
+}
+
+final usbModeProvider = NotifierProvider<UsbModeNotifier, UsbMode>(
+  UsbModeNotifier.new,
+);
+
+// ---------------------------------------------------------------------------
+// State: Manual Port Selection (Hide/Show PeterDigital ports)
+// ---------------------------------------------------------------------------
+class ManualPortSelectionNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final manualPortSelectionProvider = NotifierProvider<ManualPortSelectionNotifier, bool>(
+  ManualPortSelectionNotifier.new,
+);

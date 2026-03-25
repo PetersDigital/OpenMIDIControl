@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'open_midi_screen.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
+import 'midi_settings_state.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
 class MidiPort {
   final int number;
