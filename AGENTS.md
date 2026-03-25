@@ -58,6 +58,7 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 3. Follow repository conventions:
    - **SemVer** versioning
    - **Conventional Commits** for commit messages
+   - **Scope Formatting**: Use forward slashes for multiple scopes (e.g., `feat(ui/midi): commit msg`). **Do not use hyphens** between scopes.
    - Keep docs updated when behavior changes
 4. Avoid introducing heavy dependencies without justification.
 5. Prioritize:
