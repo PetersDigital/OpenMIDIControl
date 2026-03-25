@@ -25,6 +25,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -53,6 +55,11 @@ class MainActivity : FlutterActivity() {
     private val lastSentTime = ConcurrentHashMap<Int, Long>()
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
+
+    // Thread Separation: Coroutine Channel for incoming MIDI events
+    private val incomingEventsChannel = Channel<Map<String, Any>>(Channel.UNLIMITED)
+    private var batchDispatchJob: Job? = null
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var currentUsbMode = "peripheral"
     private var lastUsbStateIsConnected = false
@@ -207,6 +214,7 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
+                    startBatchDispatchTimer()
                     setupMidiDeviceCallback()
 
                     // Immediately evaluate the initial sticky intent if available
@@ -235,6 +243,7 @@ class MainActivity : FlutterActivity() {
 
                 override fun onCancel(arguments: Any?) {
                     eventSink = null
+                    stopBatchDispatchTimer()
                     teardownMidiDeviceCallback()
                 }
             }
@@ -527,9 +536,7 @@ class MainActivity : FlutterActivity() {
                             "value" to ccValue
                         )
 
-                        Handler(Looper.getMainLooper()).post {
-                            eventSink?.success(event)
-                        }
+                        incomingEventsChannel.trySend(event)
                     }
                 }
             }
@@ -565,9 +572,7 @@ class MainActivity : FlutterActivity() {
                 "value" to ccValue
             )
 
-            Handler(Looper.getMainLooper()).post {
-                eventSink?.success(event)
-            }
+            incomingEventsChannel.trySend(event)
         }
     }
 
@@ -611,6 +616,39 @@ class MainActivity : FlutterActivity() {
             midiManager?.unregisterDeviceCallback(it)
             deviceCallback = null
         }
+    }
+
+    private fun startBatchDispatchTimer() {
+        stopBatchDispatchTimer()
+        batchDispatchJob = coroutineScope.launch {
+            while (isActive) {
+                // Suspend until at least one event is received
+                val firstEvent = incomingEventsChannel.receive()
+
+                val batch = mutableListOf<Map<String, Any>>()
+                batch.add(firstEvent)
+
+                // Drain any other events that arrived while we were suspended or processing
+                while (true) {
+                    val event = incomingEventsChannel.tryReceive().getOrNull() ?: break
+                    batch.add(event)
+                }
+
+                if (batch.isNotEmpty()) {
+                    Handler(Looper.getMainLooper()).post {
+                        eventSink?.success(mapOf("type" to "batch", "events" to batch))
+                    }
+                }
+
+                // Yield to prevent CPU spinning, maintain ~120Hz batching rate
+                delay(8)
+            }
+        }
+    }
+
+    private fun stopBatchDispatchTimer() {
+        batchDispatchJob?.cancel()
+        batchDispatchJob = null
     }
 
     override fun onDestroy() {

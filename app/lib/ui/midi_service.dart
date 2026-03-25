@@ -227,6 +227,20 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         final type = event['type'];
         final id = event['id'];
 
+        if (type == 'batch') {
+          final events = event['events'] as List<dynamic>;
+          for (var e in events) {
+            if (e is Map && e['type'] == 'cc') {
+              final ccNumber = e['cc'] as int?;
+              final value = e['value'] as int?;
+              if (ccNumber != null && value != null) {
+                ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+              }
+            }
+          }
+          return;
+        }
+
         if (type == 'removed') {
           // If the removed device is our currently connected device
           if (state.connectedDevice?.id == id) {
