@@ -29,12 +29,12 @@ class PeripheralMidiService : MidiDeviceService() {
         })
     }
 
-    fun sendToHost(msg: ByteArray, offset: Int, count: Int) {
+    fun sendToHost(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
         val receivers = outputPortReceivers
         if (receivers != null && receivers.isNotEmpty()) {
             for (receiver in receivers) {
                 try {
-                    receiver?.send(msg, offset, count)
+                    receiver?.send(msg, offset, count, timestamp)
                 } catch (e: Exception) {
                     // Ignore dead receivers
                 }
