@@ -2,8 +2,11 @@ package com.PetersDigital.OpenMIDIControl
 
 import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver
+import java.io.IOException
 
 class PeripheralMidiService : MidiDeviceService() {
+    private val deadReceivers = mutableSetOf<MidiReceiver>()
+
     companion object {
         var activeInstance: PeripheralMidiService? = null
     }
@@ -33,10 +36,14 @@ class PeripheralMidiService : MidiDeviceService() {
         val receivers = outputPortReceivers
         if (receivers != null && receivers.isNotEmpty()) {
             for (receiver in receivers) {
+                if (receiver != null && deadReceivers.contains(receiver)) continue
+
                 try {
                     receiver?.send(msg, offset, count, timestamp)
+                } catch (e: IOException) {
+                    receiver?.let { deadReceivers.add(it) }
                 } catch (e: Exception) {
-                    // Ignore dead receivers
+                    // Ignore other dead receivers
                 }
             }
         }
