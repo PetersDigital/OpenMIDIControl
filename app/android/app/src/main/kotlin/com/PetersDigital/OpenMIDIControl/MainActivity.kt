@@ -523,16 +523,15 @@ class MainActivity : FlutterActivity() {
             midiReceiver = object : MidiReceiver() {
                 override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                     if (msg == null || count == 0) return
-                    val statusByte = msg[offset]
-                    // Do NOT send Active Sensing or Timing Clock to the Flutter UI
-                    if (statusByte == 0xFE.toByte() || statusByte == 0xF8.toByte()) {
+                    // Check if it's a Control Change message on Channel 1 (0xB0)
+                    // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
+                    val statusByte = msg[offset].toInt() and 0xFF
+                    // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
+                    if (statusByte == 0xFE || statusByte == 0xF8) {
                         return // Skip adding to the Flutter queue
                     }
                     if (count < 3) return
 
-                    // Check if it's a Control Change message on Channel 1 (0xB0)
-                    // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
-                    val statusByte = msg[offset].toInt() and 0xFF
                     if (statusByte == 0xB0) {
                         val ccNumber = msg[offset + 1].toInt() and 0xFF
                         val ccValue = msg[offset + 2].toInt() and 0xFF
@@ -557,15 +556,14 @@ class MainActivity : FlutterActivity() {
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int) {
         if (count == 0) return
-        val statusByte = msg[offset]
-        // Do NOT send Active Sensing or Timing Clock to the Flutter UI
-        if (statusByte == 0xFE.toByte() || statusByte == 0xF8.toByte()) {
+        // Check if it's a Control Change message on Channel 1 (0xB0)
+        val statusByte = msg[offset].toInt() and 0xFF
+        // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
+        if (statusByte == 0xFE || statusByte == 0xF8) {
             return // Skip adding to the Flutter queue
         }
         if (count < 3) return
 
-        // Check if it's a Control Change message on Channel 1 (0xB0)
-        val statusByte = msg[offset].toInt() and 0xFF
         if (statusByte == 0xB0) {
             val ccNumber = msg[offset + 1].toInt() and 0xFF
             val ccValue = msg[offset + 2].toInt() and 0xFF
