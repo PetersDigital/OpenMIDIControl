@@ -232,13 +232,15 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         final id = event['id'];
 
         if (type == 'batch') {
-          final events = event['events'] as List;
-          for (var e in events) {
-            if (e is Map && e['type'] == 'cc') {
-              final ccNumber = e['cc'] as int?;
-              final value = e['value'] as int?;
-              if (ccNumber != null && value != null) {
-                ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+          final events = event['events'];
+          if (events is List) {
+            for (var e in events) {
+              if (e is Map && e['type'] == 'cc') {
+                final ccNumber = e['cc'] as int?;
+                final value = e['value'] as int?;
+                if (ccNumber != null && value != null) {
+                  ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+                }
               }
             }
           }
