@@ -111,6 +111,11 @@ State machine must be explicit and testable.
 - **Cap outbound send frequency:** per control to avoid thermal spikes.
 - **Always send final control value:** on touch release.
 - **Keep parsing and dedup operations:** O(1) using `ConcurrentHashMap` caches for thread safety.
+- **Strict Coroutine Suspension:** The background MIDI dispatcher strictly suspends on the `incomingEventsChannel` to ensure the thread yields CPU time back to the OS when no data is moving, achieving ~0% idle overhead.
+- **Real-Time Message Filtering:** Timing Clock (`0xF8`) and Active Sensing (`0xFE`) messages are discarded at the native entry point (MidiReceiver) to protect the Flutter bridge from high-frequency saturation.
+- **Reactive UI Throttling:** UI components (like faders) use Riverpod's `.select()` modifier to filter global state updates, ensuring that only the relevant control rebuilds during multi-channel MIDI traffic.
+- **Riverpod Batch Update:** State transitions are batched precisely once per native polling cycle to minimize map churn and UI thread occupancy.
+- **Animation Churn Bypass:** External MIDI updates use direct `AnimationController.value` assignment to bypass expensive animation interpolation and cancellation math, relying on the source DAW for temporal smoothing.
 
 ## 9. Error Handling & Stability
 

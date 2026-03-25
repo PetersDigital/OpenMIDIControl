@@ -21,6 +21,10 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Binder Stability:** Port collision hiding and "Dead Receiver Quarantine" logic to prevent Binder crashes during hotplugging.
 - **Thread Safety:** Migrated state maps to `ConcurrentHashMap` for cross-thread reliability.
 - **Manual Port Selection:** Added a toggle in Settings to optionally show internal ports in the device list.
+- **MIDI Real-Time Filtering:** Broad-spectrum discard of `0xF8`/`0xFE` in `MidiReceiver.onSend` to prioritize control data over clock saturation.
+- **Riverpod .select() Optimization:** High-frequency UI rebuild prevention via targeted state subscriptions in `HybridTouchFader`.
+- **Silent Dispatch Idle:** Replaced busy-wait polling with event-driven suspension in the native MIDI bridge.
+- **Thermal Stabilization:** Implemented Riverpod batching and direct animation-value assignment to reduce Dart VM and rendering overhead during heavy automation.
 
 ### ⏳ Current Focus: v0.3.0 (Control Expansion)
 - **Grid Components:** Implementing a 3×3 pad grid with low-latency velocity simulation.
