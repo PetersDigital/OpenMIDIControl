@@ -1,7 +1,7 @@
-# Design System Strategy: The Ethereal Console
+# Design System Strategy: The Console
 ## 1. Overview & Creative North Star
 
-The Creative North Star for this design system is **"The Ethereal Console."**
+The Creative North Star for this design system is **"The Console."**
 
 We are moving away from the "flat web" and toward a high-fidelity digital instrument. This system should feel like a piece of precision laboratory equipment viewed through a lens of soft, atmospheric light. We achieve this by rejecting the standard "boxed" layout in favor of **Tonal Architecture**.
 
@@ -25,8 +25,7 @@ Treat the UI as a series of physical layers. Use the surface-container tiers to 
 * **Interactive Modules:** `surface_container_high` (#282a2e) for raised components.
 * **Active Overlays:** `surface_container_highest` (#333539) to draw the eye to focused tasks.
 
-### Signature Textures & Glass
-To evoke the "Ethereal" feel, use **Glassmorphism** for floating HUDs or popovers.
+### Signature Textures
 * **Token:** Use `surface_variant` at 60% opacity with a `20px` backdrop blur.
 * **Signature Glow:** For primary CTAs, do not use flat fills. Use a subtle inner-glow effect using `on_primary_container` to give the button a "powered-on" hardware feel.
 
@@ -60,7 +59,7 @@ If contrast ratios require a boundary, use a **Ghost Border**: `outline_variant`
 ## 5. Components: The 1% Polish
 
 ### Fader Ribbons (Signature Component)
-Faders are the heart of the Ethereal Console. They must mimic physical LED strips.
+Faders are the heart of the Console. They must mimic physical LED strips.
 * **The Block:** Must be solid color blocks. Use `primary_container` (#a6c9f8) or `tertiary_container` (#a1cfce). **No gradients.**
 * **The Glow:** Apply a `4px` to `8px` outer glow (drop shadow) using the same color as the ribbon at 30% opacity. This simulates light reflecting off the "obsidian" hardware casing.
 * **Corners:** All fader tracks and thumbs must use `rounded-md` (0.375rem).
@@ -101,4 +100,4 @@ Treat the command center as the "instrument cluster" for the console: 30% of the
     - Device tiles use `surface_container_low` with `primary_container` translucent highlighting (10% alpha) when active.
 - **Responsive placements:** The same grid + faders reorder depending on the screen width, so avoid resizing or cropping the command panel text; the layout toggle on the settings screen flips the whole stack left/right without reflowing the grid elements.
 
-Preserve the Ethereal Console photon glow rules when building any future overlays that share the command center space (glassy surfaces, diffused shadows, no hard outlines).
+Preserve the Console photon glow rules when building any future overlays that share the command center space (glassy surfaces, diffused shadows, no hard outlines).

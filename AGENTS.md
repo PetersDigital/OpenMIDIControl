@@ -20,11 +20,32 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
 - [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
 
-### ⏳ Current Focus: v0.3.0 (Control Expansion)
-- **Phase 4 (Expansion & Precision):**
-  - [ ] Implement 3x3 Performance Grid.
-  - [ ] Expand tactile haptics for buttons/toggles.
-  - [ ] Multi-channel support for independent control assignment.
+### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+- **MidiPortBackend**: [ ] Unified abstraction for all future inputs.
+- **Universal Payload**: [ ] Normalized internal 32-bit UMP-ready format.
+- **State Logic**: [ ] `MidiEvent` (transport) vs. `ControlState` (UI logic).
+- **Diagnostics**: [ ] Raw MIDI event logger and port activity monitor.
+
+### ⏳ Future Phase: v0.2.2 – Universal Host Fallback
+- [ ] Implement `kshoji` USB driver for direct bulk endpoint access.
+- [ ] Stitch 14-bit data directly into canonical UMP-compatible format.
+
+### ⏳ Future Phase: v0.2.3 – Core Routing Engine (DAG)
+- [ ] Implement `MidiRouter` DAG for centralized N-to-N distribution.
+- [ ] Create Transformer Nodes for remapping, filtering, and splitting.
+
+### ⏳ v0.3.0+: Control Expansion & Protocol series
+- [ ] Implement 3x3 Performance Grid and tactile widgets.
+- [ ] v0.4.x: Multi-stage MCU/HUI implementation (Logic, Handshake, Feedback).
+- [ ] v0.5.0: Official DAW remote scripts and Performance Audit.
+
+### ⏳ v0.5.0+ (Conditional): Ultra-Low Latency Fast Path (NDK)
+- [ ] Migrate hot data pipeline to C++ `AMidi` API if Kotlin limits are reached.
+- [ ] Implement Dart FFI Shared Memory for zero-copy UMP block transfer.
+
+### ⏳ experimental/v0.5.x: MIDI 2.0 Native Path
+- [ ] Capability Inquiry (MIDI-CI) negotiation.
+- [ ] Direct OS UMP transport (Windows/macOS).
 
 ## Human roles
 - **Owner/Maintainer:** PetersDigital

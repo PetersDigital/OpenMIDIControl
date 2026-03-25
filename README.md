@@ -19,7 +19,7 @@ This repository currently documents the new direction, design constraints, and i
 - **Responsive command center:** Layout switches between a portrait-focused command center (status row, 3×3 control pad, navigation icons) on phones and a desktop landscape layout with flexible panel ordering plus a dedicated track card.
 - **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
 - **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle. The MIDI settings view allows discrete port selection with active-port highlighting (Blue/Green) and automatic persistence.
-- **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the Ethereal Console system.
+- **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the [DESIGN.md](DESIGN.md) system.
 
 ## Getting Started
 
@@ -90,35 +90,59 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ Current Focus: v0.3.0 (Control Expansion)
-* **Grid System**: Addition of a 3×3 performance pad grid.
-* **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
-* **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.
+### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+* **MidiPortBackend**: Unified abstraction for all future inputs (Native vs. USB Fallback).
+* **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
+* **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`).
+* **Diagnostic Tools**: Real-time MIDI event logger and port activity monitor for hardware debugging.
 
-### ⏳ v0.4.0: Mackie Control Universal (MCU) & HUI
-* **High Resolution**: Support for 14-bit fader resolution via Pitch Bend messages.
-* **DAW Handshake**: Native MCU/HUI protocols for instant integration with major DAWs.
-* **LCD Logic**: Automatic track naming and bank switching feedback.
+### ⏳ v0.2.2 – Universal Host Fallback
+* **kshoji Driver Adaptation**: Direct USB bulk endpoint communication via `UsbManager` for non-compliant hardware.
+* **14-bit Stitching**: High-resolution CC parsing straight into the canonical UMP format.
 
-### ⏳ v0.5.0: Native DAW Integrations
-* **Remote Scripts**: Official integration scripts for Cubase, Ableton Live, and Logic Pro.
-* **Cubase Focus**: Deep integration with the Cubase MIDI Remote API.
+### ⏳ v0.2.3 – Core Routing Engine (Graph Model)
+* **MidiRouter DAG**: Centralized routing graph for N-to-N message distribution and logic-based remapping.
+* **Transformer Nodes**: Plug-and-play modules for channel filtering, remapping, and splitting.
 
-### ⏳ v0.6.0: Preset Engine & Snapshots
-* **Snapshots**: Save and load fader/CC configurations as project-specific presets.
-* **Dynamic Mapping**: Quick-flip between layout modes (e.g., Orchestral CC1/11 vs. Synth CC74/71).
+### ⏳ v0.3.0 – Control Expansion & Basic State
+* **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
+* **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
+* **Raw Snapshots**: Basic save/load functionality using the persistent `ControlState` model.
 
-### ⏳ v0.7.0: Ethereal Layout Editor
-* **Visual Customization**: Drag-and-drop editor to resize and reposition UI elements.
-* **Aesthetic Polish**: Implementation of "Ethereal Console" visual effects, including glow trails and friction physics.
+### ⏳ v0.4.x – The MCU / HUI Protocol Series
+* **v0.4.0 (Core Logic)**: Basic MCU mapping for faders, transport, and 14-bit high-res control.
+* **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
+* **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
 
-### ⏳ v0.8.0+: Desktop Bridge & Wireless Transport
+### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
+* **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
+* **Performance Audit**: Benchmarking Kotlin Coroutine jitter and throughput.
+* **NDK Fast Path (Conditional)**: Migration to C++ AMidi and Dart FFI if Kotlin limits are reached.
+
+### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
+* **MIDI-CI Handshake**: Formal Capability Inquiry negotiation.
+* **OS UMP Integration**: Direct UMP payload transfer to Windows/macOS if supported.
+
+### ⏳ v0.6.0 – Full Preset Engine
+* **Dynamic Mapping**: Quick-flip layout modes (e.g., Orchestral vs. Synth mapping).
+* **Project Presets**: Advanced snapshot management and schema saving.
+
+### ⏳ v0.7.0 – Layout Editor
+* **Serializable Schema**: Requirement for all UI controls to be generated from JSON/config.
+* **Visual Editor**: Drag-and-drop resizing and positioning.
+* **Aesthetic Polish**: Glow trails and friction physics.
+
+### ⏳ v0.8.0 – Wireless Transport & Desktop Bridge
 * **Wireless MIDI**: Support for rtpMIDI (Wi-Fi) and Bluetooth MIDI.
-* **Advanced Transport**: OSC and WebSocket support for custom desktop bridge applications.
+* **Bridge Protocols**: OSC and WebSocket support for custom bridges.
 
-### ⏳ v1.0.0: Contributor-Ready Release
-* **Stable Architecture**: Documented API for third-party layout and integration contributors.
-* **Performance Optimization**: Final tuning for ultra-low latency and jitter-free performance.
+### ⏳ v0.9.0 – Plugin & API Layer
+* **Extension Hooks**: Public API for custom transformers and layouts.
+* **Extensibility Stabilization**: Locking the API surface for v1.0.
+
+### ⏳ v1.0.0 – Contributor-Ready Release
+* **Stable Architecture**: Fully documented API and third-party developer resources.
+* **Final Polish**: Global bug squashing and UX refinement.
 
 ## Repository Status
 

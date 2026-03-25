@@ -3,7 +3,29 @@
 Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the implementation is structured as follows:
 
 ### ✅ v0.1.0: Baseline
-- **Responsive UI Shell:** Building the "Ethereal Console" using `LayoutBuilder` (Portrait Phone / Landscape Tablet).
+- **Responsive UI Shell:** Building the "Console" using `LayoutBuilder` (Portrait Phone / Landscape Tablet).
+- **Core Fader Logic:** Multi-touch pointer capture and normalized `0.0..1.0` value domain.
+- **State Management:** Riverpod `Notifier` providers for transport-agnostic logic.
+
+### ✅ v0.1.5: MIDI Reliability & Logic Polish
+- **Metadata Reconnection:** Switched from transient IDs to Name/Manufacturer fingerprints for robust USB hot-plugging.
+- **Virtual MIDI Bridge:** Native `VirtualMidiService.kt` to expose "OpenMIDIControl" as a device for other mobile apps.
+- **Bi-directional Logic Engine:** Behavior logic (Catch-up/Hybrid) applied to both UI drag events and incoming MIDI `CC` streams.
+- **Orientation Fix:** Dedicated `_MobileLandscapeLayout` to handle ultra-wide aspect ratios (19.5:9+).
+- **Active Port UI:** Translucent row highlighting in MIDI settings to visualize active "data pipes."
+
+### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+- **True Peripheral Mode:** Native Android `MidiDeviceService` for class compliance on Windows 11.
+- **Dual-Path Routing:** High-speed native Kotlin transport for peripheral mode bypassing Flutter event loop.
+- **Performance Batching:** 8ms Coroutine-based buffering for smooth UI fader rendering.
+- **Binder Stability:** Port collision hiding and "Dead Receiver Quarantine" logic to prevent Binder crashes during hotplugging.
+- **Thread Safety:** Migrated state maps to `ConcurrentHashMap` for cross-thread reliability.
+## Implementation Roadmap
+
+Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the implementation is structured as follows:
+
+### ✅ v0.1.0: Baseline
+- **Responsive UI Shell:** Building the "Console" using `LayoutBuilder` (Portrait Phone / Landscape Tablet).
 - **Core Fader Logic:** Multi-touch pointer capture and normalized `0.0..1.0` value domain.
 - **State Management:** Riverpod `Notifier` providers for transport-agnostic logic.
 
@@ -26,11 +48,40 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Silent Dispatch Idle:** Replaced busy-wait polling with event-driven suspension in the native MIDI bridge.
 - **Thermal Stabilization:** Implemented Riverpod batching and direct animation-value assignment to reduce Dart VM and rendering overhead during heavy automation.
 
-### ⏳ Current Focus: v0.3.0 (Control Expansion)
-- **Grid Components:** Implementing a 3×3 pad grid with low-latency velocity simulation.
-- **Tactile Feedback:** Expanding haptic patterns for button toggles and multi-state switches.
+### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+- **MidiPortBackend Abstraction**: Unified interface for all future inputs.
+- **Universal Payload Structure**: Introduce the normalized internal MIDI format (32-bit UMP-ready).
+- **Event vs. State Separation**: Formalize `MidiEvent` (raw transport) vs. `ControlState` (UI-facing logic).
+- **Diagnostic Tools**: Implement a raw MIDI event logger and port activity monitor.
 
-### ⏳ v0.4.0+: MCU, HUI & Desktop Bridge
-- **High Res (14-bit):** Pitch Bend and MSB/LSB pair handling for high-resolution DAW control.
-- **Wireless Transport:** Optional rtpMIDI and WebSocket bridges for advanced macro integration.
-- **MCU/HUI Handshake:** Native support for industry-standard DAW feedback protocols.
+### ⏳ v0.2.2 – Universal Host Fallback
+- **kshoji Integration**: Direct USB bulk endpoint parsing via `UsbManager`.
+- **14-bit Stitching**: Parse high-resolution data straight into the canonical format.
+
+### ⏳ v0.2.3 – Core Routing Engine (DAG)
+- **MidiRouter Graph**: Centralized routing graph using canonical payloads.
+- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams.
+
+### ⏳ v0.3.0 – Control Expansion & Basic State
+- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
+- **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
+- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
+
+### ⏳ v0.4.x – The MCU / HUI Protocol Series
+- **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and 14-bit high-res control.
+- **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
+- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+
+### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
+- **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
+- **Performance Audit**: Benchmark Kotlin pipeline against native DAW integrations.
+- **NDK Fast Path (Conditional)**: C++ AMidi and Dart FFI shared memory migration.
+
+### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
+- **MIDI-CI Handshake**: Capability Inquiry negotiation.
+- **OS UMP Integration**: Direct UMP payload transfer for supported platforms.
+
+### ⏳ v0.6.0+: Customization & Plugins
+- **Full Preset Engine**: Snapshot management and schema saving.
+- **Layout Editor**: Visual drag-and-drop customization and serializable UI schema.
+- **Plugin Layer**: Extensibility hooks for custom transformers and protocol adapters.
