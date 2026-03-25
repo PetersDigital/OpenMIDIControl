@@ -127,6 +127,8 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
 
+
+
           // Layout Section
           const Text(
             'LAYOUT',

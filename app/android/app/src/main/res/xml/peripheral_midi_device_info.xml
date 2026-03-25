@@ -1,0 +1,6 @@
+<devices>
+    <device manufacturer="PetersDigital" product="OpenMIDIControl" name="OpenMIDIControl USB Port">
+        <input-port name="OpenMIDIControl USB In" />
+        <output-port name="OpenMIDIControl USB Out" />
+    </device>
+</devices>

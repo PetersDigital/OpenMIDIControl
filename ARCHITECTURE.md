@@ -104,17 +104,26 @@ State machine must be explicit and testable.
 
 ## 8. Performance Guardrails
 
-- Coalesce rapid touch events using last-value-wins semantics.
-- Cap outbound send frequency per control to avoid thermal spikes.
-- Always send final control value on touch release.
-- Keep parsing and dedup operations O(1) using map-based caches.
+- **Kotlin Coroutine Polling:** High-frequency MIDI events are buffered in a Kotlin `Channel` and batched every 8ms (approx. 120Hz) before dispatching to Flutter.
+- **Dual-Path Routing:** Outbound MIDI CC data in Peripheral mode is written directly to physical hardware transport (`MidiInputPort`) via native Kotlin, bypassing the Flutter event loop for minimal latency.
+- **Port Collision Hiding:** Physical port 0 is hidden from the Flutter device query to prevent Binder "port already open" crashes, granting exclusive routing access to the native layer.
+- **Coalesce rapid touch events:** last-value-wins semantics.
+- **Cap outbound send frequency:** per control to avoid thermal spikes.
+- **Always send final control value:** on touch release.
+- **Keep parsing and dedup operations:** O(1) using `ConcurrentHashMap` caches for thread safety.
+- **Strict Coroutine Suspension:** The background MIDI dispatcher strictly suspends on the `incomingEventsChannel` to ensure the thread yields CPU time back to the OS when no data is moving, achieving ~0% idle overhead.
+- **Real-Time Message Filtering:** Timing Clock (`0xF8`) and Active Sensing (`0xFE`) messages are discarded at the native entry point (MidiReceiver) to protect the Flutter bridge from high-frequency saturation.
+- **Reactive UI Throttling:** UI components (like faders) use Riverpod's `.select()` modifier to filter global state updates, ensuring that only the relevant control rebuilds during multi-channel MIDI traffic.
+- **Riverpod Batch Update:** State transitions are batched precisely once per native polling cycle to minimize map churn and UI thread occupancy.
+- **Animation Churn Bypass:** External MIDI updates use direct `AnimationController.value` assignment to bypass expensive animation interpolation and cancellation math, relying on the source DAW for temporal smoothing.
 
-## 9. Error Handling
+## 9. Error Handling & Stability
 
-- Invalid MIDI frames: ignore and continue.
-- Partial 14-bit pairs: buffer briefly, then drop safely on timeout.
-- Unknown SysEx commands: log and ignore.
-- Port loss: preserve UI state, signal disconnected mode, retry connection.
+- **Dead Receiver Quarantine:** Catch `IOException` on hardware writes and isolate disconnected receivers in a quarantine set to prevent infinite Binder crash loops during rapid hotplugging.
+- **Invalid MIDI frames:** ignore and continue.
+- **Partial 14-bit pairs:** buffer briefly, then drop safely on timeout.
+- **Unknown SysEx commands:** log and ignore.
+- **Port loss:** preserve UI state, signal disconnected mode, retry connection.
 
 ## 10. Version Roadmap (v0.1.0 to v1.0.0)
 
@@ -134,12 +143,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
 * **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
 
-### ⏳ v0.2.0: Advanced USB MIDI & Logic (Current Focus)
-* **Peripheral Mode**: Pivoting the app to act as a USB Peripheral for Windows 11 and DAW recognition.
-* **USB Class Compliance**: Validation of standardized MIDI communication without custom drivers.
-* **Logic Refinement**: Finalizing "Catch-up" and "Hybrid" fader physics for professional mixing workflows.
+### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+* **True Peripheral Mode**: Native Android `MidiDeviceService` for class compliance on Windows 11.
+* **Dual-Path Routing**: High-speed native Kotlin transport for peripheral mode.
+* **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
+* **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ v0.3.0: Control Expansion
+### ⏳ Current Focus: v0.3.0 (Control Expansion)
 * **Grid System**: Addition of a 3×3 performance pad grid.
 * **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
 * **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.

@@ -2,9 +2,9 @@
 
 This repository is primarily developed using AI coding agents (LLMs) via GitHub Copilot and other tools.
 
-## Milestone Status: v0.1.5 (MIDI Reliability & Logic Polish)
+## Milestone Status: v0.2.0 (Advanced USB MIDI & Dual-Path Routing)
 
-### ✅ Completed (v0.1.5)
+### ✅ Completed (v0.2.0)
 - [x] **Virtual MIDI Port**: Native Android MIDI device for local routing.
 - [x] **Metadata Reconnection**: Fingerprint matching for USB hot-plug stability.
 - [x] **Bi-directional Logic**: Jump/Hybrid/Catch-up applied to hardware MIDI.
@@ -12,16 +12,19 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **UI Highlighting**: Active MIDI port visualization in settings.
 - [x] **Gesture Fixes**: Fader initialization moved to `onVerticalDragStart`.
 - [x] **Haptic Stability**: JVM crash fix for vibration durations.
+- [x] **True Peripheral Mode**: Native `MidiDeviceService` for Class Compliance.
+- [x] **Port Collision Hiding**: Filtering internal ports from Flutter list to prevent Binder crashes.
+- [x] **Strict Coroutine Suspension**: Fixed busy-wait dispatch loop for ~0% idle CPU usage.
+- [x] **MIDI Real-Time Filtering**: Discarding 0xF8/0xFE in native layer to protect the Flutter bridge.
+- [x] **Riverpod UI Optimization**: `.select()` modifier for per-control update filtering.
+- [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
+- [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
 
-### ⏳ Current Focus: v0.2.0 (Advanced USB MIDI & Logic)
-- **Phase 3 (Peripheral Pivot):**
-  - [ ] Implement native `MidiDeviceService` for USB Peripheral role.
-  - [ ] Update `AndroidManifest.xml` and `midi_device_info.xml` for Class Compliance.
-  - [ ] Initialize "Device Server" logic in `MainActivity.kt`.
-- **Phase 4 (Compliance & Stability):**
-  - [ ] Driverless validation on Windows 11.
-  - [ ] Sub-millisecond timing audit using `System.nanoTime()`.
-  - [ ] Jitter reduction and 14-bit readiness.
+### ⏳ Current Focus: v0.3.0 (Control Expansion)
+- **Phase 4 (Expansion & Precision):**
+  - [ ] Implement 3x3 Performance Grid.
+  - [ ] Expand tactile haptics for buttons/toggles.
+  - [ ] Multi-channel support for independent control assignment.
 
 ## Human roles
 - **Owner/Maintainer:** PetersDigital
@@ -73,13 +76,13 @@ Windows PowerShell:
 
 ```powershell
 # 1. Check out and push branch
-git checkout feat-android-midi-bridge-v0.1.5
-git push -u origin feat-android-midi-bridge-v0.1.5
+git checkout feat-android-midi-v0.2.0
+git push -u origin feat-android-midi-v0.2.0
 
 # 2. Create draft PR
- gh pr create --base main --head feat-android-midi-bridge-v0.1.5 `
-  --title "feat(midi): v0.1.5 milestone" `
-  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" `
+ gh pr create --base main --head feat-android-midi-v0.2.0 `
+  --title "feat(midi): v0.2.0 milestone overhaul" `
+  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" `
   --draft --assignee dencelkbabu --reviewer dencelkbabu `
   --label "draft, needs review"
 
@@ -95,13 +98,13 @@ Unix/Bash:
 
 ```bash
 # 1. Check out and push branch
-git checkout feat-android-midi-bridge-v0.1.5
-git push -u origin feat-android-midi-bridge-v0.1.5
+git checkout feat-android-midi-v0.2.0
+git push -u origin feat-android-midi-v0.2.0
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-bridge-v0.1.5 \
-  --title "feat(midi): v0.1.5 milestone" \
-  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" \
+gh pr create --base main --head feat-android-midi-v0.2.0 \
+  --title "feat(midi): v0.2.0 milestone overhaul" \
+  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
   --label "draft, needs review"
 

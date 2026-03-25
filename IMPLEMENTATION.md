@@ -14,26 +14,19 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Orientation Fix:** Dedicated `_MobileLandscapeLayout` to handle ultra-wide aspect ratios (19.5:9+).
 - **Active Port UI:** Translucent row highlighting in MIDI settings to visualize active "data pipes."
 
-### ⏳ v0.2.0: Advanced USB MIDI & Logic (Current Focus)
+### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+- **True Peripheral Mode:** Native Android `MidiDeviceService` for class compliance on Windows 11.
+- **Dual-Path Routing:** High-speed native Kotlin transport for peripheral mode bypassing Flutter event loop.
+- **Performance Batching:** 8ms Coroutine-based buffering for smooth UI fader rendering.
+- **Binder Stability:** Port collision hiding and "Dead Receiver Quarantine" logic to prevent Binder crashes during hotplugging.
+- **Thread Safety:** Migrated state maps to `ConcurrentHashMap` for cross-thread reliability.
+- **Manual Port Selection:** Added a toggle in Settings to optionally show internal ports in the device list.
+- **MIDI Real-Time Filtering:** Broad-spectrum discard of `0xF8`/`0xFE` in `MidiReceiver.onSend` to prioritize control data over clock saturation.
+- **Riverpod .select() Optimization:** High-frequency UI rebuild prevention via targeted state subscriptions in `HybridTouchFader`.
+- **Silent Dispatch Idle:** Replaced busy-wait polling with event-driven suspension in the native MIDI bridge.
+- **Thermal Stabilization:** Implemented Riverpod batching and direct animation-value assignment to reduce Dart VM and rendering overhead during heavy automation.
 
-#### Phase 3: The Peripheral "Pivot"
-The primary goal is to establish the Android phone as a **Class Compliant USB MIDI Peripheral** for Windows 11. This moves the app from controlling external hardware (Host mode) to controlling a DAW (Cubase, etc.) directly via USB.
-
-- **Manifest & Service Integration:** Register a native `MidiDeviceService` in `AndroidManifest.xml` with `BIND_MIDI_DEVICE_SERVICE` permissions. This allows the app to broadcast standard USB MIDI descriptors requiring zero custom drivers on the host PC.
-- **Service Configuration:** Update `midi_device_info.xml` to define the input and output port architecture exposed to the host DAW.
-- **Peripheral Handshake:** Enhance `MainActivity.kt` to detect USB host connections and initialize the "Device Server" role.
-- **Unified Routing:** Direct Flutter UI fader events to the Peripheral output port, ensuring low-latency delivery to the Windows environment.
-
-#### Phase 4: Compliance & v0.2.0 Wrap-up
-Focusing on professional stability and timing precision for the official v0.2.0 release.
-
-- **Class Compliance Validation:** Rigorous testing across various hardware/cable configurations to ensure "plug-and-play" reliability.
-- **Timing & Jitter Audit:** Implement high-precision monitoring using `System.nanoTime()` in Kotlin to measure the delta between UI touch events and MIDI byte egress. Target: sub-millisecond precision with minimal jitter.
-- **14-bit Readiness:** Ensure the transport logic is optimized for high-resolution data (NRPN or Pitch Bend) in preparation for MCU/HUI support.
-- **Deduplication Refinement:** Audit value-based suppression logic to prevent USB bus flooding while maintaining responsive feedback.
-- **Release Polish:** Clean up debug indicators and finalize `CHANGELOG.md` for the v0.2.0 milestone.
-
-### ⏳ v0.3.0: Control Expansion
+### ⏳ Current Focus: v0.3.0 (Control Expansion)
 - **Grid Components:** Implementing a 3×3 pad grid with low-latency velocity simulation.
 - **Tactile Feedback:** Expanding haptic patterns for button toggles and multi-state switches.
 

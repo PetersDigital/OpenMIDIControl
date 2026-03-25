@@ -20,14 +20,14 @@ Expected baseline:
 - USB data cable (not charge-only)
 - Host computer and DAW with MIDI learn
 
-## 3. First-Run Checklist
+## 3. First-Run Checklist (USB Peripheral Mode)
 
-1. Connect Android device via USB and select MIDI mode.
-2. Start OpenMIDIControl.
-3. Confirm MIDI in/out ports are visible on host.
-4. Map two controls in DAW using MIDI learn.
-5. Move each fader and confirm host parameter movement.
-6. Move host parameter externally and confirm UI updates.
+1. Connect Android device to Windows 11 PC via USB-C.
+2. Ensure Android USB mode is set to **"MIDI"** or **"File Transfer"** (Device will automatically handshake as a Peripheral).
+3. Start OpenMIDIControl.
+4. Confirm **"USB PERIPHERAL MODE ACTIVE"** green banner appears in the status row.
+5. In your DAW (Cubase/Ableton), select **"OpenMIDIControl"** as the MIDI Input/Output device.
+6. Move a fader and confirm MIDI data is received.
 
 ## 4. Operating Behavior
 
@@ -53,7 +53,8 @@ Expected baseline:
 - Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
 - The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
 - A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.1.5` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- The version + build metadata at the top helps confirm you are on the `v0.2.0` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 
 ### 4.5 Configuring MIDI Ports
@@ -134,8 +135,23 @@ Notes:
 - Verify suppression window is enabled.
 - Verify outbound event cap and coalescing are active.
 
-## 9. Design References
+## 9. Debugging & Testing (v0.2.0+)
 
+### 9.1 Native Logging
+To monitor the internal MIDI dispatcher and USB handshake events, use `adb`:
+```powershell
+# Windows PowerShell
+adb -s <devicename> logcat -c; adb -s <devicename> logcat | Select-String "OpenMIDIControl|flutter"
+```
+
+### 9.2 Sending Test MIDI
+Use the [Windows MIDI Services](https://microsoft.github.io/MIDI/tools/) CLI to send test messages to the app:
+```bash
+# Send CC 1 Value 33 to Channel 1
+midi endpoint send-message 0x20B00121
+```
+
+## 10. Design References
 - Architecture and event model: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Change history: [CHANGELOG.md](CHANGELOG.md)

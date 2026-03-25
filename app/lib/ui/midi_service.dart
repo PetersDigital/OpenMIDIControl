@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'midi_settings_state.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
+
 class MidiPort {
   final int number;
   final String name;
@@ -16,6 +18,27 @@ class MidiPort {
     );
   }
 }
+
+class UsbConnectionStateNotifier extends Notifier<String> {
+  @override
+  String build() {
+    final service = ref.watch(midiServiceProvider);
+
+    final sub = service.midiEventsStream.listen((event) {
+      if (event is Map && event['type'] == 'usb_state') {
+        state = event['state'] as String;
+      }
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
+    });
+
+    return 'INIT';
+  }
+}
+
+final usbConnectionStateProvider = NotifierProvider<UsbConnectionStateNotifier, String>(UsbConnectionStateNotifier.new);
 
 class MidiDevice {
   final String id;
@@ -54,8 +77,12 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
-  Stream<dynamic> get midiEventsStream =>
-      _eventsChannel.receiveBroadcastStream();
+  Stream<dynamic>? _broadcastStream;
+
+  Stream<dynamic> get midiEventsStream {
+    _broadcastStream ??= _eventsChannel.receiveBroadcastStream().asBroadcastStream();
+    return _broadcastStream!;
+  }
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -100,11 +127,19 @@ class MidiService {
     }
   }
 
-  Future<void> sendCC(int cc, int value) async {
+  Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
     try {
-      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value});
+      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value, 'isFinal': isFinal});
     } catch (e) {
       debugPrint('Failed to send CC $cc: $e');
+    }
+  }
+
+  Future<void> setUsbMode(String mode) async {
+    try {
+      await _channel.invokeMethod('setUsbMode', {'mode': mode});
+    } catch (e) {
+      debugPrint('Failed to set USB mode: $e');
     }
   }
 
@@ -190,11 +225,32 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final service = ref.watch(midiServiceProvider);
 
     // Listen to device connection events from Kotlin
-    service.midiEventsStream.listen((event) {
+    final sub = service.midiEventsStream.listen((event) {
       debugPrint("MIDI FLUTTER IN: $event");
       if (event is Map) {
         final type = event['type'];
         final id = event['id'];
+
+        if (type == 'batch') {
+          final events = event['events'];
+          if (events is List) {
+            final Map<int, int> batchUpdates = {};
+            for (var e in events) {
+              if (e is Map && e['type'] == 'cc') {
+                final ccNumber = e['cc'] as int?;
+                final value = e['value'] as int?;
+                if (ccNumber != null && value != null) {
+                  batchUpdates[ccNumber] = value;
+                }
+              }
+            }
+            // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
+            if (batchUpdates.isNotEmpty) {
+              ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
+            }
+          }
+          return;
+        }
 
         if (type == 'removed') {
           // If the removed device is our currently connected device
@@ -252,8 +308,25 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           if (ccNumber != null && value != null) {
             ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
           }
+        } else if (type == 'usb_state') {
+          final usbStatus = event['state'];
+
+          if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
+            // FORCE the teardown. Do NOT hide this behind a connectedDevice != null check.
+            // The physical cable is gone; the state must reflect it immediately.
+            state = state.disconnect(connectionLost: true);
+            service.vibrate(
+              pattern: [0, 100, 100, 100],
+              amplitude: [0, 255, 0, 255],
+            );
+            ref.invalidate(midiDevicesProvider);
+          }
         }
       }
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
     });
 
     return const MidiConnectionState();
@@ -298,20 +371,20 @@ final connectedMidiDeviceProvider =
       ConnectedMidiDeviceNotifier.new,
     );
 
-enum MidiStatus { disconnected, available, connected, connectionLost }
+enum MidiStatus { disconnected, available, connected, connectionLost, usbActive }
 
 // State is stored as an integer (0-127).
 // In Riverpod 2.x/3.x, passing arguments to a Notifier happens via Family.
 // For CC, we just want a simple state to sync inbound and outbound.
 // A simpler alternative to FamilyNotifier is to just expose a map or use a custom class.
 class CCState {
-  final Map<int, int> values;
-  CCState({this.values = const {}});
+  final Map<int, int> ccValues;
+  CCState({this.ccValues = const {}});
 
   CCState copyWith(int cc, int val) {
-    final newValues = Map<int, int>.from(values);
+    final newValues = Map<int, int>.from(ccValues);
     newValues[cc] = val;
-    return CCState(values: newValues);
+    return CCState(ccValues: newValues);
   }
 }
 
@@ -324,6 +397,13 @@ class CcNotifier extends Notifier<CCState> {
   void updateCC(int cc, int value) {
     state = state.copyWith(cc, value);
   }
+
+  void updateMultipleCCs(Map<int, int> updates) {
+    if (updates.isEmpty) return;
+    final newValues = Map<int, int>.from(state.ccValues);
+    newValues.addAll(updates);
+    state = CCState(ccValues: newValues);
+  }
 }
 
 final ccValuesProvider = NotifierProvider<CcNotifier, CCState>(CcNotifier.new);
@@ -331,6 +411,13 @@ final ccValuesProvider = NotifierProvider<CcNotifier, CCState>(CcNotifier.new);
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
   final devicesAsync = ref.watch(midiDevicesProvider);
+  final usbState = ref.watch(usbConnectionStateProvider);
+  final usbMode = ref.watch(usbModeProvider);
+
+  // USB Mode takes highest precedence if in peripheral mode and connected
+  if (usbMode == UsbMode.peripheral && usbState == 'AVAILABLE') {
+    return MidiStatus.usbActive;
+  }
 
   if (connectionState.isConnectionLost) {
     return MidiStatus.connectionLost;
@@ -341,7 +428,12 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   }
 
   final devices = devicesAsync.value ?? [];
-  if (devices.isNotEmpty) {
+  // Exclude internal ports from the "available" check if manual selection is off,
+  // otherwise the UI will always show AVAILABLE because of the virtual ports.
+  final manualSelection = ref.watch(manualPortSelectionProvider);
+  final externalDevices = devices.where((d) => manualSelection || d.manufacturer != 'PetersDigital').toList();
+
+  if (externalDevices.isNotEmpty) {
     return MidiStatus.available;
   }
 

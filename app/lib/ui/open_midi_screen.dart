@@ -782,6 +782,11 @@ class _ConnectionStatusButtonState
     bool showGlow = false;
 
     switch (midiStatus) {
+      case MidiStatus.usbActive:
+        statusText = "USB PERIPHERAL MODE ACTIVE";
+        statusColor = Colors.green.shade400;
+        _animationController.stop();
+        break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
         statusColor = Colors.green.shade400;
