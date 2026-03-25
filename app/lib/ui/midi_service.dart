@@ -234,14 +234,19 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         if (type == 'batch') {
           final events = event['events'];
           if (events is List) {
+            final Map<int, int> batchUpdates = {};
             for (var e in events) {
               if (e is Map && e['type'] == 'cc') {
                 final ccNumber = e['cc'] as int?;
                 final value = e['value'] as int?;
                 if (ccNumber != null && value != null) {
-                  ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+                  batchUpdates[ccNumber] = value;
                 }
               }
+            }
+            // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
+            if (batchUpdates.isNotEmpty) {
+              ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
             }
           }
           return;
@@ -391,6 +396,13 @@ class CcNotifier extends Notifier<CCState> {
 
   void updateCC(int cc, int value) {
     state = state.copyWith(cc, value);
+  }
+
+  void updateMultipleCCs(Map<int, int> updates) {
+    if (updates.isEmpty) return;
+    final newValues = Map<int, int>.from(state.values);
+    newValues.addAll(updates);
+    state = CCState(values: newValues);
   }
 }
 
