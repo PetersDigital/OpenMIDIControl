@@ -783,7 +783,7 @@ class _ConnectionStatusButtonState
 
     switch (midiStatus) {
       case MidiStatus.usbActive:
-        statusText = "USB MODE ACTIVE";
+        statusText = "USB PERIPHERAL MODE ACTIVE";
         statusColor = Colors.green.shade400;
         _animationController.stop();
         break;
