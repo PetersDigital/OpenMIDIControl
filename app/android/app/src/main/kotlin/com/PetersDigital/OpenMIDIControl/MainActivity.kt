@@ -632,7 +632,11 @@ class MainActivity : FlutterActivity() {
                 // Suspend the coroutine until at least one event is received.
                 // This cleanly yields the background thread instead of spinning,
                 // preventing severe battery drain and thermal CPU spikes when idle.
-                val firstEvent = incomingEventsChannel.receive()
+                val firstEvent = try {
+                    incomingEventsChannel.receive()
+                } catch (e: Exception) {
+                    null
+                } ?: break
 
                 val batch = mutableListOf<Map<String, Any>>()
                 batch.add(firstEvent)
