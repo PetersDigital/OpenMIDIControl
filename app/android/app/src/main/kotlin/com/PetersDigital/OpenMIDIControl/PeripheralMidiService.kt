@@ -19,6 +19,7 @@ class PeripheralMidiService : MidiDeviceService() {
     }
 
     override fun onDestroy() {
+        deadReceivers.clear()
         activeInstance = null
         super.onDestroy()
     }

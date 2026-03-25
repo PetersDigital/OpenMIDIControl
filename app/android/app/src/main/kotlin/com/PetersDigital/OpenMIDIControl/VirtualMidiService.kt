@@ -19,6 +19,7 @@ class VirtualMidiService : MidiDeviceService() {
     }
 
     override fun onDestroy() {
+        deadReceivers.clear()
         activeInstance = null
         super.onDestroy()
     }
