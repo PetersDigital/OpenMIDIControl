@@ -636,6 +636,7 @@ class MainActivity : FlutterActivity() {
 
                 if (batch.isNotEmpty()) {
                     Handler(Looper.getMainLooper()).post {
+                        android.util.Log.d("OpenMIDIControl", "Dispatching batch of size: ${batch.size} to Flutter")
                         eventSink?.success(mapOf("type" to "batch", "events" to batch))
                     }
                 }

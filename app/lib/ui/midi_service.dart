@@ -77,8 +77,12 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
-  Stream<dynamic> get midiEventsStream =>
-      _eventsChannel.receiveBroadcastStream();
+  Stream<dynamic>? _broadcastStream;
+
+  Stream<dynamic> get midiEventsStream {
+    _broadcastStream ??= _eventsChannel.receiveBroadcastStream().asBroadcastStream();
+    return _broadcastStream!;
+  }
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -228,7 +232,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         final id = event['id'];
 
         if (type == 'batch') {
-          final events = event['events'] as List<dynamic>;
+          final events = event['events'] as List;
           for (var e in events) {
             if (e is Map && e['type'] == 'cc') {
               final ccNumber = e['cc'] as int?;
