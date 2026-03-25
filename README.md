@@ -10,9 +10,9 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.1.5** (Current) Refines the MIDI bridge with metadata-based reconnection persistence, virtual MIDI port support (Android), and high-precision discrete port selection.
+- **v0.2.0** (Current) Advanced USB MIDI Peripheral Mode with native OS routing, Coroutine-based performance batching, and dual-path transport for ultra-low latency.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
-- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.1.5 implementation.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
 
 ## Current UI & Controls
 
@@ -84,12 +84,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
 * **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
 
-### ⏳ v0.2.0: Advanced USB MIDI & Logic (Current Focus)
-* **Peripheral Mode**: Pivoting the app to act as a USB Peripheral for Windows 11 and DAW recognition.
-* **USB Class Compliance**: Validation of standardized MIDI communication without custom drivers.
-* **Logic Refinement**: Finalizing "Catch-up" and "Hybrid" fader physics for professional mixing workflows.
+### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+* **True Peripheral Mode**: Native Android `MidiDeviceService` for class compliance on Windows 11.
+* **Dual-Path Routing**: High-speed native Kotlin transport for peripheral mode.
+* **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
+* **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ v0.3.0: Control Expansion
+### ⏳ Current Focus: v0.3.0 (Control Expansion)
 * **Grid System**: Addition of a 3×3 performance pad grid.
 * **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
 * **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.

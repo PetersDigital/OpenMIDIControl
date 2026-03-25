@@ -40,13 +40,14 @@ class HybridTouchFader extends ConsumerStatefulWidget {
   ConsumerState<HybridTouchFader> createState() => _HybridTouchFaderState();
 }
 
-class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
-  late double _currentValue;
+class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
   late int _ccNumber;
   late String _ccLabel;
 
   // Track if user is actively dragging to prevent external MIDI echo feedback
-  bool _isActive = false;
+  bool _isDragging = false;
 
   // State for touch Catch-up behavior (App -> Hardware)
   bool _isCatchingUp = false;
@@ -60,22 +61,33 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
   @override
   void initState() {
     super.initState();
-    _currentValue = widget.initialValue.clamp(0.0, 1.0);
+    _animationController = AnimationController(
+      vsync: this,
+      value: widget.initialValue.clamp(0.0, 1.0),
+    )..addListener(() {
+        setState(() {}); // Still need to trigger a redraw when value changes
+      });
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.label;
   }
 
-  void _sendMidiUpdate() {
-    final int ccValue = (_currentValue * 127).round();
-    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue);
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _sendMidiUpdate({bool isFinal = false}) {
+    final int ccValue = (_animationController.value * 127).round();
+    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue, isFinal: isFinal);
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
     // Only lock the fader from incoming MIDI, don't change values yet
-    _isActive = true;
+    _isDragging = true;
 
     if (widget.behavior == FaderBehavior.catchUp) {
-      final handleY = (1.0 - _currentValue) * constraints.maxHeight;
+      final handleY = (1.0 - _animationController.value) * constraints.maxHeight;
       final touchY = details.localPosition.dy;
       
       // If we touch almost exactly on the handle line (within 20 pixels), grab immediately
@@ -102,15 +114,15 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
 
   void _handleDragUpdate(DragUpdateDetails details, BoxConstraints constraints) {
     if (widget.behavior == FaderBehavior.hybrid) {
-      setState(() {
-        _currentValue = (_currentValue - (details.delta.dy / constraints.maxHeight)).clamp(0.0, 1.0);
-      });
+      _animationController.value =
+          (_animationController.value - (details.delta.dy / constraints.maxHeight))
+              .clamp(0.0, 1.0);
       _sendMidiUpdate();
       return;
     }
 
     if (widget.behavior == FaderBehavior.catchUp && _isCatchingUp) {
-      final handleY = (1.0 - _currentValue) * constraints.maxHeight;
+      final handleY = (1.0 - _animationController.value) * constraints.maxHeight;
       final touchY = details.localPosition.dy;
 
       bool crossed = false;
@@ -129,9 +141,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
   }
 
   void _applyAbsolutePosition(double localY, double maxHeight) {
-    setState(() {
-      _currentValue = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
-    });
+    _animationController.value = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
     _sendMidiUpdate();
   }
 
@@ -172,60 +182,67 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to external MIDI CC updates
-    ref.listen<CCState>(ccValuesProvider, (previous, next) {
-      if (_isActive) {
-        // If we are touching it, the hardware is now out of sync with our finger.
-        // So the next time we let go, the hardware will need to catch up again.
-        _hardwareIsCatchingUp = true;
-        _lastHardwareValue = null;
-        return; // Prevent echo feedback loop
-      }
+    // Listen to external MIDI CC updates for this specific fader's CC only.
+    // .select() ensures this listener only fires when our CC value changes.
+    ref.listen<int?>(
+      ccValuesProvider.select((state) => state.ccValues[_ccNumber]),
+      (previous, next) {
+        if (next == null || next == previous) return;
 
-      final incomingRawValue = next.values[_ccNumber];
-      if (incomingRawValue != null) {
-        final incomingNormalized = (incomingRawValue / 127.0).clamp(0.0, 1.0);
+        if (_isDragging) {
+          // If we are touching it, the hardware is now out of sync with our finger.
+          // So the next time we let go, the hardware will need to catch up again.
+          _hardwareIsCatchingUp = true;
+          _lastHardwareValue = null;
+          return; // Prevent echo feedback loop
+        }
+
+        final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
         if (widget.behavior == FaderBehavior.jump) {
-          setState(() {
-            _currentValue = incomingNormalized;
-          });
+          // Instantly update the value to avoid 120Hz animation cancellation churn.
+          // DAW automation is already smoothed natively.
+          _animationController.value = incomingNormalized;
           return;
         }
 
-        if (widget.behavior == FaderBehavior.catchUp || widget.behavior == FaderBehavior.hybrid) {
+        if (widget.behavior == FaderBehavior.catchUp ||
+            widget.behavior == FaderBehavior.hybrid) {
           // If the hardware was just moved after the user let go of the screen, determine direction
           if (_hardwareIsCatchingUp) {
             if (_lastHardwareValue == null) {
               // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
-              _hardwareMustCrossMovingUp = incomingNormalized < _currentValue;
+              _hardwareMustCrossMovingUp =
+                  incomingNormalized < _animationController.value;
               _lastHardwareValue = incomingNormalized;
               return;
             }
 
             // Check if it has crossed the threshold
             bool crossed = false;
-            if (_hardwareMustCrossMovingUp && incomingNormalized >= _currentValue) crossed = true;
-            if (!_hardwareMustCrossMovingUp && incomingNormalized <= _currentValue) crossed = true;
+            if (_hardwareMustCrossMovingUp &&
+                incomingNormalized >= _animationController.value) {
+              crossed = true;
+            }
+            if (!_hardwareMustCrossMovingUp &&
+                incomingNormalized <= _animationController.value) {
+              crossed = true;
+            }
 
             if (crossed) {
               _hardwareIsCatchingUp = false;
-              setState(() {
-                _currentValue = incomingNormalized;
-              });
+              _animationController.value = incomingNormalized;
             }
             _lastHardwareValue = incomingNormalized;
           } else {
             // Already caught up, track normally
-            setState(() {
-              _currentValue = incomingNormalized;
-            });
+            _animationController.value = incomingNormalized;
           }
         }
-      }
-    });
+      },
+    );
 
-    final int ccValue = (_currentValue * 127).round();
+    final int ccValue = (_animationController.value * 127).round();
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
 
@@ -235,8 +252,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
           onPanDown: (d) => _handlePanDown(d, constraints),
           onVerticalDragStart: (d) => _handleDragStart(d, constraints),
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
-          onVerticalDragCancel: () => _isActive = false,
-          onVerticalDragEnd: (_) => _isActive = false,
+          onVerticalDragCancel: () {
+            _isDragging = false;
+            _sendMidiUpdate(isFinal: true);
+          },
+          onVerticalDragEnd: (_) {
+            _isDragging = false;
+            _sendMidiUpdate(isFinal: true);
+          },
           behavior: HitTestBehavior.opaque,
           child: Container(
             width: double.infinity,
@@ -247,7 +270,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
               children: [
                 // Filled active track
                 FractionallySizedBox(
-                  heightFactor: _currentValue,
+                  heightFactor: _animationController.value,
                   widthFactor: 1.0,
                   alignment: Alignment.bottomCenter,
                   child: Container(color: widget.activeColor),

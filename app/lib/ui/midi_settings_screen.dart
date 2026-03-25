@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'midi_service.dart';
+import 'midi_settings_state.dart'
+    show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
 class MidiSettingsScreen extends ConsumerWidget {
   const MidiSettingsScreen({super.key});
@@ -24,7 +26,9 @@ class MidiSettingsScreen extends ConsumerWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primaryContainer),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.primaryContainer,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -33,6 +37,97 @@ class MidiSettingsScreen extends ConsumerWidget {
           _buildStatusBanner(context, midiStatus, connectedDevice),
 
           const SizedBox(height: 24),
+
+          // --- MOVED CONNECTIONS SETTINGS ---
+          const Text(
+            'CONNECTIONS',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Builder(
+            builder: (ctx) {
+              final usbMode = ref.watch(usbModeProvider);
+              final isPeripheral = usbMode == UsbMode.peripheral;
+              return SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: Text(
+                  isPeripheral ? 'USB PERIPHERAL MODE' : 'USB HOST MODE',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Text(
+                  isPeripheral
+                      ? 'Acts as a MIDI device for your PC.'
+                      : 'Connect external USB MIDI keyboards to this app.',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                value: isPeripheral,
+                activeThumbColor: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer,
+                onChanged: (_) {
+                  final newMode = isPeripheral
+                      ? UsbMode.host
+                      : UsbMode.peripheral;
+                  ref.read(usbModeProvider.notifier).updateMode(newMode);
+                },
+              );
+            },
+          ),
+          Builder(
+            builder: (ctx) {
+              final manualSelection = ref.watch(manualPortSelectionProvider);
+              return SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: const Text(
+                  'MANUAL PORT SELECTION',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Text(
+                  manualSelection
+                      ? 'Showing internal virtual ports in device list.'
+                      : 'Hiding internal virtual ports (auto-routing).',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                value: manualSelection,
+                activeThumbColor: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer,
+                onChanged: (_) =>
+                    ref.read(manualPortSelectionProvider.notifier).toggle(),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+          // --- END MOVED CONNECTIONS SETTINGS ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -59,7 +154,13 @@ class MidiSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 4),
 
           midiDevicesAsyncValue.when(
-            data: (devices) {
+            data: (allDevices) {
+              final manualSelection = ref.watch(manualPortSelectionProvider);
+              final devices = allDevices
+                  .where(
+                    (d) => manualSelection || d.manufacturer != 'PetersDigital',
+                  )
+                  .toList();
               if (devices.isEmpty) {
                 return ListTile(
                   tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -73,18 +174,25 @@ class MidiSettingsScreen extends ConsumerWidget {
                       fontSize: 14,
                     ),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 );
               }
 
               return Column(
                 children: devices.map((device) {
-                  final isThisDeviceConnected = connectedDevice?.id == device.id;
+                  final isThisDeviceConnected =
+                      connectedDevice?.id == device.id;
                   return _DeviceExpansionTile(
                     device: device,
                     isThisDeviceConnected: isThisDeviceConnected,
-                    activeInputPort: isThisDeviceConnected ? connectionState.inputPort : null,
-                    activeOutputPort: isThisDeviceConnected ? connectionState.outputPort : null,
+                    activeInputPort: isThisDeviceConnected
+                        ? connectionState.inputPort
+                        : null,
+                    activeOutputPort: isThisDeviceConnected
+                        ? connectionState.outputPort
+                        : null,
                   );
                 }).toList(),
               );
@@ -114,7 +222,9 @@ class MidiSettingsScreen extends ConsumerWidget {
                   fontSize: 12,
                 ),
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -122,7 +232,11 @@ class MidiSettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusBanner(BuildContext context, MidiStatus status, MidiDevice? connectedDevice) {
+  Widget _buildStatusBanner(
+    BuildContext context,
+    MidiStatus status,
+    MidiDevice? connectedDevice,
+  ) {
     Color borderColor;
     IconData icon;
     Color iconColor;
@@ -131,6 +245,14 @@ class MidiSettingsScreen extends ConsumerWidget {
     String subText;
 
     switch (status) {
+      case MidiStatus.usbActive:
+        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        icon = Icons.check_circle_outline;
+        iconColor = Colors.green.shade400;
+        titleText = 'USB PERIPHERAL MODE ACTIVE';
+        titleColor = Colors.green.shade400;
+        subText = 'Device is acting as a USB MIDI peripheral to host PC.';
+        break;
       case MidiStatus.connected:
         borderColor = Colors.green.shade900.withValues(alpha: 0.5);
         icon = Icons.check_circle_outline;
@@ -224,7 +346,8 @@ class _DeviceExpansionTile extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_DeviceExpansionTile> createState() => _DeviceExpansionTileState();
+  ConsumerState<_DeviceExpansionTile> createState() =>
+      _DeviceExpansionTileState();
 }
 
 class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
@@ -268,11 +391,13 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
       SnackBar(content: Text('Connecting to ${widget.device.name}...')),
     );
 
-    final success = await ref.read(connectedMidiDeviceProvider.notifier).connect(
-      widget.device,
-      inputPort: _selectedInputPort,
-      outputPort: _selectedOutputPort,
-    );
+    final success = await ref
+        .read(connectedMidiDeviceProvider.notifier)
+        .connect(
+          widget.device,
+          inputPort: _selectedInputPort,
+          outputPort: _selectedOutputPort,
+        );
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -295,10 +420,14 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           collapsedBackgroundColor: widget.isThisDeviceConnected
-              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1)
+              ? Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.1)
               : Theme.of(context).colorScheme.surfaceContainerLow,
           backgroundColor: widget.isThisDeviceConnected
-              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1)
+              ? Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.1)
               : Theme.of(context).colorScheme.surfaceContainerLow,
           leading: Icon(
             Icons.usb,
@@ -310,8 +439,12 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
             widget.device.name,
             style: TextStyle(
               fontFamily: 'Inter',
-              color: widget.isThisDeviceConnected ? Colors.white : Colors.white70,
-              fontWeight: widget.isThisDeviceConnected ? FontWeight.bold : FontWeight.normal,
+              color: widget.isThisDeviceConnected
+                  ? Colors.white
+                  : Colors.white70,
+              fontWeight: widget.isThisDeviceConnected
+                  ? FontWeight.bold
+                  : FontWeight.normal,
               fontSize: 14,
             ),
           ),
@@ -358,24 +491,43 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                       Expanded(
                         flex: 2,
                         child: widget.device.inputPorts.isEmpty
-                            ? const Text('None available', style: TextStyle(color: Colors.white38))
+                            ? const Text(
+                                'None available',
+                                style: TextStyle(color: Colors.white38),
+                              )
                             : DropdownButton<int>(
                                 isExpanded: true,
                                 value: _selectedInputPort,
-                                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                                dropdownColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHigh,
                                 items: widget.device.inputPorts.map((port) {
-                                  final isActive = widget.isThisDeviceConnected && widget.activeInputPort == port.number;
+                                  final isActive =
+                                      widget.isThisDeviceConnected &&
+                                      widget.activeInputPort == port.number;
                                   return DropdownMenuItem<int>(
                                     value: port.number,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                      decoration: isActive ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                                        ),
-                                      ) : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12.0,
+                                        vertical: 8.0,
+                                      ),
+                                      decoration: isActive
+                                          ? BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primaryContainer
+                                                  .withValues(alpha: 0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                            )
+                                          : null,
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -383,13 +535,25 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                                               '${port.name} (Port ${port.number})',
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
-                                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                                color: isActive
+                                                    ? Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary
+                                                    : Colors.white,
+                                                fontWeight: isActive
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
                                               ),
                                             ),
                                           ),
                                           if (isActive)
-                                            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 16),
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                              size: 16,
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -419,24 +583,43 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                       Expanded(
                         flex: 2,
                         child: widget.device.outputPorts.isEmpty
-                            ? const Text('None available', style: TextStyle(color: Colors.white38))
+                            ? const Text(
+                                'None available',
+                                style: TextStyle(color: Colors.white38),
+                              )
                             : DropdownButton<int>(
                                 isExpanded: true,
                                 value: _selectedOutputPort,
-                                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                                dropdownColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHigh,
                                 items: widget.device.outputPorts.map((port) {
-                                  final isActive = widget.isThisDeviceConnected && widget.activeOutputPort == port.number;
+                                  final isActive =
+                                      widget.isThisDeviceConnected &&
+                                      widget.activeOutputPort == port.number;
                                   return DropdownMenuItem<int>(
                                     value: port.number,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                      decoration: isActive ? BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-                                        ),
-                                      ) : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12.0,
+                                        vertical: 8.0,
+                                      ),
+                                      decoration: isActive
+                                          ? BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primaryContainer
+                                                  .withValues(alpha: 0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                            )
+                                          : null,
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -444,13 +627,25 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                                               '${port.name} (Port ${port.number})',
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                color: isActive ? Theme.of(context).colorScheme.primary : Colors.white,
-                                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                                color: isActive
+                                                    ? Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary
+                                                    : Colors.white,
+                                                fontWeight: isActive
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
                                               ),
                                             ),
                                           ),
                                           if (isActive)
-                                            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 16),
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                              size: 16,
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -471,13 +666,17 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: widget.isThisDeviceConnected ? null : () => _connect(context),
-                      child: Text(widget.isThisDeviceConnected ? 'Connected' : 'Connect'),
+                      onPressed: widget.isThisDeviceConnected
+                          ? null
+                          : () => _connect(context),
+                      child: Text(
+                        widget.isThisDeviceConnected ? 'Connected' : 'Connect',
+                      ),
                     ),
-                  )
+                  ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

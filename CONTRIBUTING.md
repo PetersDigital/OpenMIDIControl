@@ -34,8 +34,8 @@ Examples:
 Releases are triggered by pushing **signed SemVer tags**:
 
 ```bash
-git tag -s v0.1.5 -m "Release v0.1.5"
-git push origin v0.1.5
+git tag -s v0.2.0 -m "Release v0.2.0"
+git push origin v0.2.0
 ```
 
 1. Ensure the `CHANGELOG.md` is updated with the version header and changes.
@@ -61,13 +61,13 @@ Windows PowerShell (line continuation with backtick `):
 
 ```powershell
 # 1. Check out and push branch
-git checkout feat-android-midi-bridge-v0.1.5
-git push -u origin feat-android-midi-bridge-v0.1.5
+git checkout feat-android-midi-v0.2.0
+git push -u origin feat-android-midi-v0.2.0
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-bridge-v0.1.5 `
-  --title "feat(midi): v0.1.5 milestone" `
-  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" `
+gh pr create --base main --head feat-android-midi-v0.2.0 `
+  --title "feat(midi): v0.2.0 milestone overhaul" `
+  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" `
   --draft --assignee dencelkbabu --reviewer dencelkbabu `
   --label "draft, needs review"
 
@@ -82,13 +82,13 @@ Unix/Bash style (line continuation with backslash `\`):
 
 ```bash
 # 1. Check out and push branch
-git checkout feat-android-midi-bridge-v0.1.5
-git push -u origin feat-android-midi-bridge-v0.1.5
+git checkout feat-android-midi-v0.2.0
+git push -u origin feat-android-midi-v0.2.0
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-bridge-v0.1.5 \
-  --title "feat(midi): v0.1.5 milestone" \
-  --body "Native MIDI bridge, metadata reconnect, portrait-first UX" \
+gh pr create --base main --head feat-android-midi-v0.2.0 \
+  --title "feat(midi): v0.2.0 milestone overhaul" \
+  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
   --label "draft, needs review"
 
@@ -140,4 +140,20 @@ Prefer explicit state tracking over implicit logic:
 - Track per-object or per-command caches (e.g., `_nrpnStateCache: Map<String, int>`)
 - Avoid side effects in dedup checks; separate concerns into dedicated methods
 
-See `ARCHITECTURE.md` for the defensive architecture overview.
+### Hardware-in-the-Loop (HITL) Testing
+For v0.2.0+, developers should validate the native Kotlin transport layer using `adb` and external MIDI tools:
+
+1. **Native Log Monitoring:**
+   ```powershell
+   # Filter for MIDI dispatcher and USB handshake events
+   adb logcat | Select-String "OpenMIDIControl|PeripheralMidi|MidiDispatcher"
+   ```
+
+2. **Stimulating Inbound MIDI:**
+   Use [Windows MIDI Services](https://microsoft.github.io/MIDI/tools/) to send raw bytes to the Android Peripheral:
+   ```bash
+   # Send Channel 1, CC 1 (Mod Wheel), Value 64
+   midi endpoint send-message 0x20B00140
+   ```
+
+See `ARCHITECTURE.md` for the defensive architecture overview and `USERGUIDE.md` for end-user validation steps.
