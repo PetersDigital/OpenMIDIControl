@@ -92,7 +92,7 @@ To prevent accidental simultaneous activation in high-stakes environments:
 Treat the command center as the "instrument cluster" for the console: 30% of the portrait canvas and 40% of the landscape canvas are reserved for it so the status row, timecode, and nav grid never compete with the faders.
 
 - **Status Banners:**
-    - `usbActive`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB HOST MODE ACTIVE".
+    - `usbActive`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB PERIPHERAL MODE ACTIVE".
     - `available`: Amber border/title. "MIDI DEVICES AVAILABLE".
     - `connectionLost`: Red border/title. "CONNECTION LOST" (transient state).
 - **Control grid:** The 3×3 grid of transport controls serves primarily as a visual anchor and layout testbed for future macros, so keep the glyphs aligned and consistent with the `surface_container` tiers.

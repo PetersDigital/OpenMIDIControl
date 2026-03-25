@@ -25,7 +25,7 @@ Expected baseline:
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Ensure Android USB mode is set to **"MIDI"** or **"File Transfer"** (Device will automatically handshake as a Peripheral).
 3. Start OpenMIDIControl.
-4. Confirm **"USB HOST MODE ACTIVE"** green banner appears in the status row.
+4. Confirm **"USB PERIPHERAL MODE ACTIVE"** green banner appears in the status row.
 5. In your DAW (Cubase/Ableton), select **"OpenMIDIControl"** as the MIDI Input/Output device.
 6. Move a fader and confirm MIDI data is received.
 
