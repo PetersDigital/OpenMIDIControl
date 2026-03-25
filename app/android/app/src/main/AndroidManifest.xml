@@ -56,8 +56,7 @@
         <service
             android:name=".PeripheralMidiService"
             android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE"
-            android:exported="true"
-            android:enabled="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.media.midi.MidiDeviceService" />
             </intent-filter>
