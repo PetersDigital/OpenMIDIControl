@@ -1,5 +1,7 @@
 package com.PetersDigital.OpenMIDIControl
 
+import com.PetersDigital.OpenMIDIControl.BuildConfig
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -326,6 +328,9 @@ class MainActivity : FlutterActivity() {
                             lastSentTime[cc] = nowNs
 
                             try {
+                                if (BuildConfig.DEBUG) {
+                                    android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
+                                }
                                 val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
                                 // Send to physically connected hardware (if any)
                                 inputPort?.send(msg, 0, msg.size)
@@ -540,6 +545,10 @@ class MainActivity : FlutterActivity() {
                     if (statusByte == 0xB0) {
                         val ccNumber = msg[offset + 1].toInt() and 0xFF
                         val ccValue = msg[offset + 2].toInt() and 0xFF
+
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
+                        }
 
                         val event = mapOf(
                             "type" to "cc",
