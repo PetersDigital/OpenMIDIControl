@@ -557,6 +557,10 @@ class MainActivity : FlutterActivity() {
             val ccNumber = msg[offset + 1].toInt() and 0xFF
             val ccValue = msg[offset + 2].toInt() and 0xFF
 
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("OpenMIDIControl", "MIDI IN (VIRTUAL): CC $ccNumber Value: $ccValue")
+            }
+
             // Bidirectional Feedback Loop Prevention
             val lastTime = lastSentTime[ccNumber] ?: 0L
             val nowNs = System.nanoTime()
