@@ -14,7 +14,11 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **Haptic Stability**: JVM crash fix for vibration durations.
 - [x] **True Peripheral Mode**: Native `MidiDeviceService` for Class Compliance.
 - [x] **Port Collision Hiding**: Filtering internal ports from Flutter list to prevent Binder crashes.
+- [x] **Strict Coroutine Suspension**: Fixed busy-wait dispatch loop for ~0% idle CPU usage.
+- [x] **MIDI Real-Time Filtering**: Discarding 0xF8/0xFE in native layer to protect the Flutter bridge.
+- [x] **Riverpod UI Optimization**: `.select()` modifier for per-control update filtering.
 - [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
+- [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
 
 ### ⏳ Current Focus: v0.3.0 (Control Expansion)
 - **Phase 4 (Expansion & Precision):**

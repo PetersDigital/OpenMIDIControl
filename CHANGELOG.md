@@ -13,16 +13,23 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Batched Event Dispatching:** 8ms polling (120Hz) logic to batch MIDI payloads to Flutter, drastically reducing UI thread starvation.
 - **Manual Port Selection Override:** UI toggle in settings to forcefully reveal internal ports for debugging and advanced routing.
 - **USB Peripheral Mode UI:** Dedicated status banners and configuration toggles in `MidiSettingsScreen`.
+- **Haptic Feedback:** Bi-directional tactile response for USB connection/disconnection state changes.
 
 ### Fixed
 - **Binder Collision Crash:** Resolved "port 0 already open" by hiding the physical hardware port from Flutter's device query.
-- **CPU/Thermal Throttling:** Fixed a critical background service loop by replacing dynamic manifest component enabling with a static manifest declaration.
 - **USB Outbound Data Dropouts:** Established a direct hardware data pipe by writing CC bytes directly to the `MidiInputPort` transport.
 - **Dead Receiver Quarantine:** Added logic to isolate and ignore disconnected hardware receivers to prevent system-wide IO crashes during hotplugging.
 - **Thread Safety:** Migrated state maps to `ConcurrentHashMap` to prevent crashes during concurrent MIDI processing and UI updates.
 - **Immediate Handshake UX:** Removed legacy startup delays from USB broadcast receivers for instant UI state switching.
 - **Memory Leak Prevention:** Rigorous hardware instance teardown sequence on application destruction and physical disconnect.
-- **Riverpod State Dropping:** Fixed Dart-side exceptions when casting native MIDI payloads as `List`.
+- **Riverpod State Type Safety:** Fixed Dart-side exceptions when casting native MIDI payloads as `List`.
+- **Circular Dependency Resolution:** Decoupled MIDI settings state from the UI layer into a standalone module.
+- **CPU Optimization:** Refactored the background MIDI dispatch loop in `MainActivity` from a busy-wait polling pattern to strict coroutine suspension (`for (event in channel)`), reducing idle CPU load from 50%+ to ~0%.
+- **MIDI Real-Time Filtering:** Added explicit discard logic for Timing Clock (`0xF8`) and Active Sensing (`0xFE`) in the native layer to prevent `EventChannel` flooding and protect UI responsiveness.
+- **Riverpod UI Optimization:** Migrated `HybridTouchFader` listeners to use the `.select()` modifier, ensuring faders only rebuild when their specific CC value changes.
+- **Riverpod Batch Churn Fix:** Optimized CC state management to apply multiple updates in a single cycle, preventing $O(N)$ map copies and redundant rebuilds during heavy automation.
+- **Animation Engine Bypass:** Refactored `HybridTouchFader` to use direct `AnimationController.value` assignment for external MIDI, avoiding 120Hz animation cancellation churn while following smoothed DAW automation.
+- **Release Build Stability:** Enabled `BuildConfig` generation for production APKs and resolved conflicting status byte parsing logic in the native MIDI layer.
 
 ## [0.1.5] - 2026-03-24
 ### Added
