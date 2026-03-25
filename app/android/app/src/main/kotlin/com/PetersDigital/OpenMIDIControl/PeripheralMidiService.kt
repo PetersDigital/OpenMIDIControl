@@ -43,13 +43,14 @@ class PeripheralMidiService : MidiDeviceService() {
                 try {
                     receiver?.send(msg, offset, count, timestamp)
                 } catch (e: IOException) {
-                    // Actively quarantine the dead receiver. When a physical USB connection is severed,
-                    // attempting to send data to its bound receiver throws an IOException.
-                    // By adding it to the deadReceivers set, we skip it on subsequent iterations,
-                    // preventing memory leaks and avoiding continuous Binder crashes.
+                    // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
+                    // When a physical USB connection is severed, attempting to send data to its bound receiver 
+                    // throws an IOException. Since Android's internal receiver set is immutable for services, 
+                    // we catch this and "quarantine" the receiver in our local set to prevent further attempts.
+                    // This prevents memory leaks and avoids continuous Binder crashes during rapid hotplugging.
                     receiver?.let { deadReceivers.add(it) }
                 } catch (e: Exception) {
-                    // Ignore other broad exceptions related to closed receivers
+                    // Ignore other broad exceptions related to closed receivers or Binder issues.
                 }
             }
         }

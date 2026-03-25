@@ -43,13 +43,14 @@ class VirtualMidiService : MidiDeviceService() {
                 try {
                     receiver?.send(msg, offset, count)
                 } catch (e: IOException) {
-                    // Actively quarantine the dead receiver. When a physical USB connection is severed,
-                    // attempting to send data to its bound receiver throws an IOException.
-                    // By adding it to the deadReceivers set, we skip it on subsequent iterations,
-                    // preventing memory leaks and avoiding continuous Binder crashes.
+                    // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
+                    // When a virtual DAW connection (like FL Studio Mobile) is closed or severed while sending,
+                    // attempting to send data throws an IOException. Since the receiver set is immutable,
+                    // we "quarantine" the dead receiver in our local set to skip it on subsequent messages.
+                    // This maintains UI responsiveness and prevents infinite exception loops.
                     receiver?.let { deadReceivers.add(it) }
                 } catch (e: Exception) {
-                    // Ignore other broad exceptions related to closed receivers
+                    // Ignore other broad exceptions related to closed virtual receivers.
                 }
             }
         }

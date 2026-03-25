@@ -316,7 +316,6 @@ class MainActivity : FlutterActivity() {
 
                             try {
                                 val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
-                                android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
                                 // Send to physically connected hardware (if any)
                                 inputPort?.send(msg, 0, msg.size)
                                 // Send to virtual DAW out (e.g. FL Studio Mobile)
@@ -528,8 +527,6 @@ class MainActivity : FlutterActivity() {
                         val ccNumber = msg[offset + 1].toInt() and 0xFF
                         val ccValue = msg[offset + 2].toInt() and 0xFF
 
-                    android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
-
                         val event = mapOf(
                             "type" to "cc",
                             "cc" to ccNumber,
@@ -563,8 +560,6 @@ class MainActivity : FlutterActivity() {
                 // This prevents delayed echoes from older values causing oscillation during rapid movement.
                 return
             }
-
-            android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
 
             val event = mapOf(
                 "type" to "cc",
