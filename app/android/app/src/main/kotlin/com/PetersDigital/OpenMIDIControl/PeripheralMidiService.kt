@@ -5,6 +5,8 @@ import android.media.midi.MidiReceiver
 import java.io.IOException
 
 class PeripheralMidiService : MidiDeviceService() {
+    // Track dead receivers locally since Android's outputPortReceivers array cannot be mutated.
+    // This prevents IOExceptions from leaking memory or causing infinite error loops during rapid USB hotplugging.
     private val deadReceivers = mutableSetOf<MidiReceiver>()
 
     companion object {
@@ -41,9 +43,13 @@ class PeripheralMidiService : MidiDeviceService() {
                 try {
                     receiver?.send(msg, offset, count, timestamp)
                 } catch (e: IOException) {
+                    // Actively quarantine the dead receiver. When a physical USB connection is severed,
+                    // attempting to send data to its bound receiver throws an IOException.
+                    // By adding it to the deadReceivers set, we skip it on subsequent iterations,
+                    // preventing memory leaks and avoiding continuous Binder crashes.
                     receiver?.let { deadReceivers.add(it) }
                 } catch (e: Exception) {
-                    // Ignore other dead receivers
+                    // Ignore other broad exceptions related to closed receivers
                 }
             }
         }

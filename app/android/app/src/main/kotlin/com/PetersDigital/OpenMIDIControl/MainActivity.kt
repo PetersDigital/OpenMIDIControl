@@ -622,7 +622,9 @@ class MainActivity : FlutterActivity() {
         stopBatchDispatchTimer()
         batchDispatchJob = coroutineScope.launch {
             while (isActive) {
-                // Suspend until at least one event is received
+                // Suspend the coroutine until at least one event is received.
+                // This cleanly yields the background thread instead of spinning,
+                // preventing severe battery drain and thermal CPU spikes when idle.
                 val firstEvent = incomingEventsChannel.receive()
 
                 val batch = mutableListOf<Map<String, Any>>()
@@ -636,7 +638,6 @@ class MainActivity : FlutterActivity() {
 
                 if (batch.isNotEmpty()) {
                     Handler(Looper.getMainLooper()).post {
-                        android.util.Log.d("OpenMIDIControl", "Dispatching batch of size: ${batch.size} to Flutter")
                         eventSink?.success(mapOf("type" to "batch", "events" to batch))
                     }
                 }
