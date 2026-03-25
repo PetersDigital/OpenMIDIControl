@@ -628,20 +628,13 @@ class MainActivity : FlutterActivity() {
     private fun startBatchDispatchTimer() {
         stopBatchDispatchTimer()
         batchDispatchJob = coroutineScope.launch {
-            while (isActive) {
-                // Suspend the coroutine until at least one event is received.
-                // This cleanly yields the background thread instead of spinning,
-                // preventing severe battery drain and thermal CPU spikes when idle.
-                val firstEvent = try {
-                    incomingEventsChannel.receive()
-                } catch (e: Exception) {
-                    null
-                } ?: break
-
+            // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
+            // avoiding busy-wait loops and pinning the CPU.
+            for (firstEvent in incomingEventsChannel) {
                 val batch = mutableListOf<Map<String, Any>>()
                 batch.add(firstEvent)
 
-                // Drain any other events that arrived while we were suspended or processing
+                // Drain any other events currently in the channel buffer to process them as a batch
                 while (true) {
                     val event = incomingEventsChannel.tryReceive().getOrNull() ?: break
                     batch.add(event)
@@ -653,7 +646,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Yield to prevent CPU spinning, maintain ~120Hz batching rate
+                // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
                 delay(8)
             }
         }
