@@ -378,13 +378,13 @@ enum MidiStatus { disconnected, available, connected, connectionLost, usbActive 
 // For CC, we just want a simple state to sync inbound and outbound.
 // A simpler alternative to FamilyNotifier is to just expose a map or use a custom class.
 class CCState {
-  final Map<int, int> values;
-  CCState({this.values = const {}});
+  final Map<int, int> ccValues;
+  CCState({this.ccValues = const {}});
 
   CCState copyWith(int cc, int val) {
-    final newValues = Map<int, int>.from(values);
+    final newValues = Map<int, int>.from(ccValues);
     newValues[cc] = val;
-    return CCState(values: newValues);
+    return CCState(ccValues: newValues);
   }
 }
 
@@ -400,9 +400,9 @@ class CcNotifier extends Notifier<CCState> {
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
-    final newValues = Map<int, int>.from(state.values);
+    final newValues = Map<int, int>.from(state.ccValues);
     newValues.addAll(updates);
-    state = CCState(values: newValues);
+    state = CCState(ccValues: newValues);
   }
 }
 
