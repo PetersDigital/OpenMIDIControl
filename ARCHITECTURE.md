@@ -38,6 +38,16 @@ Initial target is wired MIDI with three logical layers:
 
 Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the Transport layer is optimized for **USB Class Compliance**, ensuring that the phone appears as a high-precision controller to the desktop OS.
 
+## 3.1 Future Evolution (The Master Plan)
+
+The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
+
+- **Canonical Data Model (v0.2.1):** Establishing a unified **32-bit UMP-ready** payload as the internal source of truth. Formalizing the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic).
+- **Universal Host Fallback (v0.2.2):** Bypassing Android OS limitations via direct USB bulk endpoint parsing (`kshoji` integration) for non-compliant hardware.
+- **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
+- **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
+- **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
+
 Connection lifecycle (text diagram):
 ```
 INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
@@ -50,6 +60,14 @@ INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 - Local touch owns control state while active.
 - External MIDI owns control state when touch is inactive.
 - On touch release, control returns to external-follow mode immediately.
+
+## 4.1 MIDI 2.0 & UMP Core Architecture
+
+To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
+- **Source of Truth:** Internally, all MIDI data is treated as a **Universal MIDI Packet (UMP)** using 32-bit integer blocks rather than traditional 8-bit byte streams.
+- **Protocol Translation:** Legacy MIDI 1.0 data (from native Android or raw USB) is instantly "wrapped" into UMP format at the Input Node.
+- **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
+- **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
 ## 5. Feedback Loop Prevention
 
@@ -91,7 +109,7 @@ In v0.1.5, the app maintains a "Last Known Good" metadata fingerprint. This allo
 - **Reconnection Loop:** `ConnectionLost` -> `DeviceAdded` -> `Metadata Match` -> `Auto-Handshake`.
 
 ### 6.5 Global Behavior Engine
-The fader behavior logic (Jump/Hybrid/Catch-up) is centralized. It intercepts both local touch deltas and external MIDI CC updates, ensuring that the "Ethereal Console" logic is consistent regardless of the data source.
+The fader behavior logic (Jump/Hybrid/Catch-up) is centralized. It intercepts both local touch deltas and external MIDI CC updates, ensuring that the console logic is consistent regardless of the data source.
 
 ## 7. Connection Lifecycle
 
@@ -116,6 +134,8 @@ State machine must be explicit and testable.
 - **Reactive UI Throttling:** UI components (like faders) use Riverpod's `.select()` modifier to filter global state updates, ensuring that only the relevant control rebuilds during multi-channel MIDI traffic.
 - **Riverpod Batch Update:** State transitions are batched precisely once per native polling cycle to minimize map churn and UI thread occupancy.
 - **Animation Churn Bypass:** External MIDI updates use direct `AnimationController.value` assignment to bypass expensive animation interpolation and cancellation math, relying on the source DAW for temporal smoothing.
+- **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
+- **C++ Audio Layer (Conditional v0.5.0+):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
 ## 9. Error Handling & Stability
 
@@ -149,35 +169,59 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ Current Focus: v0.3.0 (Control Expansion)
-* **Grid System**: Addition of a 3×3 performance pad grid.
-* **Tactile Inputs**: Implementation of buttons, toggles, and multi-state switches.
-* **Multi-Channel Support**: Ability to assign individual controls to different MIDI channels.
+### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+* **MidiPortBackend**: Unified abstraction for OS-native vs. raw USB driver fallback.
+* **Universal Payload**: Introduction of the internal 32-bit UMP-ready MIDI format.
+* **Event vs. State Separation**: Formal separation of raw transport data (`MidiEvent`) and UI state (`ControlState`).
+* **Diagnostics**: Real-time MIDI event logger and port activity monitoring.
 
-### ⏳ v0.4.0: Mackie Control Universal (MCU) & HUI
-* **High Resolution**: Support for 14-bit fader resolution via Pitch Bend messages.
-* **DAW Handshake**: Native MCU/HUI protocols for instant integration with major DAWs.
-* **LCD Logic**: Automatic track naming and bank switching feedback.
+### ⏳ v0.2.2 – Universal Host Fallback
+* **kshoji Driver**: Direct USB bulk endpoint parsing for non-class-compliant hardware.
+* **14-bit Stitching**: Parsing high-resolution data directly into the canonical format.
 
-### ⏳ v0.5.0: Native DAW Integrations
-* **Remote Scripts**: Official integration scripts for Cubase, Ableton Live, and Logic Pro.
-* **Cubase Focus**: Deep integration with the Cubase MIDI Remote API.
+### ⏳ v0.2.3 – Core Routing Engine (Graph Model)
+* **MidiRouter DAG**: Centralized routing graph for N-to-N message distribution.
+* **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams.
 
-### ⏳ v0.6.0: Preset Engine & Snapshots
-* **Snapshots**: Save and load fader/CC configurations as project-specific presets.
-* **Dynamic Mapping**: Quick-flip between layout modes (e.g., Orchestral CC1/11 vs. Synth CC74/71).
+### ⏳ v0.3.0 – Control Expansion & Basic State
+* **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
+* **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
+* **Raw Snapshots**: Basic save/load functionality using the `ControlState` model.
 
-### ⏳ v0.7.0: Ethereal Layout Editor
-* **Visual Customization**: Drag-and-drop editor to resize and reposition UI elements.
-* **Aesthetic Polish**: Implementation of "Ethereal Console" visual effects, including glow trails and friction physics.
+### ⏳ v0.4.x – The MCU / HUI Protocol Series
+* **v0.4.0 (Core Logic)**: Basic MCU mapping for faders, transport, and 14-bit high-res control.
+* **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
+* **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
 
-### ⏳ v0.8.0+: Desktop Bridge & Wireless Transport
+### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
+* **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
+* **Performance Audit**: Benchmarking Kotlin Coroutine jitter and throughput.
+* **NDK Fast Path (Conditional)**: Migration to C++ AMidi and Dart FFI if Kotlin limits are reached.
+
+### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
+* **MIDI-CI Handshake**: Formal Capability Inquiry negotiation.
+* **OS UMP Integration**: Direct UMP payload transfer to Windows/macOS if supported.
+
+### ⏳ v0.6.0 – Full Preset Engine
+* **Dynamic Mapping**: Quick-flip layout modes (e.g., Orchestral vs. Synth mapping).
+* **Project Presets**: Advanced snapshot management and schema saving.
+
+### ⏳ v0.7.0 – Layout Editor
+* **Serializable Schema**: Requirement for all UI controls to be generated from JSON/config.
+* **Visual Editor**: Drag-and-drop resizing and positioning.
+* **Aesthetic Polish**: Glow trails and friction physics.
+
+### ⏳ v0.8.0 – Wireless Transport & Desktop Bridge
 * **Wireless MIDI**: Support for rtpMIDI (Wi-Fi) and Bluetooth MIDI.
-* **Advanced Transport**: OSC and WebSocket support for custom desktop bridge applications.
+* **Bridge Protocols**: OSC and WebSocket support for custom bridges.
 
-### ⏳ v1.0.0: Contributor-Ready Release
-* **Stable Architecture**: Documented API for third-party layout and integration contributors.
-* **Performance Optimization**: Final tuning for ultra-low latency and jitter-free performance.
+### ⏳ v0.9.0 – Plugin & API Layer
+* **Extension Hooks**: Public API for custom transformers and layouts.
+* **Extensibility Stabilization**: Locking the API surface for v1.0.
+
+### ⏳ v1.0.0 – Contributor-Ready Release
+* **Stable Architecture**: Fully documented API and third-party developer resources.
+* **Final Polish**: Global bug squashing and UX refinement.
 
 ## 11. Verification Checklist
 
