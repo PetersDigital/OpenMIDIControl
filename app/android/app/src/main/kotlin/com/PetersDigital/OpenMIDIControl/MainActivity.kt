@@ -661,6 +661,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        coroutineScope.cancel()
         teardownMidiDeviceCallback()
         try {
             unregisterReceiver(usbStateReceiver)
