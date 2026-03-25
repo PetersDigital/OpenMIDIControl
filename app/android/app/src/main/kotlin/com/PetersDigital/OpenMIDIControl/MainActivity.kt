@@ -168,33 +168,25 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private inline fun safeExecute(label: String, block: () -> Unit) {
+    private inline fun safeExecute(block: () -> Unit) {
         try {
             block()
         } catch (e: Exception) {
-            android.util.Log.w("OpenMIDIControl", "Error during $label: ${e.message}")
+            android.util.Log.w("OpenMIDIControl", "Safe execute failed during disconnect: ${e.message}")
         }
     }
 
     private fun disconnectUsbPeripheral() {
-        safeExecute("peripheral_receiver_disconnect") {
-            peripheralMidiReceiver?.let { peripheralOutputPort?.disconnect(it) }
-        }
+        safeExecute { peripheralMidiReceiver?.let { peripheralOutputPort?.disconnect(it) } }
         peripheralMidiReceiver = null
 
-        safeExecute("peripheral_output_close") {
-            peripheralOutputPort?.close()
-        }
+        safeExecute { peripheralOutputPort?.close() }
         peripheralOutputPort = null
 
-        safeExecute("peripheral_input_close") {
-            peripheralInputPort?.close()
-        }
+        safeExecute { peripheralInputPort?.close() }
         peripheralInputPort = null
 
-        safeExecute("peripheral_device_close") {
-            peripheralDevice?.close()
-        }
+        safeExecute { peripheralDevice?.close() }
         peripheralDevice = null
     }
 
@@ -512,24 +504,16 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun disconnectDevice() {
-        safeExecute("device_receiver_disconnect") {
-            midiReceiver?.let { outputPort?.disconnect(it) }
-        }
+        safeExecute { midiReceiver?.let { outputPort?.disconnect(it) } }
         midiReceiver = null
 
-        safeExecute("output_port_close") {
-            outputPort?.close()
-        }
+        safeExecute { outputPort?.close() }
         outputPort = null
 
-        safeExecute("input_port_close") {
-            inputPort?.close()
-        }
+        safeExecute { inputPort?.close() }
         inputPort = null
 
-        safeExecute("active_device_close") {
-            activeDevice?.close()
-        }
+        safeExecute { activeDevice?.close() }
         activeDevice = null
     }
 
