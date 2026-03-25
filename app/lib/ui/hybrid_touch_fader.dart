@@ -172,19 +172,23 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to external MIDI CC updates
-    ref.listen<CCState>(ccValuesProvider, (previous, next) {
-      if (_isActive) {
-        // If we are touching it, the hardware is now out of sync with our finger.
-        // So the next time we let go, the hardware will need to catch up again.
-        _hardwareIsCatchingUp = true;
-        _lastHardwareValue = null;
-        return; // Prevent echo feedback loop
-      }
+    // Listen to external MIDI CC updates for this specific fader's CC only.
+    // .select() ensures this listener only fires when our CC value changes, 
+    // dramatically reducing CPU overhead during heavy MIDI traffic (setState spam).
+    ref.listen<int?>(
+      ccValuesProvider.select((state) => state.values[_ccNumber]),
+      (previousValue, nextValue) {
+        if (nextValue == null || nextValue == previousValue) return;
 
-      final incomingRawValue = next.values[_ccNumber];
-      if (incomingRawValue != null) {
-        final incomingNormalized = (incomingRawValue / 127.0).clamp(0.0, 1.0);
+        if (_isActive) {
+          // If we are touching it, the hardware is now out of sync with our finger.
+          // So the next time we let go, the hardware will need to catch up again.
+          _hardwareIsCatchingUp = true;
+          _lastHardwareValue = null;
+          return; // Prevent echo feedback loop
+        }
+
+        final incomingNormalized = (nextValue / 127.0).clamp(0.0, 1.0);
 
         if (widget.behavior == FaderBehavior.jump) {
           setState(() {
@@ -222,8 +226,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader> {
             });
           }
         }
-      }
-    });
+      },
+    );
 
     final int ccValue = (_currentValue * 127).round();
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
