@@ -124,15 +124,18 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     onTap: () => _showMidiSettings(context),
                   ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _showAppSettings(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.more_vert,
-                        color: Color(0xFFC3C7CA),
-                        size: 24,
+                  Tooltip(
+                    message: 'App Settings',
+                    child: GestureDetector(
+                      onTap: () => _showAppSettings(context),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 24,
+                        ),
                       ),
                     ),
                   ),
@@ -370,15 +373,18 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     _ConnectionStatusButton(
                       onTap: () => _showMidiSettings(context),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        color: Color(0xFFC3C7CA),
-                        size: 20,
+                    Tooltip(
+                      message: 'App Settings',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showAppSettings(context),
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _showAppSettings(context),
                     ),
                   ],
                 ),
@@ -574,13 +580,16 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   _ConnectionStatusButton(
                     onTap: () => _showMidiSettings(context),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: Color(0xFFC3C7CA),
-                      size: 28,
+                  Tooltip(
+                    message: 'App Settings',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: Color(0xFFC3C7CA),
+                        size: 28,
+                      ),
+                      onPressed: () => _showAppSettings(context),
                     ),
-                    onPressed: () => _showAppSettings(context),
                   ),
                 ],
               ),
@@ -812,10 +821,12 @@ class _ConnectionStatusButtonState
         break;
     }
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
+    return Tooltip(
+      message: 'MIDI Settings',
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
         animation: _glowAnimation,
         builder: (context, child) {
           return Container(
@@ -873,10 +884,11 @@ class _ConnectionStatusButtonState
                     letterSpacing: 1.0,
                   ),
                 ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -141,13 +141,16 @@ class MidiSettingsScreen extends ConsumerWidget {
                   letterSpacing: 2.0,
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                color: const Color(0xFFC3C7CA),
-                onPressed: () {
-                  ref.read(connectedMidiDeviceProvider.notifier).disconnect();
-                  ref.invalidate(midiDevicesProvider);
-                },
+              Tooltip(
+                message: 'Refresh Devices',
+                child: IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  color: const Color(0xFFC3C7CA),
+                  onPressed: () {
+                    ref.read(connectedMidiDeviceProvider.notifier).disconnect();
+                    ref.invalidate(midiDevicesProvider);
+                  },
+                ),
               ),
             ],
           ),
