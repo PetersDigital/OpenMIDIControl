@@ -26,9 +26,9 @@ class UsbConnectionStateNotifier extends Notifier<String> {
   String build() {
     final service = ref.watch(midiServiceProvider);
 
-    final sub = service.midiEventsStream.listen((event) {
-      if (event is Map && event['type'] == 'usb_state') {
-        state = event['state'] as String;
+    final sub = service.systemEventsStream.listen((event) {
+      if (event['type'] == 'usb_state') {
+        state = event['state'] as String? ?? 'INIT';
       }
     });
 
@@ -80,10 +80,40 @@ class MidiService {
   );
 
   Stream<dynamic>? _broadcastStream;
+  Stream<List<MidiEvent>>? _midiEventsStream;
+  Stream<Map<dynamic, dynamic>>? _systemEventsStream;
 
-  Stream<dynamic> get midiEventsStream {
+  Stream<dynamic> get _rawStream {
     _broadcastStream ??= _eventsChannel.receiveBroadcastStream().asBroadcastStream();
     return _broadcastStream!;
+  }
+
+  /// High-performance stream of parsed MIDI events.
+  Stream<List<MidiEvent>> get midiEventsStream {
+    _midiEventsStream ??= _rawStream.where((e) {
+      if (e is! Map) return false;
+      final type = e['type'];
+      return type == 'batch' || type == 'cc';
+    }).map((event) {
+      final map = event as Map;
+      if (map['type'] == 'batch') {
+        final rawEvents = map['events'] as List? ?? [];
+        return rawEvents.whereType<Map<dynamic, dynamic>>().map((e) => MidiEvent.fromMap(e)).toList();
+      } else {
+        return [MidiEvent.fromMap(map)];
+      }
+    }).asBroadcastStream();
+    return _midiEventsStream!;
+  }
+
+  /// System-level events (USB state, device additions, removals).
+  Stream<Map<dynamic, dynamic>> get systemEventsStream {
+    _systemEventsStream ??= _rawStream.where((e) {
+      if (e is! Map) return false;
+      final type = e['type'];
+      return type == 'added' || type == 'removed' || type == 'usb_state';
+    }).cast<Map<dynamic, dynamic>>().asBroadcastStream();
+    return _systemEventsStream!;
   }
 
   Future<List<MidiDevice>> getAvailableDevices() async {
@@ -227,110 +257,93 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final service = ref.watch(midiServiceProvider);
 
     // Listen to device connection events from Kotlin
-    final sub = service.midiEventsStream.listen((event) {
-      debugPrint("MIDI FLUTTER IN: $event");
-      if (event is Map) {
-        final type = event['type'];
-        final id = event['id'];
+    final systemSub = service.systemEventsStream.listen((event) {
+      final type = event['type'];
+      final id = event['id'];
 
-        if (type == 'batch') {
-          final rawEvents = event['events'];
-          if (rawEvents is List) {
-            final Map<int, int> batchUpdates = {};
-            // Parse raw events into typed MidiEvent instances
-            final midiEvents = rawEvents
-                .whereType<Map<dynamic, dynamic>>()
-                .map((e) => MidiEvent.fromMap(e))
-                .toList();
-
-            for (var midiEvent in midiEvents) {
-              if (midiEvent.messageType == 0xB0) {
-                batchUpdates[midiEvent.data1] = midiEvent.data2;
-              }
-            }
-
-            // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
-            if (batchUpdates.isNotEmpty) {
-              ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
-            }
-          }
-          return;
+      if (type == 'removed') {
+        // If the removed device is our currently connected device
+        if (state.connectedDevice?.id == id) {
+          state = state.disconnect(connectionLost: true);
+          service.vibrate(
+            pattern: [0, 100, 100, 100],
+            amplitude: [0, 255, 0, 255],
+          );
+        } else {
+          // General removal of a non-connected device
+          service.vibrate(duration: 500);
         }
+        // Refresh the available devices list
+        ref.invalidate(midiDevicesProvider);
+      } else if (type == 'added') {
+        // Refresh device list on any new added event.
+        ref.invalidate(midiDevicesProvider);
 
-        if (type == 'removed') {
-          // If the removed device is our currently connected device
-          if (state.connectedDevice?.id == id) {
-            state = state.disconnect(connectionLost: true);
-            service.vibrate(
-              pattern: [0, 100, 100, 100],
-              amplitude: [0, 255, 0, 255],
-            );
-          } else {
-            // General removal of a non-connected device
-            service.vibrate(duration: 500);
-          }
-          // Refresh the available devices list
-          ref.invalidate(midiDevicesProvider);
-        } else if (type == 'added') {
-          // Refresh device list on any new added event.
-          ref.invalidate(midiDevicesProvider);
+        // Check for auto-reconnect if we previously lost connection
+        if (state.isConnectionLost) {
+          final previousDevice = state.connectedDevice;
+          final previousInput = state.inputPort;
+          final previousOutput = state.outputPort;
 
-          // Check for auto-reconnect if we previously lost connection
-          if (state.isConnectionLost) {
-            final previousDevice = state.connectedDevice;
-            final previousInput = state.inputPort;
-            final previousOutput = state.outputPort;
+          // Immediately check the new device name/manufacturer to see if it's the one we lost
+          if (previousDevice != null) {
+            // Wait for the new device list to populate from Android
+            Future.delayed(const Duration(milliseconds: 500), () async {
+              final devices = await service.getAvailableDevices();
+              final newDevice = devices.cast<MidiDevice?>().firstWhere(
+                (d) =>
+                    d != null &&
+                    d.id == id &&
+                    d.name == previousDevice.name &&
+                    d.manufacturer == previousDevice.manufacturer,
+                orElse: () => null,
+              );
 
-            // Immediately check the new device name/manufacturer to see if it's the one we lost
-            if (previousDevice != null) {
-              // Wait for the new device list to populate from Android
-              Future.delayed(const Duration(milliseconds: 500), () async {
-                final devices = await service.getAvailableDevices();
-                final newDevice = devices.cast<MidiDevice?>().firstWhere(
-                  (d) =>
-                      d != null &&
-                      d.id == id &&
-                      d.name == previousDevice.name &&
-                      d.manufacturer == previousDevice.manufacturer,
-                  orElse: () => null,
+              if (newDevice != null) {
+                // Found the matching fingerprint under a new ID. Auto-reconnect!
+                connect(
+                  newDevice,
+                  inputPort: previousInput,
+                  outputPort: previousOutput,
                 );
+                ref.invalidate(midiDevicesProvider);
+              }
+            });
+          }
+        }
+      } else if (type == 'usb_state') {
+        final usbStatus = event['state'];
 
-                if (newDevice != null) {
-                  // Found the matching fingerprint under a new ID. Auto-reconnect!
-                  connect(
-                    newDevice,
-                    inputPort: previousInput,
-                    outputPort: previousOutput,
-                  );
-                  ref.invalidate(midiDevicesProvider);
-                }
-              });
-            }
-          }
-        } else if (type == 'cc') {
-          final midiEvent = MidiEvent.fromMap(event);
-          if (midiEvent.messageType == 0xB0) {
-            ref.read(ccValuesProvider.notifier).updateCC(midiEvent.data1, midiEvent.data2);
-          }
-        } else if (type == 'usb_state') {
-          final usbStatus = event['state'];
-
-          if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
-            // FORCE the teardown. Do NOT hide this behind a connectedDevice != null check.
-            // The physical cable is gone; the state must reflect it immediately.
-            state = state.disconnect(connectionLost: true);
-            service.vibrate(
-              pattern: [0, 100, 100, 100],
-              amplitude: [0, 255, 0, 255],
-            );
-            ref.invalidate(midiDevicesProvider);
-          }
+        if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
+          // FORCE the teardown. Do NOT hide this behind a connectedDevice != null check.
+          // The physical cable is gone; the state must reflect it immediately.
+          state = state.disconnect(connectionLost: true);
+          service.vibrate(
+            pattern: [0, 100, 100, 100],
+            amplitude: [0, 255, 0, 255],
+          );
+          ref.invalidate(midiDevicesProvider);
         }
       }
     });
 
+    final midiSub = service.midiEventsStream.listen((midiEvents) {
+      final Map<int, int> batchUpdates = {};
+      for (var midiEvent in midiEvents) {
+        if (midiEvent.messageType == 0xB0) {
+          batchUpdates[midiEvent.data1] = midiEvent.data2;
+        }
+      }
+
+      // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
+      if (batchUpdates.isNotEmpty) {
+        ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
+      }
+    });
+
     ref.onDispose(() {
-      sub.cancel();
+      systemSub.cancel();
+      midiSub.cancel();
     });
 
     return const MidiConnectionState();
