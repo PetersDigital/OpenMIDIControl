@@ -14,6 +14,9 @@ class NativeAndroidMidiBackend(
 
     private var midiReceiver: MidiReceiver? = null
 
+    override val portId: String
+        get() = device.info.id.toString()
+
     override val deviceName: String
         get() = device.info.properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown Native Device"
 
