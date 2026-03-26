@@ -42,7 +42,7 @@ class MidiEvent {
       channel: channel,
       data1: data1,
       data2: data2,
-      timestamp: map['timestamp'] as int? ?? DateTime.now().microsecondsSinceEpoch * 1000,
+      timestamp: map['timestamp'] as int? ?? 0,
       sourceId: map['sourceId'] as String? ?? 'unknown',
     );
   }
