@@ -64,9 +64,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _animationController = AnimationController(
       vsync: this,
       value: widget.initialValue.clamp(0.0, 1.0),
-    )..addListener(() {
-        setState(() {}); // Still need to trigger a redraw when value changes
-      });
+    );
+    // ⚡ Bolt: Removed .addListener(() { setState(() {}); })
+    // to prevent full widget tree rebuilds at 120Hz.
+    // Dynamic elements now use AnimatedBuilder directly.
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.label;
   }
@@ -242,7 +243,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       },
     );
 
-    final int ccValue = (_animationController.value * 127).round();
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
 
@@ -269,11 +269,16 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
               alignment: Alignment.bottomCenter,
               children: [
                 // Filled active track
-                FractionallySizedBox(
-                  heightFactor: _animationController.value,
-                  widthFactor: 1.0,
-                  alignment: Alignment.bottomCenter,
-                  child: Container(color: widget.activeColor),
+                AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return FractionallySizedBox(
+                      heightFactor: _animationController.value,
+                      widthFactor: 1.0,
+                      alignment: Alignment.bottomCenter,
+                      child: Container(color: widget.activeColor),
+                    );
+                  },
                 ),
 
                 // Full-width TM1637 Display pinned at top with visible gap
@@ -305,15 +310,21 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                                 ),
                               ),
                               // Active value
-                              Text(
-                                ccValue.toString().padLeft(3, ' '),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'DSEG7Modern',
-                                  fontSize: displayFontSize,
-                                  color: Colors.red,
-                                  height: 1.0,
-                                ),
+                              AnimatedBuilder(
+                                animation: _animationController,
+                                builder: (context, child) {
+                                  final int ccValue = (_animationController.value * 127).round();
+                                  return Text(
+                                    ccValue.toString().padLeft(3, ' '),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'DSEG7Modern',
+                                      fontSize: displayFontSize,
+                                      color: Colors.red,
+                                      height: 1.0,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
