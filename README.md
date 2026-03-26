@@ -10,7 +10,7 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.1** (Current) Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction, and autoDispose Diagnostics Logger.
+- **v0.2.1** (Current) Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
@@ -94,8 +94,9 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 ### ✅ v0.2.1: Canonical Data & State Model
 * **MidiPortBackend**: Unified abstraction for all future inputs (Native vs. USB Fallback).
 * **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
-* **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`).
-* **Diagnostic Tools**: Real-time MIDI event logger with `autoDispose` subscription management.
+* **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`) with strict immutability.
+* **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
+* **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
 ### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
 * **kshoji Driver Adaptation**: Direct USB bulk endpoint communication via `UsbManager` for non-compliant hardware.

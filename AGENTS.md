@@ -19,11 +19,13 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **Riverpod UI Optimization**: `.select()` modifier for per-control update filtering.
 - [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
 - [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
+### ✅ Completed (v0.2.1)
 - [x] **Canonical Data Model (MidiEvent)**: Strictly typed 32-bit immutable integer model for transport data.
 - [x] **Canonical UI State (ControlState)**: Scalable Riverpod state model replacing legacy CCState.
 - [x] **Native Dependency Inversion (MidiPortBackend)**: Unified Kotlin interface for MidiManager/Device abstraction.
-- [x] **Safe Backend Teardown**: `NativeAndroidMidiBackend` with reliable `safeExecute` cleanup logic.
-- [x] **Diagnostics console**: Real-time terminal-style logger with `autoDispose` subscription management.
+- [x] **Safe Backend Teardown**: `NativeAndroidMidiBackend` with reliable `safeExecute` cleanup logic and shared utility hardening.
+- [x] **Diagnostics console**: Real-time terminal-style logger with `autoDispose` subscription management and high-precision native timestamps.
+- [x] **Stream Centralization**: Centralized MIDI stream parsing in `MidiService` for single-batch decoding.
 
 ### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
 - **kshoji integration**: [ ] Direct USB bulk endpoint communication via `UsbManager`.
