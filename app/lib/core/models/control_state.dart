@@ -3,13 +3,14 @@ class ControlState {
   // Ready for v0.3.0:
   // final Map<int, bool> buttonStates;
 
-  ControlState({required this.ccValues});
+  ControlState({required Map<int, int> ccValues})
+      : ccValues = Map.unmodifiable(ccValues);
 
   ControlState copyWith({
     Map<int, int>? ccValues,
   }) {
     return ControlState(
-      ccValues: ccValues ?? this.ccValues,
+      ccValues: Map.unmodifiable(ccValues ?? this.ccValues),
     );
   }
 

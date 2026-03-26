@@ -393,7 +393,7 @@ enum MidiStatus { disconnected, available, connected, connectionLost, usbActive 
 class CcNotifier extends Notifier<ControlState> {
   @override
   ControlState build() {
-    return ControlState(ccValues: {});
+    return ControlState(ccValues: const <int, int>{});
   }
 
   void updateCC(int cc, int value) {
