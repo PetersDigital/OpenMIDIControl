@@ -176,9 +176,9 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun setupPeripheralMidiReceiver() {
-        peripheralMidiBackend?.startReceiving { msg, offset, count, _ ->
+        peripheralMidiBackend?.startReceiving { msg, offset, count, timestamp ->
             if (count < 3) return@startReceiving
-            handleIncomingVirtualMidi(msg, offset, count)
+            handleIncomingVirtualMidi(msg, offset, count, timestamp)
         }
     }
 
@@ -501,7 +501,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun setupMidiReceiver() {
-        hostMidiBackend?.startReceiving { msg, offset, count, _ ->
+        hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
             // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
             if (offset < 0 || count < 0 || offset + count > msg.size) return@startReceiving
 
@@ -534,7 +534,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int) {
+    fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
 
         // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed virtual MIDI packets
@@ -558,7 +558,7 @@ class MainActivity : FlutterActivity() {
 
             // Bidirectional Feedback Loop Prevention
             val lastTime = lastSentTime[ccNumber] ?: 0L
-            val nowNs = System.nanoTime()
+            val nowNs = timestamp ?: System.nanoTime()
             val timeDiff = nowNs - lastTime
 
             if (timeDiff < suppressionWindowNs) {
