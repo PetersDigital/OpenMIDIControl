@@ -40,7 +40,7 @@ class NativeAndroidMidiBackend(
                     }
                 }
             }
-            outputPort.connect(midiReceiver)
+            safeExecute { outputPort.connect(midiReceiver) }
         }
     }
 
