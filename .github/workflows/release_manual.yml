@@ -1,0 +1,299 @@
+name: Manual Release Rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to rebuild (e.g., v1.0.2)"
+        required: true
+        type: string
+      force:
+        description: "Force overwrite existing release assets"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-manual-${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_commit: ${{ steps.validate.outputs.commit }}
+      tag: ${{ steps.validate.outputs.tag }}
+      has_windows: ${{ steps.validate.outputs.has_windows }}
+    steps:
+      - name: Checkout Repository (workflow engine code)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate Release Tag
+        id: validate
+        uses: ./.github/actions/release-tag-validation
+        with:
+          tag: ${{ github.event.inputs.tag || github.ref_name }}
+          allowed_actors: ${{ vars.ALLOWED_RELEASE_ACTORS }}
+          gpg_public_key: ${{ secrets.GPG_PUBLIC_KEY }}
+          expected_fingerprint: ${{ secrets.EXPECTED_GPG_FINGERPRINT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          main_branch: main
+
+
+  analyze-and-test:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos
+      - run: flutter test
+
+  build-android:
+    needs: [validate-tag, analyze-and-test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      
+      - name: Configure Keystore
+        run: |
+          printf "%s" "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          {
+            echo "storePassword=${{ secrets.STORE_PASSWORD }}"
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+            echo "storeFile=upload-keystore.jks"
+          } > android/key.properties
+
+      - run: flutter build apk --release
+      
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android.apk
+
+      - name: Confirm APK exists
+        run: |
+          ARTIFACT=build/app/outputs/flutter-apk/openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android.apk
+          echo "Expected APK path: $ARTIFACT"
+          ls -la build/app/outputs/flutter-apk
+          if [ ! -f "$ARTIFACT" ]; then
+            echo "::error::APK not found: $ARTIFACT"
+            exit 1
+          fi
+
+      - name: Install Cosign (Fix 4)
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Sign and verify APK (Cosign)
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/build/app/outputs/flutter-apk/openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android.apk
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: |
+            app/build/app/outputs/flutter-apk/openmidicontrol-*-android.apk
+            app/build/app/outputs/flutter-apk/*.sig
+            app/build/app/outputs/flutter-apk/*.pem
+
+  build-windows:
+    needs: [validate-tag, analyze-and-test]
+    if: needs.validate-tag.outputs.has_windows == 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows
+      
+      - name: Zip Windows Build
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows.zip"
+
+      - name: Install Cosign (Fix 4)
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Sign and verify Windows ZIP (Cosign)
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows.zip
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            app/openmidicontrol-*-windows.zip
+            app/*.sig
+            app/*.pem
+
+  provenance:
+    needs: [validate-tag, build-android, build-windows]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Generate Provenance (Android)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-windows.result == 'success'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: openmidicontrol-*-windows.zip
+
+  publish-release:
+    needs: [validate-tag, build-android, build-windows, provenance]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.provenance.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+      
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Ensure GitHub CLI
+        if: github.event.inputs.force == 'true'
+        run: |
+          if ! command -v gh &> /dev/null; then
+            sudo apt-get update && sudo apt-get install gh -y
+          fi
+
+      - name: Delete existing assets (if forcing overwrite)
+        if: github.event.inputs.force == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.sig" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.pem" --yes || true
+          
+          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.sig" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.pem" --yes || true
+          fi
+          gh release delete-asset "$TAG" "*.jsonl" --yes || true
+
+      - name: Build Release Notes
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          awk -v version="$VERSION" 'index($0, "## [" version "]") == 1 {in_s=1; next} /^## \[/ && in_s {exit} in_s' CHANGELOG.md > notes.md
+          
+          if [ ! -s notes.md ]; then
+            echo "*No specific changelog entry found for version ${VERSION}.*" > notes.md
+          fi
+
+          {
+            echo "## What's Changed (Manual Rebuild)"
+            cat notes.md
+            echo -e "\n---\n### Build & Security Metadata"
+            echo "- **Tag:** ${TAG}"
+            echo "- **Commit:** ${{ needs.validate-tag.outputs.tag_commit }}"
+            echo "- **Triggered By:** @${{ github.actor }}"
+            echo "- 🛡️ **Provenance:** GitHub Native SLSA Attestation Included"
+            echo "- 🔐 **Signatures:** Assets are signed with keyless Cosign (OIDC)"
+          } > release_notes.md
+
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate-tag.outputs.tag }}
+          body_path: release_notes.md
+          files: |
+            openmidicontrol-*-android.apk
+            openmidicontrol-*-android.apk.sig
+            openmidicontrol-*-android.apk.pem
+            openmidicontrol-*-windows.zip
+            openmidicontrol-*-windows.zip.sig
+            openmidicontrol-*-windows.zip.pem
+
+  notify-release:
+    runs-on: ubuntu-latest
+    needs: [validate-tag, publish-release]
+    if: always()
+    steps:
+      - name: Notify Telegram
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          RELEASE_RESULT="${{ needs.publish-release.result }}"
+
+          if [ "$RELEASE_RESULT" = "success" ]; then
+            MESSAGE=$(printf '🚀 *OpenMIDIControl %s has been manually rebuilt!*\n\n📦 Release: %s\n\n✅ Build completed successfully with Keyless Cosign signatures and GitHub Native SLSA provenance.' "${TAG}" "${RELEASE_URL}")
+          else
+            MESSAGE=$(printf '❌ *Manual rebuild of OpenMIDIControl %s failed.*\n\n🛠 Workflow logs: %s' "${TAG}" "${RUN_URL}")
+          fi
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d parse_mode="Markdown" \
+            --data-urlencode "text=${MESSAGE}"
