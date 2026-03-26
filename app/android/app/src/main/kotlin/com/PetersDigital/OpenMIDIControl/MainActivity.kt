@@ -349,10 +349,19 @@ class MainActivity : FlutterActivity() {
                     val amplitudeRaw = call.argument<List<*>>("amplitude")
 
                     if (patternRaw != null && amplitudeRaw != null) {
-                        val pattern = patternRaw.map { (it as Number).toLong() }.toLongArray()
-                        val amplitude = amplitudeRaw.map { (it as Number).toInt() }.toIntArray()
-                        vibrate(pattern, amplitude)
-                        result.success(null)
+                        // SECURITY: Validate bounds of vibration pattern arrays to prevent native crash
+                        if (patternRaw.size != amplitudeRaw.size || patternRaw.isEmpty()) {
+                            result.error("INVALID_ARGUMENTS", "Pattern and amplitude arrays must have the same non-zero length", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val pattern = patternRaw.map { (it as Number).toLong() }.toLongArray()
+                            val amplitude = amplitudeRaw.map { (it as Number).toInt() }.toIntArray()
+                            vibrate(pattern, amplitude)
+                            result.success(null)
+                        } catch (e: Exception) {
+                            result.error("VIBRATE_FAILED", e.message, null)
+                        }
                     } else {
                         val duration = call.argument<Number>("duration")?.toLong() ?: 50L
                         vibrate(duration)
@@ -523,6 +532,10 @@ class MainActivity : FlutterActivity() {
             midiReceiver = object : MidiReceiver() {
                 override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                     if (msg == null || count == 0) return
+
+                    // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
+                    if (offset < 0 || count < 0 || offset + count > msg.size) return
+
                     // Check if it's a Control Change message on Channel 1 (0xB0)
                     // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
                     val statusByte = msg[offset].toInt() and 0xFF
@@ -556,6 +569,10 @@ class MainActivity : FlutterActivity() {
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int) {
         if (count == 0) return
+
+        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed virtual MIDI packets
+        if (offset < 0 || count < 0 || offset + count > msg.size) return
+
         // Check if it's a Control Change message on Channel 1 (0xB0)
         val statusByte = msg[offset].toInt() and 0xFF
         // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
