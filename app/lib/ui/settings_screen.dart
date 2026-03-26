@@ -8,6 +8,7 @@ import 'open_midi_screen.dart';
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
 });
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -27,7 +28,9 @@ class SettingsScreen extends ConsumerWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primaryContainer),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.primaryContainer,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -36,7 +39,11 @@ class SettingsScreen extends ConsumerWidget {
           Center(
             child: Column(
               children: [
-                const Icon(Icons.settings_input_component, color: Color(0xFFA6C9F8), size: 40),
+                const Icon(
+                  Icons.settings_input_component,
+                  color: Color(0xFFA6C9F8),
+                  size: 40,
+                ),
                 const SizedBox(height: 8),
                 const Text(
                   'OpenMIDIControl',
@@ -92,7 +99,10 @@ class SettingsScreen extends ConsumerWidget {
             final isSelected = currentBehavior == behavior;
             return ListTile(
               dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 0,
+              ),
               title: Text(
                 behavior.name.toUpperCase(),
                 style: const TextStyle(
@@ -111,14 +121,18 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               leading: Icon(
-                isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                isSelected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
                 color: isSelected
                     ? Theme.of(context).colorScheme.primaryContainer
                     : Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 22,
               ),
               onTap: () {
-                ref.read(faderBehaviorProvider.notifier).updateBehavior(behavior);
+                ref
+                    .read(faderBehaviorProvider.notifier)
+                    .updateBehavior(behavior);
               },
             );
           }),
@@ -126,8 +140,6 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
-
-
 
           // Layout Section
           const Text(
@@ -141,37 +153,41 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Builder(builder: (ctx) {
-            final hand = ref.watch(layoutHandProvider);
-            final faderOnRight = hand == LayoutHand.faderOnRight;
-            return SwitchListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: Text(
-                faderOnRight ? 'FADER ON RIGHT' : 'FADER ON LEFT',
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+          Builder(
+            builder: (ctx) {
+              final hand = ref.watch(layoutHandProvider);
+              final faderOnRight = hand == LayoutHand.faderOnRight;
+              return SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: Text(
+                  faderOnRight ? 'FADER ON RIGHT' : 'FADER ON LEFT',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-              subtitle: Text(
-                faderOnRight
-                    ? 'Controls on left — slide faders with right hand.'
-                    : 'Controls on right — slide faders with left hand.',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
+                subtitle: Text(
+                  faderOnRight
+                      ? 'Controls on left — slide faders with right hand.'
+                      : 'Controls on right — slide faders with left hand.',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              value: faderOnRight,
-              activeThumbColor: Theme.of(context).colorScheme.primaryContainer,
-              onChanged: (_) =>
-                  ref.read(layoutHandProvider.notifier).toggle(),
-            );
-          }),
+                value: faderOnRight,
+                activeThumbColor: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer,
+                onChanged: (_) =>
+                    ref.read(layoutHandProvider.notifier).toggle(),
+              );
+            },
+          ),
 
           const SizedBox(height: 12),
           const Divider(color: Colors.white12),
