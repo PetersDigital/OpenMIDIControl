@@ -33,6 +33,13 @@ Examples:
 
 Releases are triggered by pushing **signed SemVer tags**:
 
+Windows PowerShell 7:
+```powershell
+git tag -s v0.2.1 -m "Release v0.2.1"
+git push origin v0.2.1
+```
+
+Unix/macOS/Linux:
 ```bash
 git tag -s v0.2.1 -m "Release v0.2.1"
 git push origin v0.2.1
