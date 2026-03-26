@@ -38,7 +38,9 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
         '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}.${ms.toString().padLeft(3, '0')}';
 
     // Add port ID or device ID if known in the future. Currently sourceId is default 'unknown'
-    final portStr = event.sourceId != 'unknown' ? 'Port ${event.sourceId} | ' : '';
+    final portStr = event.sourceId != 'unknown'
+        ? 'Port ${event.sourceId} | '
+        : '';
 
     if (event.messageType == 0xB0) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
@@ -62,4 +64,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   }
 }
 
-final diagnosticsProvider = NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, List<String>>(DiagnosticsLoggerNotifier.new);
+final diagnosticsProvider =
+    NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, List<String>>(
+      DiagnosticsLoggerNotifier.new,
+    );

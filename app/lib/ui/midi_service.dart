@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/control_state.dart';
 import '../core/models/midi_event.dart';
-import 'midi_settings_state.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
+import 'midi_settings_state.dart'
+    show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
 class MidiPort {
   final int number;
@@ -40,7 +41,10 @@ class UsbConnectionStateNotifier extends Notifier<String> {
   }
 }
 
-final usbConnectionStateProvider = NotifierProvider<UsbConnectionStateNotifier, String>(UsbConnectionStateNotifier.new);
+final usbConnectionStateProvider =
+    NotifierProvider<UsbConnectionStateNotifier, String>(
+      UsbConnectionStateNotifier.new,
+    );
 
 class MidiDevice {
   final String id;
@@ -84,35 +88,46 @@ class MidiService {
   Stream<Map<dynamic, dynamic>>? _systemEventsStream;
 
   Stream<dynamic> get _rawStream {
-    _broadcastStream ??= _eventsChannel.receiveBroadcastStream().asBroadcastStream();
+    _broadcastStream ??= _eventsChannel
+        .receiveBroadcastStream()
+        .asBroadcastStream();
     return _broadcastStream!;
   }
 
   /// High-performance stream of parsed MIDI events.
   Stream<List<MidiEvent>> get midiEventsStream {
-    _midiEventsStream ??= _rawStream.where((e) {
-      if (e is! Map) return false;
-      final type = e['type'];
-      return type == 'batch' || type == 'cc';
-    }).map((event) {
-      final map = event as Map;
-      if (map['type'] == 'batch') {
-        final rawEvents = map['events'] as List? ?? [];
-        return rawEvents.whereType<Map<dynamic, dynamic>>().map((e) => MidiEvent.fromMap(e)).toList();
-      } else {
-        return [MidiEvent.fromMap(map)];
-      }
-    }).asBroadcastStream();
+    _midiEventsStream ??= _rawStream
+        .where((e) {
+          if (e is! Map) return false;
+          final type = e['type'];
+          return type == 'batch' || type == 'cc';
+        })
+        .map((event) {
+          final map = event as Map;
+          if (map['type'] == 'batch') {
+            final rawEvents = map['events'] as List? ?? [];
+            return rawEvents
+                .whereType<Map<dynamic, dynamic>>()
+                .map((e) => MidiEvent.fromMap(e))
+                .toList();
+          } else {
+            return [MidiEvent.fromMap(map)];
+          }
+        })
+        .asBroadcastStream();
     return _midiEventsStream!;
   }
 
   /// System-level events (USB state, device additions, removals).
   Stream<Map<dynamic, dynamic>> get systemEventsStream {
-    _systemEventsStream ??= _rawStream.where((e) {
-      if (e is! Map) return false;
-      final type = e['type'];
-      return type == 'added' || type == 'removed' || type == 'usb_state';
-    }).cast<Map<dynamic, dynamic>>().asBroadcastStream();
+    _systemEventsStream ??= _rawStream
+        .where((e) {
+          if (e is! Map) return false;
+          final type = e['type'];
+          return type == 'added' || type == 'removed' || type == 'usb_state';
+        })
+        .cast<Map<dynamic, dynamic>>()
+        .asBroadcastStream();
     return _systemEventsStream!;
   }
 
@@ -161,7 +176,11 @@ class MidiService {
 
   Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
     try {
-      await _channel.invokeMethod('sendMidiCC', {'cc': cc, 'value': value, 'isFinal': isFinal});
+      await _channel.invokeMethod('sendMidiCC', {
+        'cc': cc,
+        'value': value,
+        'isFinal': isFinal,
+      });
     } catch (e) {
       debugPrint('Failed to send CC $cc: $e');
     }
@@ -388,7 +407,13 @@ final connectedMidiDeviceProvider =
       ConnectedMidiDeviceNotifier.new,
     );
 
-enum MidiStatus { disconnected, available, connected, connectionLost, usbActive }
+enum MidiStatus {
+  disconnected,
+  available,
+  connected,
+  connectionLost,
+  usbActive,
+}
 
 class CcNotifier extends Notifier<ControlState> {
   @override
@@ -408,7 +433,9 @@ class CcNotifier extends Notifier<ControlState> {
   }
 }
 
-final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(CcNotifier.new);
+final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(
+  CcNotifier.new,
+);
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
@@ -433,7 +460,9 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   // Exclude internal ports from the "available" check if manual selection is off,
   // otherwise the UI will always show AVAILABLE because of the virtual ports.
   final manualSelection = ref.watch(manualPortSelectionProvider);
-  final externalDevices = devices.where((d) => manualSelection || d.manufacturer != 'PetersDigital').toList();
+  final externalDevices = devices
+      .where((d) => manualSelection || d.manufacturer != 'PetersDigital')
+      .toList();
 
   if (externalDevices.isNotEmpty) {
     return MidiStatus.available;
