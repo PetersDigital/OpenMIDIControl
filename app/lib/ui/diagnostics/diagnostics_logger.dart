@@ -13,25 +13,9 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   List<String> build() {
     final service = ref.watch(midiServiceProvider);
 
-    final sub = service.midiEventsStream.listen((event) {
-      if (event is Map) {
-        final type = event['type'];
-        if (type == 'batch') {
-          final rawEvents = event['events'];
-          if (rawEvents is List) {
-            final midiEvents = rawEvents
-                .whereType<Map<dynamic, dynamic>>()
-                .map((e) => MidiEvent.fromMap(e))
-                .toList();
-
-            for (var midiEvent in midiEvents) {
-              _addLog(_formatMidiEvent(midiEvent));
-            }
-          }
-        } else if (type == 'cc') {
-          final midiEvent = MidiEvent.fromMap(event);
-          _addLog(_formatMidiEvent(midiEvent));
-        }
+    final sub = service.midiEventsStream.listen((midiEvents) {
+      for (var midiEvent in midiEvents) {
+        _addLog(_formatMidiEvent(midiEvent));
       }
     });
 
