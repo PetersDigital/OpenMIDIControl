@@ -34,8 +34,8 @@ Examples:
 Releases are triggered by pushing **signed SemVer tags**:
 
 ```bash
-git tag -s v0.2.0 -m "Release v0.2.0"
-git push origin v0.2.0
+git tag -s v0.2.1 -m "Release v0.2.1"
+git push origin v0.2.1
 ```
 
 1. Ensure the `CHANGELOG.md` is updated with the version header and changes.
@@ -51,7 +51,7 @@ git push origin v0.2.0
 - Open PR as draft for in-progress feature updates.
 - Assignee: `@dencelkbabu`.
 - Reviewers: `@dencelkbabu`, `@copilot-pull-request-reviewer`, `@gemini-code-assist`.
-- Labels: `draft`, `needs review`.
+- Labels: `draft`,`needs review`.
 - When ready, convert draft to ready for review and remove `draft` label.
 
 ### GitHub CLI workflow
@@ -61,15 +61,15 @@ Windows PowerShell (line continuation with backtick `):
 
 ```powershell
 # 1. Check out and push branch
-git checkout feat-android-midi-v0.2.0
-git push -u origin feat-android-midi-v0.2.0
+git checkout feat-android-midi-v0.2.1
+git push -u origin feat-android-midi-v0.2.1
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.0 `
-  --title "feat(midi): v0.2.0 milestone overhaul" `
-  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" `
+gh pr create --base main --head feat-android-midi-v0.2.1 `
+  --title "feat(midi): v0.2.1 milestone overhaul" `
+  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" `
   --draft --assignee dencelkbabu --reviewer dencelkbabu `
-  --label "draft, needs review"
+  --label "draft,needs review"
 
 # 3. Add bot reviewers in GitHub UI (if not automatic):
 #   copilot-pull-request-reviewer, gemini-code-assist
@@ -82,15 +82,15 @@ Unix/Bash style (line continuation with backslash `\`):
 
 ```bash
 # 1. Check out and push branch
-git checkout feat-android-midi-v0.2.0
-git push -u origin feat-android-midi-v0.2.0
+git checkout feat-android-midi-v0.2.1
+git push -u origin feat-android-midi-v0.2.1
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.0 \
-  --title "feat(midi): v0.2.0 milestone overhaul" \
-  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" \
+gh pr create --base main --head feat-android-midi-v0.2.1 \
+  --title "feat(midi): v0.2.1 milestone overhaul" \
+  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
-  --label "draft, needs review"
+  --label "draft,needs review"
 
 # 3. Add bot reviewers in GitHub UI:
 #   copilot-pull-request-reviewer, gemini-code-assist

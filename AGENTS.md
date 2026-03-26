@@ -2,7 +2,7 @@
 
 This repository is primarily developed using AI coding agents (LLMs) via GitHub Copilot and other tools.
 
-## Milestone Status: v0.2.0 (Advanced USB MIDI & Dual-Path Routing)
+## Milestone Status: v0.2.1 (Canonical Data & State Model)
 
 ### ✅ Completed (v0.2.0)
 - [x] **Virtual MIDI Port**: Native Android MIDI device for local routing.
@@ -19,16 +19,15 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **Riverpod UI Optimization**: `.select()` modifier for per-control update filtering.
 - [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
 - [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
+- [x] **Canonical Data Model (MidiEvent)**: Strictly typed 32-bit immutable integer model for transport data.
+- [x] **Canonical UI State (ControlState)**: Scalable Riverpod state model replacing legacy CCState.
+- [x] **Native Dependency Inversion (MidiPortBackend)**: Unified Kotlin interface for MidiManager/Device abstraction.
+- [x] **Safe Backend Teardown**: `NativeAndroidMidiBackend` with reliable `safeExecute` cleanup logic.
+- [x] **Diagnostics console**: Real-time terminal-style logger with `autoDispose` subscription management.
 
-### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
-- **MidiPortBackend**: [ ] Unified abstraction for all future inputs.
-- **Universal Payload**: [ ] Normalized internal 32-bit UMP-ready format.
-- **State Logic**: [ ] `MidiEvent` (transport) vs. `ControlState` (UI logic).
-- **Diagnostics**: [ ] Raw MIDI event logger and port activity monitor.
-
-### ⏳ Future Phase: v0.2.2 – Universal Host Fallback
-- [ ] Implement `kshoji` USB driver for direct bulk endpoint access.
-- [ ] Stitch 14-bit data directly into canonical UMP-compatible format.
+### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
+- **kshoji integration**: [ ] Direct USB bulk endpoint communication via `UsbManager`.
+- **14-bit Stitching**: [ ] High-resolution CC parsing straight into the canonical UMP format.
 
 ### ⏳ Future Phase: v0.2.3 – Core Routing Engine (DAG)
 - [ ] Implement `MidiRouter` DAG for centralized N-to-N distribution.
@@ -89,7 +88,7 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [ ] PR opened as draft
 - [ ] Assignee: @dencelkbabu
 - [ ] Reviewers: @dencelkbabu + @copilot-pull-request-reviewer + @gemini-code-assist
-- [ ] Labels: draft, needs review
+- [ ] Labels: draft,needs review
 
 ## GitHub CLI guide
 Recommended `gh` steps during PR workflow (PowerShell/Bash):
@@ -98,15 +97,15 @@ Windows PowerShell:
 
 ```powershell
 # 1. Check out and push branch
-git checkout feat-android-midi-v0.2.0
-git push -u origin feat-android-midi-v0.2.0
+git checkout feat-android-midi-v0.2.1
+git push -u origin feat-android-midi-v0.2.1
 
 # 2. Create draft PR
- gh pr create --base main --head feat-android-midi-v0.2.0 `
-  --title "feat(midi): v0.2.0 milestone overhaul" `
-  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" `
+gh pr create --base main --head feat-android-midi-v0.2.1 `
+  --title "feat(midi): v0.2.1 milestone overhaul" `
+  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" `
   --draft --assignee dencelkbabu --reviewer dencelkbabu `
-  --label "draft, needs review"
+  --label "draft,needs review"
 
 # 3. GitHub UI bot reviewers (if needed)
 # - copilot-pull-request-reviewer
@@ -120,15 +119,15 @@ Unix/Bash:
 
 ```bash
 # 1. Check out and push branch
-git checkout feat-android-midi-v0.2.0
-git push -u origin feat-android-midi-v0.2.0
+git checkout feat-android-midi-v0.2.1
+git push -u origin feat-android-midi-v0.2.1
 
 # 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.0 \
-  --title "feat(midi): v0.2.0 milestone overhaul" \
-  --body "True Peripheral Mode, Dual-Path Routing, Performance Batching" \
+gh pr create --base main --head feat-android-midi-v0.2.1 \
+  --title "feat(midi): v0.2.1 milestone overhaul" \
+  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
-  --label "draft, needs review"
+  --label "draft,needs review"
 
 # 3. GitHub UI bot reviewers (if needed)
 # - copilot-pull-request-reviewer
