@@ -99,5 +99,6 @@ Treat the command center as the "instrument cluster" for the console: 30% of the
     - Manual overrides and USB mode toggles use the `primary_container` color for active switches.
     - Device tiles use `surface_container_low` with `primary_container` translucent highlighting (10% alpha) when active.
 - **Responsive placements:** The same grid + faders reorder depending on the screen width, so avoid resizing or cropping the command panel text; the layout toggle on the settings screen flips the whole stack left/right without reflowing the grid elements.
+- **Diagnostics Interface:** The 'Bug' icon in the status bar serves as the entry point for the high-precision event log. It features a transient 'Amber' state when the console is active, maintaining the laboratory console aesthetic while providing real-time technical feedback.
 
 Preserve the Console photon glow rules when building any future overlays that share the command center space (glassy surfaces, diffused shadows, no hard outlines).

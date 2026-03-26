@@ -42,7 +42,7 @@ Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the 
 
 The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
 
-- **Canonical Data Model (v0.2.1):** Establishing a unified **32-bit UMP-ready** payload as the internal source of truth. Formalizing the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic).
+- **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
 - **Universal Host Fallback (v0.2.2):** Bypassing Android OS limitations via direct USB bulk endpoint parsing (`kshoji` integration) for non-compliant hardware.
 - **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
@@ -134,11 +134,14 @@ State machine must be explicit and testable.
 - **Reactive UI Throttling:** UI components (like faders) use Riverpod's `.select()` modifier to filter global state updates, ensuring that only the relevant control rebuilds during multi-channel MIDI traffic.
 - **Riverpod Batch Update:** State transitions are batched precisely once per native polling cycle to minimize map churn and UI thread occupancy.
 - **Animation Churn Bypass:** External MIDI updates use direct `AnimationController.value` assignment to bypass expensive animation interpolation and cancellation math, relying on the source DAW for temporal smoothing.
+- **Centralized Event Parsing:** The `MidiService` handles `EventChannel` decoding exactly once per native polling cycle, distributing a typed `List<MidiEvent>` to all observers to ensure atomic state transitions and 0% redundant parsing.
+- **High-Precision Diagnostics:** The diagnostics console uses native platform timestamps (nanoseconds) provided by the Android MIDI stack, ensuring the event log order is independent of Dart VM scheduling jitter.
 - **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
 - **C++ Audio Layer (Conditional v0.5.0+):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
 ## 9. Error Handling & Stability
 
+- **Native Layer Hardened**: Centralized all unsafe Android MIDI operations (connect, disconnect, send) into a global `safeExecute` wrapper in `Utils.kt`. This ensures that `IOException` or `IllegalStateException` during rapid hot-plugging are logged via the diagnostics system rather than crashing the application.
 - **Dead Receiver Quarantine:** Catch `IOException` on hardware writes and isolate disconnected receivers in a quarantine set to prevent infinite Binder crash loops during rapid hotplugging.
 - **Invalid MIDI frames:** ignore and continue.
 - **Partial 14-bit pairs:** buffer briefly, then drop safely on timeout.
@@ -169,13 +172,14 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+### ✅ v0.2.1: Canonical Data & State Model
 * **MidiPortBackend**: Unified abstraction for OS-native vs. raw USB driver fallback.
-* **Universal Payload**: Introduction of the internal 32-bit UMP-ready MIDI format.
-* **Event vs. State Separation**: Formal separation of raw transport data (`MidiEvent`) and UI state (`ControlState`).
-* **Diagnostics**: Real-time MIDI event logger and port activity monitoring.
+* **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
+* **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`) with strict immutability.
+* **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
+* **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
-### ⏳ v0.2.2 – Universal Host Fallback
+### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
 * **kshoji Driver**: Direct USB bulk endpoint parsing for non-class-compliant hardware.
 * **14-bit Stitching**: Parsing high-resolution data directly into the canonical format.
 

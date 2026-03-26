@@ -36,7 +36,7 @@ class VirtualMidiService : MidiDeviceService() {
 
                 // Forward incoming MIDI from DAW (like FL Studio Mobile) to our Flutter App
                 msg.let {
-                    MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count)
+                    MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
             }
         })

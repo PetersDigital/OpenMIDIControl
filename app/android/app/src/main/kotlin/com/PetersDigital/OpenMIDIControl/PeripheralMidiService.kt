@@ -36,7 +36,7 @@ class PeripheralMidiService : MidiDeviceService() {
 
                 // Forward incoming MIDI from Host DAW (PC/Mac) to our Flutter App via USB
                 msg.let {
-                    MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count)
+                    MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
             }
         })

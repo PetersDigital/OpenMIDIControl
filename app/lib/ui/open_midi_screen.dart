@@ -124,15 +124,18 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     onTap: () => _showMidiSettings(context),
                   ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _showAppSettings(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.more_vert,
-                        color: Color(0xFFC3C7CA),
-                        size: 24,
+                  Tooltip(
+                    message: 'App Settings',
+                    child: GestureDetector(
+                      onTap: () => _showAppSettings(context),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 24,
+                        ),
                       ),
                     ),
                   ),
@@ -370,15 +373,18 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     _ConnectionStatusButton(
                       onTap: () => _showMidiSettings(context),
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        color: Color(0xFFC3C7CA),
-                        size: 20,
+                    Tooltip(
+                      message: 'App Settings',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => _showAppSettings(context),
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => _showAppSettings(context),
                     ),
                   ],
                 ),
@@ -574,13 +580,16 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   _ConnectionStatusButton(
                     onTap: () => _showMidiSettings(context),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: Color(0xFFC3C7CA),
-                      size: 28,
+                  Tooltip(
+                    message: 'App Settings',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: Color(0xFFC3C7CA),
+                        size: 28,
+                      ),
+                      onPressed: () => _showAppSettings(context),
                     ),
-                    onPressed: () => _showAppSettings(context),
                   ),
                 ],
               ),
@@ -812,71 +821,74 @@ class _ConnectionStatusButtonState
         break;
     }
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedBuilder(
-        animation: _glowAnimation,
-        builder: (context, child) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: statusColor.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: showGlow
-                  ? [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.4),
-                        blurRadius: _glowAnimation.value,
-                        spreadRadius: 2,
-                      ),
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.1),
-                        blurRadius: _glowAnimation.value * 2,
-                        spreadRadius: 4,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showGlow) ...[
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
+    return Tooltip(
+      message: 'MIDI Settings',
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
+          animation: _glowAnimation,
+          builder: (context, child) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: statusColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: showGlow
+                    ? [
                         BoxShadow(
-                          color: statusColor,
-                          blurRadius: _glowAnimation.value / 2,
-                          spreadRadius: 1,
+                          color: statusColor.withValues(alpha: 0.4),
+                          blurRadius: _glowAnimation.value,
+                          spreadRadius: 2,
                         ),
-                      ],
+                        BoxShadow(
+                          color: statusColor.withValues(alpha: 0.1),
+                          blurRadius: _glowAnimation.value * 2,
+                          spreadRadius: 4,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showGlow) ...[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: statusColor,
+                            blurRadius: _glowAnimation.value / 2,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: statusColor,
+                      fontSize: 12, // Same size for both contexts
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
-                Text(
-                  statusText,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: statusColor,
-                    fontSize: 12, // Same size for both contexts
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
