@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
@@ -8,6 +9,7 @@ import '../midi_service.dart';
 class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   static const int maxLogs = 200;
   final Queue<String> _logs = Queue<String>();
+  bool _pendingUpdate = false;
 
   @override
   List<String> build() {
@@ -54,8 +56,16 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
     if (_logs.length > maxLogs) {
       _logs.removeLast();
     }
-    // Update state to trigger rebuilds only for listeners of this provider
-    state = _logs.toList();
+    // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
+    if (!_pendingUpdate) {
+      _pendingUpdate = true;
+      // Schedule state update for next frame (~16ms at 60Hz)
+      SchedulerBinding.instance.scheduleFrameCallback((_) {
+        _pendingUpdate = false;
+        // Update state to trigger rebuilds only for listeners of this provider
+        state = _logs.toList();
+      });
+    }
   }
 
   void clear() {
