@@ -55,6 +55,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
 
       # Enforces Section 3 of AGENTS.md (Lints)
@@ -79,9 +80,11 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
 
       # --- NEW STEP: Construct the Keystore from GitHub Secrets ---
@@ -129,6 +132,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - run: flutter pub get
       - run: flutter build windows
 
