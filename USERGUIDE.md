@@ -138,9 +138,9 @@ Notes:
 ## 9. Debugging & Testing (v0.2.0+)
 
 ### 9.1 Diagnostics Console (NEW)
-Open the **Settings** drawer and tap the **"Open Diagnostics Console"** button. This reveals a real-time, terminal-style MIDI event logger directly on the device.
-- **Auto-Dispose**: The logging subscription is automatically killed when you close the modal to save CPU cycles.
-- **Raw Data**: View incoming `MidiEvent` 32-bit payloads and timestamps.
+Open the **MIDI Connection Settings** screen and tap the **bug icon** (labeled with a "View Diagnostics" tooltip) in the top bar. This reveals a real-time, terminal-style MIDI event logger directly on the device.
+- **Auto-Dispose**: The logging subscription is automatically terminated when you close the modal to preserve CPU cycles.
+- **Parsed Events**: View incoming `MidiEvent` data, including high-precision native timestamps, CC numbers, and values.
 
 ### 9.2 Native Logging (ADB)
 To monitor the internal MIDI dispatcher and USB handshake events, use `adb`:
