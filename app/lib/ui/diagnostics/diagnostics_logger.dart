@@ -27,8 +27,15 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   }
 
   String _formatMidiEvent(MidiEvent event) {
-    final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}';
+    // utilizes actual event.timestamp (nanoseconds) provided by native layer
+    final totalMs = event.timestamp ~/ 1000000;
+    final h = (totalMs ~/ 3600000);
+    final m = (totalMs ~/ 60000) % 60;
+    final s = (totalMs ~/ 1000) % 60;
+    final ms = totalMs % 1000;
+
+    final timeStr =
+        '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}.${ms.toString().padLeft(3, '0')}';
 
     // Add port ID or device ID if known in the future. Currently sourceId is default 'unknown'
     final portStr = event.sourceId != 'unknown' ? 'Port ${event.sourceId} | ' : '';
