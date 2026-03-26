@@ -601,8 +601,7 @@ class MainActivity : FlutterActivity() {
                     // (Assuming NativeAndroidMidiBackend exposes the underlying device for ID matching,
                     // or we check device name/info if we don't expose device directly)
                     // Currently activeDevice was used. We can check if hostMidiBackend has a device with same ID.
-                    val backend = hostMidiBackend
-                    if (backend is NativeAndroidMidiBackend && backend.device.info.id == device.id) {
+                    if (hostMidiBackend?.portId == device.id.toString()) {
                         disconnectDevice()
                     }
                     val event = mapOf(
