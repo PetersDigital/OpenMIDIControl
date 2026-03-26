@@ -27,10 +27,12 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Thermal Stabilization:** Implemented Riverpod batching and direct animation-value assignment to reduce Dart VM and rendering overhead during heavy automation.
 
 ### ✅ v0.2.1: Canonical Data & State Model
-- **MidiPortBackend Abstraction**: Unified interface for all future inputs.
-- **Universal Payload Structure**: Introduced the normalized internal MIDI format (32-bit UMP-ready).
-- **Event vs. State Separation**: Formalized `MidiEvent` (raw transport) vs. `ControlState` (UI-facing logic).
-- **Diagnostic Tools**: Real-time terminal-style DiagnosticsConsole UI with `autoDispose` subscription management.
+- **MidiPortBackend Abstraction**: Unified interface for OS-native vs. raw USB driver fallback.
+- **Universal Payload Structure**: Introduction of the internal 32-bit UMP-ready MIDI format (32-bit `MidiEvent`).
+- **Event vs. State Separation**: Formalized `MidiEvent` (transport) vs. `ControlState` (UI-facing logic), enforced via strict immutability.
+- **Diagnostic Tools**: Real-time DiagnosticsConsole UI with `autoDispose` logic and high-precision native timestamps.
+- **Service Centralization**: Migrated stream parsing into `MidiService` for single-decode event distribution.
+- **Native Stability Hardening**: Centralized all native port operations in a shared `safeExecute` utility.
 
 ### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
 - **kshoji Integration**: Direct USB bulk endpoint communication via `UsbManager`.
