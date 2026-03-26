@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/models/control_state.dart';
+import '../core/models/midi_event.dart';
 import 'midi_settings_state.dart' show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
 class MidiPort {
@@ -232,18 +234,21 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         final id = event['id'];
 
         if (type == 'batch') {
-          final events = event['events'];
-          if (events is List) {
+          final rawEvents = event['events'];
+          if (rawEvents is List) {
             final Map<int, int> batchUpdates = {};
-            for (var e in events) {
-              if (e is Map && e['type'] == 'cc') {
-                final ccNumber = e['cc'] as int?;
-                final value = e['value'] as int?;
-                if (ccNumber != null && value != null) {
-                  batchUpdates[ccNumber] = value;
-                }
+            // Parse raw events into typed MidiEvent instances
+            final midiEvents = rawEvents
+                .whereType<Map<dynamic, dynamic>>()
+                .map((e) => MidiEvent.fromMap(e))
+                .toList();
+
+            for (var midiEvent in midiEvents) {
+              if (midiEvent.messageType == 0xB0) {
+                batchUpdates[midiEvent.data1] = midiEvent.data2;
               }
             }
+
             // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
             if (batchUpdates.isNotEmpty) {
               ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
@@ -303,10 +308,9 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
             }
           }
         } else if (type == 'cc') {
-          final ccNumber = event['cc'] as int?;
-          final value = event['value'] as int?;
-          if (ccNumber != null && value != null) {
-            ref.read(ccValuesProvider.notifier).updateCC(ccNumber, value);
+          final midiEvent = MidiEvent.fromMap(event);
+          if (midiEvent.messageType == 0xB0) {
+            ref.read(ccValuesProvider.notifier).updateCC(midiEvent.data1, midiEvent.data2);
           }
         } else if (type == 'usb_state') {
           final usbStatus = event['state'];
@@ -373,40 +377,25 @@ final connectedMidiDeviceProvider =
 
 enum MidiStatus { disconnected, available, connected, connectionLost, usbActive }
 
-// State is stored as an integer (0-127).
-// In Riverpod 2.x/3.x, passing arguments to a Notifier happens via Family.
-// For CC, we just want a simple state to sync inbound and outbound.
-// A simpler alternative to FamilyNotifier is to just expose a map or use a custom class.
-class CCState {
-  final Map<int, int> ccValues;
-  CCState({this.ccValues = const {}});
-
-  CCState copyWith(int cc, int val) {
-    final newValues = Map<int, int>.from(ccValues);
-    newValues[cc] = val;
-    return CCState(ccValues: newValues);
-  }
-}
-
-class CcNotifier extends Notifier<CCState> {
+class CcNotifier extends Notifier<ControlState> {
   @override
-  CCState build() {
-    return CCState();
+  ControlState build() {
+    return ControlState(ccValues: {});
   }
 
   void updateCC(int cc, int value) {
-    state = state.copyWith(cc, value);
+    state = state.copyWithCC(cc, value);
   }
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
     final newValues = Map<int, int>.from(state.ccValues);
     newValues.addAll(updates);
-    state = CCState(ccValues: newValues);
+    state = state.copyWith(ccValues: newValues);
   }
 }
 
-final ccValuesProvider = NotifierProvider<CcNotifier, CCState>(CcNotifier.new);
+final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(CcNotifier.new);
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
