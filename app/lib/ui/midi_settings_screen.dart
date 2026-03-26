@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'diagnostics/diagnostics_console.dart';
 import 'midi_service.dart';
 import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
@@ -29,6 +30,27 @@ class MidiSettingsScreen extends ConsumerWidget {
         iconTheme: IconThemeData(
           color: Theme.of(context).colorScheme.primaryContainer,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report, size: 24, color: Colors.amber),
+            tooltip: 'View Diagnostics',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.black,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (context) {
+                  return const SizedBox(
+                    height: 400,
+                    child: DiagnosticsConsole(),
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
