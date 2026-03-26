@@ -29,12 +29,16 @@ class DiagnosticsConsole extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
                 tooltip: 'Clear Logs',
                 onPressed: () {
                   ref.read(diagnosticsProvider.notifier).clear();
                 },
-              )
+              ),
             ],
           ),
           const Divider(color: Colors.white24, height: 16),
@@ -43,7 +47,10 @@ class DiagnosticsConsole extends ConsumerWidget {
                 ? const Center(
                     child: Text(
                       'No MIDI events logged yet.',
-                      style: TextStyle(color: Colors.white38, fontStyle: FontStyle.italic),
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   )
                 : ListView.builder(

@@ -18,7 +18,8 @@ void main() {
 
     // 2. Pump the widget
     await tester.pumpWidget(
-      const ProviderScope( // Since Jules is using Riverpod
+      const ProviderScope(
+        // Since Jules is using Riverpod
         child: MaterialApp(home: OpenMIDIMainScreen()),
       ),
     );

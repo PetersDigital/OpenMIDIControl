@@ -4,14 +4,10 @@ class ControlState {
   // final Map<int, bool> buttonStates;
 
   ControlState({required Map<int, int> ccValues})
-      : ccValues = Map.unmodifiable(ccValues);
+    : ccValues = Map.unmodifiable(ccValues);
 
-  ControlState copyWith({
-    Map<int, int>? ccValues,
-  }) {
-    return ControlState(
-      ccValues: Map.unmodifiable(ccValues ?? this.ccValues),
-    );
+  ControlState copyWith({Map<int, int>? ccValues}) {
+    return ControlState(ccValues: Map.unmodifiable(ccValues ?? this.ccValues));
   }
 
   ControlState copyWithCC(int cc, int val) {
