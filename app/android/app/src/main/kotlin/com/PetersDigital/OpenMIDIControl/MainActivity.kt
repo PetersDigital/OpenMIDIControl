@@ -169,13 +169,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private inline fun safeExecute(block: () -> Unit) {
-        try {
-            block()
-        } catch (e: Exception) {
-            android.util.Log.w("OpenMIDIControl", "Safe execute failed during disconnect: ${e.message}")
-        }
-    }
 
     private fun disconnectUsbPeripheral() {
         peripheralMidiBackend?.close()
