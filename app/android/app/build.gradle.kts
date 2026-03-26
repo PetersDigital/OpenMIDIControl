@@ -39,8 +39,8 @@ android {
         
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 33
-        targetSdk = 35
+        minSdk = 33 // Enforces Android 13+ for native UMP support.
+        targetSdk = 35 // Aligned with compileSdk; decoupled from Flutter SDK.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
