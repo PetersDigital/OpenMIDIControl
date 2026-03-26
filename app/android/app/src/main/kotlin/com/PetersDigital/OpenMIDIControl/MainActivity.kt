@@ -525,7 +525,8 @@ class MainActivity : FlutterActivity() {
                 val event = mapOf(
                     "type" to "cc",
                     "cc" to ccNumber,
-                    "value" to ccValue
+                    "value" to ccValue,
+                    "timestamp" to timestamp
                 )
 
                 incomingEventsChannel.trySend(event)
@@ -569,7 +570,8 @@ class MainActivity : FlutterActivity() {
             val event = mapOf(
                 "type" to "cc",
                 "cc" to ccNumber,
-                "value" to ccValue
+                "value" to ccValue,
+                "timestamp" to nowNs
             )
 
             incomingEventsChannel.trySend(event)
