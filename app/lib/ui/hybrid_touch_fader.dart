@@ -212,8 +212,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
       if (widget.behavior == FaderBehavior.jump) {
-        // Instantly update the value to avoid 120Hz animation cancellation churn.
-        // DAW automation is already smoothed natively.
+        // Smoothly interpolate the value using _kFaderSmoothingDuration fallback
+        // to avoid 120Hz animation cancellation churn.
         _animationController.animateTo(
           incomingNormalized,
           duration: _kFaderSmoothingDuration,

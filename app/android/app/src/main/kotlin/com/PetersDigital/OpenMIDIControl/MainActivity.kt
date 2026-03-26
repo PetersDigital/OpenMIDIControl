@@ -590,10 +590,7 @@ class MainActivity : FlutterActivity() {
                 }
 
                 override fun onDeviceRemoved(device: MidiDeviceInfo) {
-                    // Check if the removed device matches our host backend device ID
-                    // (Assuming NativeAndroidMidiBackend exposes the underlying device for ID matching,
-                    // or we check device name/info if we don't expose device directly)
-                    // Currently activeDevice was used. We can check if hostMidiBackend has a device with same ID.
+                    // Disconnect if the removed device ID matches the current host backend portId.
                     if (hostMidiBackend?.portId == device.id.toString()) {
                         disconnectDevice()
                     }
