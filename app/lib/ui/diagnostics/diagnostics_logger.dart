@@ -71,4 +71,4 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   }
 }
 
-final diagnosticsProvider = NotifierProvider<DiagnosticsLoggerNotifier, List<String>>(DiagnosticsLoggerNotifier.new);
+final diagnosticsProvider = NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, List<String>>(DiagnosticsLoggerNotifier.new);
