@@ -7,8 +7,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ## [0.2.1] - 2026-03-26
 
 ### Added
-- **Canonical Data Model (MidiEvent):** Introduced a strictly typed, immutable 32-bit integer data model in Dart to represent raw transport data, decoupling the UI from JNI map serialization and preparing the architecture for Universal MIDI Packets (UMP).
-- **Canonical UI State (ControlState):** Introduced a scalable, immutable Riverpod state model to replace the legacy CCState, establishing a single source of truth for all UI components.
+- **Canonical Data Model (MidiEvent):** Introduced a strictly typed, immutable data model in Dart composed of discrete integer fields (message type, channel, data1, data2, timestamp) to represent raw transport data. This decouples the UI from JNI map serialization and prepares the architecture for Universal MIDI Packets (UMP).
+- **Canonical UI State (ControlState):** Introduced a scalable, immutable Riverpod state model that consolidates all map-based control values into a single source of truth, replacing the legacy CCState.
 - **Native Dependency Inversion (MidiPortBackend):** Created a unified Kotlin interface to abstract Android's MidiManager, MidiDevice, and MidiPort classes.
 - **Native Android Backend:** Implemented `NativeAndroidMidiBackend` to encapsulate OS-level port lifecycles and safely manage connections for both Host and Peripheral modes using `safeExecute` teardown blocks.
 - **Diagnostics Logger:** Added a real-time, terminal-style DiagnosticsConsole UI and `DiagnosticsLoggerNotifier` to monitor high-speed incoming MIDI event streams directly on the device.
