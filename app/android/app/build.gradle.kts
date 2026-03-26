@@ -17,7 +17,7 @@ plugins {
 
 android {
     namespace = "com.PetersDigital.OpenMIDIControl"
-    compileSdk = 35
+    compileSdk = 35 // Required for native UMP support (API 33+). Decoupled from Flutter SDK.
     ndkVersion = flutter.ndkVersion
 
     buildFeatures {
