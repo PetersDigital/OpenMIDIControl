@@ -39,6 +39,11 @@ Because OpenMIDIControl's Android component requires a securely signed release c
 
 ### 1. Configure the `.env.ps1` file
 1. Create a local copy of the environment template:
+   PowerShell 7:
+   ```powershell
+   Copy-Item -Path scripts/.env.example.ps1 -Destination scripts/.env.ps1
+   ```
+   Unix/macOS/Linux:
    ```bash
    cp scripts/.env.example.ps1 scripts/.env.ps1
    ```
