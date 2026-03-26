@@ -43,7 +43,7 @@ Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the 
 The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
 
 - **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
-- **Universal Host Fallback (v0.2.2):** Bypassing Android OS limitations via direct USB bulk endpoint parsing (`kshoji` integration) for non-compliant hardware.
+- **Native UMP Backend Migration (v0.2.2):** The Native Kotlin layer operates exclusively on MidiUmpDeviceService (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the EventChannel as 32-bit integers, mapping directly to the Dart MidiEvent model without legacy byte-stitching.
 - **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
@@ -53,10 +53,14 @@ Connection lifecycle (text diagram):
 INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 ```
 
+## 3.2 Native Android Layer / JNI Bridge
+
+The Native Kotlin layer operates exclusively on `MidiUmpDeviceService` (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the `EventChannel` as 32-bit integers, mapping directly to the Dart `MidiEvent` model without legacy byte-stitching.
+
 ## 4. Event Semantics
 
 - Internal values are normalized to `0.0..1.0`.
-- Outgoing CC values are encoded to `0..127` or 14-bit pairs where needed.
+- Outgoing CC values are encoded to `0..127` natively, with 32-bit UMP values used where high-resolution is supported.
 - Local touch owns control state while active.
 - External MIDI owns control state when touch is inactive.
 - On touch release, control returns to external-follow mode immediately.
@@ -65,7 +69,7 @@ INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 
 To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 - **Source of Truth:** Internally, all MIDI data is treated as a **Universal MIDI Packet (UMP)** using 32-bit integer blocks rather than traditional 8-bit byte streams.
-- **Protocol Translation:** Legacy MIDI 1.0 data (from native Android or raw USB) is instantly "wrapped" into UMP format at the Input Node.
+- **Native Android Layer:** The Native Kotlin layer operates exclusively on `MidiUmpDeviceService` (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the `EventChannel` as 32-bit integers, mapping directly to the Dart `MidiEvent` model without legacy byte-stitching.
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
 - **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
@@ -89,16 +93,9 @@ Recommended defaults:
 ### 6.1 Required support
 
 - Channel CC (7-bit)
-- Optional 14-bit CC (MSB/LSB pairs)
 - Basic SysEx framing for project-specific metadata only
 
-### 6.2 14-bit policy
-
-- Use 14-bit for high-resolution expressive controls.
-- Always reconstruct full value before dedup checks.
-- Never deduplicate on MSB alone.
-
-### 6.3 SysEx policy
+### 6.2 SysEx policy
 
 - Keep message schema explicit and versioned.
 - Prefer human-readable payload encoding for diagnostics.
@@ -144,7 +141,6 @@ State machine must be explicit and testable.
 - **Native Layer Hardened**: Centralized all unsafe Android MIDI operations (connect, disconnect, send) into a global `safeExecute` wrapper in `Utils.kt`. This ensures that `IOException` or `IllegalStateException` during rapid hot-plugging are logged via the diagnostics system rather than crashing the application.
 - **Dead Receiver Quarantine:** Catch `IOException` on hardware writes and isolate disconnected receivers in a quarantine set to prevent infinite Binder crash loops during rapid hotplugging.
 - **Invalid MIDI frames:** ignore and continue.
-- **Partial 14-bit pairs:** buffer briefly, then drop safely on timeout.
 - **Unknown SysEx commands:** log and ignore.
 - **Port loss:** preserve UI state, signal disconnected mode, retry connection.
 
@@ -152,12 +148,14 @@ State machine must be explicit and testable.
 
 This roadmap tracks feature progress using Semantic Versioning. Progress is measured by functional milestones rather than specific dates.
 
-### ✅ v0.1.0: Baseline
+### ✅ Completed
+
+#### ✅ v0.1.0: Baseline
 * Established core wired control and UI baseline.
 * Implemented two expressive faders with high-precision tracking.
 * Integrated internal MIDI test harness.
 
-### ✅ v0.1.5: MIDI Reliability & Logic Polish
+#### ✅ v0.1.5: MIDI Reliability & Logic Polish
 * **Virtual MIDI Port**: Implemented a native Android MIDI device ("OpenMIDIControl") for local data routing.
 * **Metadata Reconnection**: Added "fingerprint" matching (Name/Manufacturer) to handle transient Android IDs during USB hot-plugging.
 * **Bi-directional Logic**: Applied Jump, Hybrid, and Catch-up behaviors to incoming hardware MIDI data.
@@ -166,36 +164,37 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
 * **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
 
-### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+#### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
 * **True Peripheral Mode**: Native Android `MidiDeviceService` for class compliance on Windows 11.
 * **Dual-Path Routing**: High-speed native Kotlin transport for peripheral mode.
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ✅ v0.2.1: Canonical Data & State Model
+#### ✅ v0.2.1: Canonical Data & State Model
 * **MidiPortBackend**: Unified abstraction for OS-native vs. raw USB driver fallback.
 * **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
 * **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`) with strict immutability.
 * **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
 * **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
-### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
-* **kshoji Driver**: Direct USB bulk endpoint parsing for non-class-compliant hardware.
-* **14-bit Stitching**: Parsing high-resolution data directly into the canonical format.
+### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
+- **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
+- **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
+- **32-bit Payload Integration**: Pass raw 32-bit UMP integers directly from Kotlin to the Dart `MidiEvent` model, bypassing legacy byte-array parsing.
 
-### ⏳ v0.2.3 – Core Routing Engine (Graph Model)
-* **MidiRouter DAG**: Centralized routing graph for N-to-N message distribution.
-* **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams.
+### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
+- **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
+- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
 
-### ⏳ v0.3.0 – Control Expansion & Basic State
-* **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
-* **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
-* **Raw Snapshots**: Basic save/load functionality using the `ControlState` model.
+### ⏳ v0.3.0 – Control Expansion & High-Res State
+- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches.
+- **Native 32-bit Resolution UI**: Upgrade faders to leverage native UMP high-resolution values.
+- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
 
-### ⏳ v0.4.x – The MCU / HUI Protocol Series
-* **v0.4.0 (Core Logic)**: Basic MCU mapping for faders, transport, and 14-bit high-res control.
-* **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
-* **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+### ⏳ v0.4.x – MIDI-CI & The MCU / HUI Protocol Series
+- **v0.4.0 (MIDI-CI Handshake)**: Capability Inquiry negotiation to declare the device as a MIDI 2.0 peripheral to the DAW.
+- **v0.4.1 (Core Logic)**: MCU protocol mapping translated through the UMP pipeline.
+- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
 
 ### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
 * **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
