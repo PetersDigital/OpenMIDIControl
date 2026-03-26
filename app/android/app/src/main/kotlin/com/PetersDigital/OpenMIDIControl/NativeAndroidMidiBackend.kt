@@ -44,13 +44,6 @@ class NativeAndroidMidiBackend(
         }
     }
 
-    private inline fun safeExecute(block: () -> Unit) {
-        try {
-            block()
-        } catch (e: Exception) {
-            android.util.Log.w("OpenMIDIControl", "Safe execute failed during backend disconnect: ${e.message}")
-        }
-    }
 
     override fun close() {
         safeExecute { midiReceiver?.let { outputPort?.disconnect(it) } }
