@@ -53,7 +53,7 @@ Expected baseline:
 - Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
 - The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
 - A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.2.0` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- The version + build metadata at the top helps confirm you are on the `v0.2.1` UI, and this screen will later house pick-up, smoothing, and transport preferences.
 - **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 
@@ -137,7 +137,12 @@ Notes:
 
 ## 9. Debugging & Testing (v0.2.0+)
 
-### 9.1 Native Logging
+### 9.1 Diagnostics Console (NEW)
+Open the **Settings** drawer and tap the **"Open Diagnostics Console"** button. This reveals a real-time, terminal-style MIDI event logger directly on the device.
+- **Auto-Dispose**: The logging subscription is automatically killed when you close the modal to save CPU cycles.
+- **Raw Data**: View incoming `MidiEvent` 32-bit payloads and timestamps.
+
+### 9.2 Native Logging (ADB)
 To monitor the internal MIDI dispatcher and USB handshake events, use `adb`:
 ```powershell
 # Windows PowerShell

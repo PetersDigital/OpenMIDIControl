@@ -42,7 +42,7 @@ Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the 
 
 The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
 
-- **Canonical Data Model (v0.2.1):** Establishing a unified **32-bit UMP-ready** payload as the internal source of truth. Formalizing the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic).
+- **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic).
 - **Universal Host Fallback (v0.2.2):** Bypassing Android OS limitations via direct USB bulk endpoint parsing (`kshoji` integration) for non-compliant hardware.
 - **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
@@ -169,13 +169,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ⏳ Current Focus: v0.2.1 – Canonical Data & State Model
+### ✅ v0.2.1: Canonical Data & State Model
 * **MidiPortBackend**: Unified abstraction for OS-native vs. raw USB driver fallback.
 * **Universal Payload**: Introduction of the internal 32-bit UMP-ready MIDI format.
 * **Event vs. State Separation**: Formal separation of raw transport data (`MidiEvent`) and UI state (`ControlState`).
-* **Diagnostics**: Real-time MIDI event logger and port activity monitoring.
+* **Diagnostics**: Real-time MIDI event logger with `autoDispose` subscription management.
 
-### ⏳ v0.2.2 – Universal Host Fallback
+### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
 * **kshoji Driver**: Direct USB bulk endpoint parsing for non-class-compliant hardware.
 * **14-bit Stitching**: Parsing high-resolution data directly into the canonical format.
 

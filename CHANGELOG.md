@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
+## [0.2.1] - 2026-03-26
+
+### Added
+- **Canonical Data Model (MidiEvent):** Introduced a strictly typed, immutable 32-bit integer data model in Dart to represent raw transport data, decoupling the UI from JNI map serialization and preparing the architecture for Universal MIDI Packets (UMP).
+- **Canonical UI State (ControlState):** Introduced a scalable, immutable Riverpod state model to replace the legacy CCState, establishing a single source of truth for all UI components.
+- **Native Dependency Inversion (MidiPortBackend):** Created a unified Kotlin interface to abstract Android's MidiManager, MidiDevice, and MidiPort classes.
+- **Native Android Backend:** Implemented `NativeAndroidMidiBackend` to encapsulate OS-level port lifecycles and safely manage connections for both Host and Peripheral modes using `safeExecute` teardown blocks.
+- **Diagnostics Logger:** Added a real-time, terminal-style DiagnosticsConsole UI and `DiagnosticsLoggerNotifier` to monitor high-speed incoming MIDI event streams directly on the device.
+
+### Changed
+- **Batch Processing Optimization:** Refactored the `EventChannel` listener in `midi_service.dart` to decode incoming JNI batches into `List<MidiEvent>` and apply UI state changes exactly once per batch (`updateMultipleCCs`), preserving the 120Hz thermal optimizations.
+- **Fader Interpolation Smoothing:** Reintroduced a lightweight, 45ms linear `animateTo` curve in `HybridTouchFader`. This smoothly bridges visual gaps caused by 20Hz DAW automation limits and Android OS `EAGAIN` buffer overflows, replacing the previous instant-snap logic.
+- **Native Routing Handshake:** Refactored `MainActivity` and `PeripheralMidiService` to interact exclusively with the `MidiPortBackend` abstraction, severing hardcoded dependencies on Android OS classes for data flow.
+
+### Fixed
+- **Diagnostics Background CPU Drain:** Upgraded the `DiagnosticsLoggerNotifier` to utilize Riverpod's `NotifierProvider.autoDispose` and `ref.onDispose`. The underlying MIDI stream subscription is now explicitly canceled when the debug modal is closed, preventing background string formatting and saving CPU cycles.
+
 ## [0.2.0] - 2026-03-26
 
 ### Added
