@@ -203,7 +203,11 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         if (widget.behavior == FaderBehavior.jump) {
           // Instantly update the value to avoid 120Hz animation cancellation churn.
           // DAW automation is already smoothed natively.
-          _animationController.value = incomingNormalized;
+          _animationController.animateTo(
+            incomingNormalized,
+            duration: const Duration(milliseconds: 45),
+            curve: Curves.linear,
+          );
           return;
         }
 
@@ -232,12 +236,20 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
             if (crossed) {
               _hardwareIsCatchingUp = false;
-              _animationController.value = incomingNormalized;
+              _animationController.animateTo(
+                incomingNormalized,
+                duration: const Duration(milliseconds: 45),
+                curve: Curves.linear,
+              );
             }
             _lastHardwareValue = incomingNormalized;
           } else {
             // Already caught up, track normally
-            _animationController.value = incomingNormalized;
+            _animationController.animateTo(
+              incomingNormalized,
+              duration: const Duration(milliseconds: 45),
+              curve: Curves.linear,
+            );
           }
         }
       },
