@@ -1,6 +1,6 @@
-# app
+![Release](https://img.shields.io/github/v/release/PetersDigital/OpenMIDIControl?style=for-the-badge&color=blue)
 
-This folder contains the Flutter-based UI for OpenMIDIControl, corresponding to the **v0.1.5 release**.
+This folder contains the Flutter-based UI for OpenMIDIControl.
 
 ## Overview
 

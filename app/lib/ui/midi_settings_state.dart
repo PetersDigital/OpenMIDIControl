@@ -31,6 +31,7 @@ class ManualPortSelectionNotifier extends Notifier<bool> {
   void toggle() => state = !state;
 }
 
-final manualPortSelectionProvider = NotifierProvider<ManualPortSelectionNotifier, bool>(
-  ManualPortSelectionNotifier.new,
-);
+final manualPortSelectionProvider =
+    NotifierProvider<ManualPortSelectionNotifier, bool>(
+      ManualPortSelectionNotifier.new,
+    );
