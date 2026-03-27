@@ -1,0 +1,103 @@
+name: 'CD: Flutter Build Android'
+description: 'Configure keystore and build Flutter Android APK'
+
+inputs:
+  working-directory:
+    description: 'Path to the Flutter project'
+    required: true
+    default: 'app'
+  keystore-base64:
+    description: 'Base64-encoded Android keystore'
+    required: true
+  key-password:
+    description: 'Android key password'
+    required: true
+  key-alias:
+    description: 'Android key alias'
+    required: true
+  store-password:
+    description: 'Android store password'
+    required: true
+  build-type:
+    description: 'Build type: release, debug, or profile'
+    required: false
+    default: 'release'
+  split-per-abi:
+    description: 'Build separate APKs per ABI'
+    required: false
+    default: 'false'
+  artifact-name:
+    description: 'Custom name for the output APK (without .apk extension)'
+    required: false
+
+outputs:
+  apk-path:
+    description: 'Path to the built APK'
+    value: ${{ steps.build.outputs.apk-path }}
+  apk-name:
+    description: 'Name of the built APK file'
+    value: ${{ steps.build.outputs.apk-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: 'gradle'
+
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+
+    - name: Flutter Get Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Configure Keystore
+      shell: bash
+      env:
+        KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        KEY_PASSWORD: ${{ inputs.key-password }}
+        KEY_ALIAS: ${{ inputs.key-alias }}
+        STORE_PASSWORD: ${{ inputs.store-password }}
+      run: |
+        printf "%s" "$KEYSTORE_BASE64" | base64 --decode > ${{ inputs.working-directory }}/android/app/upload-keystore.jks
+        {
+          echo "storePassword=$STORE_PASSWORD"
+          echo "keyPassword=$KEY_PASSWORD"
+          echo "keyAlias=$KEY_ALIAS"
+          echo "storeFile=upload-keystore.jks"
+        } > ${{ inputs.working-directory }}/android/key.properties
+
+    - name: Build Android APK
+      id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        BUILD_CMD="flutter build apk --${{ inputs.build-type }}"
+        if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+          BUILD_CMD="$BUILD_CMD --split-per-abi"
+        fi
+        eval $BUILD_CMD
+
+        APK_DIR="build/app/outputs/flutter-apk"
+        if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+          APK_FILE="$APK_DIR/app-arm64-v8a-${{ inputs.build-type }}.apk"
+        else
+          APK_FILE="$APK_DIR/app-${{ inputs.build-type }}.apk"
+        fi
+
+        if [ -n "${{ inputs.artifact-name }}" ]; then
+          FINAL_NAME="${{ inputs.artifact-name }}.apk"
+          mv "$APK_FILE" "$APK_DIR/$FINAL_NAME"
+          APK_FILE="$APK_DIR/$FINAL_NAME"
+        else
+          FINAL_NAME=$(basename "$APK_FILE")
+        fi
+
+        echo "apk-path=$APK_FILE" >> "$GITHUB_OUTPUT"
+        echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"

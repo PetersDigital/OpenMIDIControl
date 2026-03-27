@@ -1,0 +1,31 @@
+name: 'CD: Download and Prepare Artifacts'
+description: 'Download artifacts and merge them for release publishing'
+
+inputs:
+  artifact-pattern:
+    description: 'Pattern to match artifacts (e.g., android-apk, windows-build)'
+    required: false
+    default: '*'
+  merge-multiple:
+    description: 'Merge multiple artifacts into single directory'
+    required: false
+    default: 'true'
+  retention-days:
+    description: 'Artifact retention days'
+    required: false
+    default: '1'
+
+outputs:
+  artifacts-dir:
+    description: 'Directory containing downloaded artifacts'
+    value: ${{ steps.download.outputs.download-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download Artifacts
+      id: download
+      uses: actions/download-artifact@v4
+      with:
+        pattern: ${{ inputs.artifact-pattern }}
+        merge-multiple: ${{ inputs.merge-multiple }}

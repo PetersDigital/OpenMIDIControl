@@ -1,0 +1,76 @@
+name: 'CD: Generate Release Notes'
+description: 'Extract changelog section and generate GitHub release notes'
+
+inputs:
+  tag:
+    description: 'Release tag (e.g., v1.0.0)'
+    required: true
+  changelog-path:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+  include-metadata:
+    description: 'Include build metadata section (tag, commit, actor, security info)'
+    required: false
+    default: 'true'
+  commit-hash:
+    description: 'Commit hash for metadata (optional)'
+    required: false
+  triggered-by:
+    description: 'Username who triggered the release (optional, defaults to github.actor)'
+    required: false
+
+outputs:
+  notes-path:
+    description: 'Path to the generated release notes file'
+    value: ${{ steps.generate.outputs.notes-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Release Notes
+      id: generate
+      shell: bash
+      run: |
+        TAG="${{ inputs.tag }}"
+        VERSION="${TAG#v}"
+        CHANGELOG="${{ inputs.changelog-path }}"
+
+        if [ -f "$CHANGELOG" ]; then
+          awk -v version="$VERSION" '
+            index($0, "## [" version "]") == 1 { in_section=1; next }
+            /^## \[/ && in_section==1 { exit }
+            in_section==1 { print }
+          ' "$CHANGELOG" > changelog_section.md
+        else
+          echo "CHANGELOG.md not found" >&2
+        fi
+
+        if [ ! -s changelog_section.md ]; then
+          echo "*No specific changelog entry found for version ${VERSION}.*" > changelog_section.md
+        fi
+
+        {
+          echo "## What's Changed"
+          echo
+          cat changelog_section.md
+          
+          if [ "${{ inputs.include-metadata }}" = "true" ]; then
+            echo
+            echo "---"
+            echo "### Build & Security Metadata"
+            echo "- **Tag:** ${TAG}"
+            if [ -n "${{ inputs.commit-hash }}" ]; then
+              echo "- **Commit:** ${{ inputs.commit-hash }}"
+            fi
+            trigger_by="${{ inputs.triggered-by }}"
+            if [ -z "$trigger_by" ]; then
+              trigger_by="${GITHUB_ACTOR}"
+            fi
+            echo "- **Triggered By:** @${trigger_by}"
+            echo "- 🛡️ **Provenance:** GitHub Native SLSA Attestation Included"
+            echo "- 🔐 **Signatures:** Assets are signed with keyless Cosign (OIDC)"
+          fi
+        } > release_notes.md
+
+        echo "notes-path=release_notes.md" >> "$GITHUB_OUTPUT"

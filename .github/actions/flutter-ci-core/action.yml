@@ -1,0 +1,65 @@
+name: 'CI: Flutter Core'
+description: 'Shared setup, analysis, and testing logic'
+
+inputs:
+  working-directory:
+    description: 'Path to the flutter project'
+    required: true
+    default: 'app'
+  telegram-token:
+    description: 'Telegram Bot Token'
+    required: false
+  telegram-chat-id:
+    description: 'Telegram Chat ID'
+    required: false
+
+outputs:
+  has_windows:
+    description: 'Whether the windows folder exists'
+    value: ${{ steps.windows_check.outputs.has_windows }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check Windows Support
+      id: windows_check
+      shell: bash
+      run: |
+        if [ -d "${{ inputs.working-directory }}/windows" ]; then 
+          echo "has_windows=true" >> "$GITHUB_OUTPUT"
+        else 
+          echo "has_windows=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+
+    - name: Install Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Static Analysis
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter analyze --fatal-infos
+
+    - name: Unit Tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter test
+
+    - name: Notify Failure to Telegram
+      if: failure() && inputs.telegram-token != '' && inputs.telegram-chat-id != ''
+      shell: bash
+      run: |
+        MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "${{ github.ref_name }}" "${{ github.server_url }}" "${{ github.repository }}" "${GITHUB_SHA}" "${GITHUB_SHA:0:7}" "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}")
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ inputs.telegram-token }}/sendMessage" \
+             -d chat_id=${{ inputs.telegram-chat-id }} \
+             -d parse_mode="HTML" \
+             -d disable_web_page_preview="true" \
+             -d text="$MESSAGE"
