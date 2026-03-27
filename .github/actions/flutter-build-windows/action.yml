@@ -1,0 +1,56 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: 'CD: Flutter Build Windows'
+description: 'Build Flutter Windows application and create ZIP archive'
+
+inputs:
+  working-directory:
+    description: 'Path to the Flutter project'
+    required: true
+    default: 'app'
+  build-type:
+    description: 'Build type: release, debug, or profile'
+    required: false
+    default: 'release'
+  artifact-name:
+    description: 'Custom name for the output ZIP (without .zip extension)'
+    required: false
+
+outputs:
+  zip-path:
+    description: 'Path to the created ZIP archive'
+    value: ${{ steps.zip.outputs.zip-path }}
+  zip-name:
+    description: 'Name of the ZIP file'
+    value: ${{ steps.zip.outputs.zip-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        cache: true
+
+    - name: Flutter Get Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Build Windows
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter build windows --${{ inputs.build-type }}
+
+    - name: Create ZIP Archive
+      id: zip
+      shell: pwsh
+      run: |
+        $sourceDir = "${{ github.workspace }}/${{ inputs.working-directory }}/build/windows/x64/runner/Release"
+        $zipName = if ("${{ inputs.artifact-name }}" -ne "") { "${{ inputs.artifact-name }}.zip" } else { "windows-build.zip" }
+        $zipPath = "${{ github.workspace }}/${{ inputs.working-directory }}/$zipName"
+
+        Compress-Archive -Path "$sourceDir/*" -DestinationPath $zipPath -Force
+
+        echo "zip-path=$zipPath" >> $env:GITHUB_OUTPUT
+        echo "zip-name=$zipName" >> $env:GITHUB_OUTPUT

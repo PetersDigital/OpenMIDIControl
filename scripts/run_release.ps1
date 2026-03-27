@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $secretsFile = Join-Path $PSScriptRoot ".env.ps1"
 
