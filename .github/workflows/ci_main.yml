@@ -1,10 +1,17 @@
-name: CI
+name: "CI: Main Pipeline"
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -17,7 +24,7 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
     outputs:
-      has_windows: ${{ steps.windows_check.outputs.has_windows }}
+      has_windows: ${{ steps.core.outputs.has_windows }}
     defaults:
       run:
         working-directory: app
@@ -25,17 +32,16 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Check Windows Support
-        id: windows_check
-        run: if [ -d "app/windows" ]; then echo "has_windows=true" >> "$GITHUB_OUTPUT"; else echo "has_windows=false" >> "$GITHUB_OUTPUT"; fi
-        working-directory: .
-      - uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter analyze --fatal-infos
-      - run: flutter test
+          fetch-depth: 0
+      - name: 'CI: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
 
   build-android:
     runs-on: ubuntu-latest

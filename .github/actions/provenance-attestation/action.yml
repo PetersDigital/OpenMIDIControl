@@ -1,0 +1,13 @@
+name: 'CD: Provenance Attestation'
+description: 'Run GitHub attest-build-provenance for an artifact path.'
+inputs:
+  subject_path:
+    description: 'Glob or exact path for artifact subjects.'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Generate provenance attestation
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: "${{ inputs.subject_path }}"

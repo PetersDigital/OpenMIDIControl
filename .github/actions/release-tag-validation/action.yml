@@ -1,0 +1,180 @@
+name: 'CD: Release Tag Validation'
+description: 'Validate release tag security invariants (actor, GPG, tag, main ancestry, retargeting, API verify).'
+inputs:
+  tag:
+    description: 'Tag to validate (if empty, detects from github.ref_name).'
+    required: false
+  allowed_actors:
+    description: 'Comma-separated allowlist of GitHub actors. Empty means skip actor check.'
+    required: false
+    default: ''
+  gpg_public_key:
+    description: 'GPG public key content to import and validate tag signature.'
+    required: true
+  expected_fingerprint:
+    description: 'Expected GPG fingerprint for pinning.'
+    required: true
+  github_token:
+    description: 'GitHub token for API tag signature verification.'
+    required: true
+  main_branch:
+    description: 'Main branch to check ancestry against.'
+    required: false
+    default: 'main'
+outputs:
+  tag:
+    description: "Resolved tag"
+    value: ${{ steps.ensure-tag.outputs.tag }}
+  commit:
+    description: "Tag commit hash"
+    value: ${{ steps.resolve-commit.outputs.commit }}
+  on_main:
+    description: "Is tag on main branch"
+    value: ${{ steps.resolve-commit.outputs.on_main }}
+  has_windows:
+    description: "Whether windows directory exists"
+    value: ${{ steps.has-windows.outputs.has_windows }}
+runs:
+  using: composite
+  steps:
+    - id: ensure-tag
+      name: Ensure tag is resolved
+      shell: bash
+      run: |
+        TAG="${{ inputs.tag }}"
+        if [ -z "$TAG" ]; then
+          TAG="${GITHUB_REF_NAME}"
+        fi
+
+        if [ -z "$TAG" ]; then
+          echo "::error::Missing release tag, please supply workflow_dispatch input tag."
+          exit 1
+        fi
+
+        echo "Resolved tag: $TAG"
+        echo "TAG=$TAG" >> "$GITHUB_ENV"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+        # Actor validation (optional)
+        if [ -n "${{ inputs.allowed_actors }}" ]; then
+          AUTHORIZED=false
+          IFS=',' read -ra ACTORS <<< "${{ inputs.allowed_actors }}"
+          for ACTOR in "${ACTORS[@]}"; do
+            CLEAN_ACTOR=$(echo "$ACTOR" | xargs)
+            if [ "$CLEAN_ACTOR" = "${GITHUB_ACTOR}" ]; then
+              AUTHORIZED=true
+              break
+            fi
+          done
+
+          if [ "$AUTHORIZED" != "true" ]; then
+            echo "::error::Unauthorized actor ${GITHUB_ACTOR}. Allowed: ${{ inputs.allowed_actors }}"
+            exit 1
+          fi
+        fi
+
+        echo "Using main branch: ${{ inputs.main_branch }}"
+
+    - name: Validate annotated tag, GPG, and fingerprint
+      shell: bash
+      run: |
+        TAG="${TAG:-${GITHUB_REF_NAME}}"
+
+        if ! git cat-file -t "$TAG" | grep -q "tag"; then
+          echo "::error::Tag $TAG is not an annotated tag."
+          exit 1
+        fi
+
+        echo "${{ inputs.gpg_public_key }}" | gpg --import
+
+        KEY_COUNT=$(gpg --list-keys --with-colons | grep '^pub' | wc -l)
+        if [ "$KEY_COUNT" -ne 1 ]; then
+          echo "::error::Expected exactly 1 GPG key, found $KEY_COUNT."
+          exit 1
+        fi
+
+        EXPECTED_FPR="${{ inputs.expected_fingerprint }}"
+        ACTUAL_FPR=$(gpg --list-keys --with-colons --fingerprint | awk -F: '/^fpr/ {print $10; exit}' | tr -d ' ')
+        if [ -z "$ACTUAL_FPR" ]; then
+          echo "::error::Could not extract fingerprint from GPG."
+          exit 1
+        fi
+        
+        if [ "$ACTUAL_FPR" != "$EXPECTED_FPR" ]; then
+          echo "::error::Fingerprint mismatch. Expected $EXPECTED_FPR but got $ACTUAL_FPR"
+          exit 1
+        fi
+
+        echo "${ACTUAL_FPR}:6:" | gpg --import-ownertrust
+
+        echo "Verifying GPG signature for $TAG..."
+        git tag -v "$TAG" || {
+          echo "::error::Tag signature invalid or signed by unknown key."
+          exit 1
+        }
+
+    - id: resolve-commit
+      name: Resolve tag commit and check main ancestry + retargeting
+      shell: bash
+      run: |
+        TAG="${TAG:-${GITHUB_REF_NAME}}"
+
+        COMMIT_HASH=$(git rev-parse "$TAG^{commit}")
+        echo "commit=$COMMIT_HASH" >> "$GITHUB_OUTPUT"
+
+        git fetch origin "${{ inputs.main_branch }}" --prune --no-tags
+        if ! git merge-base --is-ancestor "$COMMIT_HASH" origin/${{ inputs.main_branch }}; then
+          echo "::error::Commit $COMMIT_HASH is not on origin/${{ inputs.main_branch }}. Release blocked."
+          exit 1
+        fi
+
+        git fetch --tags --force
+        REMOTE_COMMIT=$(git ls-remote origin "refs/tags/${TAG}^{}" | awk '{print $1}')
+        if [ -z "$REMOTE_COMMIT" ]; then
+          # Fallback for lightweight tags or if the above syntax fails
+          REMOTE_COMMIT=$(git ls-remote origin "refs/tags/${TAG}" | awk '{print $1}')
+        fi
+        if [ "$COMMIT_HASH" != "$REMOTE_COMMIT" ]; then
+          echo "::error::Tag mismatch between local and remote. Local=$COMMIT_HASH Remote=$REMOTE_COMMIT"
+          exit 1
+        fi
+
+        echo "on_main=true" >> "$GITHUB_OUTPUT"
+
+    - name: Verify GitHub API tag signature
+      shell: bash
+      run: |
+        TAG="${TAG:-${GITHUB_REF_NAME}}"
+        TAG_OBJ=$(git rev-parse "$TAG^{tag}")
+
+        RESPONSE=$(curl -s -w "%{http_code}" -o response.json \
+          -H "Authorization: Bearer ${{ inputs.github_token }}" \
+          https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ)
+
+        HTTP_CODE=$(tail -n1 <<< "$RESPONSE")
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "::error::GitHub API request failed with HTTP $HTTP_CODE"
+          cat response.json
+          exit 1
+        fi
+
+        VERIFIED=$(jq -r '.verification.verified' response.json)
+        REASON=$(jq -r '.verification.reason' response.json)
+
+        if [ "$VERIFIED" != "true" ]; then
+          echo "::error::Tag NOT verified. Reason: $REASON"
+          cat response.json
+          exit 1
+        fi
+
+        echo "✅ GitHub API verification passed."
+
+    - id: has-windows
+      name: Publish has_windows output
+      shell: bash
+      run: |
+        if [ -d "app/windows" ]; then
+          echo "has_windows=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "has_windows=false" >> "$GITHUB_OUTPUT"
+        fi
