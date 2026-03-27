@@ -415,14 +415,9 @@ class CcNotifier extends Notifier<ControlState> {
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
-    bool changed = false;
-    for (final entry in updates.entries) {
-      if (state.ccValues[entry.key] != entry.value) {
-        changed = true;
-        break;
-      }
+    if (!updates.entries.any((entry) => state.ccValues[entry.key] != entry.value)) {
+      return;
     }
-    if (!changed) return;
 
     final newValues = Map<int, int>.from(state.ccValues);
     newValues.addAll(updates);
