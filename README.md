@@ -60,7 +60,6 @@ This repository currently documents the new direction, design constraints, and i
   - **Tablets/Windows (Landscape):** Grid layout (Faders on left, Display top-center, Macro space on right).
 - State Management (Riverpod/Bloc) emitting "Intent" events to strictly decouple UI from transport layers
 - Normalized internal value domain (`0.0..1.0`)
-- MIDI CC output with optional 14-bit precision (MSB/LSB pairs)
 - MIDI input-driven UI feedback with touch override behavior
 - Value-based deduplication and short time-window suppression to avoid echo loops
 - **Virtual MIDI Port**: Exposes the app as a native MIDI source/sink for other mobile DAWs.
@@ -71,12 +70,14 @@ This repository currently documents the new direction, design constraints, and i
 
 This roadmap tracks feature progress using Semantic Versioning. Progress is measured by functional milestones rather than specific dates.
 
-### ✅ v0.1.0: Baseline
+### ✅ Completed
+
+#### ✅ v0.1.0: Baseline
 * Established core wired control and UI baseline.
 * Implemented two expressive faders with high-precision tracking.
 * Integrated internal MIDI test harness.
 
-### ✅ v0.1.5: MIDI Reliability & Logic Polish
+#### ✅ v0.1.5: MIDI Reliability & Logic Polish
 * **Virtual MIDI Port**: Implemented a native Android MIDI device ("OpenMIDIControl") for local data routing.
 * **Metadata Reconnection**: Added "fingerprint" matching (Name/Manufacturer) to handle transient Android IDs during USB hot-plugging.
 * **Bi-directional Logic**: Applied Jump, Hybrid, and Catch-up behaviors to incoming hardware MIDI data.
@@ -85,36 +86,37 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
 * **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
 
-### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
+#### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
 * **True Peripheral Mode**: Native Android `MidiDeviceService` for class compliance on Windows 11.
 * **Dual-Path Routing**: High-speed native Kotlin transport for peripheral mode.
 * **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
 * **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
 
-### ✅ v0.2.1: Canonical Data & State Model
+#### ✅ v0.2.1: Canonical Data & State Model
 * **MidiPortBackend**: Unified abstraction for all future inputs (Native vs. USB Fallback).
 * **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
 * **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`) with strict immutability.
 * **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
 * **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
-### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
-* **kshoji Driver Adaptation**: Direct USB bulk endpoint communication via `UsbManager` for non-compliant hardware.
-* **14-bit Stitching**: High-resolution CC parsing straight into the canonical UMP format.
+### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
+- **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
+- **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
+- **32-bit Payload Integration**: Pass raw 32-bit UMP integers directly from Kotlin to the Dart `MidiEvent` model, bypassing legacy byte-array parsing.
 
-### ⏳ v0.2.3 – Core Routing Engine (Graph Model)
-* **MidiRouter DAG**: Centralized routing graph for N-to-N message distribution and logic-based remapping.
-* **Transformer Nodes**: Plug-and-play modules for channel filtering, remapping, and splitting.
+### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
+- **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
+- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
 
-### ⏳ v0.3.0 – Control Expansion & Basic State
-* **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
-* **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
-* **Raw Snapshots**: Basic save/load functionality using the persistent `ControlState` model.
+### ⏳ v0.3.0 – Control Expansion & High-Res State
+- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches.
+- **Native 32-bit Resolution UI**: Upgrade faders to leverage native UMP high-resolution values.
+- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
 
-### ⏳ v0.4.x – The MCU / HUI Protocol Series
-* **v0.4.0 (Core Logic)**: Basic MCU mapping for faders, transport, and 14-bit high-res control.
-* **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
-* **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+### ⏳ v0.4.x – MIDI-CI & The MCU / HUI Protocol Series
+- **v0.4.0 (MIDI-CI Handshake)**: Capability Inquiry negotiation to declare the device as a MIDI 2.0 peripheral to the DAW.
+- **v0.4.1 (Core Logic)**: MCU protocol mapping translated through the UMP pipeline.
+- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
 
 ### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
 * **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
