@@ -27,9 +27,9 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [x] **Diagnostics console**: Real-time terminal-style logger with `autoDispose` subscription management and high-precision native timestamps.
 - [x] **Stream Centralization**: Centralized MIDI stream parsing in `MidiService` for single-batch decoding.
 
-### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
-- **kshoji integration**: [ ] Direct USB bulk endpoint communication via `UsbManager`.
-- **14-bit Stitching**: [ ] High-resolution CC parsing straight into the canonical UMP format.
+### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
+- [ ] **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
+- [ ] **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
 
 ### ⏳ Future Phase: v0.2.3 – Core Routing Engine (DAG)
 - [ ] Implement `MidiRouter` DAG for centralized N-to-N distribution.
