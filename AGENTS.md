@@ -86,6 +86,7 @@ flutter test
 ## Code Style
 
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
+- **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`. Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
 - **Versioning:** SemVer (`MAJOR.MINOR.PATCH`).
 - **Commits:** Conventional Commits — `feat(scope): description`, `fix(scope): description`.
   - Multiple scopes: use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
@@ -117,8 +118,8 @@ flutter test
 ### Hardware Monitoring (HITL)
 
 ```powershell
-# Monitor native logs
-adb logcat | Select-String "OpenMIDIControl|PeripheralMidi"
+# Monitor native logs (look for "UMP Reconstruction" or "32-bit Payload")
+adb logcat | Select-String "OpenMIDIControl|PeripheralMidi|MidiReceiver"
 
 # Send test MIDI messages (Windows MIDI Services)
 midi endpoint send-message 0x20B00140  # CC1, Value 64
