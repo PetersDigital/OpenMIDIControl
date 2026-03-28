@@ -500,124 +500,16 @@ class MainActivity : FlutterActivity() {
         hostMidiBackend = null
     }
 
-    private fun processMidiPayload(msg: ByteArray, offset: Int, count: Int, timestamp: Long, isVirtual: Boolean) {
-        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
-        if (offset < 0 || count < 0 || offset + count > msg.size) return
-
-        // Check for UMP alignment and validate Message Type (MT) to prevent false positives
-        val isUmp = if (count >= 4 && count % 4 == 0) {
-            val firstUmpWord = ((msg[offset].toInt() and 0xFF) shl 24) or
-                               ((msg[offset + 1].toInt() and 0xFF) shl 16) or
-                               ((msg[offset + 2].toInt() and 0xFF) shl 8) or
-                               (msg[offset + 3].toInt() and 0xFF)
-            val firstMessageType = (firstUmpWord ushr 28) and 0xF
-            firstMessageType == 0x1 || firstMessageType == 0x2
-        } else false
-
-        if (isUmp) {
-            // Process UMP (32-bit Integers)
-            for (i in offset until offset + count step 4) {
-                // Reconstruct 32-bit integer (Big-Endian)
-                val byte1 = msg[i].toInt() and 0xFF
-                val byte2 = msg[i + 1].toInt() and 0xFF
-                val byte3 = msg[i + 2].toInt() and 0xFF
-                val byte4 = msg[i + 3].toInt() and 0xFF
-
-                val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
-
-                // Extract Message Type (MT) from bits 31-28
-                val messageType = (umpInt ushr 28) and 0xF
-
-                if (messageType == 0x1) {
-                    // MT 0x1: System Real-Time / System Common
-                    // Bits [31:28]: Message Type (0x1)
-                    // Bits [27:24]: Group ID
-                    // Bits [23:16]: MIDI Status Byte (e.g. 0xF8 Timing Clock)
-                    // Bits [15:0]:  Always 0x0000 for System Real-Time
-                    val status = (umpInt ushr 16) and 0xFF
-
-                    if (status == 0xF8 || status == 0xFE) {
-                        // Drop Timing Clock (0xF8) and Active Sensing (0xFE)
-                        continue
-                    }
-                    // Drop other MT 1 messages for now
-                } else if (messageType == 0x2) {
-                    // MT 0x2: MIDI 1.0 Channel Voice
-                    // Format: MT(4), Group(4), Status(8), Data1(8), Data2(8)
-                    // Status is byte2, Data1 is byte3, Data2 is byte4
-                    val group = (umpInt ushr 24) and 0xF
-                    val status = (umpInt ushr 16) and 0xFF
-
-                    if (status in 0xB0..0xBF) { // Control Change
-                        val ccNumber = (umpInt ushr 8) and 0xFF
-                        val ccValue = umpInt and 0xFF
-
-                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual)
-                    }
-                }
-                // Silently drop other MTs
-            }
-        } else {
-            // Process Legacy Byte Stream (Fallback)
-            // Handle potentially batched legacy messages by iterating (simplistic approach for standard 3-byte CCs)
-            var i = offset
-            while (i < offset + count) {
-                val statusByte = msg[i].toInt() and 0xFF
-
-                // Real-time messages can be 1 byte
-                if (statusByte == 0xF8 || statusByte == 0xFE) {
-                    i += 1
-                    continue
-                }
-
-                // Check if we have enough bytes for a CC message
-                if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
-                    val ccNumber = msg[i + 1].toInt() and 0xFF
-                    val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual)
-                    i += 3
-                } else {
-                    // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
-                    i += 1
-                }
-            }
-        }
-    }
-
-    private fun forwardCcEvent(group: Int, status: Int, ccNumber: Int, ccValue: Int, timestamp: Long, isVirtual: Boolean) {
-        if (BuildConfig.DEBUG) {
-            val typeStr = if (isVirtual) " (VIRTUAL)" else ""
-            android.util.Log.d("OpenMIDIControl", "MIDI IN$typeStr: CC $ccNumber Value: $ccValue Ch: ${(status and 0x0F) + 1}")
-        }
-
-        if (isVirtual) {
-            // Bidirectional Feedback Loop Prevention
-            val lastTime = lastSentTime[ccNumber] ?: 0L
-            val timeDiff = timestamp - lastTime
-
-            if (timeDiff < suppressionWindowNs) {
-                // Ignore message from host if we recently sent *any* value for this CC.
-                // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                return
-            }
-        }
-
-        // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
-        val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
-
-        incomingEventsChannel.trySend(Pair(umpInt, timestamp))
-    }
-
     private fun setupMidiReceiver() {
         hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            processMidiPayload(msg, offset, count, timestamp, isVirtual = false)
+            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
         }
     }
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
         val nowNs = timestamp ?: System.nanoTime()
-        processMidiPayload(msg, offset, count, nowNs, isVirtual = true)
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
     private fun setupMidiDeviceCallback() {
@@ -670,22 +562,11 @@ class MainActivity : FlutterActivity() {
             // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
             // avoiding busy-wait loops and pinning the CPU.
             for (firstEvent in incomingEventsChannel) {
-                // Use primitive array batching to avoid Object allocation on the Main thread
-                val batch = LongArray(2000)
-                batch[0] = firstEvent.first
-                batch[1] = firstEvent.second
-                var count = 2
 
-                // Drain any other events currently in the channel buffer
-                while (count + 1 < batch.size) {
-                    val nextEvent = incomingEventsChannel.tryReceive().getOrNull() ?: break
-                    batch[count++] = nextEvent.first
-                    batch[count++] = nextEvent.second
-                }
+                // Use the static parser to safely drain the channel into a bounded batch
+                val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
 
-                if (count > 0) {
-                    // Create an exact-sized copy of the payload to dispatch
-                    val payload = batch.copyOfRange(0, count)
+                if (payload.isNotEmpty()) {
                     Handler(Looper.getMainLooper()).post {
                         eventSink?.success(payload)
                     }
