@@ -99,10 +99,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
 * **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
+#### ✅ API 33+ Baseline (Post-v0.2.1)
+- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+
 ### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
-- **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
-- **32-bit Payload Integration**: Pass raw 32-bit UMP integers directly from Kotlin to the Dart `MidiEvent` model, bypassing legacy byte-array parsing.
+- **MidiUmpDeviceService**: Migrate system-wide virtual routing to Android's UMP-specific services.
+- **SDK Constraint Handling**: Utilize legacy port classes for public API compatibility while enforcing UMP via transport flags.
+- **Manual 32-bit Reconstruction**: Native implementation of 4-byte chunk reconstruction from standard `byte[]` buffers for 32-bit UMP delivery.
 
 ### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
 - **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
