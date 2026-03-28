@@ -13,6 +13,7 @@
 # Agent related
 .antigravity/
 .agents/
+.qwen/
 
 # IntelliJ related
 *.iml
