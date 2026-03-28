@@ -100,7 +100,7 @@ class MidiService {
         final List<MidiEvent> parsedEvents = [];
 
         // Decode the 1D LongArray batch (Pairs of UMP Integer, Timestamp)
-        for (int i = 0; i < data.length; i += 2) {
+        for (int i = 0; i + 1 < data.length; i += 2) {
           int ump = data[i];
           int timestamp = data[i + 1];
 
