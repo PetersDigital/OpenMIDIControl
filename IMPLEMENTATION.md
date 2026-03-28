@@ -27,16 +27,16 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Thermal Stabilization:** Implemented Riverpod batching and direct animation-value assignment to reduce Dart VM and rendering overhead during heavy automation.
 
 ### ✅ v0.2.1: Canonical Data & State Model
-- **MidiPortBackend Abstraction**: Unified interface for OS-native vs. raw USB driver fallback.
+- **MidiPortBackend Abstraction**: Unified interface for OS-native vs. raw USB driver fallback (MIDI 1.0 logic).
 - **Universal Payload Structure**: Introduction of the internal 32-bit UMP-ready MIDI format (32-bit `MidiEvent`).
 - **Event vs. State Separation**: Formalized `MidiEvent` (transport) vs. `ControlState` (UI-facing logic), enforced via strict immutability.
 - **Diagnostic Tools**: Real-time DiagnosticsConsole UI with `autoDispose` logic and high-precision native timestamps.
 - **Service Centralization**: Migrated stream parsing into `MidiService` for single-decode event distribution.
 - **Native Stability Hardening**: Centralized all native port operations in a shared `safeExecute` utility.
 
-### ⏳ Current Focus: v0.2.2 – Universal Host Fallback
-- **kshoji Integration**: Direct USB bulk endpoint communication via `UsbManager`.
-- **14-bit Stitching**: Parse high-resolution data straight into the canonical format.
+### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
+- **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
+- **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
 
 ### ⏳ v0.2.3 – Core Routing Engine (DAG)
 - **MidiRouter Graph**: Centralized routing graph using canonical payloads.
@@ -48,7 +48,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
 
 ### ⏳ v0.4.x – The MCU / HUI Protocol Series
-- **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and 14-bit high-res control.
+- **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
 - **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
 - **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
 

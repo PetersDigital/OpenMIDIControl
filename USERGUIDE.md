@@ -67,15 +67,17 @@ Expected baseline:
 
 ## 5. MIDI Mapping Reference (Initial)
 
-Default proposal for expressive controls:
+### Current Implementation (MIDI 1.0 / 14-bit):
+- Fader A: CC11/CC43 (14-bit LSB/MSB pair)
+- Fader B: CC1/CC33 (14-bit LSB/MSB pair)
 
-- Fader A: CC11/CC43 (14-bit pair)
-- Fader B: CC1/CC33 (14-bit pair)
+### Future Proposal (Native MIDI 2.0):
+- Native 32-bit UMP CC values (v0.2.2+)
 
 Notes:
 
-- 7-bit mode should remain available for compatibility.
-- Dedup checks must use reconstructed full value in 14-bit mode.
+- 7-bit mode remains available for legacy compatibility.
+- Dedup checks use reconstructed 14-bit values (Current) or native 32-bit UMP (v0.2.2+).
 
 ## 6. Validation Tests
 
@@ -107,12 +109,15 @@ Notes:
 1. Sweep a fader rapidly for 5 seconds.
 2. Confirm outbound MIDI rate caps at the configured limit (target 60–120 Hz per control) and still emits final value on release.
 
-## 7. Cubase Mapping Appendix (initial)
+## 7. Cubase Mapping Appendix (Initial)
 - Purpose: document how core controls map when using Cubase host adapters.
-- Default proposal:
-  - Fader A: CC11/CC43 (14-bit pair), Channel 1, pickup mode.
-  - Fader B: CC1/CC33 (14-bit pair), Channel 1, pickup mode.
+### Current Mappings (v0.2.1):
+- Fader A: CC11/CC43 (14-bit pair), Channel 1, pickup mode.
+- Fader B: CC1/CC33 (14-bit pair), Channel 1, pickup mode.
 - Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup.
+
+### Target Architecture (v0.2.2+):
+- Native UMP High-Res CC without legacy byte-stitching.
 - See reference scripts and mappings under [references/cubase](references/cubase) for vendor-specific examples.
 
 ## 8. Troubleshooting
