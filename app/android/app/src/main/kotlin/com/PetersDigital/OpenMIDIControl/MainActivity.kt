@@ -547,13 +547,14 @@ class MainActivity : FlutterActivity() {
                     // MT 0x2: MIDI 1.0 Channel Voice
                     // Format: MT(4), Group(4), Status(8), Data1(8), Data2(8)
                     // Status is byte2, Data1 is byte3, Data2 is byte4
+                    val group = (umpInt ushr 24) and 0xF
                     val status = (umpInt ushr 16) and 0xFF
 
                     if (status in 0xB0..0xBF) { // Control Change
                         val ccNumber = (umpInt ushr 8) and 0xFF
                         val ccValue = umpInt and 0xFF
 
-                        forwardCcEvent(status, ccNumber, ccValue, timestamp, isVirtual)
+                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual)
                     }
                 }
                 // Silently drop other MTs
@@ -575,7 +576,7 @@ class MainActivity : FlutterActivity() {
                 if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
                     val ccNumber = msg[i + 1].toInt() and 0xFF
                     val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(statusByte, ccNumber, ccValue, timestamp, isVirtual)
+                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual)
                     i += 3
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
@@ -585,7 +586,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun forwardCcEvent(status: Int, ccNumber: Int, ccValue: Int, timestamp: Long, isVirtual: Boolean) {
+    private fun forwardCcEvent(group: Int, status: Int, ccNumber: Int, ccValue: Int, timestamp: Long, isVirtual: Boolean) {
         if (BuildConfig.DEBUG) {
             val typeStr = if (isVirtual) " (VIRTUAL)" else ""
             android.util.Log.d("OpenMIDIControl", "MIDI IN$typeStr: CC $ccNumber Value: $ccValue Ch: ${(status and 0x0F) + 1}")
@@ -603,8 +604,8 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original status byte to preserve the MIDI channel
-        val umpInt = (0x2L shl 28) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
+        // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
+        val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
 
         incomingEventsChannel.trySend(Pair(umpInt, timestamp))
     }
