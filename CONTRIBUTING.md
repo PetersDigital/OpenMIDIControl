@@ -125,13 +125,18 @@ All MIDI-related code should implement **value-based deduplication** to prevent 
 
 Example (Dart):
 ```dart
-// Bad (only checks MSB)
-if (lastSent == msb) return;
+// Bad (only checks lower 7 bits)
+if (lastSent == value7Bit) return;
 
-// Good (checks complete 14-bit value)
-final cachedValue = _cc14Cache[faderIndex];
-if (cachedValue == value14Bit && timeSinceSent < 100ms) return;
+// Good (checks complete 14-bit value - MIDI 1.0)
+final cachedValue14 = _cc14Cache[faderIndex];
+if (cachedValue14 == value14Bit && timeSinceSent < 100ms) return;
 _cc14Cache[faderIndex] = value14Bit;
+
+// Good (checks full 32-bit native UMP value - MIDI 2.0)
+final cachedValue32 = _umpCache[faderIndex];
+if (cachedValue32 == value32Bit && timeSinceSent < 100ms) return;
+_umpCache[faderIndex] = value32Bit;
 ```
 
 ### API specification verification
