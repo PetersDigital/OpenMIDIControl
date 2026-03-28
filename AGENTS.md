@@ -1,88 +1,136 @@
 # AGENTS.md
 
-This repository is primarily developed using AI coding agents (LLMs) via GitHub Copilot and other tools.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.2.2 – Native UMP Backend Migration**. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
-## Milestone Status: v0.2.1 (Canonical Data & State Model)
+## Project Structure
 
-### ✅ Completed (v0.2.0)
-- [x] **Virtual MIDI Port**: Native Android MIDI device for local routing.
-- [x] **Metadata Reconnection**: Fingerprint matching for USB hot-plug stability.
-- [x] **Bi-directional Logic**: Jump/Hybrid/Catch-up applied to hardware MIDI.
-- [x] **Responsive UI**: Dedicated landscape layout for ultra-wide phones (S24 Ultra).
-- [x] **UI Highlighting**: Active MIDI port visualization in settings.
-- [x] **Gesture Fixes**: Fader initialization moved to `onVerticalDragStart`.
-- [x] **Haptic Stability**: JVM crash fix for vibration durations.
-- [x] **True Peripheral Mode**: Native `MidiDeviceService` for Class Compliance.
-- [x] **Port Collision Hiding**: Filtering internal ports from Flutter list to prevent Binder crashes.
-- [x] **Strict Coroutine Suspension**: Fixed busy-wait dispatch loop for ~0% idle CPU usage.
-- [x] **MIDI Real-Time Filtering**: Discarding 0xF8/0xFE in native layer to protect the Flutter bridge.
-- [x] **Riverpod UI Optimization**: `.select()` modifier for per-control update filtering.
-- [x] **Batch Performance**: Non-blocking Coroutine buffering (8ms) for UI smoothness.
-- [x] **Thermal Stabilization**: Batched Riverpod state updates and direct animation value assignment for 120Hz stability.
-### ✅ Completed (v0.2.1)
-- [x] **Canonical Data Model (MidiEvent)**: Strictly typed 32-bit immutable integer model for transport data.
-- [x] **Canonical UI State (ControlState)**: Scalable Riverpod state model replacing legacy CCState.
-- [x] **Native Dependency Inversion (MidiPortBackend)**: Unified Kotlin interface for MidiManager/Device abstraction.
-- [x] **Safe Backend Teardown**: `NativeAndroidMidiBackend` with reliable `safeExecute` cleanup logic and shared utility hardening.
-- [x] **Diagnostics console**: Real-time terminal-style logger with `autoDispose` subscription management and high-precision native timestamps.
-- [x] **Stream Centralization**: Centralized MIDI stream parsing in `MidiService` for single-batch decoding.
+```
+OpenMIDIControl/
+├── app/                          # Flutter application root
+│   ├── android/                  # Android native Kotlin layer
+│   │   └── app/src/main/kotlin/  # MainActivity.kt, MidiPortBackend, services
+│   ├── lib/                      # Dart source code
+│   │   ├── core/models/          # MidiEvent, ControlState
+│   │   └── ui/                   # Screens, widgets, services
+│   ├── test/                     # Widget and unit tests
+│   ├── assets/fonts/             # DSEG7Modern, Inter, Space Grotesk
+│   └── pubspec.yaml              # Dependencies & version
+├── docs/                         # Additional documentation
+├── references/                   # Reference materials (read-only)
+├── scripts/                      # PowerShell build/deploy scripts
+├── AGENTS.md                     # AI agent development guidelines
+├── ARCHITECTURE.md               # System architecture & constraints
+├── CHANGELOG.md                  # Version history (SemVer)
+├── CONTRIBUTING.md               # Contribution guidelines
+├── DESIGN.md                     # Design system ("The Console")
+├── IMPLEMENTATION.md             # Implementation roadmap
+└── README.md                     # Project overview & getting started
+```
 
-### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- [ ] **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
-- [ ] **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
+### Key Components
 
-### ⏳ Future Phase: v0.2.3 – Core Routing Engine (DAG)
-- [ ] Implement `MidiRouter` DAG for centralized N-to-N distribution.
-- [ ] Create Transformer Nodes for remapping, filtering, and splitting.
+| File / Directory | Purpose |
+|---|---|
+| `app/lib/core/models/MidiEvent` | Immutable 32-bit UMP-ready MIDI event model |
+| `app/lib/core/models/ControlState` | Scalable Riverpod state for UI controls |
+| `app/lib/ui/open_midi_screen.dart` | Main performance screen |
+| `app/lib/ui/hybrid_touch_fader.dart` | Expressive fader (Jump/Hybrid/Catch-up) |
+| `app/lib/ui/midi_settings_screen.dart` | Port configuration with active highlighting |
+| `app/lib/ui/diagnostics/` | Real-time MIDI event logger |
+| `app/android/.../MainActivity.kt` | JNI bridge & `MidiPortBackend` implementation |
+| `app/android/.../VirtualMidiService.kt` | Virtual MIDI device for local routing |
+| `app/android/.../PeripheralMidiService.kt` | USB class compliance service |
 
-### ⏳ v0.3.0+: Control Expansion & Protocol series
-- [ ] Implement 3x3 Performance Grid and tactile widgets.
-- [ ] v0.4.x: Multi-stage MCU/HUI implementation (Logic, Handshake, Feedback).
-- [ ] v0.5.0: Official DAW remote scripts and Performance Audit.
+## Build & Test Commands
 
-### ⏳ v0.5.0+ (Conditional): Ultra-Low Latency Fast Path (NDK)
-- [ ] Migrate hot data pipeline to C++ `AMidi` API if Kotlin limits are reached.
-- [ ] Implement Dart FFI Shared Memory for zero-copy UMP block transfer.
+### Prerequisites
+- Flutter 3.x (SDK ^3.11.0)
+- Android Studio / Android SDK
+- Android device with USB MIDI support (API 29+)
+- PowerShell 7+ (for build scripts)
 
-### ⏳ experimental/v0.5.x: MIDI 2.0 Native Path
-- [ ] Capability Inquiry (MIDI-CI) negotiation.
-- [ ] Direct OS UMP transport (Windows/macOS).
+### Setup
 
-## Human roles
-- **Owner/Maintainer:** PetersDigital
-- **Primary development method:** AI-assisted / agent-driven coding
-- **Human responsibilities:** requirements, review, merging, releases, licensing/compliance decisions
+```powershell
+cd app
+flutter pub get
+```
 
-## How agents should work in this repo
-1. **Do not implement features without an issue or an explicit plan step**.
-2. Prefer **small, reviewable changes** (one concern per PR).
-3. Follow repository conventions:
-   - **SemVer** versioning
-   - **Conventional Commits** for commit messages
-   - **Scope Formatting**: Use forward slashes for multiple scopes (e.g., `feat(ui/midi): commit msg`). **Do not use hyphens** between scopes.
-   - Keep docs updated when behavior changes
-4. Avoid introducing heavy dependencies without justification.
-5. Prioritize:
-   - low-latency and low-jitter event handling
-   - reliable MIDI behavior
-   - multi-touch correctness
-   - battery/thermal considerations on Android
-6. Do not modify or add code under references/ (including references/cubase/*). 
-   - That tree is for reference materials only. 
-   - Host-specific adapters and mappings must live in the core codebase or designated integration modules, not in references/.
+### Run
 
-## Coding standards
-- Write code that is easy to read and test.
-- Prefer deterministic behavior and explicit state machines for:
-  - touch capture per control
-  - MIDI in/out feedback synchronization
-  - feedback loop prevention
+```powershell
+.\scripts\run_debug.ps1    # debug — interactive device picker
+.\scripts\run_release.ps1  # release — requires configured scripts\.env.ps1
+```
 
-## Safety / compliance
-- Do not include proprietary SDKs or copied code from restricted sources.
-- Avoid bundling anything that would violate the dual-licensing intent.
+```bash
+flutter devices          # list connected devices
+flutter run -d <id>      # run on a specific device
+flutter build apk --release
+```
 
-## PR checklist (agents)
+### Release keystore
+
+```powershell
+Copy-Item -Path scripts/.env.example.ps1 -Destination scripts/.env.ps1
+# Fill in keystore Base64 and credentials (provided by maintainer)
+```
+
+### Analyze & Test
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Code Style
+
+- **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
+- **Versioning:** SemVer (`MAJOR.MINOR.PATCH`).
+- **Commits:** Conventional Commits — `feat(scope): description`, `fix(scope): description`.
+  - Multiple scopes: use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
+- **State machines:** Prefer explicit, deterministic state machines for touch capture, MIDI feedback sync, and feedback loop prevention.
+- **Concurrency:** Use Kotlin Coroutines with strict suspension (no busy-wait). Do not introduce blocking I/O on MIDI threads.
+- **Dependencies:** Avoid heavy new dependencies without justification.
+- **References:** Do **not** modify or add code under `references/`. Host-specific adapters live in the core codebase, not there.
+
+## Testing Instructions
+
+- **Widget tests** for all UI components (`app/test/`).
+- **Unit tests** for domain logic (`MidiEvent`, `ControlState`).
+- **HITL (Hardware-in-the-Loop)** for native layer — requires a physical MIDI device.
+- Use `addTearDown` in tests to prevent state bleeding between cases.
+- Run `flutter analyze` and `flutter test` before every commit.
+
+### USB Peripheral Mode Validation
+1. Connect Android device to Windows 11 PC via USB-C.
+2. Confirm "USB PERIPHERAL MODE ACTIVE" green banner.
+3. Select "OpenMIDIControl" as MIDI Input/Output in DAW.
+4. Move faders and verify MIDI data reception.
+5. Test bi-directional feedback with DAW automation.
+
+### Diagnostics Console
+- Access via the debug modal in Settings.
+- Real-time event logging with native timestamps.
+- Auto-disposes on close to prevent CPU drain.
+
+### Hardware Monitoring (HITL)
+
+```powershell
+# Monitor native logs
+adb logcat | Select-String "OpenMIDIControl|PeripheralMidi"
+
+# Send test MIDI messages (Windows MIDI Services)
+midi endpoint send-message 0x20B00140  # CC1, Value 64
+```
+
+## PR Instructions
+
+- **Do not implement features without an issue or an explicit plan step.**
+- One concern per PR — keep changes small and reviewable.
+- Always update docs (README / ARCHITECTURE / CHANGELOG) when behavior changes.
+
+### Checklist
 - [ ] Conventional Commit title
 - [ ] Tests added/updated (where applicable)
 - [ ] Docs updated (README/ARCHITECTURE/CHANGELOG)
@@ -90,52 +138,43 @@ This repository is primarily developed using AI coding agents (LLMs) via GitHub 
 - [ ] PR opened as draft
 - [ ] Assignee: @dencelkbabu
 - [ ] Reviewers: @dencelkbabu + @copilot-pull-request-reviewer + @gemini-code-assist
-- [ ] Labels: draft,needs review
+- [ ] Labels: `draft`, `needs review`
 
-## GitHub CLI guide
-Recommended `gh` steps during PR workflow (PowerShell/Bash):
-
-Windows PowerShell:
+### GitHub CLI
 
 ```powershell
-# 1. Check out and push branch
-git checkout feat-android-midi-v0.2.1
-git push -u origin feat-android-midi-v0.2.1
-
-# 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.1 `
-  --title "feat(midi): v0.2.1 milestone overhaul" `
-  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" `
+# PowerShell
+git checkout -b <branch>
+git push -u origin <branch>
+gh pr create --base main --head <branch> `
+  --title "<conventional-commit-title>" `
+  --body "<description>" `
   --draft --assignee dencelkbabu --reviewer dencelkbabu `
   --label "draft,needs review"
-
-# 3. GitHub UI bot reviewers (if needed)
-# - copilot-pull-request-reviewer
-# - gemini-code-assist
-
-# 4. Open PR in browser
 gh pr view --web
 ```
-
-Unix/Bash:
 
 ```bash
-# 1. Check out and push branch
-git checkout feat-android-midi-v0.2.1
-git push -u origin feat-android-midi-v0.2.1
-
-# 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.1 \
-  --title "feat(midi): v0.2.1 milestone overhaul" \
-  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" \
+# Bash
+git checkout -b <branch>
+git push -u origin <branch>
+gh pr create --base main --head <branch> \
+  --title "<conventional-commit-title>" \
+  --body "<description>" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
   --label "draft,needs review"
-
-# 3. GitHub UI bot reviewers (if needed)
-# - copilot-pull-request-reviewer
-# - gemini-code-assist
-
-# 4. Open PR in browser
 gh pr view --web
 ```
 
+## Agent Priorities
+
+When making decisions, agents must prioritize in this order:
+1. Low-latency, low-jitter MIDI event handling
+2. Reliable MIDI behavior and deterministic state
+3. Multi-touch correctness
+4. Battery and thermal stability on Android
+
+## Safety & Compliance
+
+- Do not include proprietary SDKs or copied code from restricted sources.
+- Avoid bundling anything that would violate the dual-licensing intent (GPL-3.0 / commercial).
