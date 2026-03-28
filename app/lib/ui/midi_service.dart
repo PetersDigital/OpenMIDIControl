@@ -90,21 +90,33 @@ class MidiService {
   /// High-performance stream of parsed MIDI events.
   late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
       .where((e) {
-        if (e is! Map) return false;
-        final type = e['type'];
-        return type == 'batch' || type == 'cc';
+        return e is Int64List;
       })
       .map((event) {
-        final map = event as Map;
-        if (map['type'] == 'batch') {
-          final rawEvents = map['events'] as List? ?? [];
-          return rawEvents
-              .whereType<Map<dynamic, dynamic>>()
-              .map((e) => MidiEvent.fromMap(e))
-              .toList();
-        } else {
-          return [MidiEvent.fromMap(map)];
+        final data = event as Int64List;
+        final List<MidiEvent> parsedEvents = [];
+
+        // Decode the 1D LongArray batch (Pairs of UMP Integer, Timestamp)
+        for (int i = 0; i < data.length; i += 2) {
+          int ump = data[i];
+          int timestamp = data[i + 1];
+
+          // Phase 2 Bitwise Extraction:
+          // We know from Phase 1/2 bridging that these are MT 0x2 CC events natively
+          int ccNumber = (ump >> 8) & 0xFF;
+          int ccValue = ump & 0xFF;
+
+          // Repackage the extracted legacy data back into the old format
+          // to prevent downstream Riverpod state architecture modification (Phase 3 task)
+          parsedEvents.add(MidiEvent.fromMap({
+            'type': 'cc',
+            'cc': ccNumber,
+            'value': ccValue,
+            'timestamp': timestamp,
+          }));
         }
+
+        return parsedEvents;
       })
       .asBroadcastStream();
 
