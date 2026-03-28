@@ -83,6 +83,8 @@ flutter test
 ## Code Style
 
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
+- **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`. 
+  - Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
 - **Versioning:** SemVer (`MAJOR.MINOR.PATCH`). See `.version` file for CD workflow tracking.
   - Workflows read `pubspec.yaml` first, then check if `v{version}` exists as a git tag. If the tag exists, fall back to `.version`'s `NEXT_PLANNED_VERSION`.
   - When bumping `app/pubspec.yaml` version, **always update `.version`** to match.
