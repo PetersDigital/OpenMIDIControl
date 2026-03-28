@@ -506,8 +506,15 @@ class MainActivity : FlutterActivity() {
         // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
         if (offset < 0 || count < 0 || offset + count > msg.size) return
 
-        // Check for UMP alignment
-        val isUmp = count >= 4 && count % 4 == 0
+        // Check for UMP alignment and validate Message Type (MT) to prevent false positives
+        val isUmp = if (count >= 4 && count % 4 == 0) {
+            val firstUmpWord = ((msg[offset].toInt() and 0xFF) shl 24) or
+                               ((msg[offset + 1].toInt() and 0xFF) shl 16) or
+                               ((msg[offset + 2].toInt() and 0xFF) shl 8) or
+                               (msg[offset + 3].toInt() and 0xFF)
+            val firstMessageType = (firstUmpWord ushr 28) and 0xF
+            firstMessageType == 0x1 || firstMessageType == 0x2
+        } else false
 
         if (isUmp) {
             // Process UMP (32-bit Integers)
