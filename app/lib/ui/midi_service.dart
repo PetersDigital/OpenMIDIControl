@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
