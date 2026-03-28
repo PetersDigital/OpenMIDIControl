@@ -144,6 +144,117 @@ Prefer explicit state tracking over implicit logic:
 - Use named flags for connection states (e.g., `handshakeConfirmed: bool`)
 - Track per-object or per-command caches (e.g., `_nrpnStateCache: Map<String, int>`)
 - Avoid side effects in dedup checks; separate concerns into dedicated methods
+## Testing requirements (v0.2.2+)
+
+### Automated Test Suite
+
+All contributions must maintain or improve test coverage. The v0.2.2 test suite includes **10 comprehensive test files** covering all layers of the application.
+
+See [TESTING.md](TESTING.md) for complete documentation on test structure and execution.
+
+**Phase A: Kotlin Native Tests**
+```powershell
+cd app/android
+.\gradlew.bat :app:testDebugUnitTest
+```
+Required for:
+- Changes to `MidiParser.kt` (UMP reconstruction logic)
+- Changes to native batching or filtering
+- New MIDI message type handling
+
+**Phase B: Dart Unit Tests**
+```powershell
+# Run all tests
+cd app
+flutter test
+
+# Or run specific test files
+flutter test test/midi_event_test.dart           # MidiEvent, Riverpod equality
+flutter test test/midi_models_test.dart          # MidiPort, MidiStatus
+flutter test test/control_state_test.dart        # ControlState, CcNotifier
+flutter test test/diagnostics_test.dart          # DiagnosticsLoggerNotifier
+flutter test test/settings_screen_test.dart      # Settings UI
+flutter test test/midi_settings_screen_test.dart # MIDI Settings UI
+flutter test test/midi_settings_state_test.dart  # Settings state
+flutter test test/open_midi_screen_test.dart     # Main screen, faders
+```
+Required for:
+- Changes to `MidiEvent` model
+- Changes to `ControlState` or `CcNotifier`
+- Riverpod provider modifications
+- UMP transport logic
+- UI component changes
+
+**Phase C: Integration Tests**
+```powershell
+cd app
+flutter test test/midi_pipeline_integration_test.dart
+```
+Required for:
+- EventChannel bridge modifications
+- High-frequency event handling changes
+- State batching optimizations
+
+### Test Writing Guidelines
+
+**Kotlin Native Tests** (`app/android/app/src/test/kotlin/...`):
+```kotlin
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@Test
+fun `UMP reconstruction preserves MIDI channel`() = runTest {
+    // Arrange
+    val umpPacket = byteArrayOf(
+        0x20.toByte(), // MT=2 (Channel Voice), Group 0
+        0xB0.toByte(), // Status: CC on Channel 1
+        0x01.toByte(), // CC Number: 1
+        0x40.toByte()  // CC Value: 64
+    )
+    val channel = Channel<Pair<Long, Long>>(Channel.UNLIMITED)
+    val lastSentTime = emptyMap<Int, Long>()
+
+    // Act
+    MidiParser.processMidiPayload(
+        msg = umpPacket,
+        offset = 0,
+        count = 4,
+        timestamp = System.nanoTime(),
+        isVirtual = false,
+        incomingEventsChannel = channel,
+        suppressionWindowNs = 5_000_000L,
+        lastSentTime = lastSentTime,
+        isDebug = false
+    )
+    channel.close()
+    val result = channel.receiveCatching()
+
+    // Assert
+    assert(result.isSuccess)
+    val (reconstructedUmp, _) = result.getOrNull()!!
+    assertEquals(0x20B00140L, reconstructedUmp)
+}
+```
+
+**Dart Unit Tests** (`app/test/`):
+```dart
+test('MidiEvent extracts channel from UMP', () {
+  // Arrange
+  const ump = 0x20B00140; // MT=2, Group=0, Status=0xB0, CC=1, Value=64
+  
+  // Act
+  final event = MidiEvent(ump: ump, timestamp: 0, sourceId: 'test');
+  
+  // Assert
+  expect(event.channel, 0);
+  expect(event.data1, 1); // CC number
+  expect(event.data2, 64); // CC value
+});
+```
 
 ### Hardware-in-the-Loop (HITL) Testing
 For v0.2.0+, developers should validate the native Kotlin transport layer using `adb` and external MIDI tools:

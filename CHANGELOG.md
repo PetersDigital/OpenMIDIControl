@@ -7,7 +7,57 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ## [0.2.2] - Unreleased
 
 ### Added
-- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+- Hybrid UMP implementation with manual 32-bit reconstruction in `MidiParser.kt`
+- UMP transport flag (`TRANSPORT_UNIVERSAL_MIDI_PACKETS`) for MIDI 2.0 compatibility
+- Automated UMP transport test suite with bitwise extraction validation
+- Primitive `LongArray` EventChannel batching to reduce GC pressure
+- Defensive bounds checking for malformed MIDI packets in native layer
+- UMP detection heuristics with Message Type (MT 0x1, 0x2) validation
+- Multi-cable support via preserved UMP group data
+- Android minSdkVersion enforced to 33 for UMP baseline
+- Dual-license header enforcement with SPDX identifier (GPL-3.0-or-later OR LicenseRef-Commercial)
+- GitHub Actions workflow for automated license header checking
+- Licensing documentation in `docs/LICENSING.md`
+- **Comprehensive Automated Test Suite** (10 test files):
+  - Kotlin native tests: `MidiParserTest.kt` (UMP reconstruction, filtering, echo suppression, batching bounds)
+  - Dart model tests: `midi_event_test.dart` (bitwise extraction, Riverpod equality, malformed payloads)
+  - Dart model tests: `midi_models_test.dart` (MidiPort parsing, MidiStatus state transitions)
+  - Dart state tests: `control_state_test.dart` (ControlState immutability, CcNotifier batch updates)
+  - Dart diagnostics tests: `diagnostics_test.dart` (logger notifier, console widget, auto-dispose)
+  - Dart UI tests: `settings_screen_test.dart` (settings rendering, PackageInfo integration)
+  - Dart UI tests: `midi_settings_screen_test.dart` (port selection, USB status, active highlighting)
+  - Dart state tests: `midi_settings_state_test.dart` (settings state immutability, copyWith operations)
+  - Dart UI tests: `open_midi_screen_test.dart` (main screen layout, fader behaviors, multi-touch capture)
+  - Dart integration tests: `midi_pipeline_integration_test.dart` (EventChannel multiplexing, 10K event stress test)
+
+### Changed
+- Retained `MidiDeviceService` over `MidiUmpDeviceService` for broader device coverage (90% vs. 20%)
+- Extracted `MidiParser.kt` from `MainActivity.kt` for testability
+- Standardized package identifiers to lowercase `com.petersdigital.openmidicontrol`
+- Updated technical documentation with hybrid UMP architecture rationale
+
+### Fixed
+- Array bounds crash in native batch dispatch loop
+- MIDI channel loss in `forwardCcEvent()` UMP reconstruction
+- Missing `Int64List` import in `midi_service.dart`
+- Dart layer vulnerability to malformed JNI payloads
+- UMP group data being discarded during reconstruction
+- Redundant `typed_data` import in `hybrid_touch_fader.dart`
+- Thermal runaway from stream leaks and excessive UI updates (b3d0dc6)
+  - Fixed platform stream subscription leak in `MidiService` by refactoring to `late final` streams
+  - Eliminated infinite UI update loops with `changed == true` guards in `CcNotifier`
+  - Removed global `ref.watch` from app root to prevent full-tree rebuilds
+  - Added 8ms throttle (~120Hz) in `HybridTouchFader` to prevent MIDI flooding
+  - Batched diagnostics updates using `SchedulerBinding.scheduleFrameCallback` (~60Hz)
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Security
+- Added defensive bounds checking to prevent DoS via malformed MIDI packets
 
 ## [0.2.1] - 2026-03-26
 

@@ -97,6 +97,57 @@ flutter test
 
 ## Testing Instructions
 
+### Automated Test Suite (v0.2.2+)
+
+The v0.2.2 release includes a comprehensive test suite with 10 test files covering native layer, models, state, UI components, and integration tests. See [TESTING.md](TESTING.md) for complete documentation.
+
+**Phase A: Kotlin Native Tests**
+```powershell
+cd app/android
+.\gradlew.bat :app:testDebugUnitTest
+```
+- Tests `MidiParser.kt` UMP reconstruction logic
+- Validates real-time spam filtering (0xF8, 0xFE)
+- Tests bidirectional echo suppression
+- Validates batching loop bounds
+
+**Phase B: Dart Unit Tests**
+
+_Run all Dart tests:_
+```bash
+cd app
+flutter test
+```
+
+_Run individual test files:_
+```bash
+# Core models and state
+flutter test test/midi_event_test.dart          # MidiEvent bitwise extraction, Riverpod equality
+flutter test test/midi_models_test.dart         # MidiPort parsing, MidiStatus updates
+flutter test test/control_state_test.dart       # ControlState immutability, CcNotifier batches
+
+# Diagnostics
+flutter test test/diagnostics_test.dart         # DiagnosticsLoggerNotifier, console widget
+
+# Settings screens
+flutter test test/settings_screen_test.dart                # Settings rendering, PackageInfo
+flutter test test/midi_settings_screen_test.dart           # Port selection, USB status
+flutter test test/midi_settings_state_test.dart            # Settings state immutability
+
+# Main screen and faders
+flutter test test/open_midi_screen_test.dart    # Main screen layout, fader behaviors
+```
+
+**Phase C: Integration Tests**
+```bash
+cd app
+flutter test test/midi_pipeline_integration_test.dart
+```
+- Tests EventChannel multiplexing
+- High-frequency stress tests (10,000 events)
+
+### Manual Testing
+
 - **Widget tests** for all UI components (`app/test/`).
 - **Unit tests** for domain logic (`MidiEvent`, `ControlState`).
 - **HITL (Hardware-in-the-Loop)** for native layer — requires a physical MIDI device.

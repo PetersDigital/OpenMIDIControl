@@ -10,7 +10,8 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.1** (Current) Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
+- **v0.2.2** (Current) Hybrid UMP implementation with manual 32-bit reconstruction, primitive EventChannel batching, and comprehensive automated test suite (10 test files covering native layer, models, state, UI components, and integration).
+- **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
