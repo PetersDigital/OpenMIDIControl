@@ -42,8 +42,9 @@ Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the 
 
 The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
 
-- **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (raw transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
-- **Native UMP Backend Migration (v0.2.2):** The Native Kotlin layer operates exclusively on MidiUmpDeviceService (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the EventChannel as 32-bit integers, mapping directly to the Dart MidiEvent model.
+- **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
+- **API 33+ Baseline (Post-v0.2.1):** Enforced `minSdkVersion = 33` (SHA `97e002e`) to provide a native foundation for MIDI 2.0 and Universal MIDI Packets (UMP).
+- **Native UMP Backend Migration (v0.2.2):** Implementing the core UMP transport layer. While the native code inherits from `MidiUmpDeviceService` (API 33+) for virtual routing, it uses legacy `MidiDevice` and `MidiPort` classes for client connections to satisfy Android SDK visibility constraints. UMP is enforced via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag and manual 32-bit packet reconstruction from `byte[]` buffers.
 - **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
@@ -55,7 +56,12 @@ INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 
 ## 3.2 Native Android Layer / JNI Bridge
 
-The Native Kotlin layer operates exclusively on `MidiUmpDeviceService` (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the `EventChannel` as 32-bit integers, mapping directly to the Dart `MidiEvent` model.
+The Native Kotlin layer guarantees UMP traffic by opening ports with the `MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag. Although it interacts with legacy `MidiDevice` and `MidiPort` classes (due to SDK limitations), it enforces a **Manual 32-bit Reconstruction** strategy:
+
+1.  **OS Delivery:** The Android OS delivers UMP packets as 4-byte blocks within a standard `ByteArray`.
+2.  **Reconstruction:** Inside `onSend()`, the Kotlin layer iterates through the buffer in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts (Big-Endian).
+3.  **Validation:** Strict defensive bounds checking ensuring `count % 4 == 0` and payload alignment.
+4.  **Dispatch:** Reconstructed 32-bit integers are passed directly across the `EventChannel`, mapping to the Dart `MidiEvent` model.
 
 ## 4. Event Semantics
 
@@ -69,7 +75,7 @@ The Native Kotlin layer operates exclusively on `MidiUmpDeviceService` (API 33+)
 
 To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 - **Source of Truth:** Internally, all MIDI data is treated as a **Universal MIDI Packet (UMP)** using 32-bit integer blocks rather than traditional 8-bit byte streams.
-- **Native Android Layer:** The Native Kotlin layer operates exclusively on `MidiUmpDeviceService` (API 33+). It reads 32-bit Universal MIDI Packets (UMP) from the OS and passes them directly across the `EventChannel` as 32-bit integers, mapping directly to the Dart `MidiEvent` model.
+- **Native Android Layer:** Enforces UMP mode at the query/open level using the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` transport flag. Virtual routing extends `MidiUmpDeviceService`, while client connections utilize legacy port classes with manual packet reconstruction to maintain SDK compliance.
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
 - **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
@@ -177,10 +183,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
 * **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
+#### ✅ API 33+ Baseline (Post-v0.2.1)
+- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP structures.
+
 ### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **API 33+ Exclusivity**: Enforce `minSdkVersion = 33` to natively support MIDI 2.0 Universal MIDI Packets (UMP).
-- **MidiUmpDeviceService**: Migrate the Virtual MIDI bridge and native backend to inherit from Android's UMP-specific services.
-- **32-bit Payload Integration**: Pass raw 32-bit UMP integers directly from Kotlin to the Dart `MidiEvent` model, bypassing legacy byte-array parsing.
+- **MidiUmpDeviceService**: Migrate VirtualMidiService to inherit from Android's UMP-specific service for system-wide virtual routing.
+- **SDK Constraint Handling**: Revert backend abstractions to legacy `MidiDevice` and `MidiPort` classes to satisfy public API visibility, while guaranteeing UMP traffic via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
+- **Manual 32-bit Reconstruction**: Implement `MidiReceiver` logic to iterate through `byte[]` payloads in 4-byte chunks, reconstructing 32-bit integers with bitwise shifts and strict defensive bounds checking.
 
 ### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
 - **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
