@@ -671,7 +671,7 @@ class MainActivity : FlutterActivity() {
                 var count = 2
 
                 // Drain any other events currently in the channel buffer
-                while (count < batch.size) {
+                while (count + 1 < batch.size) {
                     val nextEvent = incomingEventsChannel.tryReceive().getOrNull() ?: break
                     batch[count++] = nextEvent.first
                     batch[count++] = nextEvent.second
