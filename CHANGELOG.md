@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
+## [0.2.2] - Unreleased
+
+### Added
+- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+
 ## [0.2.1] - 2026-03-26
 
 ### Added
@@ -95,6 +100,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ### Added
 - Project initialized (documentation only).
 
+[0.2.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...main
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5
