@@ -101,19 +101,8 @@ class MidiService {
           int ump = data[i];
           int timestamp = data[i + 1];
 
-          // Phase 2 Bitwise Extraction:
-          // We know from Phase 1/2 bridging that these are MT 0x2 CC events natively
-          int ccNumber = (ump >> 8) & 0xFF;
-          int ccValue = ump & 0xFF;
-
-          // Repackage the extracted legacy data back into the old format
-          // to prevent downstream Riverpod state architecture modification (Phase 3 task)
-          parsedEvents.add(MidiEvent.fromMap({
-            'type': 'cc',
-            'cc': ccNumber,
-            'value': ccValue,
-            'timestamp': timestamp,
-          }));
+          // Phase 3: Directly initialize UMP events natively using the bitwise getters in the model
+          parsedEvents.add(MidiEvent(ump, timestamp));
         }
 
         return parsedEvents;
@@ -348,7 +337,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       final Map<int, int> batchUpdates = {};
       for (var midiEvent in midiEvents) {
-        if (midiEvent.messageType == 0xB0) {
+        if (midiEvent.legacyStatusByte >= 0xB0 && midiEvent.legacyStatusByte <= 0xBF) {
           batchUpdates[midiEvent.data1] = midiEvent.data2;
         }
       }

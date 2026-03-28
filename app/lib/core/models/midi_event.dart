@@ -1,54 +1,39 @@
 class MidiEvent {
-  final int messageType; // e.g., 0xB0 for CC
-  final int channel; // 0-15
-  final int data1; // e.g., CC number
-  final int data2; // e.g., CC value
+  final int ump; // 32-bit Universal MIDI Packet integer
   final int timestamp; // nanoseconds or milliseconds
   final String sourceId; // e.g., device id or port name
 
-  const MidiEvent({
-    required this.messageType,
-    required this.channel,
-    required this.data1,
-    required this.data2,
-    required this.timestamp,
-    required this.sourceId,
+  const MidiEvent(
+    this.ump,
+    this.timestamp, {
+    this.sourceId = 'unknown',
   });
 
-  factory MidiEvent.fromMap(Map<dynamic, dynamic> map) {
-    // For now, the Android backend might send 'type' == 'cc' and 'cc', 'value' fields.
-    // We'll normalize this into our UMP-ready structure.
-    int messageType = 0;
-    int channel = 0;
-    int data1 = 0;
-    int data2 = 0;
+  // Bitwise extraction getters for standard MIDI 1.0 Voice fields
+  int get messageType => (ump >> 28) & 0xF;
+  int get group => (ump >> 24) & 0xF;
+  int get status => (ump >> 16) & 0xF0;
+  int get channel => (ump >> 16) & 0x0F;
+  int get data1 => (ump >> 8) & 0xFF; // e.g., CC number
+  int get data2 => ump & 0xFF; // e.g., CC value
 
-    if (map['type'] == 'cc') {
-      messageType = 0xB0; // Control Change
-      // Android currently doesn't send channel explicitly, defaulting to 0 for now
-      channel = map['channel'] as int? ?? 0;
-      data1 = map['cc'] as int? ?? 0;
-      data2 = map['value'] as int? ?? 0;
-    } else {
-      // Fallback for other potential types if they are sent in the future
-      messageType = map['messageType'] as int? ?? 0;
-      channel = map['channel'] as int? ?? 0;
-      data1 = map['data1'] as int? ?? 0;
-      data2 = map['data2'] as int? ?? 0;
-    }
+  // Exposing the combined legacy status byte (e.g., 0xB0 for CC on Channel 1)
+  int get legacyStatusByte => (ump >> 16) & 0xFF;
 
-    return MidiEvent(
-      messageType: messageType,
-      channel: channel,
-      data1: data1,
-      data2: data2,
-      timestamp: map['timestamp'] as int? ?? 0,
-      sourceId: map['sourceId'] as String? ?? 'unknown',
-    );
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is MidiEvent &&
+        other.ump == ump &&
+        other.timestamp == timestamp &&
+        other.sourceId == sourceId;
   }
 
   @override
+  int get hashCode => ump.hashCode ^ timestamp.hashCode ^ sourceId.hashCode;
+
+  @override
   String toString() {
-    return 'MidiEvent(type: 0x${messageType.toRadixString(16)}, ch: $channel, d1: $data1, d2: $data2, src: $sourceId)';
+    return 'MidiEvent(ump: 0x${ump.toRadixString(16).padLeft(8, '0')}, status: 0x${legacyStatusByte.toRadixString(16)}, ch: $channel, d1: $data1, d2: $data2, src: $sourceId)';
   }
 }
