@@ -17,7 +17,7 @@ plugins {
 
 android {
     namespace = "com.PetersDigital.OpenMIDIControl"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35 // Required for native UMP support (API 33+). Decoupled from Flutter SDK.
     ndkVersion = flutter.ndkVersion
 
     buildFeatures {
@@ -39,8 +39,8 @@ android {
         
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 33 // Enforces Android 13+ for native UMP support.
+        targetSdk = 35 // Aligned with compileSdk; decoupled from Flutter SDK.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
