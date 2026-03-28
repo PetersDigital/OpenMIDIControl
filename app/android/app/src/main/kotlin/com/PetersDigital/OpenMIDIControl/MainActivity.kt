@@ -54,7 +54,8 @@ class MainActivity : FlutterActivity() {
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
     // Thread Separation: Coroutine Channel for incoming MIDI events
-    private val incomingEventsChannel = Channel<Map<String, Any>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // We store the 32-bit UMP and its timestamp as a Pair to ensure atomic queuing.
+    private val incomingEventsChannel = Channel<Pair<Long, Long>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -593,14 +594,10 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        val event = mapOf(
-            "type" to "cc",
-            "cc" to ccNumber,
-            "value" to ccValue,
-            "timestamp" to timestamp
-        )
+        // Phase 2: Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) to send over the zero-allocation primitive array bridge
+        val umpInt = (0x2L shl 28) or (0xB0L shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
 
-        incomingEventsChannel.trySend(event)
+        incomingEventsChannel.trySend(Pair(umpInt, timestamp))
     }
 
     private fun setupMidiReceiver() {
@@ -665,18 +662,24 @@ class MainActivity : FlutterActivity() {
             // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
             // avoiding busy-wait loops and pinning the CPU.
             for (firstEvent in incomingEventsChannel) {
-                val batch = mutableListOf<Map<String, Any>>()
-                batch.add(firstEvent)
+                // Use primitive array batching to avoid Object allocation on the Main thread
+                val batch = LongArray(2000)
+                batch[0] = firstEvent.first
+                batch[1] = firstEvent.second
+                var count = 2
 
-                // Drain any other events currently in the channel buffer to process them as a batch
-                while (true) {
-                    val event = incomingEventsChannel.tryReceive().getOrNull() ?: break
-                    batch.add(event)
+                // Drain any other events currently in the channel buffer
+                while (count < batch.size) {
+                    val nextEvent = incomingEventsChannel.tryReceive().getOrNull() ?: break
+                    batch[count++] = nextEvent.first
+                    batch[count++] = nextEvent.second
                 }
 
-                if (batch.isNotEmpty()) {
+                if (count > 0) {
+                    // Create an exact-sized copy of the payload to dispatch
+                    val payload = batch.copyOfRange(0, count)
                     Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(mapOf("type" to "batch", "events" to batch))
+                        eventSink?.success(payload)
                     }
                 }
 
