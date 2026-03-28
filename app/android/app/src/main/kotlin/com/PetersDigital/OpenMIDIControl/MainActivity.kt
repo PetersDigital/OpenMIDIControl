@@ -529,11 +529,11 @@ class MainActivity : FlutterActivity() {
                 val messageType = (umpInt ushr 28) and 0xF
 
                 if (messageType == 0x1) {
-                    // MT 0x1: System Real-Time
-                    // Status byte is bits 23-16 (byte2 in Big-Endian layout of a 32-bit UMP containing an 8-bit message)
-                    // Actually, for MT 1, the UMP format places the status byte in byte1 (bits 23-16 of the 32 bit word after MT and Group).
-                    // Let's rely on standard UMP format: MT (4 bits), Group (4 bits), Status (8 bits).
-                    // So Status is byte2 (bits 23-16 of the 32-bit word).
+                    // MT 0x1: System Real-Time / System Common
+                    // Bits [31:28]: Message Type (0x1)
+                    // Bits [27:24]: Group ID
+                    // Bits [23:16]: MIDI Status Byte (e.g. 0xF8 Timing Clock)
+                    // Bits [15:0]:  Always 0x0000 for System Real-Time
                     val status = (umpInt ushr 16) and 0xFF
 
                     if (status == 0xF8 || status == 0xFE) {
