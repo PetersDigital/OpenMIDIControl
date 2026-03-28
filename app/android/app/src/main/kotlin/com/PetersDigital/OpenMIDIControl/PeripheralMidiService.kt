@@ -30,13 +30,10 @@ class PeripheralMidiService : MidiDeviceService() {
         return arrayOf(object : MidiReceiver() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
-                val statusByte = msg[offset]
-                // Do NOT send Active Sensing or Timing Clock to the Flutter UI
-                if (statusByte == 0xFE.toByte() || statusByte == 0xF8.toByte()) {
-                    return // Skip adding to the Flutter queue
-                }
 
                 // Forward incoming MIDI from Host DAW (PC/Mac) to our Flutter App via USB
+                // Legacy filtering (Active Sensing, Timing Clock) has been moved to MainActivity
+                // to support batched UMP reconstruction and filtering natively.
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
