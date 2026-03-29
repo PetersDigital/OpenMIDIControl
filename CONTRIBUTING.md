@@ -1,7 +1,7 @@
 # Contributing to OpenMIDIControl
 
 ## Development approach
-This project is maintained by PetersDigital and is primarily implemented with AI assistance. Human review is required for merges.
+This project is maintained by Peters Digital and is primarily implemented with AI assistance. Human review is required for merges.
 
 Current phase: foundational implementation and documentation. Prefer small, reviewable increments.
 
