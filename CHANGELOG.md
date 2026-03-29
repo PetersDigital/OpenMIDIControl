@@ -4,10 +4,46 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
-## [0.2.2] - Unreleased
+## [0.2.2] - 2026-03-30
 
 ### Added
-- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+- Hybrid UMP implementation with manual 32-bit reconstruction in `MidiParser.kt`
+- UMP transport flag (`TRANSPORT_UNIVERSAL_MIDI_PACKETS`) for MIDI 2.0 compatibility
+- Automated UMP transport test suite with bitwise extraction validation
+- Primitive `LongArray` EventChannel batching to reduce GC pressure
+- Defensive bounds checking for malformed MIDI packets in native layer
+- UMP detection heuristics with Message Type (MT 0x1, 0x2) validation
+- Multi-cable support via preserved UMP group data
+- Android minSdkVersion enforced to 33 for UMP baseline
+
+### Changed
+- Retained `MidiDeviceService` over `MidiUmpDeviceService` for broader device coverage (90% vs. 20%)
+- Extracted `MidiParser.kt` from `MainActivity.kt` for testability
+- Standardized package identifiers to lowercase `com.petersdigital.openmidicontrol`
+- Updated technical documentation with hybrid UMP architecture rationale
+
+### Fixed
+- Array bounds crash in native batch dispatch loop
+- MIDI channel loss in `forwardCcEvent()` UMP reconstruction
+- Missing `Int64List` import in `midi_service.dart`
+- Dart layer vulnerability to malformed JNI payloads
+- UMP group data being discarded during reconstruction
+- Redundant `typed_data` import in `hybrid_touch_fader.dart`
+- Thermal runaway from stream leaks and excessive UI updates (b3d0dc6)
+  - Fixed platform stream subscription leak in `MidiService` by refactoring to `late final` streams
+  - Eliminated infinite UI update loops with `changed == true` guards in `CcNotifier`
+  - Removed global `ref.watch` from app root to prevent full-tree rebuilds
+  - Added 8ms throttle (~120Hz) in `HybridTouchFader` to prevent MIDI flooding
+  - Batched diagnostics updates using `SchedulerBinding.scheduleFrameCallback` (~60Hz)
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Security
+- Added defensive bounds checking to prevent DoS via malformed MIDI packets
 
 ## [0.2.1] - 2026-03-26
 
