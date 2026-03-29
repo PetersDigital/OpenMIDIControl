@@ -1,4 +1,4 @@
-package com.PetersDigital.OpenMIDIControl
+package com.petersdigital.openmidicontrol
 
 import android.util.Log
 

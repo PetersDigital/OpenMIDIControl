@@ -1,6 +1,6 @@
-package com.PetersDigital.OpenMIDIControl
-
-import com.PetersDigital.OpenMIDIControl.BuildConfig
+package com.petersdigital.openmidicontrol
+ 
+import com.petersdigital.openmidicontrol.BuildConfig
 
 import android.content.BroadcastReceiver
 import android.content.Context
