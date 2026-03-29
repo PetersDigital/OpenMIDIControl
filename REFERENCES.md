@@ -33,7 +33,17 @@
 - [android.media.midi Package Documentation](https://android.googlesource.com/platform/frameworks/base/+/master/media/java/android/media/midi/package.html) — Inner workings of the Android MIDI stack
 - [Android MIDI API Reference (Official)](https://developer.android.com/reference/android/media/midi/package-summary) — MidiManager, MidiDevice, MidiPort
 - [Android NDK MIDI Guide](https://developer.android.com/ndk/guides/audio/midi) — Native C/C++ MIDI integration
-- [MIDI 2.0 Android Samples](https://github.com/android/midi-samples) — Google reference implementations for Android **MidiUmpDeviceService** logic
+- [MIDI 2.0 Android Samples](https://github.com/android/midi-samples) — Google reference implementations
+- [MidiUmpDeviceService Reference](https://developer.android.com/reference/android/media/midi/MidiUmpDeviceService) — **API 35+ for virtual UMP, feature-flagged with FLAG_VIRTUAL_UMP**
+- [Android 15 Developer Preview](https://android-developers.googleblog.com/2024/02/first-developer-preview-android15.html) — Virtual UMP support added in Android 15
+
+**Android UMP Implementation Limitations (v0.2.2):**
+- `MidiUmpDeviceService` virtual UMP requires **Android 15+ (API 35)**, not API 33
+- Feature-flagged with `@FlaggedApi(Flags.FLAG_VIRTUAL_UMP)` — unreliable across OEMs
+- Restrictive port constraints: input/output count must be equal and non-zero
+- Only ~20% device coverage vs. 90% for hybrid approach (Android 13-15)
+- OpenMIDIControl uses **hybrid UMP**: `MidiDeviceService` + manual 32-bit reconstruction in `MidiParser.kt`
+- See ARCHITECTURE.md Section 3.2 for detailed hybrid implementation rationale
 
 **iOS / macOS Core MIDI:**
 - [Apple Core MIDI Documentation](https://developer.apple.com/documentation/coremidi/) — Official reference for `MIDIProtocolID` and UMP abstractions
@@ -48,7 +58,7 @@
 **Platform & Protocol Specifics:**
 - **Windows MIDI Services (WinRT)**: Multi-client by default. Multiple applications (e.g., Cubase 15 + OpenMIDIControl Logger) can share the same hardware port simultaneously.
 - **Microsecond Precision**: The WinRT stack (as of **Feb 17, 2026 GA**) provides sub-millisecond timestamps accurate to **under a microsecond** (<1µs jitter), significantly boosting MIDI 2.0 / UMP reliability.
-- **Android UMP Stack (API 33+)**: Requires extending `MidiUmpDeviceService` for virtual devices. UMP packets arrive in `byte[]` buffers (4, 8, 12, or 16 bytes).
+- **Android UMP Stack (API 33+)**: Hybrid implementation due to `MidiUmpDeviceService` limitations. Uses `MidiDeviceService` with `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag and manual 32-bit reconstruction in `MidiParser.kt`. UMP packets reconstructed from `byte[]` buffers (4-byte chunks).
 - **Apple UMP Protocol**: Uses `MIDIProtocolID.protocol_2_0` and specific `MIDIInputPortCreateWithProtocol` methods to enable 32-bit packet handling.
 - **SysEx ID 0x7C**: Used for non-commercial UMP Endpoint Discovery. Allows native MIDI 2.0 recognition without unique commercial licensing.
 - [USB Polling & Bandwidth](https://en.wikipedia.org/wiki/USB#Bandwidth_and_protocols) — USB 1.1 full-speed polling (1kHz interrupt intervals)
