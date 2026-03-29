@@ -33,9 +33,11 @@
 - [android.media.midi Package Documentation](https://android.googlesource.com/platform/frameworks/base/+/master/media/java/android/media/midi/package.html) — Inner workings of the Android MIDI stack
 - [Android MIDI API Reference (Official)](https://developer.android.com/reference/android/media/midi/package-summary) — MidiManager, MidiDevice, MidiPort
 - [Android NDK MIDI Guide](https://developer.android.com/ndk/guides/audio/midi) — Native C/C++ MIDI integration
+- [AMidi NDK Reference](https://developer.android.com/ndk/reference/group/midi) — C API for MIDI I/O (v0.4.0 Fast Path)
 - [MIDI 2.0 Android Samples](https://github.com/android/midi-samples) — Google reference implementations
 - [MidiUmpDeviceService Reference](https://developer.android.com/reference/android/media/midi/MidiUmpDeviceService) — **API 35+ for virtual UMP, feature-flagged with FLAG_VIRTUAL_UMP**
 - [Android 15 Developer Preview](https://android-developers.googleblog.com/2024/02/first-developer-preview-android15.html) — Virtual UMP support added in Android 15
+- [RenderScript Intrinsics](https://developer.android.com/guide/topics/renderscript/compute) — SIMD optimization guide (v0.3.0)
 
 **Android UMP Implementation Limitations (v0.2.2):**
 - `MidiUmpDeviceService` virtual UMP requires **Android 15+ (API 35)**, not API 33
@@ -44,6 +46,25 @@
 - Only ~20% device coverage vs. 90% for hybrid approach (Android 13-15)
 - OpenMIDIControl uses **hybrid UMP**: `MidiDeviceService` + manual 32-bit reconstruction in `MidiParser.kt`
 - See ARCHITECTURE.md Section 3.2 for detailed hybrid implementation rationale
+
+**NDK Fast Path (v0.4.0):**
+- **Decision**: Migrate hot path to C++ NDK with Dart FFI (TDR-003)
+- **Target**: Sub-0.1ms latency, zero GC jitter
+- **API**: Android `AMidi` (NDK) with direct UMP support since API 33
+- **Implementation**: Zero-copy shared memory ring buffer
+- **See**: ARCHITECTURE.md Section 13.2 for architecture diagram
+
+**Windows MIDI 2.0 (CRITICAL - Feb 2026 Update):**
+- **Status**: Release Candidate 3 (RC3) - February 2026
+- **Expected Stable**: March-April 2026 (1-2 months from RC3)
+- **Expected Cubase 15 MIDI 2.0**: Q3 2026 (3-4 months after Windows stable)
+- **MIDI-CI**: ✅ Included in Windows MIDI Services stack
+- **Cubase 15**: ✅ Will add MIDI 2.0 support 3-4 months after Windows stable
+- **NI Hardware**: ✅ Kontrol S49 Mk3 ships with MIDI 2.0 + MIDI-CI
+- **macOS**: ✅ Cubase already supports MIDI 2.0 high-res (CoreMIDI)
+- **Implementation**: v0.4.0 – MIDI-CI Handshake + Windows UMP Native
+- **Deadline**: Q3 2026 (to align with Cubase 15 MIDI 2.0 release)
+- **See**: ARCHITECTURE.md Section 13.4 for revised MIDI 2.0 strategy
 
 **iOS / macOS Core MIDI:**
 - [Apple Core MIDI Documentation](https://developer.apple.com/documentation/coremidi/) — Official reference for `MIDIProtocolID` and UMP abstractions

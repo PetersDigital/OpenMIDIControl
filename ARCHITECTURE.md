@@ -282,7 +282,150 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
   - Provide feedback normalization back to core in normalized `0.0..1.0`.
 - Host adapter must not modify core dedup or coalescing rules.
 
-## 13. References
+## 13. Future Architecture (v0.3.0 - v0.5.0)
+
+### 13.1 Kotlin SIMD Optimization (v0.3.0)
+
+**Current Bottleneck**:
+```kotlin
+// Sequential bitwise operations (~0.5ms overhead)
+val umpInt = (b1 shl 24) or (b2 shl 16) or (b3 shl 8) or b4
+```
+
+**Optimized Path**:
+```kotlin
+// RenderScript SIMD batch processing (target: <0.1ms)
+import android.renderscript.*
+
+fun reconstructUmpSimd(bytes: ByteArray): IntArray {
+    // Process 16 bytes in parallel using RenderScript
+    // 4x speedup expected
+}
+```
+
+**Benefits**:
+- Reduces latency from 0.5ms → 0.1ms
+- Works on Android 13-15 (90% coverage)
+- No SDK dependencies or feature flags
+
+### 13.2 NDK Fast Path (v0.4.0)
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Flutter UI (Dart)                        │
+│  - Riverpod state management                                │
+│  - Control widgets (faders, pads)                           │
+└─────────────────────────────────────────────────────────────┘
+                            ↕ Dart FFI (zero-copy shared memory)
+┌─────────────────────────────────────────────────────────────┐
+│              NDK Layer (C++ AMidi)                          │
+│  - Direct UMP packet handling                               │
+│  - Ring buffer for event batching                           │
+│  - Zero GC, sub-0.1ms latency                               │
+└─────────────────────────────────────────────────────────────┘
+                            ↕ Android NDK JNI
+┌─────────────────────────────────────────────────────────────┐
+│              Android MIDI HAL                               │
+│  - USB peripheral transport                                 │
+│  - Virtual MIDI routing                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Decision Criteria** (ANY triggers migration):
+- UMP reconstruction latency >0.3ms (current: 0.5ms)
+- GC pauses >16ms during heavy automation
+- Thermal throttling under sustained 1000+ events/sec
+- User reports of audio dropouts in DAW
+
+**Implementation**:
+```cpp
+// C++ NDK: Zero-copy UMP ring buffer
+class UmpRingBuffer {
+public:
+    void enqueue(uint32_t ump, int64_t timestamp);
+    std::array<uint8_t, 1024> dequeue_batch();
+private:
+    std::atomic<uint32_t> head_, tail_;
+    alignas(64) struct { uint32_t ump; int64_t timestamp; } buffer[256];
+};
+```
+
+### 13.3 Cross-Platform UMP Abstraction (v0.5.0)
+
+**Platform-Agnostic Core** (Dart):
+```
+app/lib/core/ump/
+├── ump_reconstructor.dart    # Bitwise extraction (shared)
+├── ump_router.dart           # DAG routing engine (shared)
+├── ump_profiles.dart         # DAW profiles (shared)
+└── ump_types.dart            # UMP type definitions (shared)
+```
+
+**Platform-Specific Native Layers**:
+```
+app/
+├── android/.../MidiParser.kt     # Kotlin reconstruction
+├── ios/.../MidiParser.swift      # Swift CoreMIDI reconstruction
+└── windows/.../MidiParser.cpp    # C++ WinRT MIDI reconstruction
+```
+
+**Benefits**:
+- 70% of UMP logic is platform-agnostic
+- Only reconstruction layer is platform-specific
+- Reduces iOS/Windows port effort by 60%
+
+### 13.4 MIDI 2.0 Strategy (Feb 2026 Update)
+
+**Windows MIDI 2.0 Timeline** (CRITICAL):
+- **Current Status**: Release Candidate 3 (RC3) - February 2026
+- **Expected Stable**: March-April 2026 (1-2 months from RC3)
+- **Expected Cubase 15 MIDI 2.0**: Q3 2026 (3-4 months after Windows stable)
+- **macOS Status**: Cubase already supports MIDI 2.0 high-res (CoreMIDI API)
+
+**MIDI-CI Handshake Decision**:
+- **Status**: **INCLUDED** in v0.4.0 (CRITICAL priority)
+- **Deadline**: Q3 2026 (to align with Cubase 15 MIDI 2.0 release)
+- **Implementation**: Capability Inquiry for MIDI 2.0 device discovery
+- **Fallback**: MIDI 1.0 for legacy DAWs without MIDI 2.0
+
+**Rationale**:
+- Windows MIDI 2.0 RC3 → stable in 1-2 months
+- Cubase 15 will add MIDI 2.0 support 3-4 months after Windows stable
+- Cubase macOS already supports MIDI 2.0 high-res
+- NI Kontrol S49 Mk3 ships with MIDI 2.0 + MIDI-CI today
+- OpenMIDIControl v0.4.0 must be ready by Q3 2026 for Cubase MIDI 2.0 wave
+
+**Implementation Priority**:
+1. ✅ Hybrid UMP (v0.2.2) - DONE
+2. ✅ SIMD optimization (v0.3.0) - In progress
+3. 🚨 **MIDI-CI + NDK Fast Path (v0.4.0)** - CRITICAL (Q3 2026 Cubase deadline)
+4. ⏳ Cross-platform abstraction (v0.5.0) - iOS/Windows ports
+
+**Removed from Roadmap**:
+- ~~"Native UMP Backend Migration"~~ (Hybrid approach is permanent for Android)
+
+**Added to Roadmap**:
+- ✅ **MIDI-CI Handshake** (v0.4.0) - Windows/macOS MIDI 2.0 negotiation
+- ✅ **Windows UMP Native** (v0.4.0) - Direct WinRT MIDI 2.0 transport (when SDK stabilizes)
+- ✅ **NI Kontrol Support** (v0.4.0) - Native Instruments MIDI 2.0 devices
+
+## 14. Android Version Support Policy
+
+| Version | Support Status | Rationale |
+|---------|---------------|-----------|
+| Android 13 (API 33) | ✅ Supported | UMP baseline, 90% coverage |
+| Android 14 (API 34) | ✅ Supported | Performance optimizations |
+| Android 15 (API 35) | ✅ Supported | Virtual UMP available but unused |
+| Android 12 (API 32) | ⚠️ Deprecated (v0.3.0) | No UMP support, <5% usage |
+| Android 11 (API 30) | ❌ End-of-Life (v0.2.2) | Legacy MIDI only |
+
+**Sunset Process**:
+1. Announce deprecation in CHANGELOG.md
+2. 6-month migration window
+3. Update `minSdkVersion` with major version bump (e.g., v1.0.0)
+
+## 15. References
 
 - [README.md](README.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
