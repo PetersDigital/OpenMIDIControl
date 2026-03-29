@@ -1,4 +1,4 @@
-package com.PetersDigital.OpenMIDIControl
+package com.petersdigital.openmidicontrol
 
 import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver

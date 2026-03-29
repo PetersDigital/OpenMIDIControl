@@ -16,7 +16,7 @@ plugins {
 }
 
 android {
-    namespace = "com.PetersDigital.OpenMIDIControl"
+    namespace = "com.petersdigital.openmidicontrol"
     compileSdk = 35 // Required for native UMP support (API 33+). Decoupled from Flutter SDK.
     ndkVersion = flutter.ndkVersion
 
@@ -35,7 +35,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.PetersDigital.OpenMIDIControl"
+        applicationId = "com.petersdigital.openmidicontrol"
         
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
