@@ -22,7 +22,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 #
 # IMPORTANT: When updating the version below, ALSO update `.version` at the
 # project root to keep CD workflows in sync (beta/RC tag generation).
-version: 0.2.1+1
+version: 0.2.2+1
 
 environment:
   sdk: ^3.11.0
