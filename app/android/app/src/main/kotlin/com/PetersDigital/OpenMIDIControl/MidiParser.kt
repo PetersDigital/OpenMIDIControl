@@ -1,4 +1,4 @@
-package com.PetersDigital.OpenMIDIControl
+package com.petersdigital.openmidicontrol
 
 import kotlinx.coroutines.channels.Channel
 
