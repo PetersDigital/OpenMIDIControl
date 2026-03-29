@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
-## [0.2.2] - Unreleased
+## [0.2.2] - 2026-03-30
 
 ### Added
 - Hybrid UMP implementation with manual 32-bit reconstruction in `MidiParser.kt`

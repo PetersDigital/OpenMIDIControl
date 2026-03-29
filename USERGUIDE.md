@@ -2,6 +2,8 @@
 
 This guide describes how to use and validate the current implementation.
 
+**Current Version**: v0.2.2 – Hybrid UMP Implementation with manual 32-bit reconstruction, automated test suite, and defensive bounds checking.
+
 ## 1. Scope
 
 The first iteration focuses on a reliable, low-latency, touch-to-MIDI control path.
@@ -10,9 +12,10 @@ Expected baseline:
 
 - Two expressive faders
 - Multi-touch input
-- MIDI output
+- MIDI output (UMP-enabled via hybrid implementation)
 - MIDI feedback into UI
 - Loop-resistant behavior under echoing hosts
+- Real-time diagnostics console with native timestamps
 
 ## 2. Environment Requirements
 
