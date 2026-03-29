@@ -4,10 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
-## [0.2.2] - Unreleased
+## [0.2.2] - 2026-03-30
 
 ### Added
+- **Native Android UMP Parsing (Phase 1):** Overhauled raw byte-array processing in `MainActivity.kt` to natively detect UMP alignment and reconstruct 4-byte payloads into 32-bit Big-Endian integers using logical bit-shifting. Prioritizes `MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS` queries on Android 13+.
+- **Bitwise Real-Time Spam Filtering (Phase 1):** Introduced native bitwise filtering directly on the reconstructed 32-bit integers to actively drop high-frequency system real-time spam (e.g., `0xF8` Timing Clock, `0xFE` Active Sensing) at the native boundary, completely isolating the Dart UI streams from unnecessary jitter.
+- **JNI Bridge Optimization (Phase 2):** Replaced expensive `Map`/`List` JNI bridging with a zero-allocation `LongArray`. Queues UMP and Timestamp values atomically into a coroutine channel and dispatches 1D arrays on the Main Looper, drastically reducing GC pressure during 120Hz MIDI sweeps.
+- **Dart UMP Integration (Phase 3):** Rewrote the core `MidiEvent` model to initialize directly from 32-bit UMP integers natively. Introduced bitwise getters (`messageType`, `group`, `status`, `channel`, `data1`, `data2`) and overrode `operator ==` / `hashCode` to allow Riverpod to inherently detect and filter redundant state updates.
+- **Comprehensive Automated Test Suite:** Introduced a rigorous multi-domain test architecture spanning native Kotlin (UMP heuristics, spam filtering, coroutine batch bounds), Dart Models (bitwise accuracy, Riverpod equality), and Flutter Integration pathways (EventChannel multiplexing under 10,000-event stress).
 - **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+
+### Changed
+- **Centralized Native Parsing:** Removed redundant, hardcoded 8-bit status-byte checks directly inside `PeripheralMidiService` and `VirtualMidiService`, forwarding raw, unfiltered byte arrays directly to a centralized `processMidiPayload` function in `MidiParser.kt`.
+
+### Fixed
+- **Array Bounds Crashes:** Fixed critical `ArrayIndexOutOfBoundsException` in the coroutine batch dispatcher and Dart stream loops via strict, defensive bounding (`count + 1 < batch.size` and `i + 1 < data.length`).
+- **Legacy Fallback Integrity:** Ensured non-UMP compliant hardware gracefully falls back to legacy 3-byte CC parsing, explicitly masking and preserving the 4-bit MIDI channel (`group.toLong() shl 24`) during internal UMP reconstruction.
+- **isUmp False Positives:** Reinforced the `isUmp` detection to read the first byte's Message Type nibble, preventing legacy MIDI streams from being incorrectly cast as UMP simply due to byte-alignment coincidence.
 
 ## [0.2.1] - 2026-03-26
 

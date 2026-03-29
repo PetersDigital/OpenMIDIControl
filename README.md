@@ -12,7 +12,8 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.1** (Current) Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
+- **v0.2.2** (Current) Native UMP reconstruction, zero-allocation JNI primitive arrays, bitwise spam filtering, and 32-bit `MidiEvent` model.
+- **v0.2.1** Canonical 32-bit model baseline, `ControlState` immutability, `MidiPortBackend` abstraction, and native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
@@ -104,12 +105,15 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 #### ✅ API 33+ Baseline (Post-v0.2.1)
 - **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
 
-### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate system-wide virtual routing to Android's UMP-specific services.
-- **SDK Constraint Handling**: Utilize legacy port classes for public API compatibility while enforcing UMP via transport flags.
-- **Manual 32-bit Reconstruction**: Native implementation of 4-byte chunk reconstruction from standard `byte[]` buffers for 32-bit UMP delivery.
+#### ✅ v0.2.2: Native UMP Backend Migration
+* **Native 32-bit Reconstruction**: Automatically detect and reconstruct 4-byte UMP payloads into 32-bit Big-Endian integers.
+* **JNI Optimization**: Replaced Map dispatches with zero-allocation `LongArray` multiplexing for 120Hz sweeps.
+* **Dart UMP Models**: Refactored `MidiEvent` to use native 32-bit integers and bitwise getters.
+* **Bitwise Filtering native**: Dropping real-time spam (`0xF8`/`0xFE`) at the native boundary.
 
-### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
+### ⏳ Current Focus: v0.2.3 – Core Routing Engine (UMP DAG)
+- **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
+- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
 - **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
 - **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
 

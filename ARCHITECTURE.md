@@ -186,12 +186,13 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 #### ✅ API 33+ Baseline (Post-v0.2.1)
 - **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP structures.
 
-### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate VirtualMidiService to inherit from Android's UMP-specific service for system-wide virtual routing.
-- **SDK Constraint Handling**: Revert backend abstractions to legacy `MidiDevice` and `MidiPort` classes to satisfy public API visibility, while guaranteeing UMP traffic via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
-- **Manual 32-bit Reconstruction**: Implement `MidiReceiver` logic to iterate through `byte[]` payloads in 4-byte chunks, reconstructing 32-bit integers with bitwise shifts and strict defensive bounds checking.
+### ✅ v0.2.2: Native UMP Backend Migration
+- **Native 32-bit Reconstruction (Phase 1):** Implemented logic to automatically detect and reconstruct 4-byte UMP payloads into 32-bit Big-Endian integers natively, complete with a legacy 3-byte CC fallback parsing. Added strict Message Type (MT) bitwise checks to silently drop `0xF8` (Timing Clock) and `0xFE` (Active Sensing) at the native boundary.
+- **JNI Bridge Optimization (Phase 2):** Replaced heavy `Map` event dispatches with zero-allocation, 1D primitive `LongArray` atomic batching across the EventChannel to handle 120Hz continuous sweeps without taxing the Garbage Collector.
+- **Dart UMP Native Models (Phase 3):** Refactored the internal `MidiEvent` model to initialize directly from 32-bit UMP integers using bitwise getters, with rigid `operator ==` overrides to empower Riverpod to inherently reject redundant high-frequency state updates.
+- **Automated Transport Test Suite:** Implemented a rigorous, multi-domain test architecture spanning native Kotlin (batch boundaries, heuristics), Dart (equality, parsing), and Flutter Integration (EventChannel multiplexing stress).
 
-### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
+### ⏳ Current Focus: v0.2.3 – Core Routing Engine (UMP DAG)
 - **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
 - **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
 

@@ -53,7 +53,7 @@ Expected baseline:
 - Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
 - The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
 - A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.2.1` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- The version + build metadata at the top helps confirm you are on the `v0.2.2` UI, and this screen will later house pick-up, smoothing, and transport preferences.
 - **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 
@@ -111,7 +111,7 @@ Notes:
 
 ## 7. Cubase Mapping Appendix (Initial)
 - Purpose: document how core controls map when using Cubase host adapters.
-### Current Mappings (v0.2.1):
+### Current Mappings (v0.2.2):
 - Fader A: CC11/CC43 (14-bit pair), Channel 1, pickup mode.
 - Fader B: CC1/CC33 (14-bit pair), Channel 1, pickup mode.
 - Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup.

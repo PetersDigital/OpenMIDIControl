@@ -37,12 +37,14 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 ### ✅ API 33+ Baseline (Post-v0.2.1)
 - **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native foundation for MIDI 2.0 and UMP (SHA `97e002e`).
 
-### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate `VirtualMidiService` and `PeripheralMidiService` to extend `MidiUmpDeviceService` (API 33+).
-- **SDK Constraint Handling**: Revert backend abstractions to legacy `MidiDevice` and `MidiPort` classes to satisfy compiler visibility, while guaranteeing UMP traffic via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
-- **Manual 32-bit Reconstruction**: Require `MidiReceiver` to iterate through `byte[]` in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts with strict defensive bounds checks (`offset >= 0`, `count % 4 == 0`).
+### ✅ v0.2.2: Native UMP Backend Migration
+- **Phase 1 (Native 32-bit Reconstruction):** Implemented logic to automatically detect and reconstruct 4-byte UMP payloads into 32-bit Big-Endian integers directly from the OS `byte[]` streams, complete with a legacy 3-byte CC fallback.
+- **Phase 1 (Bitwise Spam Filters):** Applied strict Message Type (MT) bitwise checks to silently drop `0xF8` (Timing Clock) and `0xFE` (Active Sensing) at the native boundary.
+- **Phase 2 (JNI Bridge Optimization):** Replaced heavy `Map` event dispatches with zero-allocation, 1D primitive `LongArray` multiplexing across the EventChannel to handle 120Hz continuous sweeps without GC pressure.
+- **Phase 3 (Dart UMP Native Models):** Refactored the internal `MidiEvent` model to initialize directly from 32-bit UMP integers using bitwise getters, with rigid `operator ==` overrides to empower Riverpod to inherently reject redundant high-frequency state updates.
+- **Automated Transport Test Suite:** Implemented a rigorous, multi-domain test architecture spanning native Kotlin (batch boundaries, heuristics), Dart (equality, parsing), and Flutter Integration (EventChannel multiplexing stress).
 
-### ⏳ v0.2.3 – Core Routing Engine (DAG)
+### ⏳ Current Focus: v0.2.3 – Core Routing Engine (DAG)
 - **MidiRouter Graph**: Centralized routing graph using canonical payloads.
 - **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams.
 
