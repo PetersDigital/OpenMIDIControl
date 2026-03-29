@@ -4,6 +4,8 @@
 ![CI Build](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/ci.yml?branch=main&style=for-the-badge&label=CI%20Build)
 ![License](https://img.shields.io/github/license/PetersDigital/OpenMIDIControl?style=for-the-badge&color=green)
 
+- **App Namespace**: Unified Android (package) and iOS bundle identifiers directly to `com.petersdigital.openmidicontrol` (Standardized v0.2.2).
+
 OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 This repository currently documents the new direction, design constraints, and implementation baseline.
@@ -170,7 +172,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 
 ## Credits
 
-- Project: PetersDigital
+- Project: Peters Digital
 - Contributors: maintainers and community contributors (see Git history)
 
 Full attributions: [CREDITS.md](CREDITS.md)
@@ -178,4 +180,4 @@ Full attributions: [CREDITS.md](CREDITS.md)
 ## License
 
 - Open source: GPL-3.0 ([LICENSE](LICENSE))
-- Commercial licensing: available separately from PetersDigital
+- Commercial licensing: available separately from Peters Digital

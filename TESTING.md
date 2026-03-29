@@ -9,7 +9,7 @@ This document outlines how to execute the test suite and the specific scenarios 
 
 ## 1. Phase A: Kotlin Native Transport & Logic Tests
 
-**Target Directory:** `app/android/app/src/test/kotlin/com/PetersDigital/OpenMIDIControl/`
+**Target Directory:** `app/android/app/src/test/kotlin/com/petersdigital/openmidicontrol/`
 **Test File:** `MidiParserTest.kt`
 **Runner:** Gradle (JUnit 4 + Coroutines Test)
 

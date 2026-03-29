@@ -170,7 +170,7 @@ flutter test test/midi_pipeline_integration_test.dart
 
 ```powershell
 # Monitor native logs (look for "UMP Reconstruction" or "32-bit Payload")
-adb logcat | Select-String "OpenMIDIControl|PeripheralMidi|MidiReceiver"
+adb logcat | Select-String "openmidicontrol|PeripheralMidi|MidiReceiver"
 
 # Send test MIDI messages (Windows MIDI Services)
 midi endpoint send-message 0x20B00140  # CC1, Value 64
