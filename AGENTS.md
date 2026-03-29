@@ -256,9 +256,112 @@ When making decisions, agents must prioritize in this order:
 - ⚠️ Manual UMP maintenance burden
 - ⚠️ ~0.5ms reconstruction overhead (negligible vs. USB)
 
-**Review Date**: 2027-Q1 (re-evaluate when Android 15+ adoption >80%)
+**Review Date**: Permanent architecture (no migration planned)
 
 **See**: ARCHITECTURE.md Section 3.2 for detailed data flow
+
+### TDR-002: Kotlin SIMD Optimization (v0.3.0)
+
+**Decision**: Implement RenderScript-based SIMD UMP reconstruction
+
+**Rationale**:
+- Current sequential bitwise ops: ~0.5ms latency
+- SIMD batch processing target: <0.1ms (4x speedup)
+- Works on Android 13-15 (90% coverage)
+- No SDK dependencies or feature flags
+
+**Implementation**:
+```kotlin
+// RenderScript SIMD: Process 16 bytes in parallel
+fun reconstructUmpSimd(bytes: ByteArray): IntArray {
+    // Allocate RenderScript allocation
+    // Execute kernel: bitwise shifts in parallel
+    // Copy results to IntArray
+}
+```
+
+**Trade-offs**:
+- ✅ 4x latency reduction (0.5ms → 0.1ms)
+- ✅ RenderScript available since API 17
+- ⚠️ RenderScript deprecated in Android 12+ (but still supported)
+- ⚠️ Alternative: Vulkan compute shaders (higher complexity)
+
+**Review Date**: v0.3.0 implementation
+
+**See**: ARCHITECTURE.md Section 13.1
+
+### TDR-003: NDK Fast Path (v0.4.0)
+
+**Decision**: Migrate hot path to C++ NDK with Dart FFI
+
+**Rationale**:
+- Kotlin JVM adds ~0.3-0.5ms GC jitter
+- Android `AMidi` (NDK) has direct UMP support since API 33
+- Zero-copy shared memory ring buffer
+- Complete GC elimination
+
+**Migration Triggers** (ANY triggers):
+- UMP reconstruction latency >0.3ms
+- GC pauses >16ms during heavy automation
+- Thermal throttling under 1000+ events/sec
+- User reports of audio dropouts
+
+**Implementation**:
+```cpp
+// C++ NDK: Zero-copy ring buffer
+class UmpRingBuffer {
+    void enqueue(uint32_t ump, int64_t timestamp);
+    std::array<uint8_t, 1024> dequeue_batch();
+};
+```
+
+**Trade-offs**:
+- ✅ Sub-0.1ms latency target
+- ✅ Zero GC jitter
+- ✅ Works on Android 13+ (same as hybrid)
+- ⚠️ C++ maintenance burden
+- ⚠️ NDK build complexity
+
+**Review Date**: v0.4.0 implementation
+
+**See**: ARCHITECTURE.md Section 13.2
+
+### TDR-004: MIDI 2.0 Strategy (Feb 2026 Update)
+
+**Decision**: **INCLUDE** MIDI-CI Handshake in v0.4.0 (CRITICAL)
+
+**Windows MIDI 2.0 Timeline**:
+- **Current Status**: Release Candidate 3 (RC3) - February 2026
+- **Expected Stable**: March-April 2026 (1-2 months from RC3)
+- **Expected Cubase 15 MIDI 2.0**: Q3 2026 (3-4 months after Windows stable)
+- **macOS Status**: Cubase already supports MIDI 2.0 high-res (CoreMIDI)
+
+**Implementation**:
+- **Priority**: CRITICAL (Q3 2026 deadline for Cubase MIDI 2.0 wave)
+- **Version**: v0.4.0
+- **Purpose**: Capability Inquiry for MIDI 2.0 device discovery
+- **Fallback**: MIDI 1.0 for legacy DAWs without MIDI 2.0
+
+**Why This Timeline Matters**:
+- Windows MIDI 2.0 RC3 → stable in 1-2 months (March-April 2026)
+- Cubase 15 will add MIDI 2.0 support 3-4 months after Windows stable (Q3 2026)
+- OpenMIDIControl v0.4.0 must be ready by Q3 2026 to ride the Cubase MIDI 2.0 wave
+- NI Kontrol S49 Mk3 already ships with MIDI 2.0 + MIDI-CI
+
+**Example Implementation**:
+```dart
+// MIDI-CI Profile Discovery
+class MidiCiNegotiator {
+  Future<Midi2Profile> negotiate() async {
+    // Send MIDI-CI Inquiry
+    // Receive device capabilities
+    // Negotiate MIDI 2.0 vs 1.0
+    // Configure UMP transport
+  }
+}
+```
+
+**See**: ARCHITECTURE.md Section 13.4 for full rationale
 
 ## Safety & Compliance
 

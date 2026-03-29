@@ -84,29 +84,109 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - Updated TESTING.md with comprehensive test suite documentation
 
 ### ⏳ v0.2.3 – Core Routing Engine (DAG)
-- **MidiRouter Graph**: Centralized routing graph using canonical payloads.
-- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams.
+- **MidiRouter Graph**: Centralized routing graph using canonical 32-bit UMP payloads
+- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting streams
+- **Routing Presets**: Save/load routing configurations as JSON
+- **Latency Monitoring**: Real-time UMP pipeline latency measurement (p50, p95, p99)
 
-### ⏳ v0.3.0 – Control Expansion & Basic State
-- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
-- **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
-- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
+### ⏳ v0.3.0 – Performance Optimization & Control Expansion
+**Performance Optimizations**:
+- **Kotlin SIMD UMP Reconstruction**: RenderScript-based batch processing targeting <0.1ms latency (4x speedup)
+- **Zero-Copy Ring Buffer**: Replace Channel with shared memory ring buffer for JNI dispatch
+- **GC Elimination**: Preallocate all UMP buffers, eliminate per-event allocations
 
-### ⏳ v0.4.x – The MCU / HUI Protocol Series
-- **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
-- **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
-- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+**Control Expansion**:
+- **3x3 Pad Grid**: Velocity-sensitive pads with aftertouch support
+- **Per-Note Polyphonic Aftertouch**: UMP-native per-note pressure control (MIDI 2.0 feature)
+- **32-bit High-Resolution CC**: Native 32-bit CC values instead of 7-bit (0-127)
+- **Multi-Channel Assignment**: Per-control MIDI channel assignment (1-16)
 
-### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
-- **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
-- **Performance Audit**: Benchmark Kotlin pipeline against native DAW integrations.
-- **NDK Fast Path (Conditional)**: C++ AMidi and Dart FFI shared memory migration.
+**State Management**:
+- **Raw Snapshots**: Save/load complete control state as JSON
+- **Preset Management**: Quick-swap between routing/CC configurations
+- **Cloud Sync**: Optional preset backup via Google Drive (future)
 
-### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
-- **MIDI-CI Handshake**: Capability Inquiry negotiation.
-- **OS UMP Integration**: Direct UMP payload transfer for supported platforms.
+### ⏳ v0.4.0 – NDK Fast Path & MIDI 2.0 Integration (CRITICAL)
+**NDK Fast Path** (MOVED UP from v0.5.0):
+- **C++ AMidi Implementation**: Direct UMP handling via Android NDK AMidi API
+- **Dart FFI Bridge**: Zero-copy shared memory between NDK and Flutter
+- **Sub-0.1ms Latency**: Target end-to-end UMP latency <100µs
+- **No GC Jitter**: Complete elimination of Kotlin JVM garbage collection pauses
 
-### ⏳ v0.6.0+: Customization & Plugins
-- **Full Preset Engine**: Snapshot management and schema saving.
-- **Layout Editor**: Visual drag-and-drop customization and serializable UI schema.
-- **Plugin Layer**: Extensibility hooks for custom transformers and protocol adapters.
+**MIDI 2.0 Integration** (TIMING: Windows RC3 → Stable in 1-2 months):
+- **Windows MIDI 2.0 Status**: Release Candidate 3 (RC3) as of Feb 2026
+- **Expected Stable Release**: March-April 2026 (1-2 months from RC3)
+- **Expected Cubase 15 MIDI 2.0**: Q3 2026 (3-4 months after Windows stable)
+- **MIDI-CI Handshake**: Capability Inquiry for MIDI 2.0 device discovery
+- **High-Res CC (32-bit)**: Native UMP 32-bit control (Cubase macOS already supports)
+- **Per-Note Pitch/Pressure**: UMP Channel Voice messages
+- **Windows UMP Native**: Direct WinRT MIDI 2.0 transport (when SDK stabilizes)
+
+**DAW Profile Presets**:
+- Pre-configured mappings for Cubase, Ableton, FL Studio, Logic
+- MIDI 2.0 negotiation profiles per DAW
+- Fallback to MIDI 1.0 for legacy DAWs
+
+**Why MIDI-CI is CRITICAL** (Feb 2026 Update):
+- ✅ Windows 11 MIDI 2.0 **RC3** (stable release in 1-2 months)
+- ✅ Cubase 15 will add MIDI 2.0 support **3-4 months after Windows stable**
+- ✅ Cubase macOS already supports MIDI 2.0 high-res (CoreMIDI)
+- ✅ NI Kontrol S49 Mk3 ships with MIDI 2.0 + MIDI-CI
+- ✅ **Timeline**: OpenMIDIControl v0.4.0 must be ready by Q3 2026 for Cubase MIDI 2.0 wave
+
+**Implementation Priority**:
+1. ✅ Hybrid UMP (v0.2.2) - DONE
+2. ✅ SIMD optimization (v0.3.0) - In progress
+3. 🚨 **NDK Fast Path + MIDI-CI (v0.4.0)** - CRITICAL (Q3 2026 Cubase deadline)
+4. ⏳ Cross-platform abstraction (v0.5.0) - iOS/Windows ports
+
+### ⏳ v0.5.0 – Cross-Platform UMP Abstraction
+**Platform Abstraction Layer**:
+- **ump_reconstructor.dart**: Platform-agnostic UMP bitwise extraction (shared)
+- **ump_router.dart**: Cross-platform DAG routing engine (shared)
+- **ump_profiles.dart**: DAW profile definitions (shared)
+
+**iOS/iPadOS Port** (NEW):
+- **Swift UMP Reconstruction**: Native iOS implementation using CoreMIDI
+- **iPad Layout Optimization**: Tablet-first UI with expanded control surface
+- **Apple Silicon UMP**: Optimized for M-series chips with SIMD acceleration
+
+**Windows Desktop Port** (NEW):
+- **WinRT MIDI Services**: Native Windows 11 MIDI 2.0 support
+- **Desktop UI Layout**: Mouse/keyboard-optimized control surface
+- **VST3 Wrapper**: Host OpenMIDIControl as a VST3 plugin (future exploration)
+
+### ⏳ v0.6.0 – Plugin Architecture & Advanced Features
+**Plugin System**:
+- **Custom Transformers**: User-authored UMP processing plugins (Dart API)
+- **Protocol Adapters**: Third-party MCU/HUI/OSC implementations
+- **Layout Plugins**: Custom UI control definitions via JSON schema
+
+**Advanced Features**:
+- **Visual Feedback**: OLED display integration for parameter values
+- **Haptic Patterns**: Customizable vibration feedback per control
+- **Network MIDI**: RTP-MIDI (Wi-Fi) and Bluetooth MIDI transport
+- **OSC Bridge**: Open Sound Control protocol integration
+
+### ⏳ v0.7.0 – Layout Editor & Community Features
+**Layout Editor**:
+- **Visual Designer**: Drag-and-drop control surface builder
+- **Serializable Schema**: All controls defined in JSON/YAML
+- **Community Sharing**: Preset marketplace for layouts/routing
+
+**Community Features**:
+- **Preset Marketplace**: User-submitted routing/CC configurations
+- **DAW Profile Contributions**: Community-maintained DAW mappings
+- **Plugin Repository**: Third-party transformer/plugin hosting
+
+### ⏳ v1.0.0 – Stable Release & Contributor-Ready
+**Release Criteria**:
+- **API Stability**: Frozen public API for third-party developers
+- **Complete Documentation**: Developer guides, API references, tutorials
+- **Test Coverage**: >90% unit test coverage, automated fuzzing
+- **Performance Benchmarks**: All targets met (<0.1ms latency, 0% idle CPU)
+
+**Final Polish**:
+- **Accessibility Audit**: Full screen reader support, high-contrast themes
+- **Security Review**: Third-party security audit for NDK/FFI code
+- **Localization**: Multi-language UI support (Chinese, Japanese, German)
