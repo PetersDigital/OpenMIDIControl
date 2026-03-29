@@ -73,3 +73,192 @@ Navigate to the root flutter app directory and run:
 cd app
 flutter test test/midi_pipeline_integration_test.dart
 ```
+
+---
+
+## 4. Phase D: UMP Fuzzing Tests (v0.3.0+)
+
+**Target Directory:** `app/android/app/src/androidTest/kotlin/com/petersdigital/openmidicontrol/`
+**Test File:** `UmpFuzzTest.kt`
+**Runner:** Gradle (Android Instrumentation Tests)
+
+### Overview
+Automated fuzzing tests generate random UMP packets to validate reconstruction accuracy and measure latency distribution under stress conditions.
+
+### Scenarios Validated:
+- **Random UMP Generation:** Generates 10,000 random valid UMP packets (all message types, groups, channels).
+- **Reconstruction Accuracy:** Validates 100% accurate reconstruction after byte[] → UMP conversion.
+- **Latency Distribution:** Measures p50, p95, p99 latency percentiles.
+- **Malformed Packet Handling:** Injects invalid packets (wrong length, invalid MT) to validate graceful degradation.
+- **Boundary Conditions:** Tests minimum (4 bytes) and maximum (16 bytes) UMP packet sizes.
+
+### Performance Targets:
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| **Reconstruction Accuracy** | 100% | All packets correctly reconstructed |
+| **p50 Latency** | <0.3ms | 50th percentile latency |
+| **p95 Latency** | <0.5ms | 95th percentile latency |
+| **p99 Latency** | <1.0ms | 99th percentile latency |
+| **GC Allocations** | <100KB/batch | Memory churn per batch |
+
+### Conceptual Implementation (v0.3.0+):
+
+> [!NOTE]
+> This is a conceptual example showing the intended structure for UMP fuzzing tests. Actual implementation requires `generateRandomUmp()` helper and proper instrumentation test setup.
+
+```kotlin
+@Test
+fun umpFuzzTest() {
+    val random = Random(42) // Fixed seed for reproducibility
+    val latencies = mutableListOf<Long>()
+
+    repeat(10_000) { i ->
+        // Generate random UMP packet
+        val umpPacket = generateRandomUmp(random)
+
+        // Measure reconstruction latency
+        val start = System.nanoTime()
+        val reconstructed = MidiParser.reconstruct(umpPacket)
+        val latency = (System.nanoTime() - start) / 1_000_000 // Convert to ms
+
+        // Validate accuracy
+        assertEquals(umpPacket, reconstructed)
+        latencies.add(latency)
+    }
+
+    // Calculate percentiles
+    latencies.sort()
+    val p50 = latencies[latencies.size * 50 / 100]
+    val p95 = latencies[latencies.size * 95 / 100]
+    val p99 = latencies[latencies.size * 99 / 100]
+
+    // Assert performance targets
+    assertTrue(p50 < 0.3, "p50 latency $p50ms exceeds 0.3ms target")
+    assertTrue(p95 < 0.5, "p95 latency $p95ms exceeds 0.5ms target")
+    assertTrue(p99 < 1.0, "p99 latency $p99ms exceeds 1.0ms target")
+}
+```
+
+### How to Run:
+```powershell
+cd app/android
+.\gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.petersdigital.openmidicontrol.UmpFuzzTest
+```
+
+**Requirements:**
+- Connected Android device or emulator
+- USB debugging enabled
+- Android 13+ (API 33)
+
+---
+
+## 5. Hardware-in-the-Loop (HITL) Testing
+
+For native layer changes, validate with physical MIDI hardware as described in the main test sections above.
+
+---
+
+## 6. Performance Benchmarking (v0.3.0+)
+
+**Target:** Continuous performance monitoring with automated regression detection.
+
+### Conceptual Benchmark Suite (v0.3.0+):
+
+> [!NOTE]
+> This is a conceptual example showing the intended structure for performance benchmarks. Actual implementation requires JMH (Java Microbenchmark Harness) or similar benchmarking framework.
+
+```kotlin
+@OptIn(BenchmarkTime::class)
+@Test
+fun benchmarkUmpReconstruction() {
+    val umpPacket = byteArrayOf(0x20, 0xB0, 0x01, 0x40)
+
+    // Warm up JIT
+    repeat(1000) { MidiParser.reconstruct(umpPacket) }
+
+    // Measure
+    val start = System.nanoTime()
+    repeat(100_000) { MidiParser.reconstruct(umpPacket) }
+    val elapsed = (System.nanoTime() - start) / 1_000_000
+
+    println("Average latency: ${elapsed / 100_000.0}ms")
+}
+```
+
+### Benchmark Targets:
+| Operation | Target | Current (v0.2.2) |
+|-----------|--------|------------------|
+| **UMP Reconstruction** | <0.1ms | ~0.5ms |
+| **Event Batching (1000 events)** | <5ms | ~8ms |
+| **State Update (Riverpod)** | <1ms | ~2ms |
+| **UI Rebuild (Fader)** | <16ms | ~8ms |
+
+### How to Run:
+```powershell
+cd app/android
+.\gradlew.bat :app:benchmark
+```
+
+**Output:**
+- CSV files with latency distributions
+- Flame graphs for hotspot analysis
+- GC allocation reports
+
+---
+
+## 7. Test Coverage Requirements (v0.2.2+)
+
+**Minimum Coverage Targets:**
+- **Kotlin Native Layer:** >85% line coverage
+- **Dart Models:** >90% line coverage
+- **UI Components:** >70% line coverage
+
+**Coverage Reports:**
+```powershell
+# Kotlin coverage
+cd app/android
+.\gradlew.bat :app:koverHtmlReport
+
+# Dart coverage
+cd app
+flutter test --coverage
+genhtml coverage/lcov.info -o coverage/html
+```
+
+**Coverage Tools:**
+- Kotlin: Kover (Kotlinx)
+- Dart: `lcov` + `genhtml`
+
+---
+
+## 8. Continuous Integration Testing
+
+**GitHub Actions Workflow:**
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Kotlin Tests
+        run: cd app/android && ./gradlew test
+      
+      - name: Run Dart Tests
+        run: cd app && flutter test
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+```
+
+**Required Checks for PR Merge:**
+- ✅ All Kotlin tests pass
+- ✅ All Dart tests pass
+- ✅ `flutter analyze` passes
+- ✅ Code coverage meets minimum targets
+- ✅ Performance benchmarks within targets (v0.3.0+)
