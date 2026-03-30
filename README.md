@@ -1,7 +1,7 @@
 # OpenMIDIControl
 
 ![Release](https://img.shields.io/github/v/release/PetersDigital/OpenMIDIControl?style=for-the-badge&color=blue)
-![CI Build](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/ci.yml?branch=main&style=for-the-badge&label=CI%20Build)
+![CI Build](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/ci_main.yml?branch=main&style=for-the-badge&label=CI%20Build)
 ![License](https://img.shields.io/github/license/PetersDigital/OpenMIDIControl?style=for-the-badge&color=green)
 
 - **App Namespace**: Unified Android (package) and iOS bundle identifiers directly to `com.petersdigital.openmidicontrol` (Standardized v0.2.2).
@@ -215,7 +215,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 
 Full attributions: [CREDITS.md](CREDITS.md)
 
-## License
+## Licensing
 
-- Open source: GPL-3.0 ([LICENSE](LICENSE))
-- Commercial licensing: available separately from Peters Digital
+OpenMIDIControl is dual-licensed:
+
+- GPL-3.0 (default open-source license)
+- Commercial license (available from PetersDigital)
+
+For commercial licensing, contact PetersDigital.
