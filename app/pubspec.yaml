@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: app
 description: "OpenMIDIControl - A touch-first, low-latency MIDI control surface."
 # The following line prevents the package from being accidentally published to
@@ -81,6 +84,3 @@ flutter:
     - family: 'Space Grotesk'
       fonts:
         - asset: assets/fonts/SpaceGrotesk-Variable.ttf
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
