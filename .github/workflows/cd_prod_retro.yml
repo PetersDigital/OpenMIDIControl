@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   validate-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     outputs:
       tag_commit: ${{ steps.validate.outputs.commit }}
@@ -145,7 +145,7 @@ jobs:
 
   analyze-and-test:
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     defaults:
       run:
@@ -172,7 +172,7 @@ jobs:
 
   build-android:
     needs: [validate-tag, analyze-and-test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     defaults:
       run:
@@ -276,7 +276,7 @@ jobs:
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read
@@ -308,7 +308,7 @@ jobs:
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
       needs.provenance.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
@@ -366,7 +366,7 @@ jobs:
             openmidicontrol-*-windows.zip.pem
 
   notify-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     needs: [validate-tag, publish-release]
     if: always()

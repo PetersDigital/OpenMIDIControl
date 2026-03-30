@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   validate-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     outputs:
       tag_commit: ${{ steps.validate.outputs.commit }}
@@ -57,7 +57,7 @@ jobs:
 
   analyze-and-test:
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     defaults:
       run:
@@ -67,6 +67,31 @@ jobs:
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -77,7 +102,7 @@ jobs:
 
   build-android:
     needs: [validate-tag, analyze-and-test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     defaults:
       run:
@@ -86,6 +111,30 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
 
       - name: Build Android APK
         id: build
@@ -140,6 +189,30 @@ jobs:
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: Build Windows ZIP
         id: build
         uses: ./.github/actions/flutter-build-windows
@@ -173,13 +246,37 @@ jobs:
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read
       attestations: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -203,7 +300,7 @@ jobs:
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
       needs.provenance.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
@@ -211,8 +308,38 @@ jobs:
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded files ==="
+          ls -la
+          echo "========================"
 
       - name: Ensure GitHub CLI
         if: github.event.inputs.force == 'true'
@@ -247,26 +374,80 @@ jobs:
           commit-hash: ${{ needs.validate-tag.outputs.tag_commit }}
           triggered-by: ${{ github.actor }}
 
+      - name: Prepare release assets list
+        id: assets
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          FILES=""
+
+          # Android APK and signatures
+          for ext in apk sig pem; do
+            FILE="openmidicontrol-${TAG}-android.${ext}"
+            if [ -f "$FILE" ]; then
+              FILES="$FILES $FILE"
+              echo "Found: $FILE"
+            else
+              echo "::warning::File not found: $FILE"
+            fi
+          done
+
+          # Windows ZIP and signatures (if exists)
+          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+            for ext in zip sig pem; do
+              FILE="openmidicontrol-${TAG}-windows.${ext}"
+              if [ -f "$FILE" ]; then
+                FILES="$FILES $FILE"
+                echo "Found: $FILE"
+              else
+                echo "::warning::File not found: $FILE"
+              fi
+            done
+          fi
+
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+
       - name: Update GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md
           draft: false
-          files: |
-            openmidicontrol-*-android.apk
-            openmidicontrol-*-android.apk.sig
-            openmidicontrol-*-android.apk.pem
-            openmidicontrol-*-windows.zip
-            openmidicontrol-*-windows.zip.sig
-            openmidicontrol-*-windows.zip.pem
+          files: ${{ steps.assets.outputs.files }}
 
   notify-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     needs: [validate-tag, publish-release]
     if: always()
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: Notify Telegram
         uses: ./.github/actions/notify-telegram
         with:
