@@ -1,5 +1,9 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Legacy production rebuild for old tags with CI action restoration from main
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: "CD: Legacy Production Rebuild (Retroactive)"
 
 on:
@@ -26,14 +30,15 @@ permissions:
 
 jobs:
   validate-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
     outputs:
       tag_commit: ${{ steps.validate.outputs.commit }}
       tag: ${{ steps.validate.outputs.tag }}
       has_windows: ${{ steps.windows_check.outputs.has_windows }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.inputs.tag }}
           fetch-depth: 0
@@ -140,12 +145,13 @@ jobs:
 
   analyze-and-test:
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -166,7 +172,8 @@ jobs:
 
   build-android:
     needs: [validate-tag, analyze-and-test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
@@ -174,7 +181,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -197,7 +204,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -205,7 +212,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: android-apk
           retention-days: 1
@@ -218,6 +225,7 @@ jobs:
     needs: [validate-tag, analyze-and-test]
     if: needs.validate-tag.outputs.has_windows == 'true'
     runs-on: windows-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: app
@@ -225,7 +233,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -244,7 +252,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -252,7 +260,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: windows-build
           retention-days: 1
@@ -263,17 +271,18 @@ jobs:
 
   provenance:
     needs: [validate-tag, build-android, build-windows]
+    timeout-minutes: 10
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -293,16 +302,17 @@ jobs:
 
   publish-release:
     needs: [validate-tag, build-android, build-windows, provenance]
+    timeout-minutes: 15
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
       needs.provenance.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -342,7 +352,7 @@ jobs:
           triggered-by: ${{ github.actor }}
 
       - name: Update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md
@@ -356,7 +366,8 @@ jobs:
             openmidicontrol-*-windows.zip.pem
 
   notify-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
     needs: [validate-tag, publish-release]
     if: always()
     steps:

@@ -1,20 +1,24 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Automated check for dual-license headers in all source files
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: License Header Check
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
-    branches: [main]
+    branches: ['**']
 
 jobs:
   license-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 1
 
