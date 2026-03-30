@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
 class MidiEvent {
   final int messageType; // e.g., 0xB0 for CC
   final int channel; // 0-15
