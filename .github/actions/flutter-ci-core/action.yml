@@ -8,6 +8,10 @@ inputs:
     description: 'Path to the flutter project'
     required: true
     default: 'app'
+  flutter-version:
+    description: 'Flutter version to use (optional, defaults to stable)'
+    required: false
+    default: 'stable'
   telegram-token:
     description: 'Telegram Bot Token'
     required: false
@@ -19,6 +23,12 @@ outputs:
   has_windows:
     description: 'Whether the windows folder exists'
     value: ${{ steps.windows_check.outputs.has_windows }}
+  job_status:
+    description: 'Status of the CI job'
+    value: ${{ steps.metrics.outputs.JOB_STATUS }}
+  job_started_at:
+    description: 'Timestamp when the job started'
+    value: ${{ steps.metrics.outputs.JOB_STARTED_AT }}
 
 runs:
   using: 'composite'
@@ -54,6 +64,7 @@ runs:
     - name: Setup Flutter
       uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
       with:
+        flutter-version: ${{ inputs.flutter-version }}
         channel: stable
         cache: true
 
@@ -71,6 +82,14 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: flutter test
+
+    - name: Record Build Metrics
+      id: metrics
+      if: always()
+      shell: bash
+      run: |
+        echo "JOB_STATUS=${{ job.status }}" >> "$GITHUB_OUTPUT"
+        echo "JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
     - name: Notify Failure to Telegram
       if: failure() && inputs.telegram-token != '' && inputs.telegram-chat-id != ''
