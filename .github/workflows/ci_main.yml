@@ -14,9 +14,8 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'pubspec.yaml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+      - '!**.md'
+      - '!docs/**'
   pull_request:
     branches: [main]
     paths:
@@ -24,9 +23,8 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'pubspec.yaml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+      - '!**.md'
+      - '!docs/**'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

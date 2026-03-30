@@ -15,9 +15,8 @@ on:
       - '.github/**'
       - 'scripts/**'
       - 'pubspec.yaml'
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+      - '!**.md'
+      - '!docs/**'
 
 concurrency:
   group: dev-${{ github.workflow }}-${{ github.ref }}
