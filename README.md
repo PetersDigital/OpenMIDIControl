@@ -2,6 +2,9 @@
 
 ![Release](https://img.shields.io/github/v/release/PetersDigital/OpenMIDIControl?style=for-the-badge&color=blue)
 ![CI Build](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/ci_main.yml?branch=main&style=for-the-badge&label=CI%20Build)
+![CD: Dev Distribution](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/cd_dev_dist.yml?branch=beta&style=for-the-badge&label=Dev%20Builds)
+![CD: Auto Release](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/cd_prod_auto.yml?branch=main&style=for-the-badge&label=Auto%20Release)
+![Workflow Validation](https://img.shields.io/github/actions/workflow/status/PetersDigital/OpenMIDIControl/validate_workflows.yml?branch=main&style=for-the-badge&label=Workflow%20Validation)
 ![License](https://img.shields.io/github/license/PetersDigital/OpenMIDIControl?style=for-the-badge&color=green)
 
 - **App Namespace**: Unified Android (package) and iOS bundle identifiers directly to `com.petersdigital.openmidicontrol` (Standardized v0.2.2).
