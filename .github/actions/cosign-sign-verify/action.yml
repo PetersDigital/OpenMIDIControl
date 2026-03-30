@@ -25,6 +25,7 @@ runs:
           --yes \
           --output-signature "${FILE}.sig" \
           --output-certificate "${FILE}.pem" \
+          --oidc-issuer https://token.actions.githubusercontent.com \
           "$FILE"
 
     - name: Verify Cosign signature
