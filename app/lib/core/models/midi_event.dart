@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
 class MidiEvent {
   final int ump; // 32-bit Universal MIDI Packet integer
   final int timestamp; // nanoseconds or milliseconds
