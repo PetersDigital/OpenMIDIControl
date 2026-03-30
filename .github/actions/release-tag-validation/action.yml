@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: 'CD: Release Tag Validation'
 description: 'Validate release tag security invariants (actor, GPG, tag, main ancestry, retargeting, API verify).'
 inputs:
