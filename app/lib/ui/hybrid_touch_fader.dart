@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -116,6 +118,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     }
   }
 
+  // Throttle MIDI updates to prevent flooding during rapid touch movement
+  int _lastMidiUpdateTimeMs = 0;
+  static const _midiUpdateThrottleMs = 8; // ~120Hz max
+
   void _handleDragUpdate(
     DragUpdateDetails details,
     BoxConstraints constraints,
@@ -125,7 +131,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           (_animationController.value -
                   (details.delta.dy / constraints.maxHeight))
               .clamp(0.0, 1.0);
-      _sendMidiUpdate();
+      _sendMidiUpdateThrottled();
       return;
     }
 
@@ -151,6 +157,15 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   void _applyAbsolutePosition(double localY, double maxHeight) {
     _animationController.value = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
+    _sendMidiUpdateThrottled();
+  }
+
+  void _sendMidiUpdateThrottled() {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastMidiUpdateTimeMs < _midiUpdateThrottleMs) {
+      return; // Throttle to prevent MIDI flooding
+    }
+    _lastMidiUpdateTimeMs = nowMs;
     _sendMidiUpdate();
   }
 
