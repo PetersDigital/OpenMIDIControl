@@ -9,9 +9,9 @@ inputs:
     required: true
     default: 'app'
   flutter-version:
-    description: 'Flutter version to use (optional, defaults to stable)'
+    description: 'Flutter version to use (optional, defaults to latest on channel)'
     required: false
-    default: 'stable'
+    default: ''
   telegram-token:
     description: 'Telegram Bot Token'
     required: false
