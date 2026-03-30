@@ -38,7 +38,7 @@ jobs:
       tag: ${{ steps.validate.outputs.tag }}
     steps:
       - name: Checkout Repository (workflow engine code)
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           fetch-depth: 0
@@ -103,7 +103,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-android
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        uses: sigstore/cosign-installer@dc72c7d5f4d10eb51bdefcf97cb667f4020117b4 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -111,7 +111,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3  # v4.3.1
+      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.6.0
         with:
           name: android-apk
           retention-days: 1
@@ -143,7 +143,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+        uses: sigstore/cosign-installer@dc72c7d5f4d10eb51bdefcf97cb667f4020117b4 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -151,7 +151,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3  # v4.3.1
+      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.6.0
         with:
           name: windows-build
           retention-days: 1
@@ -180,13 +180,13 @@ jobs:
         uses: ./.github/actions/download-and-prepare-artifacts
 
       - name: Generate Provenance (Android)
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c  # v1.0.0
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.0
         with:
           subject-path: openmidicontrol-*-android.apk
 
       - name: Generate Provenance (Windows)
         if: needs.build-windows.result == 'success'
-        uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c  # v1.0.0
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.0
         with:
           subject-path: openmidicontrol-*-windows.zip
 
@@ -217,7 +217,7 @@ jobs:
           commit-hash: ${{ needs.verify-tag-on-main.outputs.tag_commit }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564  # v2.0.4
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         with:
           fail_on_unmatched_files: false
           body_path: release_notes.md

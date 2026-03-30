@@ -10,6 +10,6 @@ runs:
   using: composite
   steps:
     - name: Generate provenance attestation
-      uses: actions/attest-build-provenance@1c608d11d69870c2092266b3f9a6f3abbf17002c  # v1.0.0
+      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.0
       with:
         subject-path: "${{ inputs.subject_path }}"

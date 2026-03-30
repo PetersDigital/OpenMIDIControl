@@ -27,7 +27,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - uses: subosito/flutter-action@61a25ed2e61a6198a8a0e6a7ea1f7a1e8b7f0d2a  # v2.12.0
+    - uses: subosito/flutter-action@f2c4f66b5e13d1000b05b38ed6a378d3ebacccaa # v2.18.0
       with:
         channel: stable
         cache: true

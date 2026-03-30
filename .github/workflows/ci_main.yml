@@ -41,9 +41,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: 'CI: Dependency Review'
-        uses: actions/dependency-review-action@5a2ce3f5b92314141e6c959e471f7103917a3f1d  # v4.2.3
+        uses: actions/dependency-review-action@331e879f1505bd63bf5f2b8618ebc04b8ceaa373 # v4.5.0
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-3.0, AGPL-3.0
@@ -64,7 +64,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 1
       - name: 'CI: Runner CI Core'
@@ -88,15 +88,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 1
-      - uses: actions/setup-java@7a6d8a8234af8eb26422e24e3006cb34af97e1d9  # v4.2.0
+      - uses: actions/setup-java@b36c23c0d998ce418d60f00f48e14fd4e4bb1d27 # v4.2.2
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-      - uses: subosito/flutter-action@61a25ed2e61a6198a8a0e6a7ea1f7a1e8b7f0d2a  # v2.12.0
+      - uses: subosito/flutter-action@f2c4f66b5e13d1000b05b38ed6a378d3ebacccaa # v2.18.0
         with:
           channel: stable
           cache: true
@@ -115,10 +115,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 1
-      - uses: subosito/flutter-action@61a25ed2e61a6198a8a0e6a7ea1f7a1e8b7f0d2a  # v2.12.0
+      - uses: subosito/flutter-action@f2c4f66b5e13d1000b05b38ed6a378d3ebacccaa # v2.18.0
         with:
           channel: stable
           cache: true
