@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 // Utility class to check MIDI support at runtime
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
