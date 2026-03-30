@@ -38,7 +38,7 @@ jobs:
       has_windows: ${{ steps.windows_check.outputs.has_windows }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.inputs.tag }}
           fetch-depth: 0
@@ -151,7 +151,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2  # v4.1.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2  # v4.1.1
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -180,7 +180,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2  # v4.1.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2  # v4.1.1
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -232,7 +232,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -281,7 +281,7 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -311,7 +311,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
