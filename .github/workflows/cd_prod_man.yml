@@ -27,6 +27,7 @@ permissions:
 jobs:
   validate-tag:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       tag_commit: ${{ steps.validate.outputs.commit }}
       tag: ${{ steps.validate.outputs.tag }}
@@ -53,6 +54,7 @@ jobs:
   analyze-and-test:
     needs: validate-tag
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app
@@ -72,6 +74,7 @@ jobs:
   build-android:
     needs: [validate-tag, analyze-and-test]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
@@ -124,6 +127,7 @@ jobs:
     needs: [validate-tag, analyze-and-test]
     if: needs.validate-tag.outputs.has_windows == 'true'
     runs-on: windows-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: app
@@ -160,6 +164,7 @@ jobs:
 
   provenance:
     needs: [validate-tag, build-android, build-windows]
+    timeout-minutes: 10
     if: |
       always() &&
       needs.build-android.result == 'success' &&
@@ -188,6 +193,7 @@ jobs:
 
   publish-release:
     needs: [validate-tag, build-android, build-windows, provenance]
+    timeout-minutes: 15
     if: |
       always() &&
       needs.build-android.result == 'success' &&
@@ -253,6 +259,7 @@ jobs:
 
   notify-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [validate-tag, publish-release]
     if: always()
     steps:

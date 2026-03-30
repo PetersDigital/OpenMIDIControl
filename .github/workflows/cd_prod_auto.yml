@@ -22,6 +22,7 @@ permissions:
 jobs:
   verify-tag-on-main:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -49,6 +50,7 @@ jobs:
 
   analyze-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: verify-tag-on-main
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
     defaults:
@@ -70,6 +72,7 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [verify-tag-on-main, analyze-and-test]
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
     defaults:
@@ -113,6 +116,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 25
     needs: [verify-tag-on-main, analyze-and-test]
     if: needs.verify-tag-on-main.outputs.on_main == 'true' && needs.verify-tag-on-main.outputs.has_windows == 'true'
     defaults:
@@ -152,6 +156,7 @@ jobs:
 
   provenance:
     needs: [verify-tag-on-main, build-android, build-windows]
+    timeout-minutes: 10
     if: |
       always() &&
       needs.verify-tag-on-main.outputs.on_main == 'true' &&
@@ -181,6 +186,7 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [verify-tag-on-main, build-android, build-windows, provenance]
     if: |
       always() &&
@@ -220,6 +226,7 @@ jobs:
 
   notify-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [verify-tag-on-main, publish-release]
     if: ${{ always() && needs.verify-tag-on-main.outputs.on_main == 'true' }}
     permissions:

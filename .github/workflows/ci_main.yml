@@ -28,6 +28,7 @@ permissions:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       has_windows: ${{ steps.core.outputs.has_windows }}
     defaults:
@@ -50,6 +51,7 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: analyze-and-test
     if: github.event_name == 'push'
     defaults:
@@ -76,6 +78,7 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    timeout-minutes: 25
     needs: analyze-and-test
     if: github.event_name == 'push' && needs.analyze-and-test.outputs.has_windows == 'true'
     defaults:
