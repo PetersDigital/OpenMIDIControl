@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:collection';
 
 import 'package:flutter/scheduler.dart';
@@ -44,7 +46,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
         ? 'Port ${event.sourceId} | '
         : '';
 
-    if (event.messageType == 0xB0) {
+    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
     } else {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';

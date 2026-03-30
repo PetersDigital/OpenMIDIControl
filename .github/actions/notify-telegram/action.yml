@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: 'CD: Notify Telegram'
 description: 'Send formatted notification messages to Telegram'
 
@@ -52,39 +54,46 @@ runs:
         fi
         SHORT_COMMIT="${COMMIT:0:7}"
 
+        escape_html() {
+          echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+        }
+
+        SAFE_BRANCH=$(escape_html "${{ inputs.branch }}")
+        SAFE_TAG=$(escape_html "${{ inputs.tag }}")
+        SAFE_CHANGELOG=$(escape_html "${{ inputs.changelog }}")
+        SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
+
         if [ "${{ inputs.notification-type }}" = "ci-failure" ]; then
-          MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "${{ github.ref_name }}" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
+          MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$SAFE_REF_NAME" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
 
           curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
                -d chat_id="$TELEGRAM_CHAT_ID" \
                -d parse_mode="HTML" \
                -d disable_web_page_preview="true" \
-               -d text="$MESSAGE"
+               --data-urlencode "text=$MESSAGE"
 
         elif [ "${{ inputs.notification-type }}" = "release" ]; then
-          TAG="${{ inputs.tag }}"
-          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
           RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
           STATUS="${{ inputs.status }}"
 
           if [ "$STATUS" = "success" ]; then
-            MESSAGE=$(printf '🚀 <b>OpenMIDIControl %s is live!</b>\n\n📦 <a href="%s">View Release & Patch Notes</a>\n\n✅ <i>Deployment completed successfully with keyless signatures and SLSA provenance.</i>' "$TAG" "$RELEASE_URL")
+            MESSAGE=$(printf '🚀 <b>OpenMIDIControl %s is live!</b>\n\n📦 <a href="%s">View Release &amp; Patch Notes</a>\n\n✅ <i>Deployment completed successfully with keyless signatures and SLSA provenance.</i>' "$SAFE_TAG" "$RELEASE_URL")
           else
-            MESSAGE=$(printf '❌ <b>OpenMIDIControl %s release failed.</b>\n\n⚠️ <i>Pipeline encountered an error.</i>\n\n🔗 <a href="%s">View Workflow Logs</a>' "$TAG" "$RUN_URL")
+            MESSAGE=$(printf '❌ <b>OpenMIDIControl %s release failed.</b>\n\n⚠️ <i>Pipeline encountered an error.</i>\n\n🔗 <a href="%s">View Workflow Logs</a>' "$SAFE_TAG" "$RUN_URL")
           fi
 
           curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
                -d chat_id="$TELEGRAM_CHAT_ID" \
                -d parse_mode="HTML" \
                -d disable_web_page_preview="true" \
-               -d text="$MESSAGE"
+               --data-urlencode "text=$MESSAGE"
 
         elif [ "${{ inputs.notification-type }}" = "dev-build" ]; then
-          BRANCH="${{ inputs.branch }}"
           STATUS="${{ inputs.status }}"
           
           if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
-            CAPTION=$(printf '🛠 <b>Dev Build Ready</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n📝 <b>Changes:</b>\n%s\n\n⬇️ <i>Artifact attached below</i>' "$BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "${{ inputs.changelog }}")
+            CAPTION=$(printf '🛠 <b>Dev Build Ready</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n📝 <b>Changes:</b>\n%s\n\n⬇️ <i>Artifact attached below</i>' "$SAFE_BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "$SAFE_CHANGELOG")
 
             curl -F chat_id="$TELEGRAM_CHAT_ID" \
                  -F document=@"${{ inputs.artifact-path }}" \
@@ -93,12 +102,12 @@ runs:
                  --form-string caption="$CAPTION" \
                  "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument"
           else
-            MESSAGE=$(printf '❌ <b>Dev Build Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> %s\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$BRANCH" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
+            MESSAGE=$(printf '❌ <b>Dev Build Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> %s\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$SAFE_BRANCH" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
 
             curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
                  -d chat_id="$TELEGRAM_CHAT_ID" \
                  -d parse_mode="HTML" \
                  -d disable_web_page_preview="true" \
-                 -d text="$MESSAGE"
+                 --data-urlencode "text=$MESSAGE"
           fi
         fi

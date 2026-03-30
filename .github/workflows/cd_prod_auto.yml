@@ -1,9 +1,16 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: "CD: Automated Production Release"
 
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -52,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -202,7 +209,7 @@ jobs:
         with:
           fail_on_unmatched_files: false
           body_path: release_notes.md
-          draft: true
+          draft: false
           files: |
             openmidicontrol-*-android.apk
             openmidicontrol-*-android.apk.sig

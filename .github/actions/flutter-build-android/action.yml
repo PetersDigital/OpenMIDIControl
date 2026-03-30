@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: 'CD: Flutter Build Android'
 description: 'Configure keystore and build Flutter Android APK'
 
@@ -78,18 +80,28 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        BUILD_CMD="flutter build apk --${{ inputs.build-type }}"
         if [ "${{ inputs.split-per-abi }}" = "true" ]; then
-          BUILD_CMD="$BUILD_CMD --split-per-abi"
+          flutter build apk --${{ inputs.build-type }} --split-per-abi
+        else
+          flutter build apk --${{ inputs.build-type }}
         fi
-        eval $BUILD_CMD
 
         # Get absolute path to APK directory
         APK_DIR="${{ github.workspace }}/${{ inputs.working-directory }}/build/app/outputs/flutter-apk"
+        
         if [ "${{ inputs.split-per-abi }}" = "true" ]; then
-          APK_FILE="$APK_DIR/app-arm64-v8a-${{ inputs.build-type }}.apk"
+          # Prefer arm64-v8a if split, otherwise take the first available APK
+          APK_FILE=$(find "$APK_DIR" -name "app-arm64-v8a-${{ inputs.build-type }}.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find "$APK_DIR" -name "app-*-${{ inputs.build-type }}.apk" | head -n 1)
+          fi
         else
           APK_FILE="$APK_DIR/app-${{ inputs.build-type }}.apk"
+        fi
+
+        if [ ! -f "$APK_FILE" ]; then
+          echo "::error::No APK found in $APK_DIR matching current build configuration."
+          exit 1
         fi
 
         if [ -n "${{ inputs.artifact-name }}" ]; then
@@ -100,5 +112,5 @@ runs:
           FINAL_NAME=$(basename "$APK_FILE")
         fi
 
-        echo "apk-path=$APK_FILE" >> "$GITHUB_OUTPUT"
+        echo "apk-path=$(realpath "$APK_FILE")" >> "$GITHUB_OUTPUT"
         echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"

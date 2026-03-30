@@ -1,6 +1,8 @@
-package com.PetersDigital.OpenMIDIControl
-
-import com.PetersDigital.OpenMIDIControl.BuildConfig
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+package com.petersdigital.openmidicontrol
+ 
+import com.petersdigital.openmidicontrol.BuildConfig
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -54,7 +56,8 @@ class MainActivity : FlutterActivity() {
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
     // Thread Separation: Coroutine Channel for incoming MIDI events
-    private val incomingEventsChannel = Channel<Map<String, Any>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // We store the 32-bit UMP and its timestamp as a Pair to ensure atomic queuing.
+    private val incomingEventsChannel = Channel<Pair<Long, Long>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -109,13 +112,22 @@ class MainActivity : FlutterActivity() {
                 deviceInfo.inputPortCount > 0 && deviceInfo.outputPortCount > 0
     }
 
-    private fun connectToUsbPeripheral() {
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+    private fun getAvailableMidiDevices(): Array<MidiDeviceInfo>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val umpDevices = midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)?.toTypedArray()
+            if (umpDevices != null && umpDevices.isNotEmpty()) {
+                umpDevices
+            } else {
+                midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+            }
         } else {
             @Suppress("DEPRECATION")
             midiManager?.getDevices()
         }
+    }
+
+    private fun connectToUsbPeripheral() {
+        val devices = getAvailableMidiDevices()
 
         val peripheralInfo = devices?.find { isUsbPeripheral(it) }
 
@@ -356,12 +368,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getMidiDevices(): List<Map<String, Any>> {
         val devicesList = mutableListOf<Map<String, Any>>()
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
-        }
+        val devices = getAvailableMidiDevices()
 
         devices?.forEach { deviceInfo ->
             if (isUsbPeripheral(deviceInfo)) {
@@ -455,12 +462,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
-        }
+        val devices = getAvailableMidiDevices()
         val deviceInfo = devices?.find { it.id.toString() == id }
 
         if (deviceInfo == null) {
@@ -502,80 +504,14 @@ class MainActivity : FlutterActivity() {
 
     private fun setupMidiReceiver() {
         hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
-            if (offset < 0 || count < 0 || offset + count > msg.size) return@startReceiving
-
-            // Check if it's a Control Change message on Channel 1 (0xB0)
-            // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
-            val statusByte = msg[offset].toInt() and 0xFF
-            // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
-            if (statusByte == 0xFE || statusByte == 0xF8) {
-                return@startReceiving // Skip adding to the Flutter queue
-            }
-            if (count < 3) return@startReceiving
-
-            if (statusByte == 0xB0) {
-                val ccNumber = msg[offset + 1].toInt() and 0xFF
-                val ccValue = msg[offset + 2].toInt() and 0xFF
-
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
-                }
-
-                val event = mapOf(
-                    "type" to "cc",
-                    "cc" to ccNumber,
-                    "value" to ccValue,
-                    "timestamp" to timestamp
-                )
-
-                incomingEventsChannel.trySend(event)
-            }
+            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
         }
     }
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
-
-        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed virtual MIDI packets
-        if (offset < 0 || count < 0 || offset + count > msg.size) return
-
-        // Check if it's a Control Change message on Channel 1 (0xB0)
-        val statusByte = msg[offset].toInt() and 0xFF
-        // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
-        if (statusByte == 0xFE || statusByte == 0xF8) {
-            return // Skip adding to the Flutter queue
-        }
-        if (count < 3) return
-
-        if (statusByte == 0xB0) {
-            val ccNumber = msg[offset + 1].toInt() and 0xFF
-            val ccValue = msg[offset + 2].toInt() and 0xFF
-
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("OpenMIDIControl", "MIDI IN (VIRTUAL): CC $ccNumber Value: $ccValue")
-            }
-
-            // Bidirectional Feedback Loop Prevention
-            val lastTime = lastSentTime[ccNumber] ?: 0L
-            val nowNs = timestamp ?: System.nanoTime()
-            val timeDiff = nowNs - lastTime
-
-            if (timeDiff < suppressionWindowNs) {
-                // Ignore message from host if we recently sent *any* value for this CC.
-                // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                return
-            }
-
-            val event = mapOf(
-                "type" to "cc",
-                "cc" to ccNumber,
-                "value" to ccValue,
-                "timestamp" to nowNs
-            )
-
-            incomingEventsChannel.trySend(event)
-        }
+        val nowNs = timestamp ?: System.nanoTime()
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
     private fun setupMidiDeviceCallback() {
@@ -606,6 +542,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), deviceCallback!!)
                 midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
             } else {
                 @Suppress("DEPRECATION")
@@ -627,18 +564,13 @@ class MainActivity : FlutterActivity() {
             // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
             // avoiding busy-wait loops and pinning the CPU.
             for (firstEvent in incomingEventsChannel) {
-                val batch = mutableListOf<Map<String, Any>>()
-                batch.add(firstEvent)
 
-                // Drain any other events currently in the channel buffer to process them as a batch
-                while (true) {
-                    val event = incomingEventsChannel.tryReceive().getOrNull() ?: break
-                    batch.add(event)
-                }
+                // Use the static parser to safely drain the channel into a bounded batch
+                val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
 
-                if (batch.isNotEmpty()) {
+                if (payload.isNotEmpty()) {
                     Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(mapOf("type" to "batch", "events" to batch))
+                        eventSink?.success(payload)
                     }
                 }
 

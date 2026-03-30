@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -90,21 +92,22 @@ class MidiService {
   /// High-performance stream of parsed MIDI events.
   late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
       .where((e) {
-        if (e is! Map) return false;
-        final type = e['type'];
-        return type == 'batch' || type == 'cc';
+        return e is Int64List;
       })
       .map((event) {
-        final map = event as Map;
-        if (map['type'] == 'batch') {
-          final rawEvents = map['events'] as List? ?? [];
-          return rawEvents
-              .whereType<Map<dynamic, dynamic>>()
-              .map((e) => MidiEvent.fromMap(e))
-              .toList();
-        } else {
-          return [MidiEvent.fromMap(map)];
+        final data = event as Int64List;
+        final List<MidiEvent> parsedEvents = [];
+
+        // Decode the 1D LongArray batch (Pairs of UMP Integer, Timestamp)
+        for (int i = 0; i + 1 < data.length; i += 2) {
+          int ump = data[i];
+          int timestamp = data[i + 1];
+
+          // Phase 3: Directly initialize UMP events natively using the bitwise getters in the model
+          parsedEvents.add(MidiEvent(ump, timestamp));
         }
+
+        return parsedEvents;
       })
       .asBroadcastStream();
 
@@ -336,7 +339,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       final Map<int, int> batchUpdates = {};
       for (var midiEvent in midiEvents) {
-        if (midiEvent.messageType == 0xB0) {
+        if (midiEvent.legacyStatusByte >= 0xB0 && midiEvent.legacyStatusByte <= 0xBF) {
           batchUpdates[midiEvent.data1] = midiEvent.data2;
         }
       }

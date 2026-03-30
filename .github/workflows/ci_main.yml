@@ -1,17 +1,22 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: "CI: Main Pipeline"
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.gitignore'
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -33,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: 'CI: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -54,6 +59,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -78,6 +85,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: 'CD: Flutter Build Windows'
 description: 'Build Flutter Windows application and create ZIP archive'
 
@@ -44,11 +46,19 @@ runs:
       id: zip
       shell: pwsh
       run: |
-        $sourceDir = "${{ github.workspace }}/${{ inputs.working-directory }}/build/windows/x64/runner/Release"
+        $config = "${{ inputs.build-type }}".Substring(0,1).ToUpper() + "${{ inputs.build-type }}".Substring(1).ToLower()
+        $sourceDir = "${{ github.workspace }}/${{ inputs.working-directory }}/build/windows/x64/runner/$config"
+        
+        if (-not (Test-Path $sourceDir)) {
+          Write-Error "Source directory not found: $sourceDir"
+          exit 1
+        }
+
         $zipName = if ("${{ inputs.artifact-name }}" -ne "") { "${{ inputs.artifact-name }}.zip" } else { "windows-build.zip" }
         $zipPath = "${{ github.workspace }}/${{ inputs.working-directory }}/$zipName"
 
         Compress-Archive -Path "$sourceDir/*" -DestinationPath $zipPath -Force
 
-        echo "zip-path=$zipPath" >> $env:GITHUB_OUTPUT
+        $absPath = Resolve-Path $zipPath
+        echo "zip-path=$absPath" >> $env:GITHUB_OUTPUT
         echo "zip-name=$zipName" >> $env:GITHUB_OUTPUT

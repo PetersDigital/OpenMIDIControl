@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: "CD: Legacy Production Rebuild (Retroactive)"
 
 on:
@@ -200,7 +202,7 @@ jobs:
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
         with:
-          artifact_path: app/${{ steps.build.outputs.apk-name }}
+          artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
       - uses: actions/upload-artifact@v4
@@ -208,9 +210,9 @@ jobs:
           name: android-apk
           retention-days: 1
           path: |
-            app/${{ steps.build.outputs.apk-name }}
-            app/${{ steps.build.outputs.apk-name }}.sig
-            app/${{ steps.build.outputs.apk-name }}.pem
+            ${{ steps.build.outputs.apk-path }}
+            ${{ steps.build.outputs.apk-path }}.sig
+            ${{ steps.build.outputs.apk-path }}.pem
 
   build-windows:
     needs: [validate-tag, analyze-and-test]
@@ -247,7 +249,7 @@ jobs:
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
         with:
-          artifact_path: app/${{ steps.build.outputs.zip-name }}
+          artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
       - uses: actions/upload-artifact@v4
@@ -255,9 +257,9 @@ jobs:
           name: windows-build
           retention-days: 1
           path: |
-            app/${{ steps.build.outputs.zip-name }}
-            app/${{ steps.build.outputs.zip-name }}.sig
-            app/${{ steps.build.outputs.zip-name }}.pem
+            ${{ steps.build.outputs.zip-path }}
+            ${{ steps.build.outputs.zip-path }}.sig
+            ${{ steps.build.outputs.zip-path }}.pem
 
   provenance:
     needs: [validate-tag, build-android, build-windows]
@@ -344,7 +346,7 @@ jobs:
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md
-          draft: true
+          draft: false
           files: |
             openmidicontrol-*-android.apk
             openmidicontrol-*-android.apk.sig
