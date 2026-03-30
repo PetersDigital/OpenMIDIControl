@@ -43,7 +43,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-java@b36c23c0d998ce418d60f00f48e14fd4e4bb1d27 # v4.2.2
+    - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
         distribution: 'temurin'
         java-version: '17'
