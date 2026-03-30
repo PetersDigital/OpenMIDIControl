@@ -58,10 +58,16 @@ runs:
       if: failure() && inputs.telegram-token != '' && inputs.telegram-chat-id != ''
       shell: bash
       run: |
-        MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "${{ github.ref_name }}" "${{ github.server_url }}" "${{ github.repository }}" "${GITHUB_SHA}" "${GITHUB_SHA:0:7}" "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}")
+        escape_html() {
+          echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+        }
+        
+        SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
+        
+        MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$SAFE_REF_NAME" "${{ github.server_url }}" "${{ github.repository }}" "${GITHUB_SHA}" "${GITHUB_SHA:0:7}" "${{ github.server_url }}" "${{ github.repository }}" "${{ github.run_id }}")
         
         curl -s -X POST "https://api.telegram.org/bot${{ inputs.telegram-token }}/sendMessage" \
              -d chat_id=${{ inputs.telegram-chat-id }} \
              -d parse_mode="HTML" \
              -d disable_web_page_preview="true" \
-             -d text="$MESSAGE"
+             --data-urlencode "text=$MESSAGE"
