@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: 'CD: Flutter Build Windows'
 description: 'Build Flutter Windows application and create ZIP archive'
 
@@ -27,7 +28,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - uses: subosito/flutter-action@v2
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
       with:
         channel: stable
         cache: true
@@ -48,7 +49,7 @@ runs:
       run: |
         $config = "${{ inputs.build-type }}".Substring(0,1).ToUpper() + "${{ inputs.build-type }}".Substring(1).ToLower()
         $sourceDir = "${{ github.workspace }}/${{ inputs.working-directory }}/build/windows/x64/runner/$config"
-        
+
         if (-not (Test-Path $sourceDir)) {
           Write-Error "Source directory not found: $sourceDir"
           exit 1
@@ -58,6 +59,19 @@ runs:
         $zipPath = "${{ github.workspace }}/${{ inputs.working-directory }}/$zipName"
 
         Compress-Archive -Path "$sourceDir/*" -DestinationPath $zipPath -Force
+
+        # Validate ZIP size (minimum 20MB for Windows builds)
+        $minSizeMB = 20
+        $actualSizeBytes = (Get-Item $zipPath).Length
+        $actualSizeMB = [math]::Floor($actualSizeBytes / 1MB)
+
+        if ($actualSizeMB -lt $minSizeMB) {
+          Write-Error "ZIP size (${actualSizeMB}MB) is below minimum (${minSizeMB}MB). Build may be incomplete or corrupted."
+          Write-Error "This could indicate missing assets, incomplete compilation, or packaging issues."
+          exit 1
+        }
+
+        Write-Host " ZIP validation passed: ${actualSizeMB}MB"
 
         $absPath = Resolve-Path $zipPath
         echo "zip-path=$absPath" >> $env:GITHUB_OUTPUT

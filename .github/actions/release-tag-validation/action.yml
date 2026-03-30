@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: 'CD: Release Tag Validation'
 description: 'Validate release tag security invariants (actor, GPG, tag, main ancestry, retargeting, API verify).'
 inputs:
@@ -101,7 +102,7 @@ runs:
           echo "::error::Could not extract fingerprint from GPG."
           exit 1
         fi
-        
+
         if [ "$ACTUAL_FPR" != "$EXPECTED_FPR" ]; then
           echo "::error::Fingerprint mismatch. Expected $EXPECTED_FPR but got $ACTUAL_FPR"
           exit 1
@@ -149,13 +150,30 @@ runs:
         TAG="${TAG:-${GITHUB_REF_NAME}}"
         TAG_OBJ=$(git rev-parse "$TAG^{tag}")
 
-        # Use -f to fail on 4xx/5xx, but we want the code for better error messages
-        HTTP_CODE=$(curl -s -w "%{http_code}" -o response.json \
-          -H "Authorization: Bearer ${{ inputs.github_token }}" \
-          "https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ")
+        # Retry logic for transient network failures
+        MAX_RETRIES=3
+        RETRY_COUNT=0
+        HTTP_CODE=0
+
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          # Use -f to fail on 4xx/5xx, but we want the code for better error messages
+          HTTP_CODE=$(curl -s -w "%{http_code}" -o response.json \
+            -H "Authorization: Bearer ${{ inputs.github_token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ")
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            break
+          fi
+
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "️  GitHub API request failed (HTTP $HTTP_CODE), retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+            sleep 5
+          fi
+        done
 
         if [ "$HTTP_CODE" -ne 200 ]; then
-          echo "::error::GitHub API request failed with HTTP $HTTP_CODE"
+          echo "::error::GitHub API request failed with HTTP $HTTP_CODE after $MAX_RETRIES attempts"
           [ -f response.json ] && cat response.json
           exit 1
         fi
@@ -174,7 +192,7 @@ runs:
           exit 1
         fi
 
-        echo "✅ GitHub API verification passed."
+        echo " GitHub API verification passed."
 
     - id: has-windows
       name: Publish has_windows output

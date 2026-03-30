@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: 'CD: Flutter Build Android'
 description: 'Configure keystore and build Flutter Android APK'
 
@@ -43,13 +44,13 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-java@v4
+    - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
         distribution: 'temurin'
         java-version: '17'
         cache: 'gradle'
 
-    - uses: subosito/flutter-action@v2
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
       with:
         channel: stable
         cache: true
@@ -88,7 +89,7 @@ runs:
 
         # Get absolute path to APK directory
         APK_DIR="${{ github.workspace }}/${{ inputs.working-directory }}/build/app/outputs/flutter-apk"
-        
+
         if [ "${{ inputs.split-per-abi }}" = "true" ]; then
           # Prefer arm64-v8a if split, otherwise take the first available APK
           APK_FILE=$(find "$APK_DIR" -name "app-arm64-v8a-${{ inputs.build-type }}.apk" | head -n 1)
@@ -103,6 +104,19 @@ runs:
           echo "::error::No APK found in $APK_DIR matching current build configuration."
           exit 1
         fi
+
+        # Validate APK size (minimum 10MB for release builds)
+        MIN_SIZE_MB=10
+        ACTUAL_SIZE_BYTES=$(stat -c%s "$APK_FILE" 2>/dev/null || stat -f%z "$APK_FILE")
+        ACTUAL_SIZE_MB=$((ACTUAL_SIZE_BYTES / 1024 / 1024))
+
+        if [ "$ACTUAL_SIZE_MB" -lt "$MIN_SIZE_MB" ]; then
+          echo "::error::APK size (${ACTUAL_SIZE_MB}MB) is below minimum (${MIN_SIZE_MB}MB). Build may be incomplete or corrupted."
+          echo "::error::This could indicate missing assets, incomplete compilation, or signing issues."
+          exit 1
+        fi
+
+        echo "✅ APK validation passed: ${ACTUAL_SIZE_MB}MB"
 
         if [ -n "${{ inputs.artifact-name }}" ]; then
           FINAL_NAME="${{ inputs.artifact-name }}.apk"

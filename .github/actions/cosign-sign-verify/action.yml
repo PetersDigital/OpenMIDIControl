@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: 'CD: Cosign Sign and Verify'
 description: 'Sign and verify one artifact with Cosign keyless.'
 inputs:
@@ -25,6 +26,7 @@ runs:
           --yes \
           --output-signature "${FILE}.sig" \
           --output-certificate "${FILE}.pem" \
+          --oidc-issuer https://token.actions.githubusercontent.com \
           "$FILE"
 
     - name: Verify Cosign signature

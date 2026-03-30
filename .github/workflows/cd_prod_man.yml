@@ -1,5 +1,9 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Manual production rebuild for existing tags with force overwrite capability
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: "CD: Manual Production Rebuild"
 
 on:
@@ -26,14 +30,15 @@ permissions:
 
 jobs:
   validate-tag:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
     outputs:
       tag_commit: ${{ steps.validate.outputs.commit }}
       tag: ${{ steps.validate.outputs.tag }}
       has_windows: ${{ steps.validate.outputs.has_windows }}
     steps:
       - name: Checkout Repository (workflow engine code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
           fetch-depth: 0
@@ -52,15 +57,41 @@ jobs:
 
   analyze-and-test:
     needs: validate-tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -71,14 +102,39 @@ jobs:
 
   build-android:
     needs: [validate-tag, analyze-and-test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
 
       - name: Build Android APK
         id: build
@@ -103,7 +159,7 @@ jobs:
           fi
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -111,7 +167,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: android-apk
           retention-days: 1
@@ -124,13 +180,38 @@ jobs:
     needs: [validate-tag, analyze-and-test]
     if: needs.validate-tag.outputs.has_windows == 'true'
     runs-on: windows-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
 
       - name: Build Windows ZIP
         id: build
@@ -141,7 +222,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -149,7 +230,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: windows-build
           retention-days: 1
@@ -160,17 +241,42 @@ jobs:
 
   provenance:
     needs: [validate-tag, build-android, build-windows]
+    timeout-minutes: 10
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -188,21 +294,52 @@ jobs:
 
   publish-release:
     needs: [validate-tag, build-android, build-windows, provenance]
+    timeout-minutes: 15
     if: |
       always() &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
       needs.provenance.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded files ==="
+          ls -la
+          echo "========================"
 
       - name: Ensure GitHub CLI
         if: github.event.inputs.force == 'true'
@@ -237,25 +374,80 @@ jobs:
           commit-hash: ${{ needs.validate-tag.outputs.tag_commit }}
           triggered-by: ${{ github.actor }}
 
+      - name: Prepare release assets list
+        id: assets
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          FILES=""
+
+          # Android APK and signatures
+          for ext in apk sig pem; do
+            FILE="openmidicontrol-${TAG}-android.${ext}"
+            if [ -f "$FILE" ]; then
+              FILES="$FILES $FILE"
+              echo "Found: $FILE"
+            else
+              echo "::warning::File not found: $FILE"
+            fi
+          done
+
+          # Windows ZIP and signatures (if exists)
+          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+            for ext in zip sig pem; do
+              FILE="openmidicontrol-${TAG}-windows.${ext}"
+              if [ -f "$FILE" ]; then
+                FILES="$FILES $FILE"
+                echo "Found: $FILE"
+              else
+                echo "::warning::File not found: $FILE"
+              fi
+            done
+          fi
+
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+
       - name: Update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md
           draft: false
-          files: |
-            openmidicontrol-*-android.apk
-            openmidicontrol-*-android.apk.sig
-            openmidicontrol-*-android.apk.pem
-            openmidicontrol-*-windows.zip
-            openmidicontrol-*-windows.zip.sig
-            openmidicontrol-*-windows.zip.pem
+          files: ${{ steps.assets.outputs.files }}
 
   notify-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
     needs: [validate-tag, publish-release]
     if: always()
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        working-directory: .
+        run: |
+          # Fetch the latest main branch from origin
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove any existing .github/actions (from old tags)
+          rm -rf .github/actions
+
+          # Checkout the .github/actions directory directly from the fetched main branch
+          git checkout FETCH_HEAD -- .github/actions || {
+            echo "::error::Failed to checkout .github/actions from main branch"
+            exit 1
+          }
+
+          # Verify actions were restored
+          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+            echo "::error::.github/actions is empty or missing"
+            exit 1
+          fi
+
       - name: Notify Telegram
         uses: ./.github/actions/notify-telegram
         with:

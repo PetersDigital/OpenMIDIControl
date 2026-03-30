@@ -1,24 +1,32 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Automated check for dual-license headers in all source files
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: License Header Check
 
 on:
   push:
-    branches: [main]
+    branches: [beta]
   pull_request:
-    branches: [main]
+    branches: [beta]
 
 jobs:
   license-check:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 1
 
+      - name: Setup Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.11'
+
       - name: Check License Headers
-        run: |
-          chmod +x ./scripts/check_license_headers.sh
-          ./scripts/check_license_headers.sh
+        run: python scripts/check_license_headers.py
