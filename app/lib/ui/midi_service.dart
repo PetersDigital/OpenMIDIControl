@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -83,53 +85,41 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
-  Stream<dynamic>? _broadcastStream;
-  Stream<List<MidiEvent>>? _midiEventsStream;
-  Stream<Map<dynamic, dynamic>>? _systemEventsStream;
-
-  Stream<dynamic> get _rawStream {
-    _broadcastStream ??= _eventsChannel
-        .receiveBroadcastStream()
-        .asBroadcastStream();
-    return _broadcastStream!;
-  }
+  late final Stream<dynamic> _rawStream = _eventsChannel
+      .receiveBroadcastStream()
+      .asBroadcastStream();
 
   /// High-performance stream of parsed MIDI events.
-  Stream<List<MidiEvent>> get midiEventsStream {
-    _midiEventsStream ??= _rawStream
-        .where((e) {
-          if (e is! Map) return false;
-          final type = e['type'];
-          return type == 'batch' || type == 'cc';
-        })
-        .map((event) {
-          final map = event as Map;
-          if (map['type'] == 'batch') {
-            final rawEvents = map['events'] as List? ?? [];
-            return rawEvents
-                .whereType<Map<dynamic, dynamic>>()
-                .map((e) => MidiEvent.fromMap(e))
-                .toList();
-          } else {
-            return [MidiEvent.fromMap(map)];
-          }
-        })
-        .asBroadcastStream();
-    return _midiEventsStream!;
-  }
+  late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
+      .where((e) {
+        return e is Int64List;
+      })
+      .map((event) {
+        final data = event as Int64List;
+        final List<MidiEvent> parsedEvents = [];
+
+        // Decode the 1D LongArray batch (Pairs of UMP Integer, Timestamp)
+        for (int i = 0; i + 1 < data.length; i += 2) {
+          int ump = data[i];
+          int timestamp = data[i + 1];
+
+          // Phase 3: Directly initialize UMP events natively using the bitwise getters in the model
+          parsedEvents.add(MidiEvent(ump, timestamp));
+        }
+
+        return parsedEvents;
+      })
+      .asBroadcastStream();
 
   /// System-level events (USB state, device additions, removals).
-  Stream<Map<dynamic, dynamic>> get systemEventsStream {
-    _systemEventsStream ??= _rawStream
-        .where((e) {
-          if (e is! Map) return false;
-          final type = e['type'];
-          return type == 'added' || type == 'removed' || type == 'usb_state';
-        })
-        .cast<Map<dynamic, dynamic>>()
-        .asBroadcastStream();
-    return _systemEventsStream!;
-  }
+  late final Stream<Map<dynamic, dynamic>> systemEventsStream = _rawStream
+      .where((e) {
+        if (e is! Map) return false;
+        final type = e['type'];
+        return type == 'added' || type == 'removed' || type == 'usb_state';
+      })
+      .cast<Map<dynamic, dynamic>>()
+      .asBroadcastStream();
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -349,7 +339,8 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       final Map<int, int> batchUpdates = {};
       for (var midiEvent in midiEvents) {
-        if (midiEvent.messageType == 0xB0) {
+        if (midiEvent.legacyStatusByte >= 0xB0 &&
+            midiEvent.legacyStatusByte <= 0xBF) {
           batchUpdates[midiEvent.data1] = midiEvent.data2;
         }
       }
@@ -422,13 +413,28 @@ class CcNotifier extends Notifier<ControlState> {
   }
 
   void updateCC(int cc, int value) {
+    if (state.ccValues[cc] == value) return;
     state = state.copyWithCC(cc, value);
   }
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
+
+    // Check if any values actually changed before creating a new map
+    var hasChanges = false;
+    for (final entry in updates.entries) {
+      if (state.ccValues[entry.key] != entry.value) {
+        hasChanges = true;
+        break;
+      }
+    }
+    if (!hasChanges) return;
+
+    // Only copy changed entries for better performance
     final newValues = Map<int, int>.from(state.ccValues);
-    newValues.addAll(updates);
+    for (final entry in updates.entries) {
+      newValues[entry.key] = entry.value;
+    }
     state = state.copyWith(ccValues: newValues);
   }
 }

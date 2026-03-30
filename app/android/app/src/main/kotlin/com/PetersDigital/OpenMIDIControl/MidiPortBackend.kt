@@ -1,4 +1,6 @@
-package com.PetersDigital.OpenMIDIControl
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+package com.petersdigital.openmidicontrol
 
 interface MidiPortBackend {
     val portId: String
