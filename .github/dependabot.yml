@@ -1,0 +1,14 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Focus solely on GitHub Actions to manage SHAs
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "ci(actions)"
