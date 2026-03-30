@@ -166,7 +166,6 @@ jobs:
         uses: ./.github/actions/flutter-ci-core
         with:
           working-directory: app
-          ref: ${{ needs.validate-tag.outputs.tag_commit }}
           telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
