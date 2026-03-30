@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   verify-tag-on-main:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -53,7 +53,7 @@ jobs:
           main_branch: main
 
   analyze-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     needs: verify-tag-on-main
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
@@ -75,7 +75,7 @@ jobs:
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     needs: [verify-tag-on-main, analyze-and-test]
     if: needs.verify-tag-on-main.outputs.on_main == 'true'
@@ -166,7 +166,7 @@ jobs:
       needs.verify-tag-on-main.outputs.on_main == 'true' &&
       needs.build-android.result == 'success' &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read
@@ -189,7 +189,7 @@ jobs:
           subject-path: openmidicontrol-*-windows.zip
 
   publish-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     needs: [verify-tag-on-main, build-android, build-windows, provenance]
     if: |
@@ -229,7 +229,7 @@ jobs:
             openmidicontrol-*-windows.zip.pem
 
   notify-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     needs: [verify-tag-on-main, publish-release]
     if: ${{ always() && needs.verify-tag-on-main.outputs.on_main == 'true' }}
