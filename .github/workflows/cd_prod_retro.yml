@@ -211,7 +211,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.6.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4.6.0
         with:
           name: android-apk
           retention-days: 1
@@ -259,7 +259,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.6.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4.6.0
         with:
           name: windows-build
           retention-days: 1
