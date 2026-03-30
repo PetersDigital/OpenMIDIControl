@@ -32,7 +32,7 @@ jobs:
       tag: ${{ steps.validate.outputs.tag }}
     steps:
       - name: Checkout Repository (workflow engine code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
           fetch-depth: 0
@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
         with:
           fetch-depth: 1
       - name: 'CD: Runner CI Core'
@@ -82,7 +82,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
 
       - name: Build Android APK
         id: build
@@ -97,7 +97,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-android
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -105,7 +105,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: android-apk
           retention-days: 1
@@ -126,7 +126,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
 
       - name: Build Windows ZIP
         id: build
@@ -137,7 +137,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -145,7 +145,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: windows-build
           retention-days: 1
@@ -168,21 +168,21 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
 
       - name: Generate Provenance (Android)
-        uses: ./.github/actions/provenance-attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject_path: openmidicontrol-*-android.apk
+          subject-path: openmidicontrol-*-android.apk
 
       - name: Generate Provenance (Windows)
         if: needs.build-windows.result == 'success'
-        uses: ./.github/actions/provenance-attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject_path: openmidicontrol-*-windows.zip
+          subject-path: openmidicontrol-*-windows.zip
 
   publish-release:
     runs-on: ubuntu-latest
@@ -197,7 +197,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -211,7 +211,7 @@ jobs:
           commit-hash: ${{ needs.verify-tag-on-main.outputs.tag_commit }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           fail_on_unmatched_files: false
           body_path: release_notes.md
@@ -232,7 +232,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2  # v4.1.1
 
       - name: Notify Telegram
         uses: ./.github/actions/notify-telegram
