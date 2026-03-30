@@ -34,7 +34,7 @@ jobs:
       has_windows: ${{ steps.validate.outputs.has_windows }}
     steps:
       - name: Checkout Repository (workflow engine code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           ref: main
           fetch-depth: 0
@@ -59,7 +59,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
@@ -79,7 +79,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -106,7 +106,7 @@ jobs:
           fi
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@44942ed8a1a5bc9f89e2b0a44a3351a33839c48d
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -114,7 +114,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.apk-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
         with:
           name: android-apk
           retention-days: 1
@@ -132,7 +132,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -145,7 +145,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.5.0
+        uses: sigstore/cosign-installer@44942ed8a1a5bc9f89e2b0a44a3351a33839c48d
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -153,7 +153,7 @@ jobs:
           artifact_path: ${{ steps.build.outputs.zip-path }}
           repository: ${{ github.repository }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
         with:
           name: windows-build
           retention-days: 1
@@ -175,7 +175,7 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -203,7 +203,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
 
@@ -244,7 +244,7 @@ jobs:
           triggered-by: ${{ github.actor }}
 
       - name: Update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md

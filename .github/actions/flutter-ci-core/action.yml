@@ -24,7 +24,7 @@ runs:
   using: 'composite'
   steps:
     - name: Cache Gradle
-      uses: actions/cache@v4
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9  # v4.0.2
       with:
         path: |
           ~/.gradle/caches
@@ -34,7 +34,7 @@ runs:
           ${{ runner.os }}-gradle-
 
     - name: Cache Pub
-      uses: actions/cache@v4
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9  # v4.0.2
       with:
         path: ~/.pub-cache
         key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
@@ -52,7 +52,7 @@ runs:
         fi
 
     - name: Setup Flutter
-      uses: subosito/flutter-action@v2
+      uses: subosito/flutter-action@61a25ed2e61a6198a8a0e6a7ea1f7a1e8b7f0d2a  # v2.12.0
       with:
         channel: stable
         cache: true

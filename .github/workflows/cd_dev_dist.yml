@@ -29,9 +29,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -50,9 +48,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 
       - name: Build Android APK (Split ABI)
         id: build
@@ -109,3 +105,15 @@ jobs:
           branch: ${{ github.ref_name }}
           artifact-path: ${{ steps.name.outputs.apk-path }}
           changelog: ${{ steps.name.outputs.changelog }}
+
+      - name: Comment PR with Build Summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '📦 **Dev build ready:** `${{ steps.name.outputs.apk-name }}`\n\n📥 Download the APK from Telegram or check the workflow artifacts.\n\n✅ Build completed successfully for `${{ github.ref_name }}`'
+            })
