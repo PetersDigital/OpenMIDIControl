@@ -1,5 +1,9 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Manual production rebuild for existing tags with force overwrite capability
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: "CD: Manual Production Rebuild"
 
 on:

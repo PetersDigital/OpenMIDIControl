@@ -1,5 +1,9 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Automated production release on version tag push with signing, provenance, and Telegram notifications
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
 name: "CD: Automated Production Release"
 
 on:
