@@ -1,15 +1,15 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
-# @description: Builds and distributes dev APKs to Telegram on every push to non-main branches
+---
+# @description: Builds and distributes dev APKs to Telegram on every push to dev branch
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center: CI/CD
-name: "CD: Development Distribution"
+name: "CI: Dev Branch"
 
 on:
   push:
-    branches-ignore: [main]
-    tags-ignore: ['**']
+    branches: [dev]
     paths:
       - 'app/**'
       - '.github/**'
@@ -29,14 +29,15 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    if: github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: app
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: 'CD: Runner CI Core'
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: 'CI: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
         with:
@@ -54,7 +55,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Build Android APK (Split ABI)
         id: build
@@ -77,13 +78,13 @@ jobs:
           CLEAN_BRANCH=$(echo "${CLEAN_BRANCH//\//-}" | cut -c1-20)
 
           FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
-          
+
           # Use absolute path from build step
           APK_SRC="${{ steps.build.outputs.apk-path }}"
           # Destination directory (relative to current working-directory 'app')
           APK_DST_DIR="build/app/outputs/flutter-apk"
           APK_DST="$APK_DST_DIR/$FINAL_NAME"
-          
+
           mv "$APK_SRC" "$APK_DST"
 
           # Production-grade git log with fallback for first push (github.event.before = 0000...)
@@ -96,11 +97,13 @@ jobs:
           fi
 
           # Provide absolute path for downstream reliability
-          echo "apk-path=$(realpath "$APK_DST")" >> "$GITHUB_OUTPUT"
-          echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
-          echo "changelog<<EOFCHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "EOFCHANGELOG" >> "$GITHUB_OUTPUT"
+          {
+            echo "apk-path=$(realpath "$APK_DST")"
+            echo "apk-name=$FINAL_NAME"
+            echo "changelog<<EOFCHANGELOG"
+            echo "$CHANGELOG"
+            echo "EOFCHANGELOG"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Send APK to Telegram
         uses: ./.github/actions/notify-telegram
@@ -114,7 +117,7 @@ jobs:
 
       - name: Comment PR with Build Summary
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
         with:
           script: |
             github.rest.issues.createComment({
