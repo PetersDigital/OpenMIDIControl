@@ -149,22 +149,27 @@ runs:
         TAG="${TAG:-${GITHUB_REF_NAME}}"
         TAG_OBJ=$(git rev-parse "$TAG^{tag}")
 
-        RESPONSE=$(curl -s -w "%{http_code}" -o response.json \
+        # Use -f to fail on 4xx/5xx, but we want the code for better error messages
+        HTTP_CODE=$(curl -s -w "%{http_code}" -o response.json \
           -H "Authorization: Bearer ${{ inputs.github_token }}" \
-          https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ)
+          "https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ")
 
-        HTTP_CODE=$(tail -n1 <<< "$RESPONSE")
-        if [ "$HTTP_CODE" != "200" ]; then
+        if [ "$HTTP_CODE" -ne 200 ]; then
           echo "::error::GitHub API request failed with HTTP $HTTP_CODE"
-          cat response.json
+          [ -f response.json ] && cat response.json
           exit 1
         fi
 
-        VERIFIED=$(jq -r '.verification.verified' response.json)
-        REASON=$(jq -r '.verification.reason' response.json)
+        if [ ! -s response.json ]; then
+          echo "::error::Empty response from GitHub API"
+          exit 1
+        fi
+
+        VERIFIED=$(jq -r '.verification.verified // false' response.json)
+        REASON=$(jq -r '.verification.reason // "unknown"' response.json)
 
         if [ "$VERIFIED" != "true" ]; then
-          echo "::error::Tag NOT verified. Reason: $REASON"
+          echo "::error::Tag NOT verified by GitHub API. Reason: $REASON"
           cat response.json
           exit 1
         fi
