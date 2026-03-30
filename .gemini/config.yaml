@@ -1,3 +1,4 @@
+---
 code_review:
   disable: false  # Must be false to allow the review engine to run when called
 
