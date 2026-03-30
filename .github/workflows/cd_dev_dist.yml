@@ -6,6 +6,11 @@ on:
   push:
     branches-ignore: [main]
     tags-ignore: ['**']
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
 
 concurrency:
   group: dev-${{ github.workflow }}-${{ github.ref }}
@@ -25,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -45,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Build Android APK (Split ABI)
         id: build
@@ -68,14 +73,21 @@ jobs:
           CLEAN_BRANCH=$(echo "${CLEAN_BRANCH//\//-}" | cut -c1-20)
 
           FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
-          APK_SRC="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
-          APK_DST="build/app/outputs/flutter-apk/$FINAL_NAME"
+          
+          # Use absolute path from build step
+          APK_SRC="${{ steps.build.outputs.apk-path }}"
+          # Destination directory (relative to current working-directory 'app')
+          APK_DST_DIR="build/app/outputs/flutter-apk"
+          APK_DST="$APK_DST_DIR/$FINAL_NAME"
           
           mv "$APK_SRC" "$APK_DST"
 
-          CHANGELOG=$(git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}" 2>/dev/null || git log -n 5 --pretty=format:"- %s")
+          # Option C: Production-grade fallback for git log
+          CHANGELOG=$(git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}" 2>/dev/null || \
+                     (git fetch --unshallow && git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}"))
 
-          echo "apk-path=$APK_DST" >> "$GITHUB_OUTPUT"
+          # Provide absolute path for downstream reliability
+          echo "apk-path=$(realpath "$APK_DST")" >> "$GITHUB_OUTPUT"
           echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
           echo "changelog<<EOFCHANGELOG" >> "$GITHUB_OUTPUT"
           echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
@@ -88,5 +100,5 @@ jobs:
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
           notification-type: dev-build
           branch: ${{ github.ref_name }}
-          artifact-path: app/${{ steps.name.outputs.apk-path }}
+          artifact-path: ${{ steps.name.outputs.apk-path }}
           changelog: ${{ steps.name.outputs.changelog }}

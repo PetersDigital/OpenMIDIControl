@@ -30,6 +30,9 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
     - name: Build Release Notes
       id: generate
       shell: bash
@@ -75,4 +78,4 @@ runs:
           fi
         } > release_notes.md
 
-        echo "notes-path=release_notes.md" >> "$GITHUB_OUTPUT"
+        echo "notes-path=$(realpath release_notes.md)" >> "$GITHUB_OUTPUT"
