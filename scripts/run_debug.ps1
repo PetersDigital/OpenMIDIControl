@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 
 # Find the Flutter project directory (agnostic to "app", "appname", or root)
