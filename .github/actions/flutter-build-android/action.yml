@@ -49,7 +49,7 @@ runs:
         java-version: '17'
         cache: 'gradle'
 
-    - uses: subosito/flutter-action@f2c4f66b5e13d1000b05b38ed6a378d3ebacccaa # v2.18.0
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
       with:
         channel: stable
         cache: true
