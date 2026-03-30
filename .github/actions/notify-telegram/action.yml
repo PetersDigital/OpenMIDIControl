@@ -63,19 +63,59 @@ runs:
         SAFE_CHANGELOG=$(escape_html "${{ inputs.changelog }}")
         SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
 
+        # Function to send with retry
+        send_with_retry() {
+          local url="$1"
+          local message="$2"
+          local max_retries=3
+          local retry_count=0
+          local http_code=0
+
+          while [ $retry_count -lt $max_retries ]; do
+            # Write message to temp file to avoid escaping issues
+            local tmpfile=$(mktemp)
+            echo "$message" > "$tmpfile"
+
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" \
+              -F chat_id="$TELEGRAM_CHAT_ID" \
+              -F parse_mode="HTML" \
+              -F disable_web_page_preview="true" \
+              -F text="<$tmpfile")
+
+            rm -f "$tmpfile"
+
+            if [ "$http_code" -eq 200 ]; then
+              return 0
+            fi
+
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -lt $max_retries ]; then
+              echo "⚠️  Telegram API request failed (HTTP $http_code), retrying ($retry_count/$max_retries)..."
+              sleep 2
+            fi
+          done
+
+          echo "::warning::Telegram notification failed after $max_retries attempts (HTTP $http_code)"
+          return 1
+        }
+
         if [ "${{ inputs.notification-type }}" = "ci-failure" ]; then
           MESSAGE=$(printf '❌ <b>CI Pipeline Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n⚠️ <i>Analyze or Test job failed.</i>\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$SAFE_REF_NAME" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
 
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
-               -d chat_id="$TELEGRAM_CHAT_ID" \
-               -d parse_mode="HTML" \
-               -d disable_web_page_preview="true" \
-               --data-urlencode "text=$MESSAGE"
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
 
         elif [ "${{ inputs.notification-type }}" = "release" ]; then
           RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
           RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
           STATUS="${{ inputs.status }}"
+
+          # Debug: Check if tag input is available
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::Tag input is empty for release notification"
+            exit 1
+          fi
 
           if [ "$STATUS" = "success" ]; then
             MESSAGE=$(printf '🚀 <b>OpenMIDIControl %s is live!</b>\n\n📦 <a href="%s">View Release &amp; Patch Notes</a>\n\n✅ <i>Deployment completed successfully with keyless signatures and SLSA provenance.</i>' "$SAFE_TAG" "$RELEASE_URL")
@@ -83,31 +123,34 @@ runs:
             MESSAGE=$(printf '❌ <b>OpenMIDIControl %s release failed.</b>\n\n⚠️ <i>Pipeline encountered an error.</i>\n\n🔗 <a href="%s">View Workflow Logs</a>' "$SAFE_TAG" "$RUN_URL")
           fi
 
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
-               -d chat_id="$TELEGRAM_CHAT_ID" \
-               -d parse_mode="HTML" \
-               -d disable_web_page_preview="true" \
-               --data-urlencode "text=$MESSAGE"
+          # Ensure MESSAGE is not empty
+          if [ -z "$MESSAGE" ]; then
+            echo "::error::MESSAGE variable is empty. Tag: $SAFE_TAG, Status: $STATUS"
+            exit 1
+          fi
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
 
         elif [ "${{ inputs.notification-type }}" = "dev-build" ]; then
           STATUS="${{ inputs.status }}"
-          
+
           if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
             CAPTION=$(printf '🛠 <b>Dev Build Ready</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n\n📝 <b>Changes:</b>\n%s\n\n⬇️ <i>Artifact attached below</i>' "$SAFE_BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" "$SHORT_COMMIT" "$SAFE_CHANGELOG")
 
-            curl -F chat_id="$TELEGRAM_CHAT_ID" \
+            curl -s -F chat_id="$TELEGRAM_CHAT_ID" \
                  -F document=@"${{ inputs.artifact-path }}" \
                  -F parse_mode="HTML" \
                  -F disable_web_page_preview="true" \
                  --form-string caption="$CAPTION" \
-                 "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument"
+                 "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument" || \
+              echo "::warning::Telegram document upload failed"
           else
             MESSAGE=$(printf '❌ <b>Dev Build Failed</b>\n\n🌿 <b>Branch:</b> %s\n🔖 <b>Commit:</b> %s\n\n🔗 <a href="%s/%s/actions/runs/%s">View Workflow Logs</a>' "$SAFE_BRANCH" "$SHORT_COMMIT" "$SERVER_URL" "$REPO" "$RUN_ID")
 
-            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
-                 -d chat_id="$TELEGRAM_CHAT_ID" \
-                 -d parse_mode="HTML" \
-                 -d disable_web_page_preview="true" \
-                 --data-urlencode "text=$MESSAGE"
+            send_with_retry \
+              "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+              "$MESSAGE" || true
           fi
         fi
