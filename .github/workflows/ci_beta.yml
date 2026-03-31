@@ -264,6 +264,8 @@ jobs:
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           tag_name: ${{ steps.tag.outputs.beta-tag }}
           name: ${{ steps.tag.outputs.beta-tag }} - Release Candidate

@@ -408,6 +408,8 @@ jobs:
 
       - name: Update GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           tag_name: ${{ needs.validate-tag.outputs.tag }}
           body_path: release_notes.md
