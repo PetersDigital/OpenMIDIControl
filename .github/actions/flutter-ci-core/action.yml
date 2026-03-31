@@ -67,7 +67,7 @@ runs:
     - name: Check Code Formatting
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: flutter format --set-exit-if-changed .
+      run: dart format --output=none --set-exit-if-changed .
 
     - name: Static Analysis
       shell: bash
