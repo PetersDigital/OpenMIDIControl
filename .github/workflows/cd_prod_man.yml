@@ -160,7 +160,7 @@ jobs:
           fi
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -223,7 +223,7 @@ jobs:
           artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
