@@ -44,6 +44,214 @@ This project is maintained by Peters Digital and is primarily implemented with A
 
 Current phase: **v0.2.2 – Hybrid UMP Implementation**. Focus on stability, test coverage, and performance optimization. Prefer small, reviewable increments.
 
+## CI/CD Workflows
+
+OpenMIDIControl uses a comprehensive CI/CD system built on GitHub Actions. This section covers the essential information for contributors. For complete technical details, see [.github/GITHUB_ACTIONS_WORKFLOW.md](.github/GITHUB_ACTIONS_WORKFLOW.md).
+
+### Branch Protection & Workflow Architecture
+
+The project uses a **4-tier branch hierarchy** with automated quality gates:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        main (Production)                     │
+│  - Protected: Strictest rules                                │
+│  - Trigger: Tags only (v1.0.0, v0.2.2, etc.)                │
+│  - Output: Signed production releases                        │
+│  - Direct commits: ❌ Never                                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↑
+                            │ Merge PR (tagged release)
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│                        beta (Release Candidate)              │
+│  - Protected: Strict rules                                   │
+│  - Trigger: Pushes to beta branch                            │
+│  - Output: Draft GitHub pre-release + Telegram notification  │
+│  - Direct commits: ❌ Never                                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↑
+                            │ Merge PR (RC preparation)
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│                        dev (Development)                     │
+│  - Protected: Moderate rules                                 │
+│  - Trigger: Pushes to dev branch                             │
+│  - Output: Unsigned dev builds + Telegram notification       │
+│  - Direct commits: ⚠️ Maintainers only (bypass allowed)      │
+└─────────────────────────────────────────────────────────────┘
+                            ↑
+                            │ Merge PR (feature complete)
+                            │
+┌─────────────────────────────────────────────────────────────┐
+│              feature (Any other branch name)                 │
+│  - Protected: CI-only (no build artifacts)                   │
+│  - Trigger: Any push to feature branches                     │
+│  - Output: Fast feedback (analyze + test only)               │
+│  - Direct commits: ✅ Yes (AI agents, developers)            │
+│  - Naming: Arbitrary (no prefix pattern required)            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**AI Agent Compatibility:** The CI system uses **exclusion logic** (not prefix patterns) to detect branch types. This means AI agents like Google Jules and GitHub Copilot can create branches with arbitrary names:
+- `feat-native-android-ump-8916227028079091107`
+- `fix-thermal-runaway-p0-9001081033840053369`
+- `copilot-midi-parser-fix`
+- `my-test-branch`
+
+All are automatically treated as feature branches and receive fast CI-only feedback.
+
+### Release Workflow (Phase 1-3 Complete)
+
+The release system provides automated pipelines from development to stable releases with intelligent release decision-making.
+
+#### Commit Message Markers (Beta Branch)
+
+When pushing to the `beta` branch, use these markers to control release behavior:
+
+| Marker | Build + Test | Create Release | When to Use |
+|--------|-------------|----------------|-------------|
+| `[wip]` | ✅ Yes | ❌ No | Work in progress, testing in progress |
+| `[skip-release]` | ✅ Yes | ❌ No | Complete but not ready for beta release |
+| `[beta]` | ✅ Yes | ✅ Yes | Explicit request for beta release |
+| (none) + 5+ commits | ✅ Yes | ✅ Yes | Auto-release after 5+ commits |
+| (none) + <5 commits | ✅ Yes | ❌ No | Not enough changes yet |
+
+**Priority Logic:**
+```
+1. Check skip markers ([wip], [skip-release]) → SKIP (safety first)
+2. Check [beta] marker → CREATE RELEASE (explicit)
+3. Check commit count (≥5) → CREATE RELEASE (auto)
+4. Otherwise → SKIP (not enough changes)
+```
+
+**Example:**
+```bash
+# Small fix (no release, just build/test)
+git commit -m "fix(midi): reduce latency" -m "Testing new algorithm.
+
+[wip]"
+git push origin beta
+
+# Feature complete (create beta release)
+git commit -m "feat(ui): add new fader" -m "Implements hybrid touch fader.
+
+[beta]"
+git push origin beta
+
+# Batch of 5 small fixes (auto-release)
+git commit -m "fix: bug 1"
+git commit -m "fix: bug 2"
+git commit -m "fix: bug 3"
+git commit -m "fix: bug 4"
+git commit -m "fix: bug 5"
+git push origin beta
+# → Auto-creates beta release
+```
+
+#### Release Types
+
+| Type | Branch | Tag Format | Trigger | Draft | Pre-release | Changelog Source |
+|------|--------|------------|---------|-------|-------------|------------------|
+| **Beta** | `beta` | `v{MAJOR}.{MINOR}.{PATCH}-beta.{N}` | Auto (markers) | ✅ Yes | ❌ No | Git (since last beta) |
+| **RC** | `beta` | `v{MAJOR}.{MINOR}.{PATCH}-rc.{N}` | Manual tag | ❌ No | ✅ Yes | Git (full/incr) |
+| **Stable** | `main` | `v{MAJOR}.{MINOR}.{PATCH}` | Manual tag | ❌ No | ❌ No | CHANGELOG.md |
+| **Hotfix** | `main` | `v{MAJOR}.{MINOR}.{PATCH}-patch.{N}` | Manual tag | ❌ No | ❌ No | Git (since stable/patch) |
+
+#### RC Workflow (Manual)
+
+Release Candidates bridge beta testing and stable release:
+
+```bash
+# Feature complete, ready for public testing
+git checkout beta
+git tag v0.2.2-rc.1
+git push origin v0.2.2-rc.1
+# → Creates RC.1 release (public, pre-release)
+
+# Fix bug found in RC1
+git commit -m "fix: RC1 crash on startup"
+git tag v0.2.2-rc.2
+git push origin v0.2.2-rc.2
+# → Creates RC.2 release (shows changes since RC.1)
+```
+
+#### Hotfix Workflow (Manual)
+
+For urgent production fixes:
+
+```bash
+# Critical bug in stable
+git checkout main
+git commit -m "fix: critical startup crash"
+git tag v0.2.2-patch.1
+git push origin v0.2.2-patch.1
+# → ci_hotfix.yml creates patch release
+```
+
+### Workflow Triggers Summary
+
+| Workflow | Branch/Tag | Analyze | Test | Build | Sign | Release | Telegram |
+|----------|------------|---------|------|-------|------|---------|----------|
+| **Feature branches** | any except main/dev/beta | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **dev branch** | dev | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| **beta branch** | beta | ✅ | ✅ | ✅ | ✅ | Draft | ✅ |
+| **main branch** | main/PRs | ✅ | ✅ | ✅ (debug) | ❌ | ❌ | ❌ |
+| **Production tags** | `v*.*.*` on main | ✅ | ✅ | ✅ | ✅ | Public | ✅ |
+| **RC tags** | `v*-rc.*` | ✅ | ✅ | ✅ | ✅ | Public | ✅ |
+| **Hotfix tags** | `v*-patch.*` | ✅ | ✅ | ✅ | ✅ | Public | ✅ |
+
+### Contributor Checklist
+
+Before submitting a PR, ensure:
+
+#### License Headers
+- [ ] All source files include dual-license header:
+  ```dart
+  // Copyright (c) 2026 Peters Digital
+  // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+  ```
+- [ ] Run `.\scripts\add_all_license_headers.ps1` for new files
+- [ ] CI license check will fail if headers are missing
+
+#### Tests Required
+- [ ] **MIDI changes:** Kotlin native tests (`app/android/gradlew.bat :app:testDebugUnitTest`)
+- [ ] **UI/State changes:** Dart unit tests (`flutter test test/`)
+- [ ] **Bridge changes:** Integration tests (`flutter test test/midi_pipeline_integration_test.dart`)
+- [ ] All tests pass locally before pushing
+
+#### Conventional Commits
+- [ ] Use proper format: `type(scope): description`
+- [ ] Use proper scopes: `android/midi`, `ui/fader`, `core/state`, `test/midi`, etc.
+- [ ] Multiple scopes: use forward slashes — `feat(ui/midi): …` (no hyphens)
+- [ ] No version numbers in commit subjects
+- [ ] For beta releases, add markers: `[beta]`, `[wip]`, or `[skip-release]`
+
+#### PR Process
+1. [ ] Create branch (any name, AI agents can use arbitrary names)
+2. [ ] Make changes with proper commits
+3. [ ] Run tests locally
+4. [ ] Push branch → CI runs automatically
+5. [ ] Create **draft PR** using GitHub CLI:
+   ```powershell
+   gh pr create --base main --head <branch> `
+     --title "feat(midi): v0.2.2 hybrid UMP implementation" `
+     --body "Manual 32-bit UMP reconstruction, primitive EventChannel batching" `
+     --draft --assignee dencelkbabu --reviewer dencelkbabu `
+     --label "draft,needs-review"
+   ```
+6. [ ] Wait for CI to pass
+7. [ ] Convert from draft to ready for review
+8. [ ] Address review feedback
+9. [ ] Merge (requires approval + passing checks)
+
+### Documentation References
+
+- **Full CI/CD Guide:** [.github/GITHUB_ACTIONS_WORKFLOW.md](.github/GITHUB_ACTIONS_WORKFLOW.md)
+- **Branch Strategy:** [.github/BRANCH_STRATEGY.md](.github/BRANCH_STRATEGY.md)
+- **Composite Actions:** See `.github/actions/` directory
+- **Workflow Files:** See `.github/workflows/` directory
+
 ## Versioning
 We use **Semantic Versioning (SemVer)**:
 - `MAJOR`: incompatible changes
