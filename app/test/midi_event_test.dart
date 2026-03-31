@@ -41,44 +41,54 @@ void main() {
   });
 
   group('CcNotifier State Mutation', () {
-    test('updateMultipleCCs prevents redundant map recreation and maintains reference equality', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'updateMultipleCCs prevents redundant map recreation and maintains reference equality',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final ccNotifier = container.read(ccValuesProvider.notifier);
+        final ccNotifier = container.read(ccValuesProvider.notifier);
 
-      // Initial state update
-      ccNotifier.updateMultipleCCs({10: 127});
-      final firstState = container.read(ccValuesProvider);
+        // Initial state update
+        ccNotifier.updateMultipleCCs({10: 127});
+        final firstState = container.read(ccValuesProvider);
 
-      expect(firstState.ccValues[10], 127);
+        expect(firstState.ccValues[10], 127);
 
-      // Redundant batch update
-      ccNotifier.updateMultipleCCs({10: 127});
-      final secondState = container.read(ccValuesProvider);
+        // Redundant batch update
+        ccNotifier.updateMultipleCCs({10: 127});
+        final secondState = container.read(ccValuesProvider);
 
-      // Verify reference equality is maintained (preventing widget rebuilds)
-      expect(identical(firstState, secondState), isTrue);
-    });
+        // Verify reference equality is maintained (preventing widget rebuilds)
+        expect(identical(firstState, secondState), isTrue);
+      },
+    );
   });
 
   group('Malformed JNI Payloads', () {
-    test('Dart stream safely ignores odd-length arrays without throwing RangeError', () async {
-      // Simulate Stream Decoder parsing logic directly on a malformed payload
-      final malformedData = Int64List.fromList([0x21BF0A7F, 123456789, 0x21BF0A7F]); // Length 3
+    test(
+      'Dart stream safely ignores odd-length arrays without throwing RangeError',
+      () async {
+        // Simulate Stream Decoder parsing logic directly on a malformed payload
+        final malformedData = Int64List.fromList([
+          0x21BF0A7F,
+          123456789,
+          0x21BF0A7F,
+        ]); // Length 3
 
-      final List<MidiEvent> parsedEvents = [];
+        final List<MidiEvent> parsedEvents = [];
 
-      // Ensure the loop uses defensive bounds checking: `i + 1 < data.length`
-      for (int i = 0; i + 1 < malformedData.length; i += 2) {
-        int ump = malformedData[i];
-        int timestamp = malformedData[i + 1];
-        parsedEvents.add(MidiEvent(ump, timestamp));
-      }
+        // Ensure the loop uses defensive bounds checking: `i + 1 < data.length`
+        for (int i = 0; i + 1 < malformedData.length; i += 2) {
+          int ump = malformedData[i];
+          int timestamp = malformedData[i + 1];
+          parsedEvents.add(MidiEvent(ump, timestamp));
+        }
 
-      // It should parse the first valid pair, and cleanly ignore the 3rd odd item
-      expect(parsedEvents.length, 1);
-      expect(parsedEvents.first.ump, 0x21BF0A7F);
-    });
+        // It should parse the first valid pair, and cleanly ignore the 3rd odd item
+        expect(parsedEvents.length, 1);
+        expect(parsedEvents.first.ump, 0x21BF0A7F);
+      },
+    );
   });
 }
