@@ -74,6 +74,11 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: flutter pub get
 
+    - name: Check Code Formatting
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter format --set-exit-if-changed .
+
     - name: Static Analysis
       shell: bash
       working-directory: ${{ inputs.working-directory }}
