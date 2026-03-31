@@ -463,7 +463,7 @@ jobs:
           FILES=""
 
           # Android APK and signatures
-          for ext in apk sig pem; do
+          for ext in apk apk.sig apk.pem; do
             FILE="openmidicontrol-${TAG}-android.${ext}"
             if [ -f "$FILE" ]; then
               FILES="$FILES $FILE"
@@ -475,7 +475,7 @@ jobs:
 
           # Windows ZIP and signatures (if exists)
           if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
-            for ext in zip sig pem; do
+            for ext in zip zip.sig zip.pem; do
               FILE="openmidicontrol-${TAG}-windows.${ext}"
               if [ -f "$FILE" ]; then
                 FILES="$FILES $FILE"
