@@ -1,0 +1,348 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+# @description: Builds Release Candidate releases on manual tag push with signing, provenance, and public GitHub releases
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CI: Release Candidate"
+
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+
+concurrency:
+  group: rc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  verify-rc-tag:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      rc_number: ${{ steps.parse_tag.outputs.rc_number }}
+      is_first_rc: ${{ steps.parse_tag.outputs.is_first_rc }}
+      base_version: ${{ steps.parse_tag.outputs.base_version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Parse RC Tag
+        id: parse_tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "Processing tag: $TAG"
+          
+          # Extract base version (e.g., v0.2.2 from v0.2.2-rc.1)
+          BASE_VERSION=$(echo "$TAG" | sed 's/-rc\.[0-9]*$//')
+          echo "Base version: $BASE_VERSION"
+          
+          # Extract RC number
+          RC_NUM=$(echo "$TAG" | grep -oP 'rc\.\K[0-9]+')
+          echo "RC number: $RC_NUM"
+          
+          # Determine if this is the first RC
+          if [ "$RC_NUM" -eq 1 ]; then
+            IS_FIRST_RC="true"
+            echo "This is the first RC (rc.1) - will generate full changelog"
+          else
+            IS_FIRST_RC="false"
+            echo "This is RC.$RC_NUM - will generate incremental changelog"
+          fi
+          
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "rc_number=$RC_NUM" >> "$GITHUB_OUTPUT"
+          echo "is_first_rc=$IS_FIRST_RC" >> "$GITHUB_OUTPUT"
+
+  analyze-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+      - name: 'CI: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  build-rc:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: [verify-rc-tag, analyze-and-test]
+    if: always() && needs.analyze-and-test.result == 'success'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      has_windows: ${{ steps.check_windows.outputs.has_windows }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check Windows Support
+        id: check_windows
+        run: |
+          if [ -d "app/windows" ]; then
+            echo "has_windows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_windows=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Android APK
+        id: build_android
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          artifact-name: openmidicontrol-${{ github.ref_name }}-android
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build_android.outputs.apk-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-apk
+          retention-days: 1
+          path: |
+            ${{ steps.build_android.outputs.apk-path }}
+            ${{ steps.build_android.outputs.apk-path }}.sig
+            ${{ steps.build_android.outputs.apk-path }}.pem
+
+      - name: Build Windows ZIP
+        id: build_windows
+        if: steps.check_windows.outputs.has_windows == 'true'
+        uses: ./.github/actions/flutter-build-windows
+        with:
+          working-directory: app
+          build-type: release
+          artifact-name: openmidicontrol-${{ github.ref_name }}-windows
+
+      - name: 'CD: Cosign Sign and Verify (Windows)'
+        if: steps.check_windows.outputs.has_windows == 'true'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build_windows.outputs.zip-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: steps.check_windows.outputs.has_windows == 'true'
+        with:
+          name: windows-build
+          retention-days: 1
+          path: |
+            ${{ steps.build_windows.outputs.zip-path }}
+            ${{ steps.build_windows.outputs.zip-path }}.sig
+            ${{ steps.build_windows.outputs.zip-path }}.pem
+
+  provenance:
+    needs: [verify-rc-tag, analyze-and-test, build-rc]
+    timeout-minutes: 10
+    if: always() && needs.build-rc.result == 'success'
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Provenance (Android)
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-rc.outputs.has_windows == 'true'
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: openmidicontrol-*-windows.zip
+
+  create-rc-release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: [verify-rc-tag, analyze-and-test, build-rc, provenance]
+    if: always() && needs.build-rc.result == 'success' && needs.provenance.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Determine Changelog Range
+        id: changelog_range
+        run: |
+          TAG="${{ github.ref_name }}"
+          BASE_VERSION="${{ needs.verify-rc-tag.outputs.base_version }}"
+          IS_FIRST_RC="${{ needs.verify-rc-tag.outputs.is_first_rc }}"
+          RC_NUM="${{ needs.verify-rc-tag.outputs.rc_number }}"
+          
+          echo "Tag: $TAG"
+          echo "Base version: $BASE_VERSION"
+          echo "Is first RC: $IS_FIRST_RC"
+          
+          if [ "$IS_FIRST_RC" = "true" ]; then
+            # RC.1: Full changelog since last stable
+            echo "Generating FULL changelog since last stable release"
+            
+            # Find last stable tag
+            LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            
+            if [ -n "$LAST_STABLE" ]; then
+              echo "from_ref=$LAST_STABLE" >> "$GITHUB_OUTPUT"
+              echo "changelog_type=full" >> "$GITHUB_OUTPUT"
+              echo "Found last stable: $LAST_STABLE"
+            else
+              echo "from_ref=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
+              echo "changelog_type=full" >> "$GITHUB_OUTPUT"
+              echo "No stable tag found, using initial commit"
+            fi
+          else
+            # RC.2+: Incremental changelog since previous RC
+            echo "Generating INCREMENTAL changelog since previous RC"
+            
+            # Find previous RC tag
+            PREV_RC=$(git tag --list 'v*-rc.*' | sort -V | grep -E "^${BASE_VERSION}-rc\." | tail -n 2 | head -n 1 || echo "")
+            
+            if [ -n "$PREV_RC" ]; then
+              echo "from_ref=$PREV_RC" >> "$GITHUB_OUTPUT"
+              echo "changelog_type=incremental" >> "$GITHUB_OUTPUT"
+              echo "Found previous RC: $PREV_RC"
+            else
+              # Fallback to stable if no previous RC found
+              LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+              echo "from_ref=$LAST_STABLE" >> "$GITHUB_OUTPUT"
+              echo "changelog_type=full" >> "$GITHUB_OUTPUT"
+              echo "No previous RC found, falling back to stable: $LAST_STABLE"
+            fi
+          fi
+
+      - name: Generate Release Notes
+        uses: ./.github/actions/generate-release-notes
+        with:
+          tag: ${{ github.ref_name }}
+          changelog-path: CHANGELOG.md
+          include-metadata: 'true'
+          commit-hash: ${{ github.sha }}
+          triggered-by: ${{ github.actor }}
+          from-ref: ${{ steps.changelog_range.outputs.from_ref }}
+          changelog-type: ${{ steps.changelog_range.outputs.changelog_type }}
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded files ==="
+          ls -la
+          echo "========================"
+
+      - name: Prepare release assets list
+        id: assets
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          echo "=== Generating Asset List ==="
+          {
+            echo "files<<EOF"
+            # Android APK and signatures
+            for ext in apk apk.sig apk.pem; do
+              FILE="openmidicontrol-${TAG}-android.${ext}"
+              if [ -f "$FILE" ]; then
+                echo "$FILE"
+              else
+                echo "::warning::File not found: $FILE" >&2
+              fi
+            done
+
+            # Windows ZIP and signatures (if exists)
+            if [ "${{ needs.build-rc.outputs.has_windows }}" = "true" ]; then
+              for ext in zip zip.sig zip.pem; do
+                FILE="openmidicontrol-${TAG}-windows.${ext}"
+                if [ -f "$FILE" ]; then
+                  echo "$FILE"
+                else
+                  echo "::warning::File not found: $FILE" >&2
+                fi
+              done
+            fi
+
+            # Provenance files
+            for file in ./*.jsonl; do
+              if [ -f "$file" ]; then
+                echo "$file"
+              fi
+            done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          # Log findings to runner console
+          echo "Assets to be uploaded:"
+          ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
+
+      - name: Create Public RC Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} - Release Candidate
+          body_path: release_notes.md
+          draft: false
+          prerelease: true
+          files: ${{ steps.assets.outputs.files }}
+
+  notify-telegram:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    needs: [verify-rc-tag, analyze-and-test, build-rc, create-rc-release]
+    if: always() && needs.build-rc.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Notify Telegram (RC Release)
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: rc-release
+          branch: ${{ github.ref_name }}
+          tag: ${{ github.ref_name }}
+          status: ${{ needs.build-rc.result }}
+          rc_number: ${{ needs.verify-rc-tag.outputs.rc_number }}
+          is_first_rc: ${{ needs.verify-rc-tag.outputs.is_first_rc }}

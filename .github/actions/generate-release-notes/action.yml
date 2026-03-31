@@ -21,6 +21,13 @@ inputs:
   triggered-by:
     description: 'Username who triggered the release (optional, defaults to github.actor)'
     required: false
+  from-ref:
+    description: 'Explicit git reference to start changelog from (optional, overrides auto-detection)'
+    required: false
+  changelog-type:
+    description: 'Type of changelog: full (since stable) or incremental (since previous release)'
+    required: false
+    default: 'auto'
 
 outputs:
   notes-path:
@@ -37,14 +44,19 @@ runs:
         TAG="${{ inputs.tag }}"
         VERSION="${TAG#v}"
         CHANGELOG="${{ inputs.changelog-path }}"
+        FROM_REF="${{ inputs.from-ref }}"
+        CHANGELOG_TYPE="${{ inputs.changelog-type }}"
 
         # Authenticate GitHub CLI
         gh auth setup-git
 
         # Detect if this is a beta release
         IS_BETA=false
+        IS_RC=false
         if [[ "$TAG" == *"-beta."* ]]; then
           IS_BETA=true
+        elif [[ "$TAG" == *"-rc."* ]]; then
+          IS_RC=true
         fi
 
         # Function to parse conventional commits into changelog format
@@ -76,12 +88,13 @@ runs:
           done
         }
 
-        if [ "$IS_BETA" = true ]; then
-          # BETA RELEASE: Generate from git log
-          echo "🚧 **Beta Release** - This is a release candidate for testing. Final changelog will be available on stable release." > release_content.md
-          echo >> release_content.md
-
-          # Find the previous beta release using GitHub API
+        # Determine the starting reference for changelog
+        if [ -n "$FROM_REF" ]; then
+          # Use explicit from-ref if provided (RC workflow)
+          PREV_TAG="$FROM_REF"
+          echo "Using explicit from-ref: $PREV_TAG"
+        elif [ "$IS_BETA" = true ]; then
+          # BETA: Find the previous beta release using GitHub API
           PREV_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
           
           if [ -n "$PREV_BETA" ]; then
@@ -92,6 +105,37 @@ runs:
             PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
             echo "No previous beta found. Using stable tag: $PREV_TAG"
           fi
+        elif [ "$IS_RC" = true ]; then
+          # RC: Auto-detect based on tag pattern
+          BASE_VERSION=$(echo "$TAG" | sed 's/-rc\.[0-9]*$//')
+          
+          # Check if this is rc.1
+          if [[ "$TAG" == *"-rc.1" ]]; then
+            # RC.1: Full changelog since stable
+            PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            echo "RC.1 detected - generating full changelog since: $PREV_TAG"
+          else
+            # RC.2+: Find previous RC
+            PREV_RC=$(git tag --list 'v*-rc.*' | sort -V | grep -E "^${BASE_VERSION}-rc\." | tail -n 2 | head -n 1 || echo "")
+            
+            if [ -n "$PREV_RC" ]; then
+              PREV_TAG="$PREV_RC"
+              echo "Found previous RC: $PREV_TAG"
+            else
+              # Fallback to stable
+              PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+              echo "No previous RC found. Using stable tag: $PREV_TAG"
+            fi
+          fi
+        else
+          # STABLE: Use git describe
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+        fi
+
+        if [ "$IS_BETA" = true ]; then
+          # BETA RELEASE: Generate from git log
+          echo "🚧 **Beta Release** - This is a release candidate for testing. Final changelog will be available on stable release." > release_content.md
+          echo >> release_content.md
 
           if [ -n "$PREV_TAG" ]; then
             echo "### Changes since ${PREV_TAG}" >> release_content.md
@@ -127,6 +171,64 @@ runs:
             git log --pretty=format:"- %s (%h)" "${TAG}" >> release_content.md
             echo >> release_content.md
           fi
+        elif [ "$IS_RC" = true ]; then
+          # RC RELEASE: Generate from git log with RC-specific formatting
+          RC_NUM=$(echo "$TAG" | grep -oP 'rc\.\K[0-9]+')
+          BASE_VERSION=$(echo "$TAG" | sed 's/-rc\.[0-9]*$//')
+          
+          {
+            echo "## 🎯 Release Candidate: $TAG"
+            echo
+            echo "**This is a release candidate** - feature complete, ready for final testing."
+            echo
+          } > release_content.md
+          
+          if [[ "$TAG" == *"-rc.1" ]]; then
+            echo "### All Changes since $BASE_VERSION" >> release_content.md
+          else
+            echo "### Changes since $PREV_TAG" >> release_content.md
+          fi
+          echo >> release_content.md
+
+          if [ -n "$PREV_TAG" ]; then
+            # Parse commits and group by type
+            declare -A sections
+            while IFS='|' read -r section desc; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                sections["$section"]+="- ${desc}"$'\n'
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+
+            # Output grouped sections
+            for section in "### Added" "### Fixed" "### Changed" "### Breaking Changes" "### Documentation" "### Testing" "### Maintenance" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+              fi
+            done
+
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 5 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            echo "*No previous tag found.*" >> release_content.md
+          fi
+          
+          # Add testing focus section for RC
+          {
+            echo
+            echo "---"
+            echo "### Testing Focus"
+            echo "- [ ] USB Peripheral Mode stability"
+            echo "- [ ] MIDI 2.0 compatibility"
+            echo "- [ ] Performance under load"
+            echo
+            echo "**If no critical issues found, this becomes $BASE_VERSION stable.**"
+          } >> release_content.md
         else
           # STABLE RELEASE: Extract from CHANGELOG.md
           if [ -f "$CHANGELOG" ]; then
@@ -143,7 +245,6 @@ runs:
             echo "*No specific changelog entry found for version ${VERSION}. Generating from git log.*" > release_content.md
             echo >> release_content.md
 
-            PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
               git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" >> release_content.md
               echo >> release_content.md
