@@ -8,9 +8,9 @@ name: License Header Check
 
 on:
   push:
-    branches: ['**']
+    branches: [beta]
   pull_request:
-    branches: ['**']
+    branches: [beta]
 
 jobs:
   license-check:

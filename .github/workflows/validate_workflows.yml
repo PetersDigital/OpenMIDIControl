@@ -7,11 +7,12 @@
 name: Validate Workflows
 
 on:
-  pull_request:
+  push:
+    branches: [beta]
     paths:
       - '.github/**'
-  push:
-    branches: [main, beta]
+  pull_request:
+    branches: [beta]
     paths:
       - '.github/**'
 
