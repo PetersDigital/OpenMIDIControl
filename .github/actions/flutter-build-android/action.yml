@@ -48,7 +48,12 @@ runs:
       with:
         distribution: 'temurin'
         java-version: '17'
-        cache: 'gradle'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      with:
+        gradle-version: wrapper
+        cache-cleanup: 'on-success'
 
     - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
       with:
@@ -116,7 +121,7 @@ runs:
           exit 1
         fi
 
-        echo "✅ APK validation passed: ${ACTUAL_SIZE_MB}MB"
+        echo " APK validation passed: ${ACTUAL_SIZE_MB}MB"
 
         if [ -n "${{ inputs.artifact-name }}" ]; then
           FINAL_NAME="${{ inputs.artifact-name }}.apk"
