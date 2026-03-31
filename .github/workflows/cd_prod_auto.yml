@@ -375,7 +375,7 @@ jobs:
             fi
 
             # Provenance files
-            for file in *.jsonl; do
+            for file in ./*.jsonl; do
               if [ -f "$file" ]; then
                 echo "$file"
               fi
@@ -385,7 +385,7 @@ jobs:
 
           # Log findings to runner console
           echo "Assets to be uploaded:"
-          ls -la openmidicontrol-${TAG}-* *.jsonl 2>/dev/null || echo "No assets found."
+          ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
