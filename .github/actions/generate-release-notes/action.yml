@@ -37,18 +37,21 @@ runs:
         TAG="${{ inputs.tag }}"
         VERSION="${TAG#v}"
         CHANGELOG="${{ inputs.changelog-path }}"
-        
+
+        # Authenticate GitHub CLI
+        gh auth setup-git
+
         # Detect if this is a beta release
         IS_BETA=false
         if [[ "$TAG" == *"-beta."* ]]; then
           IS_BETA=true
         fi
-        
+
         # Function to parse conventional commits into changelog format
         parse_commits() {
           local from_ref="$1"
           local to_ref="${2:-HEAD}"
-          
+
           # Get commits with conventional commit format
           git log --pretty=format:"%s" "${from_ref}..${to_ref}" | while read -r commit_msg; do
             # Extract type and scope using regex
@@ -56,7 +59,7 @@ runs:
               type="${BASH_REMATCH[1]}"
               scope="${BASH_REMATCH[2]}"
               description="${BASH_REMATCH[3]}"
-              
+
               # Map conventional commit types to changelog sections
               case "$type" in
                 feat|feature) echo "### Added|${description}" ;;
@@ -72,19 +75,28 @@ runs:
             fi
           done
         }
-        
+
         if [ "$IS_BETA" = true ]; then
           # BETA RELEASE: Generate from git log
           echo "🚧 **Beta Release** - This is a release candidate for testing. Final changelog will be available on stable release." > release_content.md
           echo >> release_content.md
+
+          # Find the previous beta release using GitHub API
+          PREV_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
           
-          # Find the previous tag (beta or stable)
-          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
-          
+          if [ -n "$PREV_BETA" ]; then
+            PREV_TAG="$PREV_BETA"
+            echo "Found previous beta: $PREV_TAG"
+          else
+            # Fall back to stable tag
+            PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            echo "No previous beta found. Using stable tag: $PREV_TAG"
+          fi
+
           if [ -n "$PREV_TAG" ]; then
             echo "### Changes since ${PREV_TAG}" >> release_content.md
             echo >> release_content.md
-            
+
             # Parse commits and group by type
             declare -A sections
             while IFS='|' read -r section desc; do
@@ -92,7 +104,7 @@ runs:
                 sections["$section"]+="- ${desc}"$'\n'
               fi
             done < <(parse_commits "$PREV_TAG" "$TAG")
-            
+
             # Output grouped sections
             for section in "### Added" "### Fixed" "### Changed" "### Breaking Changes" "### Documentation" "### Testing" "### Maintenance" "### Other"; do
               if [ -n "${sections[$section]}" ]; then
@@ -100,7 +112,7 @@ runs:
                 echo "${sections[$section]}" >> release_content.md
               fi
             done
-            
+
             # If no conventional commits found, show raw commit log
             if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 3 ]; then
               echo "*No conventional commits detected. Raw changes:*" >> release_content.md
@@ -130,7 +142,7 @@ runs:
           if [ ! -s changelog_section.md ]; then
             echo "*No specific changelog entry found for version ${VERSION}. Generating from git log.*" > release_content.md
             echo >> release_content.md
-            
+
             PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
             if [ -n "$PREV_TAG" ]; then
               git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" >> release_content.md
@@ -166,3 +178,5 @@ runs:
         } > release_notes.md
 
         echo "notes-path=$(realpath release_notes.md)" >> "$GITHUB_OUTPUT"
+      env:
+        GH_TOKEN: ${{ github.token }}
