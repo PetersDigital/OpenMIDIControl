@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Restore Actions from Main'
+description: 'Restores .github/actions directory from the main branch to ensure workflow consistency'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Restore modern CI actions from main
+      shell: bash
+      working-directory: .
+      run: |
+        # Fetch the latest main branch from origin
+        git fetch origin main
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Remove any existing .github/actions (from old tags)
+        rm -rf .github/actions
+
+        # Checkout the .github/actions directory directly from the fetched main branch
+        git checkout FETCH_HEAD -- .github/actions || {
+          echo "::error::Failed to checkout .github/actions from main branch"
+          exit 1
+        }
+
+        # Verify actions were restored
+        if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
+          echo "::error::.github/actions is empty or missing"
+          exit 1
+        fi

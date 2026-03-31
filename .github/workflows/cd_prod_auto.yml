@@ -71,29 +71,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
       - name: 'CD: Runner CI Core'
         id: core
         uses: ./.github/actions/flutter-ci-core
@@ -116,29 +96,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
       - name: Build Android APK
         id: build
@@ -184,29 +143,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
       - name: Build Windows ZIP
         id: build
@@ -251,29 +189,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -304,29 +221,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -410,29 +306,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+      - name: Restore Actions from Main
+        uses: ./.github/actions/restore-actions
 
       - name: Notify Telegram
         uses: ./.github/actions/notify-telegram
