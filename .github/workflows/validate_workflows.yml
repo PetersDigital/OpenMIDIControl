@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 # @description: Validates YAML syntax and GitHub Actions workflow correctness on PRs and main pushes
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
@@ -7,11 +8,12 @@
 name: Validate Workflows
 
 on:
-  pull_request:
+  push:
+    branches: [beta]
     paths:
       - '.github/**'
-  push:
-    branches: [main, beta]
+  pull_request:
+    branches: [beta]
     paths:
       - '.github/**'
 
@@ -26,6 +28,7 @@ jobs:
   yaml-lint:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
@@ -41,10 +44,12 @@ jobs:
               truthy: disable
               document-start: disable
               comments: disable
+          yamllint_flags: ".github/ --config-file .github/workflows/.yamllint"
 
   actionlint:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
