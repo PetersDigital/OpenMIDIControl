@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 # @description: Builds release candidates on beta branch with signing, provenance, and draft GitHub releases
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
@@ -27,6 +28,82 @@ permissions:
   attestations: write
 
 jobs:
+  check-release-markers:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
+    outputs:
+      should_release: ${{ steps.check_markers.outputs.should_release }}
+      release_reason: ${{ steps.check_markers.outputs.release_reason }}
+      skip_reason: ${{ steps.check_markers.outputs.skip_reason }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check Commit Markers and Auto-Release Threshold
+        id: check_markers
+        env:
+          COMMIT_MESSAGES: ${{ toJSON(github.event.commits.*.message) }}
+        run: |
+          echo "=== Checking Release Markers ==="
+
+          # Get commit messages from this push (passed via env for security)
+          COMMITS="$COMMIT_MESSAGES"
+
+          # Check for skip markers ([wip], [skip-release])
+          HAS_SKIP=false
+          for msg in $(echo "$COMMITS" | jq -r '.[]'); do
+            if [[ "$msg" == *"[wip]"* ]] || [[ "$msg" == *"[skip-release]"* ]]; then
+              HAS_SKIP=true
+              echo "Found skip marker in: $msg"
+            fi
+          done
+
+          # Check for explicit [beta] marker
+          HAS_BETA=false
+          for msg in $(echo "$COMMITS" | jq -r '.[]'); do
+            if [[ "$msg" == *"[beta]"* ]]; then
+              HAS_BETA=true
+              echo "Found [beta] marker in: $msg"
+            fi
+          done
+
+          # Count commits in this push
+          COMMIT_COUNT=$(echo "$COMMITS" | jq 'length')
+          echo "Commit count: $COMMIT_COUNT"
+
+          # Apply priority logic
+          if [ "$HAS_SKIP" = true ]; then
+            {
+              echo "should_release=false"
+              echo "release_reason=none"
+              echo "skip_reason=skip_marker_detected"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Skip marker detected. Build will run, but no release created."
+          elif [ "$HAS_BETA" = true ]; then
+            {
+              echo "should_release=true"
+              echo "release_reason=beta_marker"
+              echo "skip_reason=none"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::[beta] marker detected. Release will be created."
+          elif [ "$COMMIT_COUNT" -ge 5 ]; then
+            {
+              echo "should_release=true"
+              echo "release_reason=auto_threshold"
+              echo "skip_reason=none"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::5+ commits detected ($COMMIT_COUNT). Auto-release triggered."
+          else
+            {
+              echo "should_release=false"
+              echo "release_reason=none"
+              echo "skip_reason=below_threshold"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Below auto-release threshold ($COMMIT_COUNT < 5). No release created."
+          fi
+
   analyze-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -50,7 +127,8 @@ jobs:
   build-rc:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
-    needs: analyze-and-test
+    needs: [check-release-markers, analyze-and-test]
+    if: always() && needs.analyze-and-test.result == 'success'
     defaults:
       run:
         working-directory: app
@@ -59,6 +137,8 @@ jobs:
       id-token: write
     outputs:
       has_windows: ${{ steps.check_windows.outputs.has_windows }}
+      should_release: ${{ needs.check-release-markers.outputs.should_release }}
+      release_reason: ${{ needs.check-release-markers.outputs.release_reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -76,9 +156,24 @@ jobs:
       - name: Generate Beta Tag
         id: tag
         run: |
-          # Get latest production tag and clean any invisible chars (like \r)
-          RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
-          LATEST_TAG=$(echo "$RAW_TAG" | tr -d '\r\n ')
+          # Authenticate GitHub CLI
+          gh auth setup-git
+
+          # Try to find last beta release via GitHub API
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+
+          if [ -n "$LAST_BETA" ]; then
+            echo "Found last beta release: $LAST_BETA"
+            LAST_RELEASE="$LAST_BETA"
+          else
+            # Fall back to git describe for stable tags
+            RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LAST_RELEASE=$(echo "$RAW_TAG" | tr -d '\r\n ')
+            echo "No beta releases found. Using stable tag: $LAST_RELEASE"
+          fi
+
+          # Clean any invisible chars
+          LATEST_TAG=$(echo "$LAST_RELEASE" | tr -d '\r\n ')
 
           # Extract version components using bash parameter expansion
           VERSION="${LATEST_TAG#v}"
@@ -102,6 +197,8 @@ jobs:
 
           echo "beta-tag=$BETA_TAG" >> "$GITHUB_OUTPUT"
           echo "Generated beta tag: $BETA_TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Android APK
         id: build_android
@@ -160,9 +257,9 @@ jobs:
             ${{ steps.build_windows.outputs.zip-path }}.pem
 
   provenance:
-    needs: [analyze-and-test, build-rc]
+    needs: [check-release-markers, analyze-and-test, build-rc]
     timeout-minutes: 10
-    if: always() && needs.build-rc.result == 'success'
+    if: always() && needs.build-rc.result == 'success' && needs.check-release-markers.outputs.should_release == 'true'
     runs-on: ubuntu-22.04
     permissions:
       id-token: write
@@ -189,12 +286,13 @@ jobs:
   create-draft-release:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    needs: [analyze-and-test, build-rc, provenance]
-    if: always() && needs.build-rc.result == 'success' && needs.provenance.result == 'success'
+    needs: [check-release-markers, analyze-and-test, build-rc, provenance]
+    if: always() && needs.build-rc.result == 'success' && needs.provenance.result == 'success' && needs.check-release-markers.outputs.should_release == 'true'
     permissions:
       contents: write
     outputs:
       beta-tag: ${{ steps.tag.outputs.beta-tag }}
+      release_reason: ${{ needs.check-release-markers.outputs.release_reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -206,9 +304,24 @@ jobs:
       - name: Generate Beta Tag (repeat)
         id: tag
         run: |
-          # Get latest production tag and clean any invisible chars (like \r)
-          RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
-          LATEST_TAG=$(echo "$RAW_TAG" | tr -d '\r\n ')
+          # Authenticate GitHub CLI
+          gh auth setup-git
+
+          # Try to find last beta release via GitHub API
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+
+          if [ -n "$LAST_BETA" ]; then
+            echo "Found last beta release: $LAST_BETA"
+            LAST_RELEASE="$LAST_BETA"
+          else
+            # Fall back to git describe for stable tags
+            RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LAST_RELEASE=$(echo "$RAW_TAG" | tr -d '\r\n ')
+            echo "No beta releases found. Using stable tag: $LAST_RELEASE"
+          fi
+
+          # Clean any invisible chars
+          LATEST_TAG=$(echo "$LAST_RELEASE" | tr -d '\r\n ')
 
           # Extract version components using bash parameter expansion
           VERSION="${LATEST_TAG#v}"
@@ -232,6 +345,8 @@ jobs:
 
           echo "beta-tag=$BETA_TAG" >> "$GITHUB_OUTPUT"
           echo "Generated beta tag: $BETA_TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Release Notes
         uses: ./.github/actions/generate-release-notes
@@ -306,19 +421,21 @@ jobs:
   notify-telegram:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    needs: [analyze-and-test, build-rc, create-draft-release]
+    needs: [check-release-markers, analyze-and-test, build-rc, create-draft-release]
     if: always() && needs.build-rc.result == 'success'
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Notify Telegram (RC Build)
+      - name: Notify Telegram (RC Build or Skip)
         uses: ./.github/actions/notify-telegram
         with:
           telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          notification-type: rc-build
+          notification-type: ${{ needs.check-release-markers.outputs.should_release == 'true' && 'rc-build' || 'build-skipped' }}
           branch: ${{ github.ref_name }}
-          tag: ${{ needs.create-draft-release.outputs.beta-tag }}
+          tag: ${{ needs.create-draft-release.outputs.beta-tag || 'N/A' }}
           status: ${{ needs.build-rc.result }}
+          release_reason: ${{ needs.check-release-markers.outputs.release_reason }}
+          skip_reason: ${{ needs.check-release-markers.outputs.skip_reason }}
