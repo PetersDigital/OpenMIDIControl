@@ -828,7 +828,551 @@ When creating new workflows or modifying existing ones:
 |------|---------|--------|---------|
 | 2026-03-27 | 1.0 | @dencelkbabu | Initial modularization: 5 new composite actions |
 | 2026-03-30 | 2.0 | @dencelkbabu | Complete workflow refactor: feature/dev/beta branch strategy, 3 new workflows, consolidated documentation |
+| 2026-03-31 | 3.0 | @dencelkbabu | **Phase 1-3 Release Workflow Implementation**: Enhanced beta workflow with commit markers, RC workflow, hotfix workflow, GitHub API integration for changelog generation |
 
 ---
 
-**Next Steps:** Push workflows to `dev` branch and test with feature branch pushes.
+## 🚀 Release Workflow Implementation (Phase 1-3 Complete)
+
+**Status:** ✅ **COMPLETE** - All phases implemented as of 2026-03-31
+
+### Overview
+
+The release workflow system provides a complete automated pipeline from development builds to stable releases, with intelligent release decision-making based on commit message markers.
+
+**Key Features:**
+- Commit message markers (`[wip]`, `[skip-release]`, `[beta]`)
+- Auto-release at 5+ commits
+- GitHub API integration for changelog generation
+- Conventional commit parsing
+- RC and hotfix workflows
+
+---
+
+### Release Types
+
+| Type | Branch | Tag Format | Trigger | Draft | Pre-release | Changelog Source |
+|------|--------|------------|---------|-------|-------------|------------------|
+| **Beta** | `beta` | `v{MAJOR}.{MINOR}.{PATCH}-beta.{N}` | Auto (markers) | ✅ Yes | ❌ No | Git (since last beta) |
+| **RC** | `beta` | `v{MAJOR}.{MINOR}.{PATCH}-rc.{N}` | Manual tag | ❌ No | ✅ Yes | Git (full/incr) |
+| **Stable** | `main` | `v{MAJOR}.{MINOR}.{PATCH}` | Manual tag | ❌ No | ❌ No | CHANGELOG.md |
+| **Hotfix** | `main` | `v{MAJOR}.{MINOR}.{PATCH}-patch.{N}` | Manual tag | ❌ No | ❌ No | Git (since stable/patch) |
+
+---
+
+### Phase 1: Enhanced Beta Workflow
+
+**Commit:** `feat(ci/beta): implement Phase 1 enhanced beta workflow with commit markers`
+
+**Objective:** Enhance existing `ci_beta.yml` with smart release automation based on commit message markers and auto-release thresholds.
+
+#### Commit Message Markers
+
+**Format:**
+```bash
+git commit -m "type(scope): description" -m "Extended description.
+
+[beta]"
+```
+
+**Markers:**
+
+| Marker | Build + Test | Create Release | Priority |
+|--------|-------------|----------------|----------|
+| `[wip]` | ✅ Yes | ❌ No | High (skip) |
+| `[skip-release]` | ✅ Yes | ❌ No | High (skip) |
+| `[beta]` | ✅ Yes | ✅ Yes | Medium (explicit) |
+| (none) + 5+ commits | ✅ Yes | ✅ Yes | Low (auto) |
+| (none) + <5 commits | ✅ Yes | ❌ No | Low (auto) |
+
+**Priority Logic:**
+```
+1. Check skip markers ([wip], [skip-release]) → SKIP (safety first)
+2. Check [beta] marker → CREATE RELEASE (explicit)
+3. Check commit count (≥5) → CREATE RELEASE (auto)
+4. Otherwise → SKIP (not enough changes)
+```
+
+#### GitHub API Integration
+
+**Problem:** Beta tags are not created in git (only GitHub release names), so `git describe --tags` cannot find previous releases.
+
+**Solution:** Use GitHub CLI (`gh`) to query releases API.
+
+**Implementation:**
+```bash
+# Find last beta release
+LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+
+# If no beta, find last stable tag
+if [ -z "$LAST_BETA" ]; then
+  LAST_RELEASE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0)
+else
+  LAST_RELEASE="$LAST_BETA"
+fi
+
+# Generate changelog from that point
+git log --oneline --pretty=format:"- %s" $LAST_RELEASE..HEAD
+```
+
+#### Conventional Commit Parsing
+
+**Parse commit types into changelog sections:**
+
+| Commit Type | Changelog Section |
+|-------------|-------------------|
+| `feat`, `feature` | ### Added |
+| `fix` | ### Fixed |
+| `perf`, `refactor` | ### Changed |
+| `docs` | ### Documentation |
+| `test` | ### Testing |
+| `chore`, `ci`, `build` | ### Maintenance |
+| `break` | ### Breaking Changes |
+
+#### Beta Tag Naming
+
+**Auto-generated (no manual tags):**
+```bash
+# Calculate beta number from commit count
+BETA_NUM=$(git rev-list --count $LAST_STABLE..HEAD)
+BETA_TAG="v{MAJOR}.{MINOR}.{PATCH}-beta.${BETA_NUM}"
+```
+
+**Example:**
+- Last stable: `v0.2.2`
+- Commits since: 45
+- Generated tag: `v0.2.2-beta.45`
+
+#### Developer Workflow Examples
+
+```bash
+# Small fix (no release, just build/test)
+git commit -m "fix(midi): reduce latency" -m "Testing new algorithm.
+
+[wip]"
+git push origin beta
+
+# Feature complete (create beta release)
+git commit -m "feat(ui): add new fader" -m "Implements hybrid touch fader.
+
+[beta]"
+git push origin beta
+
+# Batch of 5 small fixes (auto-release)
+git commit -m "fix: bug 1"
+git commit -m "fix: bug 2"
+git commit -m "fix: bug 3"
+git commit -m "fix: bug 4"
+git commit -m "fix: bug 5"
+git push origin beta
+# → Auto-creates beta release
+```
+
+---
+
+### Phase 2: Release Candidate (RC) Workflow
+
+**Commit:** `feat(ci/rc): implement Phase 2 release candidate workflow`
+
+**Objective:** Create separate workflow for RC releases that bridges beta testing and stable release.
+
+#### Trigger Mechanism
+
+**Manual tag push (from beta branch):**
+```bash
+git checkout beta
+git tag v0.2.2-rc.1
+git push origin v0.2.2-rc.1
+```
+
+**Workflow trigger:**
+```yaml
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+```
+
+#### RC Changelog Logic
+
+**First RC (rc.1):**
+```bash
+# Show ALL changes since last stable
+LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0)
+git log --oneline $LAST_STABLE..HEAD
+```
+
+**Subsequent RCs (rc.2+):**
+```bash
+# Show changes since previous RC
+PREV_RC=$(git describe --tags --match='v*-rc.*' --abbrev=0 | head -1)
+git log --oneline $PREV_RC..HEAD
+```
+
+**Example:**
+```markdown
+## v0.2.2-rc.1
+**Full release candidate for v0.2.2**
+
+### All Changes since v0.2.2
+- 45 commits from beta cycle
+- New features, performance improvements, bug fixes
+
+---
+
+## v0.2.2-rc.2
+**Second release candidate**
+
+### Changes since v0.2.2-rc.1
+- fix: RC1 crash on startup
+- fix: MIDI port detection issue
+```
+
+#### Release Settings
+
+| Setting | Value |
+|---------|-------|
+| Draft | `false` (public) |
+| Pre-release | `true` |
+| Changelog | Full (rc.1) or Incremental (rc.2+) |
+| Assets | APK + ZIP (signed + provenance) |
+
+#### Developer Workflow Examples
+
+```bash
+# Feature complete, ready for public testing
+git checkout beta
+git tag v0.2.2-rc.1
+git push origin v0.2.2-rc.1
+# → Creates RC.1 release (public, pre-release)
+
+# Fix bug found in RC1
+git commit -m "fix: RC1 crash on startup"
+git tag v0.2.2-rc.2
+git push origin v0.2.2-rc.2
+# → Creates RC.2 release (shows changes since RC.1)
+```
+
+---
+
+### Phase 3: Hotfix/Patch Workflow
+
+**Commit:** `feat(ci/hotfix): implement Phase 3 hotfix workflow for urgent production fixes`
+
+**Objective:** Enable urgent fixes to stable releases without waiting for full release cycle.
+
+#### Trigger Mechanism
+
+**Manual tag push (from main branch):**
+```bash
+git checkout main
+git commit -m "fix: critical bug fix"
+git tag v0.2.2-patch.1
+git push origin v0.2.2-patch.1
+```
+
+**Workflow trigger:**
+```yaml
+on:
+  push:
+    tags:
+      - 'v*-patch.*'
+```
+
+#### Use Cases
+
+| Scenario | Example |
+|----------|---------|
+| Critical bug in stable | Crash on startup |
+| Security vulnerability | Dependency CVE |
+| Regression | Feature broken in last release |
+
+#### Release Settings
+
+| Setting | Value |
+|---------|-------|
+| Draft | `false` |
+| Pre-release | `false` |
+| Changelog | Since last stable (or patch) |
+| Assets | APK + ZIP (signed + provenance) |
+
+#### Patch Numbering
+
+```bash
+# Count patches since last stable
+PATCH_NUM=$(git rev-list --count v0.2.2..HEAD | grep patch || echo "1")
+PATCH_TAG="v0.2.2-patch.${PATCH_NUM}"
+```
+
+#### Relationship to Stable
+
+**After hotfix:**
+- Patch release is published immediately
+- Main branch updated with fix
+- Next stable release (`v0.2.3`) includes patch
+
+#### Developer Workflow Examples
+
+```bash
+# Critical bug in stable
+git checkout main
+git commit -m "fix: critical startup crash"
+git tag v0.2.2-patch.1
+git push origin v0.2.2-patch.1
+# → ci_hotfix.yml creates patch release
+
+# Second hotfix (if needed)
+git commit -m "fix: memory leak in MIDI parser"
+git tag v0.2.2-patch.2
+git push origin v0.2.2-patch.2
+# → Shows changes since v0.2.2-patch.1
+```
+
+---
+
+### Workflow Comparison
+
+#### Trigger Mechanisms
+
+| Workflow | Trigger | Manual/Auto |
+|----------|---------|-------------|
+| Beta | Push to beta + markers | Auto |
+| RC | Tag push (`v*-rc.*`) | Manual |
+| Stable | Tag push (`v*.*.*`) | Manual |
+| Hotfix | Tag push (`v*-patch.*`) | Manual |
+
+#### Changelog Sources
+
+| Workflow | Source | Range |
+|----------|--------|-------|
+| Beta | GitHub API + git log | Since last beta |
+| RC | GitHub API + git log | Since stable (rc.1) or prev RC (rc.2+) |
+| Stable | CHANGELOG.md | Manual entry |
+| Hotfix | GitHub API + git log | Since stable or prev patch |
+
+#### Release Visibility
+
+| Workflow | Draft | Pre-release | Public |
+|----------|-------|-------------|--------|
+| Beta | ✅ Yes | ❌ No | ❌ Internal |
+| RC | ❌ No | ✅ Yes | ✅ Yes |
+| Stable | ❌ No | ❌ No | ✅ Yes |
+| Hotfix | ❌ No | ❌ No | ✅ Yes |
+
+---
+
+### Technical Dependencies
+
+#### Required Tools
+
+| Tool | Purpose | Available |
+|------|---------|-----------|
+| `gh` (GitHub CLI) | Release API queries | ✅ Pre-installed on runners |
+| `git` | Tag/log operations | ✅ Available |
+| `jq` | JSON parsing | ✅ Pre-installed |
+
+#### Required Permissions
+
+```yaml
+permissions:
+  contents: write      # Create releases
+  id-token: write      # Signing
+  attestations: write  # Provenance
+```
+
+#### Existing Actions (Reused)
+
+- `.github/actions/flutter-ci-core` - CI setup
+- `.github/actions/flutter-build-android` - Android build
+- `.github/actions/flutter-build-windows` - Windows build
+- `.github/actions/cosign-sign-verify` - Asset signing
+- `.github/actions/provenance-attestation` - SLSA provenance
+- `.github/actions/generate-release-notes` - Changelog generation (enhanced)
+- `.github/actions/notify-telegram` - Notifications
+- `.github/actions/download-and-prepare-artifacts` - Asset preparation
+
+---
+
+### Testing Strategy
+
+#### Unit Tests (Local)
+
+```bash
+# Test marker detection
+bash scripts/test-release-notes.sh
+
+# Test conventional commit parsing
+# Test GitHub API queries
+```
+
+#### Integration Tests (CI)
+
+1. **Beta workflow:**
+   - Push with `[beta]` marker → Release created
+   - Push with `[wip]` marker → No release
+   - Push 5 commits (no marker) → Auto-release
+   - Push 3 commits (no marker) → No release
+
+2. **RC workflow:**
+   - Push `v0.2.2-rc.1` → Full changelog
+   - Push `v0.2.2-rc.2` → Incremental changelog
+
+3. **Hotfix workflow:**
+   - Push `v0.2.2-patch.1` → Patch release
+
+---
+
+### Troubleshooting
+
+#### Common Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Release not created | Marker not detected | Check commit message format |
+| Wrong changelog range | GitHub API fails | Verify `gh auth` |
+| Build fails | Action restoration | Check `.github/actions` checkout |
+
+---
+
+## Appendix A: Commit Message Examples
+
+### Valid Formats
+
+```bash
+# Beta release
+git commit -m "feat(ui): add new fader" -m "Implements hybrid touch fader.
+
+[beta]"
+
+# WIP (no release)
+git commit -m "fix(midi): experimental fix" -m "Testing new approach.
+
+[wip]"
+
+# Skip release (complete but don't release)
+git commit -m "docs: update README" -m "Minor updates.
+
+[skip-release]"
+
+# Auto-release (5+ commits, no marker)
+git commit -m "fix: bug 1"
+git commit -m "fix: bug 2"
+git commit -m "fix: bug 3"
+git commit -m "fix: bug 4"
+git commit -m "fix: bug 5"
+git push
+```
+
+### Invalid Formats
+
+```bash
+# Marker in title (not description)
+git commit -m "fix: bug [beta]"  # ❌ Won't work
+
+# Marker without -m flag
+git commit -m "fix: bug" -m "[beta]"  # ✅ Correct
+git commit -m "fix: bug [beta]"  # ❌ Wrong
+```
+
+---
+
+## Appendix B: GitHub CLI Commands
+
+### Find Last Release
+
+```bash
+# Last release (any type)
+gh release list --limit 1 --json tagName --jq '.[0].tagName'
+
+# Last beta release
+gh release list --limit 10 --json tagName | grep beta | head -1
+
+# Filter by pattern
+gh release list --json tagName --jq '.[].tagName' | grep 'v0.2.2-beta' | tail -1
+```
+
+### Authentication
+
+```yaml
+- name: Authenticate GitHub CLI
+  run: gh auth setup-git
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+---
+
+## Appendix C: Changelog Generation Examples
+
+### Beta Changelog (Incremental)
+
+```markdown
+🚧 **Beta Release** - Release candidate for testing.
+
+### Changes since v0.2.2-beta.44
+
+### Added
+- feat(ui): add new fader component
+
+### Fixed
+- fix(midi): resolve UMP reconstruction bug
+- fix(ci): improve build stability
+
+### Maintenance
+- chore(deps): update dependencies
+
+---
+### Build & Security Metadata
+- **Tag:** v0.2.2-beta.45
+- **Triggered By:** @dencelkbabu
+- 🛡️ **Provenance:** GitHub Native SLSA Attestation
+- 🔐 **Signatures:** Cosign (OIDC)
+```
+
+### RC Changelog (Full)
+
+```markdown
+## 🎯 Release Candidate: v0.2.2-rc.1
+
+**This is a release candidate** - feature complete, ready for final testing.
+
+### All Changes since v0.2.2
+
+### Added
+- feat(ui): add new fader component
+- feat(midi): implement MIDI 2.0 support
+
+### Fixed
+- fix(midi): resolve UMP reconstruction bug
+- fix(ci): improve build stability
+
+### Changed
+- perf(core): reduce latency by 20%
+
+---
+### Testing Focus
+- [ ] USB Peripheral Mode stability
+- [ ] MIDI 2.0 compatibility
+- [ ] Performance under load
+
+**If no critical issues found, this becomes v0.2.2 stable.**
+```
+
+### Hotfix Changelog
+
+```markdown
+## 🔧 Hotfix Release: v0.2.2-patch.1
+
+**This is an urgent production fix** for v0.2.2.
+
+### Changes since v0.2.2
+
+### Fixed
+- fix: critical startup crash
+- fix: memory leak in MIDI parser
+
+---
+### ⚠️ Hotfix Notice
+This release contains urgent fixes for production issues.
+All users on v0.2.2 are encouraged to update immediately.
+```
