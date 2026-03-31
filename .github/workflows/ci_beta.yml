@@ -76,8 +76,9 @@ jobs:
       - name: Generate Beta Tag
         id: tag
         run: |
-          # Get latest production tag
-          LATEST_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Get latest production tag and clean any invisible chars (like \r)
+          RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_TAG=$(echo "$RAW_TAG" | tr -d '\r\n ')
 
           # Extract version components using bash parameter expansion
           VERSION="${LATEST_TAG#v}"
@@ -205,8 +206,9 @@ jobs:
       - name: Generate Beta Tag (repeat)
         id: tag
         run: |
-          # Get latest production tag
-          LATEST_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Get latest production tag and clean any invisible chars (like \r)
+          RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_TAG=$(echo "$RAW_TAG" | tr -d '\r\n ')
 
           # Extract version components using bash parameter expansion
           VERSION="${LATEST_TAG#v}"
@@ -250,41 +252,44 @@ jobs:
         id: assets
         run: |
           TAG="${{ steps.tag.outputs.beta-tag }}"
-          FILES=""
 
-          # Android APK and signatures
-          for ext in apk sig pem; do
-            FILE="openmidicontrol-${TAG}-android.${ext}"
-            if [ -f "$FILE" ]; then
-              FILES="$FILES $FILE"
-              echo "Found: $FILE"
-            else
-              echo "::warning::File not found: $FILE"
-            fi
-          done
-
-          # Windows ZIP and signatures (if exists)
-          if [ "${{ needs.build-rc.outputs.has_windows }}" = "true" ]; then
-            for ext in zip sig pem; do
-              FILE="openmidicontrol-${TAG}-windows.${ext}"
+          echo "=== Generating Asset List ==="
+          {
+            echo "files<<EOF"
+            # Android APK and signatures
+            for ext in apk apk.sig apk.pem; do
+              FILE="openmidicontrol-${TAG}-android.${ext}"
               if [ -f "$FILE" ]; then
-                FILES="$FILES $FILE"
-                echo "Found: $FILE"
+                echo "$FILE"
               else
-                echo "::warning::File not found: $FILE"
+                echo "::warning::File not found: $FILE" >&2
               fi
             done
-          fi
 
-          # Provenance files
-          for file in *.jsonl; do
-            if [ -f "$file" ]; then
-              FILES="$FILES $file"
-              echo "Found: $file"
+            # Windows ZIP and signatures (if exists)
+            if [ "${{ needs.build-rc.outputs.has_windows }}" = "true" ]; then
+              for ext in zip zip.sig zip.pem; do
+                FILE="openmidicontrol-${TAG}-windows.${ext}"
+                if [ -f "$FILE" ]; then
+                  echo "$FILE"
+                else
+                  echo "::warning::File not found: $FILE" >&2
+                fi
+              done
             fi
-          done
 
-          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+            # Provenance files
+            for file in ./*.jsonl; do
+              if [ -f "$file" ]; then
+                echo "$file"
+              fi
+            done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          # Log findings to runner console
+          echo "Assets to be uploaded:"
+          ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
