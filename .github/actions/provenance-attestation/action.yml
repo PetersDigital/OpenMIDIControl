@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 name: 'CD: Provenance Attestation'
 description: 'Run GitHub attest-build-provenance for an artifact path.'
 inputs:
@@ -10,6 +11,6 @@ runs:
   using: composite
   steps:
     - name: Generate provenance attestation
-      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
       with:
         subject-path: "${{ inputs.subject_path }}"
