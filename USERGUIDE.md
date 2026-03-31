@@ -170,6 +170,294 @@ midi endpoint send-message 0x20B00121
 - Change history: [CHANGELOG.md](CHANGELOG.md)
 - Cubase reference mappings: [references/cubase](references/cubase)
 
+## 11. CI/CD & Release Information
+
+This section provides information about OpenMIDIControl's automated build, test, and release system. It is intended for **end users**, **testers**, and **stakeholders** who want to understand release types and how to verify downloads.
+
+### For End Users
+
+#### Release Types
+
+OpenMIDIControl publishes four types of releases. Understanding the differences helps you choose the right version for your needs.
+
+| Release Type | Stability | Audience | Tag Format | Where to Find |
+|--------------|-----------|----------|------------|---------------|
+| **Beta** | 🟡 Unstable | Internal testers, developers | `v0.2.2-beta.45` | GitHub Releases (draft) |
+| **RC** (Release Candidate) | 🟢 Stable (feature complete) | Public testers, early adopters | `v0.2.2-rc.1` | GitHub Releases (pre-release) |
+| **Stable** | ✅ Production-ready | All users | `v0.2.2` | GitHub Releases (public) |
+| **Hotfix** | ✅ Production-ready (urgent) | Users affected by critical bug | `v0.2.2-patch.1` | GitHub Releases (public) |
+
+#### Understanding Release Tags
+
+**Beta Releases (`v0.2.2-beta.45`):**
+- **What it means:** 45th beta build in the v0.2.2 development cycle
+- **Frequency:** Multiple per week (auto-generated from beta branch)
+- **Use case:** Testing in-progress features, providing early feedback
+- **Warning:** May contain bugs, incomplete features, or breaking changes
+- **Where:** GitHub Releases (may be in draft state, not publicly visible)
+
+**RC Releases (`v0.2.2-rc.1`):**
+- **What it means:** First release candidate for v0.2.2 (feature complete)
+- **Frequency:** 1-3 per release cycle (manual tags)
+- **Use case:** Final validation before stable release
+- **Warning:** Feature complete, but may have undiscovered bugs
+- **Where:** GitHub Releases (public, marked as "pre-release")
+
+**Stable Releases (`v0.2.2`):**
+- **What it means:** Production-ready version 0.2.2
+- **Frequency:** Monthly or when major features are complete
+- **Use case:** Daily use, production environments
+- **Warning:** None — this is the recommended version for all users
+- **Where:** GitHub Releases (public, latest release)
+
+**Hotfix Releases (`v0.2.2-patch.1`):**
+- **What it means:** First urgent fix for v0.2.2
+- **Frequency:** As needed (critical bugs only)
+- **Use case:** Fixing critical issues without waiting for next stable
+- **Warning:** Minimal testing — urgent fixes only
+- **Where:** GitHub Releases (public)
+
+#### Where to Find Releases
+
+All releases are published on the **GitHub Releases page**:
+- **URL:** `https://github.com/PetersDigital/OpenMIDIControl/releases`
+- **Latest stable:** Look for the top release without "pre-release" badge
+- **RC releases:** Look for "pre-release" badge
+- **Beta releases:** May be in draft state (not visible to public)
+- **Hotfix releases:** Listed chronologically with stable releases
+
+**Download Assets:**
+Each release includes:
+- `app-release.apk` — Android APK (for all devices)
+- `openmidicontrol-windows.zip` — Windows build (if applicable)
+- `checksums.txt` — SHA256 hashes for verification
+- `provenance.json` — SLSA provenance attestation
+
+### For Testers & Stakeholders
+
+#### Beta Releases: Internal Testing
+
+**Purpose:** Validate in-progress features before public release.
+
+**Who should test:**
+- Core development team
+- Trusted beta testers
+- Contributors who submitted features in the beta cycle
+
+**How to access:**
+1. Go to GitHub Releases page
+2. Look for draft releases (may require invitation)
+3. Download APK and install on test device
+4. Report issues via:
+   - **Telegram:** [OpenMIDIControl Community](https://t.me/openmidicontrol)
+   - **GitHub Issues:** Use "Bug Report" template
+
+**Feedback expectations:**
+- Test specific features mentioned in release notes
+- Report crashes, regressions, or unexpected behavior
+- Provide device model, Android version, and DAW setup
+- Include logs if possible (`adb logcat`)
+
+#### RC Releases: Public Testing
+
+**Purpose:** Final validation before stable release.
+
+**Who should test:**
+- All users interested in new features
+- Power users with complex setups
+- Hardware-in-the-loop (HITL) testers
+
+**How to access:**
+1. Go to GitHub Releases page
+2. Find release with "pre-release" badge
+3. Download APK and install
+4. Focus testing on:
+   - **Regression testing:** Ensure existing features still work
+   - **Edge cases:** Unusual MIDI setups, long sessions
+   - **Performance:** Latency, thermal stability, battery drain
+
+**Feedback channels:**
+- **Telegram:** Quick feedback, community discussion
+- **GitHub Issues:** Formal bug reports, feature requests
+- **Direct contact:** @dencelkbabu for urgent issues
+
+**RC Timeline:**
+```
+RC.1 → (bug fixes) → RC.2 → (final validation) → Stable Release
+  ↑                    ↑                          ↑
+  Public testing       Final fixes                Production
+```
+
+If no critical issues are found in RC.2, it becomes the stable release.
+
+#### How to Provide Feedback
+
+**Bug Reports (GitHub Issues):**
+1. Use the "Bug Report" template
+2. Include:
+   - **Release version:** e.g., `v0.2.2-rc.1`
+   - **Device:** Android model + version
+   - **DAW:** Cubase/Ableton/other
+   - **Steps to reproduce:** Clear, numbered steps
+   - **Expected behavior:** What should happen
+   - **Actual behavior:** What actually happened
+   - **Logs:** `adb logcat` output (if applicable)
+
+**Feature Feedback (Telegram):**
+- Join: https://t.me/openmidicontrol
+- Share: Screenshots, videos, MIDI traces
+- Discuss: Usability, workflow improvements
+- Vote: React to messages to prioritize issues
+
+### Build Metadata & Verification
+
+OpenMIDIControl uses **SLSA (Supply-chain Levels for Software Artifacts)** compliance to ensure build integrity.
+
+#### Provenance Attestation (SLSA)
+
+**What it is:** Cryptographic proof of how, when, and by whom a build was created.
+
+**What it includes:**
+- Build timestamp
+- GitHub Actions runner ID
+- Source commit SHA
+- Build commands executed
+- Dependency versions
+
+**How to verify:**
+1. Download `provenance.json` from release assets
+2. Use GitHub's verification tool:
+   ```bash
+   gh attestation verify <artifact> --owner PetersDigital
+   ```
+3. Or use `cosign` directly:
+   ```bash
+   cosign verify-blob <artifact> \
+     --signature <artifact>.sig \
+     --certificate <artifact>.crt
+   ```
+
+**What to look for:**
+- ✅ `buildType`: "github-workflow"
+- ✅ `builder.id`: GitHub Actions runner
+- ✅ `materials[0].digest.sha256`: Matches your download
+- ✅ `invocation.configSource.uri`: Points to `.github/workflows/` in this repo
+
+#### Cosign Signatures (OIDC)
+
+**What it is:** Keyless signing using OpenID Connect (OIDC) identity.
+
+**Why keyless:** No long-lived signing keys to manage or leak.
+
+**How it works:**
+1. GitHub Actions requests OIDC token from GitHub
+2. Token proves identity: `https://github.com/PetersDigital/OpenMIDIControl/.github/workflows/cd_prod_auto.yml@refs/heads/main`
+3. Cosign signs artifact with short-lived key
+4. Signature is tied to GitHub identity, not a static key
+
+**How to verify:**
+```bash
+cosign verify-blob app-release.apk \
+  --signature app-release.apk.sig \
+  --certificate app-release.apk.crt \
+  --certificate-identity-regexp "https://github.com/PetersDigital/OpenMIDIControl" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+```
+
+**Expected output:**
+```
+Verified OK
+```
+
+#### Checksum Verification
+
+**Quick verification (SHA256):**
+```bash
+# Windows PowerShell
+Get-FileHash app-release.apk -Algorithm SHA256
+
+# Compare with checksums.txt
+```
+
+**Expected:** Hash matches the value in `checksums.txt`
+
+#### Full Verification Workflow
+
+For maximum security:
+
+```bash
+# 1. Download all assets
+gh release download v0.2.2 --pattern "*.apk" --pattern "*.sig" --pattern "*.crt" --pattern "provenance.json"
+
+# 2. Verify checksum
+sha256sum app-release.apk | diff - checksums.txt
+
+# 3. Verify signature
+cosign verify-blob app-release.apk \
+  --signature app-release.apk.sig \
+  --certificate app-release.apk.crt \
+  --certificate-identity-regexp "https://github.com/PetersDigital/OpenMIDIControl" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+
+# 4. Verify provenance
+gh attestation verify app-release.apk --owner PetersDigital
+```
+
+**If all checks pass:** ✅ The APK is authentic and untampered.
+
+### Release Notification Channels
+
+Stay informed about new releases:
+
+| Channel | Type | Frequency | Audience |
+|---------|------|-----------|----------|
+| **Telegram** | Instant | Every release | All users |
+| **GitHub Releases** | RSS/Feed | Every release | Developers |
+| **GitHub Watch** | Email | Every release | Contributors |
+| **Twitter/X** | Announcements | Major releases | Community |
+
+**Recommended setup:**
+- **End users:** Watch GitHub Releases (latest only)
+- **Testers:** Join Telegram for beta/RC notifications
+- **Contributors:** Watch all activity + Telegram
+
+### Release Cadence
+
+**Typical release cycle:**
+```
+Week 1-2: Beta builds (v0.2.2-beta.1 to beta.45)
+  ↓
+Week 3:   RC builds (v0.2.2-rc.1, rc.2)
+  ↓
+Week 4:   Stable release (v0.2.2)
+```
+
+**Hotfix releases:** As needed (typically within 48 hours of critical bug report)
+
+**Major releases:** Quarterly (v0.3.0, v0.4.0)
+
+**Minor releases:** Monthly (v0.2.1, v0.2.2, v0.2.3)
+
+### Troubleshooting Downloads
+
+**Issue:** "App not installed" on Android
+- **Solution:** Enable "Install from Unknown Sources" in Settings
+- **Alternative:** Use ADB: `adb install app-release.apk`
+
+**Issue:** Checksum mismatch
+- **Solution:** Re-download — file may be corrupted
+- **Warning:** If mismatch persists, report immediately (security concern)
+
+**Issue:** Signature verification fails
+- **Solution:** Ensure you downloaded from official GitHub Releases
+- **Warning:** Do not install APKs from unofficial sources
+
+**Issue:** Provenance verification fails
+- **Solution:** Check GitHub CLI version (`gh --version`)
+- **Alternative:** Use `cosign` directly (see above)
+
+---
+
 ## 10. License
 
 See [LICENSE](LICENSE) for licensing terms.
