@@ -11,7 +11,7 @@ on:
     paths:
       - '.github/**'
   push:
-    branches: [main]
+    branches: [main, beta]
     paths:
       - '.github/**'
 
