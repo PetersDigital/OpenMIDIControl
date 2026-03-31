@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 name: 'CD: Generate Release Notes'
-description: 'Extract changelog section and generate GitHub release notes'
+description: 'Generate release notes from git log (beta) or CHANGELOG.md (stable)'
 
 inputs:
   tag:
-    description: 'Release tag (e.g., v1.0.0)'
+    description: 'Release tag (e.g., v1.0.0 or v1.0.0-beta.1)'
     required: true
   changelog-path:
     description: 'Path to CHANGELOG.md file'
@@ -37,25 +37,115 @@ runs:
         TAG="${{ inputs.tag }}"
         VERSION="${TAG#v}"
         CHANGELOG="${{ inputs.changelog-path }}"
-
-        if [ -f "$CHANGELOG" ]; then
-          awk -v version="$VERSION" '
-            index($0, "## [" version "]") == 1 { in_section=1; next }
-            /^## \[/ && in_section==1 { exit }
-            in_section==1 { print }
-          ' "$CHANGELOG" > changelog_section.md
+        
+        # Detect if this is a beta release
+        IS_BETA=false
+        if [[ "$TAG" == *"-beta."* ]]; then
+          IS_BETA=true
+        fi
+        
+        # Function to parse conventional commits into changelog format
+        parse_commits() {
+          local from_ref="$1"
+          local to_ref="${2:-HEAD}"
+          
+          # Get commits with conventional commit format
+          git log --pretty=format:"%s" "${from_ref}..${to_ref}" | while read -r commit_msg; do
+            # Extract type and scope using regex
+            if [[ "$commit_msg" =~ ^([a-zA-Z]+)(\([a-zA-Z0-9/_-]+\))?:\ (.+)$ ]]; then
+              type="${BASH_REMATCH[1]}"
+              scope="${BASH_REMATCH[2]}"
+              description="${BASH_REMATCH[3]}"
+              
+              # Map conventional commit types to changelog sections
+              case "$type" in
+                feat|feature) echo "### Added|${description}" ;;
+                fix) echo "### Fixed|${description}" ;;
+                perf) echo "### Changed|${description}" ;;
+                refactor) echo "### Changed|${description}" ;;
+                docs) echo "### Documentation|${description}" ;;
+                test) echo "### Testing|${description}" ;;
+                chore|ci|build) echo "### Maintenance|${description}" ;;
+                break*) echo "### Breaking Changes|${description}" ;;
+                *) echo "### Other|${description}" ;;
+              esac
+            fi
+          done
+        }
+        
+        if [ "$IS_BETA" = true ]; then
+          # BETA RELEASE: Generate from git log
+          echo "🚧 **Beta Release** - This is a release candidate for testing. Final changelog will be available on stable release." > release_content.md
+          echo >> release_content.md
+          
+          # Find the previous tag (beta or stable)
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+          
+          if [ -n "$PREV_TAG" ]; then
+            echo "### Changes since ${PREV_TAG}" >> release_content.md
+            echo >> release_content.md
+            
+            # Parse commits and group by type
+            declare -A sections
+            while IFS='|' read -r section desc; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                sections["$section"]+="- ${desc}"$'\n'
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+            
+            # Output grouped sections
+            for section in "### Added" "### Fixed" "### Changed" "### Breaking Changes" "### Documentation" "### Testing" "### Maintenance" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+              fi
+            done
+            
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 3 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            # First ever release
+            echo "### Initial Changes" >> release_content.md
+            echo >> release_content.md
+            git log --pretty=format:"- %s (%h)" "${TAG}" >> release_content.md
+            echo >> release_content.md
+          fi
         else
-          echo "CHANGELOG.md not found" >&2
+          # STABLE RELEASE: Extract from CHANGELOG.md
+          if [ -f "$CHANGELOG" ]; then
+            awk -v version="$VERSION" '
+              index($0, "## [" version "]") == 1 { in_section=1; next }
+              /^## \[/ && in_section==1 { exit }
+              in_section==1 { print }
+            ' "$CHANGELOG" > changelog_section.md
+          else
+            echo "CHANGELOG.md not found" >&2
+          fi
+
+          if [ ! -s changelog_section.md ]; then
+            echo "*No specific changelog entry found for version ${VERSION}. Generating from git log.*" > release_content.md
+            echo >> release_content.md
+            
+            PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+            if [ -n "$PREV_TAG" ]; then
+              git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            cat changelog_section.md > release_content.md
+          fi
         fi
 
-        if [ ! -s changelog_section.md ]; then
-          echo "*No specific changelog entry found for version ${VERSION}.*" > changelog_section.md
-        fi
-
+        # Assemble final release notes
         {
           echo "## What's Changed"
           echo
-          cat changelog_section.md
+          cat release_content.md
 
           if [ "${{ inputs.include-metadata }}" = "true" ]; then
             echo
