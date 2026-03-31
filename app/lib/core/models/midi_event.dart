@@ -6,11 +6,7 @@ class MidiEvent {
   final int timestamp; // nanoseconds or milliseconds
   final String sourceId; // e.g., device id or port name
 
-  const MidiEvent(
-    this.ump,
-    this.timestamp, {
-    this.sourceId = 'unknown',
-  });
+  const MidiEvent(this.ump, this.timestamp, {this.sourceId = 'unknown'});
 
   // Bitwise extraction getters for standard MIDI 1.0 Voice fields
   int get messageType => (ump >> 28) & 0xF;

@@ -339,7 +339,8 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       final Map<int, int> batchUpdates = {};
       for (var midiEvent in midiEvents) {
-        if (midiEvent.legacyStatusByte >= 0xB0 && midiEvent.legacyStatusByte <= 0xBF) {
+        if (midiEvent.legacyStatusByte >= 0xB0 &&
+            midiEvent.legacyStatusByte <= 0xBF) {
           batchUpdates[midiEvent.data1] = midiEvent.data2;
         }
       }
@@ -418,7 +419,7 @@ class CcNotifier extends Notifier<ControlState> {
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
-    
+
     // Check if any values actually changed before creating a new map
     var hasChanges = false;
     for (final entry in updates.entries) {
