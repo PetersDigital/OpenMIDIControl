@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 # @description: Legacy production rebuild for old tags with CI action restoration from main
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
@@ -460,33 +461,44 @@ jobs:
         id: assets
         run: |
           TAG="${{ needs.validate-tag.outputs.tag }}"
-          FILES=""
 
-          # Android APK and signatures
-          for ext in apk apk.sig apk.pem; do
-            FILE="openmidicontrol-${TAG}-android.${ext}"
-            if [ -f "$FILE" ]; then
-              FILES="$FILES $FILE"
-              echo "Found: $FILE"
-            else
-              echo "::warning::File not found: $FILE"
-            fi
-          done
-
-          # Windows ZIP and signatures (if exists)
-          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
-            for ext in zip zip.sig zip.pem; do
-              FILE="openmidicontrol-${TAG}-windows.${ext}"
+          echo "=== Generating Asset List ==="
+          {
+            echo "files<<EOF"
+            # Android APK and signatures
+            for ext in apk apk.sig apk.pem; do
+              FILE="openmidicontrol-${TAG}-android.${ext}"
               if [ -f "$FILE" ]; then
-                FILES="$FILES $FILE"
-                echo "Found: $FILE"
+                echo "$FILE"
               else
-                echo "::warning::File not found: $FILE"
+                echo "::warning::File not found: $FILE" >&2
               fi
             done
-          fi
 
-          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+            # Windows ZIP and signatures (if exists)
+            if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+              for ext in zip zip.sig zip.pem; do
+                FILE="openmidicontrol-${TAG}-windows.${ext}"
+                if [ -f "$FILE" ]; then
+                  echo "$FILE"
+                else
+                  echo "::warning::File not found: $FILE" >&2
+                fi
+              done
+            fi
+
+            # Provenance files
+            for file in ./*.jsonl; do
+              if [ -f "$file" ]; then
+                echo "$file"
+              fi
+            done
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          # Log findings to runner console
+          echo "Assets to be uploaded:"
+          ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
 
       - name: Update GitHub Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
