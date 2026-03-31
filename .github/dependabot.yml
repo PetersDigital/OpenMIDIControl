@@ -9,7 +9,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
       day: "sunday"
       time: "04:00"
       timezone: "Asia/Kolkata"
@@ -27,7 +27,7 @@ updates:
   - package-ecosystem: "pub"
     directory: "/app"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
       day: "sunday"
       time: "04:00"
       timezone: "Asia/Kolkata"
