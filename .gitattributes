@@ -1,0 +1,73 @@
+# OpenMIDIControl .gitattributes
+# Enforce consistent line endings across all platforms
+#
+# This prevents "ghost diffs" where files appear modified after git add
+# due to CRLF↔LF conversion on Windows.
+
+# =============================================================================
+# DEFAULT: Enforce LF everywhere unless overridden
+# =============================================================================
+* text eol=lf
+
+# =============================================================================
+# BINARY FILES
+# =============================================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+*.svg binary
+*.keystore binary
+*.jks binary
+*.p12 binary
+*.pfx binary
+*.zip binary
+*.aar binary
+*.jar binary
+*.dex binary
+*.so binary
+*.dll binary
+*.exe binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.syx binary
+
+# =============================================================================
+# GITHUB ACTIONS / SHELL (LF REQUIRED)
+# =============================================================================
+.github/workflows/*.yml text eol=lf
+.github/actions/*/action.yml text eol=lf
+*.sh text eol=lf
+
+# =============================================================================
+# WINDOWS SCRIPTS (CRLF)
+# =============================================================================
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# =============================================================================
+# BUILD OUTPUTS
+# =============================================================================
+build/** -text
+**/build/** -text
+**/.gradle/** -text
+
+# =============================================================================
+# ENV FILES
+# =============================================================================
+.env text eol=lf
+.env.* text eol=lf
+
+# =============================================================================
+# GIT FILES
+# =============================================================================
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.gitmodules text eol=lf
