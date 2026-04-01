@@ -1,5 +1,38 @@
 # Contributing to OpenMIDIControl
 
+## Licensing and Contributions
+
+All contributions to this project are considered to be owned by Peters Digital.
+
+By contributing, you agree that your contributions are licensed under:
+
+* GNU General Public License v3.0 (GPLv3)
+* Commercial License (LicenseRef-Commercial)
+
+You grant Peters Digital the right to relicense your contributions under
+both licenses.
+
+### License Headers
+
+All source files must include the dual-license header:
+
+**Dart:**
+```dart
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'package:flutter/material.dart';
+```
+
+**Kotlin:**
+```kotlin
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+package com.petersdigital.openmidicontrol
+```
+CI will fail if files are missing headers. See [docs/LICENSING.md](docs/LICENSING.md) for details.
+
 ## Development approach
 This project is maintained by Peters Digital and is primarily implemented with AI assistance. Human review is required for merges.
 
