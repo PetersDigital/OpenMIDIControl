@@ -1,0 +1,45 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Main promotion guard that verifies release branches are synchronized into dev before main merges
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CI: Main Pipeline"
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pre-main-sync:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request' && github.base_ref == 'main' && (github.head_ref == 'beta' || github.head_ref == 'rc')
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+      - name: Verify release branch synced into dev
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$HEAD_BRANCH" dev
+
+          if git merge-base --is-ancestor "origin/$HEAD_BRANCH" origin/dev; then
+            echo "Release branch '$HEAD_BRANCH' is synced into dev."
+          else
+            echo "::error::Release branch '$HEAD_BRANCH' is not yet synced into dev. Merge beta/rc fixes into dev before merging to main."
+            exit 1
+          fi
