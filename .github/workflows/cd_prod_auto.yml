@@ -1,0 +1,304 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Automated production release on version tag push with signing, provenance, and Telegram notifications
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CD: Automated Production Release"
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  verify-tag-on-main:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+    outputs:
+      on_main: ${{ steps.validate.outputs.on_main }}
+      has_windows: ${{ steps.validate.outputs.has_windows }}
+      tag_commit: ${{ steps.validate.outputs.commit }}
+      tag: ${{ steps.validate.outputs.tag }}
+    steps:
+      - name: Checkout Repository (workflow engine code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 'CD: Release Tag Validation'
+        id: validate
+        uses: ./.github/actions/release-tag-validation
+        with:
+          tag: ${{ github.ref_name }}
+          gpg_public_key: ${{ secrets.GPG_PUBLIC_KEY }}
+          expected_fingerprint: ${{ secrets.EXPECTED_GPG_FINGERPRINT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          main_branch: main
+
+  analyze-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    needs: verify-tag-on-main
+    if: needs.verify-tag-on-main.outputs.on_main == 'true'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: 'CD: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notify-on-failure: 'false'
+
+  build-android:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: [verify-tag-on-main, analyze-and-test]
+    if: needs.verify-tag-on-main.outputs.on_main == 'true'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Build Android APK
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-android
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build.outputs.apk-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-apk
+          retention-days: 1
+          path: |
+            ${{ steps.build.outputs.apk-path }}
+            ${{ steps.build.outputs.apk-path }}.sig
+            ${{ steps.build.outputs.apk-path }}.pem
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    needs: [verify-tag-on-main, analyze-and-test]
+    if: needs.verify-tag-on-main.outputs.on_main == 'true' && needs.verify-tag-on-main.outputs.has_windows == 'true'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Build Windows ZIP
+        id: build
+        uses: ./.github/actions/flutter-build-windows
+        with:
+          working-directory: app
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.verify-tag-on-main.outputs.tag }}-windows
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build.outputs.zip-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-build
+          retention-days: 1
+          path: |
+            ${{ steps.build.outputs.zip-path }}
+            ${{ steps.build.outputs.zip-path }}.sig
+            ${{ steps.build.outputs.zip-path }}.pem
+
+  provenance:
+    needs: [verify-tag-on-main, build-android, build-windows]
+    timeout-minutes: 10
+    if: |
+      always() &&
+      needs.verify-tag-on-main.outputs.on_main == 'true' &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Provenance (Android)
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-windows.result == 'success'
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-windows.zip
+
+  publish-release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: [verify-tag-on-main, build-android, build-windows, provenance]
+    if: |
+      always() &&
+      needs.verify-tag-on-main.outputs.on_main == 'true' &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.provenance.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main (for modern actions)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded files ==="
+          ls -la
+          echo "========================"
+
+      - name: Generate Release Notes
+        uses: ./.github/actions/generate-release-notes
+        with:
+          tag: ${{ needs.verify-tag-on-main.outputs.tag }}
+          changelog-path: CHANGELOG.md
+          include-metadata: 'true'
+          commit-hash: ${{ needs.verify-tag-on-main.outputs.tag_commit }}
+          triggered-by: ${{ github.actor }}
+
+      - name: Verify release notes
+        run: |
+          echo "=== Release Notes Content ==="
+          if [ -f release_notes.md ]; then
+            cat release_notes.md
+          else
+            echo "::error::release_notes.md not found!"
+            exit 1
+          fi
+          echo "==========================="
+
+      - name: Prepare release assets list
+        id: assets
+        uses: ./.github/actions/prepare-release-assets
+        with:
+          tag: ${{ needs.verify-tag-on-main.outputs.tag }}
+          has-windows: ${{ needs.verify-tag-on-main.outputs.has_windows }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          tag_name: ${{ needs.verify-tag-on-main.outputs.tag }}
+          fail_on_unmatched_files: false
+          body_path: release_notes.md
+          draft: false
+          files: ${{ steps.assets.outputs.files }}
+
+  notify-release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    needs: [verify-tag-on-main, publish-release]
+    if: ${{ always() && needs.verify-tag-on-main.outputs.on_main == 'true' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout main (for actions)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Notify Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: release
+          branch: main
+          tag: ${{ needs.verify-tag-on-main.outputs.tag }}
+          commit: ${{ needs.verify-tag-on-main.outputs.tag_commit }}
+          actor: ${{ github.actor }}
+          status: ${{ needs.publish-release.result == 'success' && 'success' || 'failure' }}
+          mode: enterprise
+          notify-status: all
+          notify-types-regex: '^(release)$'
+          notify-branches-regex: '^(main)$'
+          notify-tags-regex: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          include-details-on-success: false
+          environment: production
+          fail-on-error: true
+          signed-build: true
+          provenance-verified: true
+          sbom-available: true
+          failure-stage: Publish Release
+          failure-hint: Validate release assets, signatures, and provenance generation.

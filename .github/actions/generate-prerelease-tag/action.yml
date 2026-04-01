@@ -1,0 +1,121 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Generate Prerelease Tag'
+description: 'Generate deterministic beta/rc tags from pubspec + .version with safe fallbacks.'
+
+inputs:
+  prerelease-type:
+    description: 'Prerelease type: beta or rc'
+    required: true
+  pubspec-path:
+    description: 'Path to pubspec.yaml'
+    required: false
+    default: 'app/pubspec.yaml'
+  version-file:
+    description: 'Path to .version file'
+    required: false
+    default: '.version'
+
+outputs:
+  prerelease-tag:
+    description: 'Generated prerelease tag (e.g., v0.2.3-beta.1)'
+    value: ${{ steps.generate.outputs.prerelease-tag }}
+  from-ref:
+    description: 'Reference used for release notes diff'
+    value: ${{ steps.generate.outputs.from-ref }}
+  base-version:
+    description: 'Resolved base version before prerelease suffix'
+    value: ${{ steps.generate.outputs.base-version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate prerelease tag
+      id: generate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        TYPE="${{ inputs.prerelease-type }}"
+        PUBSPEC_PATH="${{ inputs.pubspec-path }}"
+        VERSION_FILE="${{ inputs.version-file }}"
+
+        if [ "$TYPE" != "beta" ] && [ "$TYPE" != "rc" ]; then
+          echo "::error::Invalid prerelease-type '$TYPE'. Expected 'beta' or 'rc'."
+          exit 1
+        fi
+
+        if [ ! -f "$PUBSPEC_PATH" ]; then
+          echo "::error::pubspec not found at $PUBSPEC_PATH"
+          exit 1
+        fi
+
+        PUBSPEC_VERSION="$(awk '/^version:/ {print $2; exit}' "$PUBSPEC_PATH" | cut -d+ -f1 | tr -d '\r\n[:space:]')"
+        if [ -z "$PUBSPEC_VERSION" ]; then
+          echo "::error::Could not parse version from $PUBSPEC_PATH"
+          exit 1
+        fi
+
+        STABLE_TAG="v${PUBSPEC_VERSION}"
+        BASE_VERSION="$PUBSPEC_VERSION"
+
+        if git rev-parse -q --verify "refs/tags/${STABLE_TAG}" >/dev/null; then
+          if [ -f "$VERSION_FILE" ]; then
+            NEXT_VERSION="$(awk -F= '/^NEXT_PLANNED_VERSION=/ {print $2; exit}' "$VERSION_FILE" | tr -d '\r\n[:space:]')"
+            if [ -n "$NEXT_VERSION" ]; then
+              BASE_VERSION="$NEXT_VERSION"
+              echo "Stable tag ${STABLE_TAG} exists, using NEXT_PLANNED_VERSION: ${BASE_VERSION}"
+            else
+              echo "::warning::NEXT_PLANNED_VERSION missing in ${VERSION_FILE}, using pubspec version"
+            fi
+          else
+            echo "::warning::${VERSION_FILE} not found, using pubspec version"
+          fi
+        else
+          echo "Stable tag ${STABLE_TAG} does not exist, using pubspec version: ${BASE_VERSION}"
+        fi
+
+        if [ -z "$BASE_VERSION" ]; then
+          echo "::error::Could not determine base version"
+          exit 1
+        fi
+
+        LAST_NUM="$(git tag -l "v${BASE_VERSION}-${TYPE}.*" | sed -n -E "s/^v${BASE_VERSION}-${TYPE}\.([0-9]+)$/\1/p" | sort -n | tail -1)"
+        if [ -n "$LAST_NUM" ]; then
+          NEXT_NUM=$((LAST_NUM + 1))
+        else
+          NEXT_NUM=1
+        fi
+
+        PRERELEASE_TAG="v${BASE_VERSION}-${TYPE}.${NEXT_NUM}"
+        FROM_REF=""
+
+        if [ "$NEXT_NUM" -gt 1 ]; then
+          PREV_NUM=$((NEXT_NUM - 1))
+          FROM_REF="v${BASE_VERSION}-${TYPE}.${PREV_NUM}"
+        elif [ "$TYPE" = "rc" ]; then
+          LAST_BETA="$(git tag -l "v${BASE_VERSION}-beta.*" | sort -V | tail -1)"
+          if [ -n "$LAST_BETA" ]; then
+            FROM_REF="$LAST_BETA"
+          fi
+        fi
+
+        if [ -z "$FROM_REF" ]; then
+          STABLE_VERSION=""
+          if [ -f "$VERSION_FILE" ]; then
+            STABLE_VERSION="$(awk -F= '/^CURRENT_STABLE_RELEASE_VERSION=/ {print $2; exit}' "$VERSION_FILE" | tr -d '\r\n[:space:]')"
+          fi
+
+          if [ -n "$STABLE_VERSION" ] && git rev-parse -q --verify "refs/tags/v${STABLE_VERSION}" >/dev/null; then
+            FROM_REF="v${STABLE_VERSION}"
+          else
+            FROM_REF="$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "HEAD~1")"
+          fi
+        fi
+
+        echo "prerelease-tag=${PRERELEASE_TAG}" >> "$GITHUB_OUTPUT"
+        echo "from-ref=${FROM_REF}" >> "$GITHUB_OUTPUT"
+        echo "base-version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
+
+        echo "Generated ${TYPE} tag: ${PRERELEASE_TAG} (from: ${FROM_REF})"

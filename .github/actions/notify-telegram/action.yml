@@ -1,0 +1,959 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Notify Telegram'
+description: 'Send enterprise-grade, context-aware Telegram notifications'
+
+inputs:
+  telegram-token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram-chat-id:
+    description: 'Telegram Chat ID'
+    required: true
+  notification-type:
+    description: 'Type: ci-failure, release, dev-build, beta-build, rc-build, hotfix-release, build-skipped'
+    required: true
+  tag:
+    description: 'Release tag'
+    required: false
+  branch:
+    description: 'Branch name (defaults to github.ref_name)'
+    required: false
+  commit:
+    description: 'Commit SHA (defaults to github.sha)'
+    required: false
+  status:
+    description: 'Status: success or failure'
+    required: false
+    default: 'success'
+  custom-message:
+    description: 'Custom message text (overrides templates)'
+    required: false
+  artifact-path:
+    description: 'Path to artifact file to send as document'
+    required: false
+  changelog:
+    description: 'Raw changelog text'
+    required: false
+  release_reason:
+    description: 'Reason for release (optional)'
+    required: false
+  skip_reason:
+    description: 'Reason for skipping release/build'
+    required: false
+  patch_number:
+    description: 'Patch number (for hotfix notifications)'
+    required: false
+  base_version:
+    description: 'Base version (for hotfix notifications)'
+    required: false
+  rc_number:
+    description: 'RC number (optional display)'
+    required: false
+  is_first_rc:
+    description: 'Whether this is the first RC (true/false)'
+    required: false
+  actor:
+    description: 'GitHub username who triggered the action (defaults to github.actor)'
+    required: false
+
+  mode:
+    description: 'Message density mode: minimal, verbose, enterprise'
+    required: false
+    default: 'enterprise'
+  include-details-on-success:
+    description: 'Include Tier 4 details in successful messages'
+    required: false
+    default: 'false'
+  buttons-enabled:
+    description: 'Enable Telegram inline keyboard action buttons'
+    required: false
+    default: 'true'
+  send-artifact:
+    description: 'Send artifact-path as Telegram document when present'
+    required: false
+    default: 'false'
+  fail-on-error:
+    description: 'Fail workflow if Telegram API call fails'
+    required: false
+    default: 'false'
+
+  notify-status:
+    description: 'all, failure-only, success-only'
+    required: false
+    default: 'all'
+  notify-branches-regex:
+    description: 'Regex for allowed branches (noise control)'
+    required: false
+    default: '.*'
+  notify-tags-regex:
+    description: 'Regex for allowed tags (noise control)'
+    required: false
+    default: '.*'
+  notify-types-regex:
+    description: 'Regex for allowed notification types (noise control)'
+    required: false
+    default: '.*'
+
+  compare-url:
+    description: 'Optional compare URL for deep linking'
+    required: false
+  environment:
+    description: 'Environment label (production/staging/dev)'
+    required: false
+  failure-stage:
+    description: 'Failure stage (build/test/deploy)'
+    required: false
+  failure-hint:
+    description: 'Short troubleshooting hint for failures'
+    required: false
+  duration:
+    description: 'Pipeline duration (example: 2m 14s)'
+    required: false
+  tests-passed:
+    description: 'Number of tests passed'
+    required: false
+  tests-failed:
+    description: 'Number of tests failed'
+    required: false
+  coverage-delta:
+    description: 'Coverage change (example: +1.2%)'
+    required: false
+  artifact-size:
+    description: 'Artifact size (example: 32 MB)'
+    required: false
+
+  signed-build:
+    description: 'Security signal: signed build (true/false)'
+    required: false
+    default: 'false'
+  provenance-verified:
+    description: 'Security signal: provenance verified (true/false)'
+    required: false
+    default: 'false'
+  sbom-available:
+    description: 'Security signal: SBOM available (true/false)'
+    required: false
+    default: 'false'
+
+  actor-map:
+    description: 'Optional actor map: githubUser=@telegramUser,other=@otherUser'
+    required: false
+  changelog-max-lines:
+    description: 'Maximum changelog lines to include before truncation'
+    required: false
+    default: '5'
+  max-message-chars:
+    description: 'Hard cap for Telegram message size'
+    required: false
+    default: '3500'
+  telegram-message-thread-id:
+    description: 'Telegram forum topic thread id (optional)'
+    required: false
+  reply-to-message-id:
+    description: 'Reply to an existing Telegram message id (optional)'
+    required: false
+
+outputs:
+  message-id:
+    description: 'Telegram message id for the main notification'
+    value: ${{ steps.notify.outputs.message-id }}
+  artifact-message-id:
+    description: 'Telegram message id for sent artifact document (if any)'
+    value: ${{ steps.notify.outputs.artifact-message-id }}
+  delivered:
+    description: 'Whether the primary notification was delivered (true/false)'
+    value: ${{ steps.notify.outputs.delivered }}
+  artifact-delivered:
+    description: 'Whether artifact notification was delivered (true/false)'
+    value: ${{ steps.notify.outputs.artifact-delivered }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Telegram Notification
+      id: notify
+      shell: bash
+      env:
+        TELEGRAM_TOKEN: ${{ inputs.telegram-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+      run: |
+        set -euo pipefail
+
+        SERVER_URL="${{ github.server_url }}"
+        REPO="${{ github.repository }}"
+        RUN_ID="${{ github.run_id }}"
+        RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+        WORKFLOW_URL="$RUN_URL"
+
+        NOTIFICATION_TYPE="${{ inputs.notification-type }}"
+        MODE="${{ inputs.mode }}"
+        STATUS="${{ inputs.status }}"
+        BRANCH="${{ inputs.branch }}"
+        TAG="${{ inputs.tag }}"
+        COMMIT="${{ inputs.commit }}"
+        ACTOR="${{ inputs.actor }}"
+        CUSTOM_MESSAGE="${{ inputs.custom-message }}"
+        CHANGELOG_RAW="${{ inputs.changelog }}"
+        SKIP_REASON="${{ inputs.skip_reason }}"
+        RELEASE_REASON="${{ inputs.release_reason }}"
+        PATCH_NUM="${{ inputs.patch_number }}"
+        BASE_VER="${{ inputs.base_version }}"
+        RC_NUMBER="${{ inputs.rc_number }}"
+        IS_FIRST_RC="${{ inputs.is_first_rc }}"
+        COMPARE_URL="${{ inputs.compare-url }}"
+        ENVIRONMENT_NAME="${{ inputs.environment }}"
+        FAILURE_STAGE="${{ inputs.failure-stage }}"
+        FAILURE_HINT="${{ inputs.failure-hint }}"
+        DURATION="${{ inputs.duration }}"
+        TESTS_PASSED="${{ inputs.tests-passed }}"
+        TESTS_FAILED="${{ inputs.tests-failed }}"
+        COVERAGE_DELTA="${{ inputs.coverage-delta }}"
+        ARTIFACT_SIZE="${{ inputs.artifact-size }}"
+        ACTOR_MAP="${{ inputs.actor-map }}"
+        ARTIFACT_PATH="${{ inputs.artifact-path }}"
+
+        INCLUDE_DETAILS_ON_SUCCESS="${{ inputs.include-details-on-success }}"
+        BUTTONS_ENABLED="${{ inputs.buttons-enabled }}"
+        SEND_ARTIFACT="${{ inputs.send-artifact }}"
+        FAIL_ON_ERROR="${{ inputs.fail-on-error }}"
+        SIGNED_BUILD="${{ inputs.signed-build }}"
+        PROVENANCE_VERIFIED="${{ inputs.provenance-verified }}"
+        SBOM_AVAILABLE="${{ inputs.sbom-available }}"
+
+        NOTIFY_STATUS="${{ inputs.notify-status }}"
+        NOTIFY_BRANCHES_REGEX="${{ inputs.notify-branches-regex }}"
+        NOTIFY_TAGS_REGEX="${{ inputs.notify-tags-regex }}"
+        NOTIFY_TYPES_REGEX="${{ inputs.notify-types-regex }}"
+
+        CHANGELOG_MAX_LINES="${{ inputs.changelog-max-lines }}"
+        MAX_MESSAGE_CHARS="${{ inputs.max-message-chars }}"
+        TELEGRAM_MESSAGE_THREAD_ID="${{ inputs.telegram-message-thread-id }}"
+        INPUT_REPLY_TO_MESSAGE_ID="${{ inputs.reply-to-message-id }}"
+
+        REF_NAME="${{ github.ref_name }}"
+
+        if [ -z "$COMMIT" ]; then
+          COMMIT="$GITHUB_SHA"
+        fi
+        if [ -z "$ACTOR" ]; then
+          ACTOR="$GITHUB_ACTOR"
+        fi
+        if [ -z "$BRANCH" ]; then
+          BRANCH="$REF_NAME"
+        fi
+        if [ -z "$STATUS" ]; then
+          STATUS="success"
+        fi
+
+        SHORT_COMMIT="${COMMIT:0:7}"
+        if [ -z "$COMPARE_URL" ]; then
+          COMPARE_URL="$SERVER_URL/$REPO/compare/${COMMIT}~1...$COMMIT"
+        fi
+
+        lower() {
+          printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+        }
+
+        is_true() {
+          case "$(lower "$1")" in
+            true|1|yes|y|on)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        trim_ws() {
+          local input="$1"
+          input="${input#"${input%%[![:space:]]*}"}"
+          input="${input%"${input##*[![:space:]]}"}"
+          printf '%s' "$input"
+        }
+
+        escape_html() {
+          local input="$1"
+          input="${input//&/&amp;}"
+          input="${input//</&lt;}"
+          input="${input//>/&gt;}"
+          printf '%s' "$input"
+        }
+
+        json_escape() {
+          local input="$1"
+          input="${input//\\/\\\\}"
+          input="${input//\"/\\\"}"
+          input="${input//$'\n'/ }"
+          printf '%s' "$input"
+        }
+
+        truncate_text() {
+          local input="$1"
+          local max_len="$2"
+          if ! [[ "$max_len" =~ ^[0-9]+$ ]]; then
+            printf '%s' "$input"
+            return 0
+          fi
+          if [ "${#input}" -le "$max_len" ]; then
+            printf '%s' "$input"
+            return 0
+          fi
+          local keep=$((max_len - 3))
+          if [ "$keep" -lt 0 ]; then
+            keep=0
+          fi
+          printf '%s...' "${input:0:$keep}"
+        }
+
+        matches_regex() {
+          local value="$1"
+          local pattern="$2"
+          if [ -z "$pattern" ]; then
+            return 0
+          fi
+          if [[ "$value" =~ $pattern ]]; then
+            return 0
+          fi
+          return 1
+        }
+
+        format_environment() {
+          local raw_env
+          raw_env="$(lower "$1")"
+          case "$raw_env" in
+            prod|production)
+              printf '🌍 Production'
+              ;;
+            stage|staging)
+              printf '🧪 Staging'
+              ;;
+            dev|development)
+              printf '🧩 Dev'
+              ;;
+            '')
+              printf ''
+              ;;
+            *)
+              printf '🧭 %s' "$(escape_html "$1")"
+              ;;
+          esac
+        }
+
+        status_icon() {
+          case "$1" in
+            success)
+              printf '🟢'
+              ;;
+            failure)
+              printf '🔴'
+              ;;
+            warning)
+              printf '🟡'
+              ;;
+            *)
+              printf '🔵'
+              ;;
+          esac
+        }
+
+        format_branch_display() {
+          local branch_name="$1"
+          local shortened="$branch_name"
+          if [ "${#shortened}" -gt 36 ]; then
+            shortened="${shortened:0:33}..."
+          fi
+
+          case "$branch_name" in
+            main|master)
+              printf 'main'
+              ;;
+            prod|production)
+              printf 'prod'
+              ;;
+            release/*)
+              printf '%s' "$shortened"
+              ;;
+            *)
+              printf '%s' "$shortened"
+              ;;
+          esac
+        }
+
+        resolve_actor_alias() {
+          local github_actor="$1"
+          local mapping="$2"
+          local normalized pair key value
+
+          if [ -z "$mapping" ]; then
+            printf '@%s' "$github_actor"
+            return 0
+          fi
+
+          normalized="${mapping//;/,}"
+          IFS=',' read -r -a pairs <<< "$normalized"
+          for pair in "${pairs[@]}"; do
+            key="${pair%%=*}"
+            value="${pair#*=}"
+            key="$(trim_ws "$key")"
+            value="$(trim_ws "$value")"
+            if [ -n "$key" ] && [ "$key" = "$github_actor" ] && [ -n "$value" ]; then
+              printf '%s' "$value"
+              return 0
+            fi
+          done
+
+          printf '@%s' "$github_actor"
+        }
+
+        format_changelog() {
+          local raw="$1"
+          local max_lines="$2"
+
+          FORMATTED_CHANGELOG=""
+          if [ -z "$raw" ]; then
+            return 0
+          fi
+
+          if ! [[ "$max_lines" =~ ^[0-9]+$ ]]; then
+            max_lines=5
+          fi
+
+          local shown=0
+          local total=0
+          local line escaped
+          while IFS= read -r line; do
+            if [ -z "$(trim_ws "$line")" ]; then
+              continue
+            fi
+            total=$((total + 1))
+            if [ "$shown" -lt "$max_lines" ]; then
+              escaped="$(escape_html "$line")"
+              if [ -z "$FORMATTED_CHANGELOG" ]; then
+                FORMATTED_CHANGELOG="• $escaped"
+              else
+                FORMATTED_CHANGELOG="$FORMATTED_CHANGELOG"$'\n'"• $escaped"
+              fi
+              shown=$((shown + 1))
+            fi
+          done <<< "$raw"
+
+          if [ "$total" -gt "$max_lines" ]; then
+            local remaining=$((total - max_lines))
+            FORMATTED_CHANGELOG="$FORMATTED_CHANGELOG"$'\n'"• +$remaining more..."
+          fi
+        }
+
+        declare -a BUTTON_LABELS=()
+        declare -a BUTTON_URLS=()
+
+        add_button() {
+          local label="$1"
+          local url="$2"
+          if [ -z "$url" ]; then
+            return 0
+          fi
+          BUTTON_LABELS+=("$label")
+          BUTTON_URLS+=("$url")
+        }
+
+        build_reply_markup() {
+          REPLY_MARKUP=""
+          local count="${#BUTTON_LABELS[@]}"
+          if [ "$count" -eq 0 ]; then
+            return 0
+          fi
+
+          local json='{"inline_keyboard":['
+          local i lbl url
+          for ((i = 0; i < count; i++)); do
+            lbl="$(json_escape "${BUTTON_LABELS[$i]}")"
+            url="$(json_escape "${BUTTON_URLS[$i]}")"
+            if [ "$i" -gt 0 ]; then
+              json="$json,"
+            fi
+            json="$json[{\"text\":\"$lbl\",\"url\":\"$url\"}]"
+          done
+          json="$json]}"
+          REPLY_MARKUP="$json"
+        }
+
+        handle_send_failure() {
+          local response="$1"
+          if is_true "$FAIL_ON_ERROR"; then
+            echo "::error::Telegram notification failed: $response"
+            exit 1
+          fi
+          echo "::warning::Telegram notification failed: $response"
+          return 1
+        }
+
+        LAST_MESSAGE_ID=""
+
+        post_telegram_form() {
+          local endpoint="$1"
+          shift
+
+          local response
+          if ! response=$(curl -sS --retry 3 --retry-delay 1 --retry-all-errors --max-time 30 -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/$endpoint" "$@"); then
+            handle_send_failure "curl request failed"
+            return 1
+          fi
+
+          if ! printf '%s' "$response" | grep -q '"ok":true'; then
+            handle_send_failure "$response"
+            return 1
+          fi
+
+          LAST_MESSAGE_ID=$(printf '%s' "$response" | sed -n 's/.*"message_id":\([0-9]\+\).*/\1/p' | head -n 1)
+          return 0
+        }
+
+        send_message() {
+          local message="$1"
+          local reply_markup="$2"
+          local reply_to_message_id="$3"
+          local args
+          args=(
+            -d "chat_id=$TELEGRAM_CHAT_ID"
+            -d "parse_mode=HTML"
+            -d "disable_web_page_preview=true"
+            --data-urlencode "text=$message"
+          )
+
+          if [ -n "$TELEGRAM_MESSAGE_THREAD_ID" ]; then
+            args+=( -d "message_thread_id=$TELEGRAM_MESSAGE_THREAD_ID" )
+          fi
+          if [ -n "$reply_to_message_id" ]; then
+            args+=( -d "reply_to_message_id=$reply_to_message_id" )
+          fi
+          if [ -n "$reply_markup" ]; then
+            args+=( --data-urlencode "reply_markup=$reply_markup" )
+          fi
+
+          post_telegram_form "sendMessage" "${args[@]}"
+        }
+
+        send_document() {
+          local file_path="$1"
+          local caption="$2"
+          local reply_to_message_id="$3"
+          local args
+          args=(
+            -F "chat_id=$TELEGRAM_CHAT_ID"
+            -F "parse_mode=HTML"
+            -F "disable_content_type_detection=true"
+            -F "caption=$caption"
+            -F "document=@$file_path"
+          )
+
+          if [ -n "$TELEGRAM_MESSAGE_THREAD_ID" ]; then
+            args+=( -F "message_thread_id=$TELEGRAM_MESSAGE_THREAD_ID" )
+          fi
+          if [ -n "$reply_to_message_id" ]; then
+            args+=( -F "reply_to_message_id=$reply_to_message_id" )
+          fi
+
+          post_telegram_form "sendDocument" "${args[@]}"
+        }
+
+        MODE="$(lower "$MODE")"
+        STATUS="$(lower "$STATUS")"
+        NOTIFY_STATUS="$(lower "$NOTIFY_STATUS")"
+
+        if [ "$NOTIFICATION_TYPE" = "ci-failure" ]; then
+          STATUS="failure"
+        fi
+
+        case "$MODE" in
+          minimal|verbose|enterprise)
+            ;;
+          *)
+            MODE="enterprise"
+            ;;
+        esac
+
+        case "$NOTIFICATION_TYPE" in
+          ci-failure|release|dev-build|beta-build|rc-build|hotfix-release|build-skipped)
+            ;;
+          *)
+            echo "::error::Unsupported notification-type: $NOTIFICATION_TYPE"
+            exit 1
+            ;;
+        esac
+
+        case "$NOTIFY_STATUS" in
+          all|failure-only|success-only)
+            ;;
+          *)
+            NOTIFY_STATUS="all"
+            ;;
+        esac
+
+        if [ "$NOTIFY_STATUS" = "failure-only" ] && [ "$STATUS" != "failure" ]; then
+          echo "::notice::Telegram notification skipped by notify-status=failure-only"
+          exit 0
+        fi
+        if [ "$NOTIFY_STATUS" = "success-only" ] && [ "$STATUS" = "failure" ]; then
+          echo "::notice::Telegram notification skipped by notify-status=success-only"
+          exit 0
+        fi
+
+        if ! matches_regex "$NOTIFICATION_TYPE" "$NOTIFY_TYPES_REGEX"; then
+          echo "::notice::Telegram notification skipped by notify-types-regex"
+          exit 0
+        fi
+
+        if [ -n "$BRANCH" ] && ! matches_regex "$BRANCH" "$NOTIFY_BRANCHES_REGEX"; then
+          echo "::notice::Telegram notification skipped by notify-branches-regex"
+          exit 0
+        fi
+
+        case "$NOTIFICATION_TYPE" in
+          release|beta-build|rc-build|hotfix-release)
+            if [ -z "$TAG" ]; then
+              echo "::error::Tag input is required for $NOTIFICATION_TYPE notifications"
+              exit 1
+            fi
+            if ! matches_regex "$TAG" "$NOTIFY_TAGS_REGEX"; then
+              echo "::notice::Telegram notification skipped by notify-tags-regex"
+              exit 0
+            fi
+            ;;
+          *)
+            ;;
+        esac
+
+        SAFE_REPO="$(escape_html "$REPO")"
+        SAFE_BRANCH="$(escape_html "$BRANCH")"
+        SAFE_TAG="$(escape_html "$TAG")"
+        SAFE_SHORT_COMMIT="$(escape_html "$SHORT_COMMIT")"
+        SAFE_WORKFLOW="$(escape_html "$GITHUB_WORKFLOW")"
+        SAFE_SKIP_REASON="$(escape_html "$SKIP_REASON")"
+        SAFE_RELEASE_REASON="$(escape_html "$RELEASE_REASON")"
+        SAFE_FAILURE_STAGE="$(escape_html "$FAILURE_STAGE")"
+        SAFE_FAILURE_HINT="$(escape_html "$FAILURE_HINT")"
+        SAFE_DURATION="$(escape_html "$DURATION")"
+        SAFE_TESTS_PASSED="$(escape_html "$TESTS_PASSED")"
+        SAFE_TESTS_FAILED="$(escape_html "$TESTS_FAILED")"
+        SAFE_COVERAGE_DELTA="$(escape_html "$COVERAGE_DELTA")"
+        SAFE_ARTIFACT_SIZE="$(escape_html "$ARTIFACT_SIZE")"
+
+        ACTOR_DISPLAY_RAW="$(resolve_actor_alias "$ACTOR" "$ACTOR_MAP")"
+        SAFE_ACTOR="$(escape_html "$ACTOR_DISPLAY_RAW")"
+
+        BRANCH_DISPLAY="$(format_branch_display "$BRANCH")"
+        SAFE_BRANCH_DISPLAY="$(escape_html "$BRANCH_DISPLAY")"
+
+        ENV_DISPLAY="$(format_environment "$ENVIRONMENT_NAME")"
+
+        RELEASE_URL=""
+        case "$NOTIFICATION_TYPE" in
+          release|beta-build|rc-build|hotfix-release)
+            RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+            ;;
+          *)
+            ;;
+        esac
+
+        PRIMARY_IDENTIFIER=""
+        HEADER_LABEL=""
+        SUMMARY_TEXT=""
+        SEVERITY="info"
+
+        case "$NOTIFICATION_TYPE" in
+          ci-failure)
+            HEADER_LABEL="PIPELINE FAILED"
+            PRIMARY_IDENTIFIER="$SAFE_WORKFLOW"
+            SUMMARY_TEXT="Workflow failed. Open logs for diagnostics and retry after applying the fix."
+            SEVERITY="failure"
+            ;;
+          build-skipped)
+            HEADER_LABEL="BUILD SKIPPED"
+            PRIMARY_IDENTIFIER="$SAFE_BRANCH_DISPLAY"
+            SUMMARY_TEXT="Build was intentionally skipped based on release rules."
+            SEVERITY="warning"
+            ;;
+          release)
+            if [ "$STATUS" = "failure" ]; then
+              HEADER_LABEL="STABLE RELEASE FAILED"
+              SUMMARY_TEXT="Stable release failed. Check deployment logs before re-running."
+              SEVERITY="failure"
+            else
+              HEADER_LABEL="STABLE RELEASE DEPLOYED"
+              SUMMARY_TEXT="Stable release is live and available for distribution."
+              SEVERITY="success"
+            fi
+            PRIMARY_IDENTIFIER="$SAFE_TAG"
+            ;;
+          hotfix-release)
+            if [ "$STATUS" = "failure" ]; then
+              HEADER_LABEL="HOTFIX RELEASE FAILED"
+              SUMMARY_TEXT="Hotfix release failed. Validate patch branch and release assets."
+              SEVERITY="failure"
+            else
+              HEADER_LABEL="HOTFIX RELEASE DEPLOYED"
+              SUMMARY_TEXT="Hotfix release completed and is available to users."
+              SEVERITY="success"
+            fi
+            PRIMARY_IDENTIFIER="$SAFE_TAG"
+            ;;
+          rc-build)
+            if [ "$STATUS" = "failure" ]; then
+              HEADER_LABEL="RC BUILD FAILED"
+              SUMMARY_TEXT="Release candidate build failed. Inspect build and signing steps."
+              SEVERITY="failure"
+            else
+              HEADER_LABEL="RELEASE CANDIDATE AVAILABLE"
+              SUMMARY_TEXT="Release candidate is ready for validation and QA feedback."
+              SEVERITY="success"
+            fi
+            PRIMARY_IDENTIFIER="$SAFE_TAG"
+            ;;
+          beta-build)
+            if [ "$STATUS" = "failure" ]; then
+              HEADER_LABEL="BETA BUILD FAILED"
+              SUMMARY_TEXT="Beta build failed. Check logs and rerun after fixes."
+              SEVERITY="failure"
+            else
+              HEADER_LABEL="BETA BUILD AVAILABLE"
+              SUMMARY_TEXT="Beta build is available for early testing."
+              SEVERITY="success"
+            fi
+            PRIMARY_IDENTIFIER="$SAFE_TAG"
+            ;;
+          dev-build)
+            if [ "$STATUS" = "failure" ]; then
+              HEADER_LABEL="DEV BUILD FAILED"
+              SUMMARY_TEXT="Dev build failed. Open logs for immediate troubleshooting."
+              SEVERITY="failure"
+            else
+              HEADER_LABEL="DEV BUILD READY"
+              SUMMARY_TEXT="Dev build is ready for internal testing."
+              SEVERITY="success"
+            fi
+            PRIMARY_IDENTIFIER="$SAFE_BRANCH_DISPLAY"
+            ;;
+          *)
+            HEADER_LABEL="PIPELINE UPDATE"
+            PRIMARY_IDENTIFIER="$SAFE_BRANCH_DISPLAY"
+            SUMMARY_TEXT="Pipeline update is available."
+            if [ "$STATUS" = "failure" ]; then
+              SEVERITY="failure"
+            else
+              SEVERITY="info"
+            fi
+            ;;
+        esac
+
+        ICON="$(status_icon "$SEVERITY")"
+        DIVIDER='<code>────────────────────────</code>'
+        REF_LINE="🌿 <a href=\"$SERVER_URL/$REPO/tree/$BRANCH\">$SAFE_BRANCH_DISPLAY</a> • <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SAFE_SHORT_COMMIT</a>"
+
+        SHOW_DETAIL_ON_SUCCESS=false
+        if is_true "$INCLUDE_DETAILS_ON_SUCCESS"; then
+          SHOW_DETAIL_ON_SUCCESS=true
+        fi
+        if [ "$MODE" = "verbose" ]; then
+          SHOW_DETAIL_ON_SUCCESS=true
+        fi
+
+        IS_FAILURE=false
+        if [ "$SEVERITY" = "failure" ]; then
+          IS_FAILURE=true
+        fi
+
+        MESSAGE=""
+        append_line() {
+          local line="$1"
+          if [ -z "$MESSAGE" ]; then
+            MESSAGE="$line"
+          else
+            MESSAGE="$MESSAGE"$'\n'"$line"
+          fi
+        }
+
+        append_line "<b>$ICON $HEADER_LABEL</b>"
+        append_line "$DIVIDER"
+        if [ -n "$PRIMARY_IDENTIFIER" ]; then
+          append_line "<b>$PRIMARY_IDENTIFIER</b>"
+        fi
+        append_line ""
+
+        append_line "<b>Tier 1:</b> $NOTIFICATION_TYPE • $STATUS"
+        append_line "<b>Ref:</b> $REF_LINE"
+        if [ -n "$ENV_DISPLAY" ]; then
+          append_line "<b>Environment:</b> $ENV_DISPLAY"
+        fi
+
+        append_line "<b>Repo:</b> <a href=\"$SERVER_URL/$REPO\">$SAFE_REPO</a>"
+        if [ "$IS_FAILURE" = "true" ] || [ "$SHOW_DETAIL_ON_SUCCESS" = "true" ]; then
+          append_line "<b>By:</b> $SAFE_ACTOR"
+        fi
+        if [ "$IS_FAILURE" = "true" ] || [ "$MODE" = "verbose" ]; then
+          append_line "<b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$SAFE_WORKFLOW</a>"
+        fi
+
+        if [ "$NOTIFICATION_TYPE" = "hotfix-release" ]; then
+          if [ -n "$BASE_VER" ] || [ -n "$PATCH_NUM" ]; then
+            append_line "<b>Patch:</b> $(escape_html "$BASE_VER")-patch.$(escape_html "$PATCH_NUM")"
+          fi
+        fi
+        if [ "$NOTIFICATION_TYPE" = "rc-build" ] && [ -n "$RC_NUMBER" ]; then
+          append_line "<b>RC Number:</b> $(escape_html "$RC_NUMBER")"
+        fi
+        if [ "$NOTIFICATION_TYPE" = "rc-build" ] && is_true "$IS_FIRST_RC"; then
+          append_line "<b>Milestone:</b> First release candidate"
+        fi
+
+        add_button "Open Logs" "$WORKFLOW_URL"
+        add_button "Compare Changes" "$COMPARE_URL"
+        if [ -n "$RELEASE_URL" ]; then
+          add_button "View Release" "$RELEASE_URL"
+        fi
+
+        append_line "$DIVIDER"
+        if is_true "$BUTTONS_ENABLED"; then
+          append_line "<b>🧭 Actions:</b> Use buttons below for quick navigation."
+        else
+          append_line "<b>🧭 Actions:</b>"
+          append_line "• <a href=\"$WORKFLOW_URL\">Open Logs</a>"
+          if [ -n "$COMPARE_URL" ]; then
+            append_line "• <a href=\"$COMPARE_URL\">Compare Changes</a>"
+          fi
+          if [ -n "$RELEASE_URL" ]; then
+            append_line "• <a href=\"$RELEASE_URL\">View Release</a>"
+          fi
+        fi
+
+        if [ "$IS_FAILURE" = "true" ]; then
+          append_line "$DIVIDER"
+          append_line "<b>🛠 Diagnostics:</b>"
+          if [ -n "$SAFE_FAILURE_STAGE" ]; then
+            append_line "• Stage: $SAFE_FAILURE_STAGE"
+          fi
+          if [ -n "$SAFE_FAILURE_HINT" ]; then
+            append_line "• Hint: $SAFE_FAILURE_HINT"
+          fi
+          append_line "• Retry: Validate failing stage, then rerun workflow from logs."
+          append_line "• Logs: <a href=\"$WORKFLOW_URL\">Open full run output</a>"
+        fi
+
+        if [ -n "$SAFE_SKIP_REASON" ] && [ "$NOTIFICATION_TYPE" = "build-skipped" ]; then
+          append_line "$DIVIDER"
+          append_line "<b>Reason:</b> $SAFE_SKIP_REASON"
+        fi
+
+        if [ -n "$SAFE_RELEASE_REASON" ]; then
+          append_line "$DIVIDER"
+          append_line "<b>Release Context:</b> $SAFE_RELEASE_REASON"
+        fi
+
+        if [ -n "$SAFE_DURATION" ] || [ -n "$SAFE_TESTS_PASSED" ] || [ -n "$SAFE_TESTS_FAILED" ] || [ -n "$SAFE_COVERAGE_DELTA" ] || [ -n "$SAFE_ARTIFACT_SIZE" ]; then
+          append_line "$DIVIDER"
+          append_line "<b>📊 Signals:</b>"
+          if [ -n "$SAFE_DURATION" ]; then
+            append_line "• ⏱ Duration: $SAFE_DURATION"
+          fi
+          if [ -n "$SAFE_TESTS_PASSED" ] || [ -n "$SAFE_TESTS_FAILED" ]; then
+            append_line "• 🧪 Tests: $SAFE_TESTS_PASSED passed • $SAFE_TESTS_FAILED failed"
+          fi
+          if [ -n "$SAFE_COVERAGE_DELTA" ]; then
+            append_line "• 📈 Coverage: $SAFE_COVERAGE_DELTA"
+          fi
+          if [ -n "$SAFE_ARTIFACT_SIZE" ]; then
+            append_line "• 📦 Artifact: $SAFE_ARTIFACT_SIZE"
+          fi
+        fi
+
+        TRUST_LINES=""
+        if is_true "$SIGNED_BUILD"; then
+          TRUST_LINES="• 🔐 Signed build"
+        fi
+        if is_true "$PROVENANCE_VERIFIED"; then
+          if [ -n "$TRUST_LINES" ]; then
+            TRUST_LINES="$TRUST_LINES"$'\n'
+          fi
+          TRUST_LINES="$TRUST_LINES• 📜 Provenance verified"
+        fi
+        if is_true "$SBOM_AVAILABLE"; then
+          if [ -n "$TRUST_LINES" ]; then
+            TRUST_LINES="$TRUST_LINES"$'\n'
+          fi
+          TRUST_LINES="$TRUST_LINES• 🧾 SBOM available"
+        fi
+        if [ -n "$TRUST_LINES" ]; then
+          append_line "$DIVIDER"
+          append_line "<b>🛡 Trust Signals:</b>"
+          append_line "$TRUST_LINES"
+        fi
+
+        format_changelog "$CHANGELOG_RAW" "$CHANGELOG_MAX_LINES"
+        if [ -n "$FORMATTED_CHANGELOG" ] && { [ "$IS_FAILURE" = "true" ] || [ "$SHOW_DETAIL_ON_SUCCESS" = "true" ]; }; then
+          append_line "$DIVIDER"
+          append_line "<b>🧾 Changes</b>"
+          append_line "$FORMATTED_CHANGELOG"
+        fi
+
+        append_line "$DIVIDER"
+        append_line "<i>$(escape_html "$SUMMARY_TEXT")</i>"
+
+        if [ -n "$CUSTOM_MESSAGE" ]; then
+          MESSAGE="$CUSTOM_MESSAGE"
+        fi
+
+        MESSAGE="$(truncate_text "$MESSAGE" "$MAX_MESSAGE_CHARS")"
+
+        REPLY_MARKUP=""
+        if is_true "$BUTTONS_ENABLED"; then
+          build_reply_markup
+        fi
+
+        REPLY_TO="$INPUT_REPLY_TO_MESSAGE_ID"
+        PRIMARY_MESSAGE_ID=""
+        ARTIFACT_MESSAGE_ID=""
+        DELIVERED="false"
+        ARTIFACT_DELIVERED="false"
+        if ! send_message "$MESSAGE" "$REPLY_MARKUP" "$REPLY_TO"; then
+          if is_true "$FAIL_ON_ERROR"; then
+            exit 1
+          fi
+        else
+          PRIMARY_MESSAGE_ID="$LAST_MESSAGE_ID"
+          DELIVERED="true"
+        fi
+
+        if is_true "$SEND_ARTIFACT" && [ -n "$ARTIFACT_PATH" ]; then
+          if [ -f "$ARTIFACT_PATH" ]; then
+            ARTIFACT_CAPTION=$(printf '%s\n%s\n%s' \
+              "<b>📦 Build Artifact</b>" \
+              "<b>Type:</b> $(escape_html "$NOTIFICATION_TYPE")" \
+              "<b>Ref:</b> $(escape_html "$BRANCH_DISPLAY") • $(escape_html "$SHORT_COMMIT")")
+            ARTIFACT_CAPTION="$(truncate_text "$ARTIFACT_CAPTION" 1000)"
+
+            ARTIFACT_REPLY_TO="$LAST_MESSAGE_ID"
+            if [ -z "$ARTIFACT_REPLY_TO" ]; then
+              ARTIFACT_REPLY_TO="$INPUT_REPLY_TO_MESSAGE_ID"
+            fi
+
+            if ! send_document "$ARTIFACT_PATH" "$ARTIFACT_CAPTION" "$ARTIFACT_REPLY_TO"; then
+              if is_true "$FAIL_ON_ERROR"; then
+                exit 1
+              fi
+            else
+              ARTIFACT_MESSAGE_ID="$LAST_MESSAGE_ID"
+              ARTIFACT_DELIVERED="true"
+            fi
+          else
+            echo "::warning::artifact-path not found: $ARTIFACT_PATH"
+          fi
+        fi
+
+        {
+          echo "message-id=$PRIMARY_MESSAGE_ID"
+          echo "artifact-message-id=$ARTIFACT_MESSAGE_ID"
+          echo "delivered=$DELIVERED"
+          echo "artifact-delivered=$ARTIFACT_DELIVERED"
+        } >> "$GITHUB_OUTPUT"
