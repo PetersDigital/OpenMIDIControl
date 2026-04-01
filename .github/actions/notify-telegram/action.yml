@@ -1,0 +1,363 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Notify Telegram'
+description: 'Send formatted notification messages to Telegram'
+
+inputs:
+  telegram-token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram-chat-id:
+    description: 'Telegram Chat ID'
+    required: true
+  notification-type:
+    description: 'Type of notification: ci-failure, release, dev-build, beta-build, rc-build, build-skipped'
+    required: true
+  tag:
+    description: 'Release tag (for release notifications)'
+    required: false
+  branch:
+    description: 'Branch name (for dev/CI notifications)'
+    required: false
+  commit:
+    description: 'Commit SHA (optional, defaults to github.sha)'
+    required: false
+  status:
+    description: 'Status: success or failure'
+    required: false
+    default: 'success'
+  custom-message:
+    description: 'Custom message text (overrides templates)'
+    required: false
+  artifact-path:
+    description: 'Path to artifact file to send (for dev builds)'
+    required: false
+  changelog:
+    description: 'Changelog text (for dev build captions)'
+    required: false
+  release_reason:
+    description: 'Reason for release (from check-release-markers)'
+    required: false
+  skip_reason:
+    description: 'Reason for skipping release (from check-release-markers)'
+    required: false
+  patch_number:
+    description: 'Patch number (for hotfix notifications)'
+    required: false
+  base_version:
+    description: 'Base version (for hotfix notifications)'
+    required: false
+  rc_number:
+    description: 'RC number (for release candidate notifications)'
+    required: false
+  is_first_rc:
+    description: 'Whether this is the first RC (true/false)'
+    required: false
+  actor:
+    description: 'GitHub username who triggered the action (optional, defaults to github.actor)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Telegram Notification
+      shell: bash
+      env:
+        TELEGRAM_TOKEN: ${{ inputs.telegram-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+      run: |
+        SERVER_URL="${{ github.server_url }}"
+        REPO="${{ github.repository }}"
+        RUN_ID="${{ github.run_id }}"
+        RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+        COMMIT="${{ inputs.commit }}"
+        ACTOR="${{ inputs.actor }}"
+        if [ -z "$COMMIT" ]; then
+          COMMIT="${GITHUB_SHA}"
+        fi
+        if [ -z "$ACTOR" ]; then
+          ACTOR="${GITHUB_ACTOR}"
+        fi
+        SHORT_COMMIT="${COMMIT:0:7}"
+
+        escape_html() {
+          echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'
+        }
+
+        SAFE_BRANCH=$(escape_html "${{ inputs.branch }}")
+        SAFE_TAG=$(escape_html "${{ inputs.tag }}")
+        SAFE_CHANGELOG=$(escape_html "${{ inputs.changelog }}")
+        SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
+        SAFE_ACTOR=$(escape_html "$ACTOR")
+
+        # Function to send messages with retry
+        send_with_retry() {
+          local url="$1"
+          local message="$2"
+          local max_retries=3
+          local retry_count=0
+          local http_code=0
+
+          while [ $retry_count -lt $max_retries ]; do
+            # Write message to temp file to avoid escaping issues
+            local tmpfile=$(mktemp)
+            echo "$message" > "$tmpfile"
+
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" \
+              -F chat_id="$TELEGRAM_CHAT_ID" \
+              -F parse_mode="HTML" \
+              -F disable_web_page_preview="true" \
+              -F text="<$tmpfile")
+
+            rm -f "$tmpfile"
+
+            if [ "$http_code" -eq 200 ]; then
+              return 0
+            fi
+
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -lt $max_retries ]; then
+              echo "⏳ Telegram API request failed (HTTP $http_code), retrying ($retry_count/$max_retries)..."
+              sleep 2
+            fi
+          done
+
+          echo "::warning::Telegram notification failed after $max_retries attempts (HTTP $http_code)"
+          return 1
+        }
+
+        # Function to send documents with retry
+        send_document_with_retry() {
+          local url="$1"
+          local file_path="$2"
+          local caption="$3"
+          local max_retries=3
+          local retry_count=0
+          local http_code=0
+
+          while [ $retry_count -lt $max_retries ]; do
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" \
+              -F chat_id="$TELEGRAM_CHAT_ID" \
+              -F document=@"$file_path" \
+              -F parse_mode="HTML" \
+              -F disable_web_page_preview="true" \
+              --form-string caption="$caption")
+
+            if [ "$http_code" -eq 200 ]; then
+              return 0
+            fi
+
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -lt $max_retries ]; then
+              echo "⏳ Telegram Document API failed (HTTP $http_code), retrying ($retry_count/$max_retries)..."
+              sleep 2
+            fi
+          done
+
+          echo "::warning::Telegram document upload failed after $max_retries attempts (HTTP $http_code)"
+          return 1
+        }
+
+        if [ "${{ inputs.notification-type }}" = "ci-failure" ]; then
+          MESSAGE=$(printf \
+            '🚨 <b>OpenMIDIControl CI Pipeline Failed</b>\n\n' \
+            '🔹 <b>Branch:</b> %s\n' \
+            '🔹 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n' \
+            '👤 <b>By:</b> @%s\n\n' \
+            '⚠️ <i>Workflow %s failed.</i>\n\n' \
+            '📋 <a href="%s">View Workflow Logs</a>' \
+            "$SAFE_REF_NAME" "$SERVER_URL" "$REPO" "$COMMIT" \
+            "$SHORT_COMMIT" "$SAFE_ACTOR" "$GITHUB_WORKFLOW" "$RUN_URL")
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "rc-build" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf \
+              '🎯 <b>OpenMIDIControl %s RC Build Ready!</b>\n\n' \
+              '🔹 <b>Branch:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '📄 <a href="%s">View Release &amp; Patch Notes</a>\n\n' \
+              '✅ <i>Build completed successfully with keyless ' \
+              'signatures and SLSA provenance.</i>' \
+              "$SAFE_TAG" "$SAFE_BRANCH" "$SAFE_ACTOR" "$RELEASE_URL")
+          else
+            MESSAGE=$(printf \
+              '❌ <b>OpenMIDIControl %s RC Build Failed</b>\n\n' \
+              '🔹 <b>Branch:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '⚠️ <i>Workflow %s failed.</i>\n\n' \
+              '📋 <a href="%s">View Workflow Logs</a>' \
+              "$SAFE_TAG" "$SAFE_BRANCH" "$SAFE_ACTOR" \
+              "$GITHUB_WORKFLOW" "$RUN_URL")
+          fi
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "build-skipped" ]; then
+          MESSAGE=$(printf \
+            '⏭️ <b>OpenMIDIControl Build Skipped</b>\n\n' \
+            '🔹 <b>Branch:</b> %s\n' \
+            '👤 <b>By:</b> @%s\n\n' \
+            '💭 <b>Reason:</b> %s' \
+            "$SAFE_BRANCH" "$SAFE_ACTOR" "${{ inputs.skip_reason }}")
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "release" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          # Debug: Check if tag input is available
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::Tag input is empty for release notification"
+            exit 1
+          fi
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf \
+              '🚀 <b>OpenMIDIControl %s is Live!</b>\n\n' \
+              '🔹 <b>Tag:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '📄 <a href="%s">View Release &amp; Patch Notes</a>\n\n' \
+              '✅ <i>Deployment completed successfully with ' \
+              'keyless signatures and SLSA provenance.</i>' \
+              "$SAFE_TAG" "$SAFE_TAG" "$SAFE_ACTOR" "$RELEASE_URL")
+          else
+            MESSAGE=$(printf \
+              '❌ <b>OpenMIDIControl %s Release Failed</b>\n\n' \
+              '🔹 <b>Tag:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '⚠️ <i>Workflow %s failed.</i>\n\n' \
+              '📋 <a href="%s">View Workflow Logs</a>' \
+              "$SAFE_TAG" "$SAFE_TAG" "$SAFE_ACTOR" \
+              "$GITHUB_WORKFLOW" "$RUN_URL")
+          fi
+
+          # Ensure MESSAGE is not empty
+          if [ -z "$MESSAGE" ]; then
+            echo "::error::MESSAGE variable is empty. Tag: $SAFE_TAG, Status: $STATUS"
+            exit 1
+          fi
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "hotfix-release" ]; then
+          STATUS="${{ inputs.status }}"
+          PATCH_NUM="${{ inputs.patch_number }}"
+          BASE_VER="${{ inputs.base_version }}"
+          TAG="${{ inputs.tag }}"
+
+          if [ "$STATUS" = "success" ]; then
+            RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+            MESSAGE=$(printf \
+              '🩹 <b>OpenMIDIControl Hotfix %s Released!</b>\n\n' \
+              '🔹 <b>Base Version:</b> %s\n' \
+              '🔹 <b>Patch:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '📄 <a href="%s">View Release Notes</a>\n\n' \
+              '✅ <i>Hotfix deployed with keyless signatures ' \
+              'and SLSA provenance.</i>' \
+              "$SAFE_TAG" "$BASE_VER" "$PATCH_NUM" "$SAFE_ACTOR" "$RELEASE_URL")
+          else
+            MESSAGE=$(printf \
+              '❌ <b>OpenMIDIControl Hotfix %s Failed</b>\n\n' \
+              '🔹 <b>Base Version:</b> %s\n' \
+              '🔹 <b>Patch:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '⚠️ <i>Workflow %s failed.</i>\n\n' \
+              '📋 <a href="%s">View Workflow Logs</a>' \
+              "$SAFE_TAG" "$BASE_VER" "$PATCH_NUM" "$SAFE_ACTOR" \
+              "$GITHUB_WORKFLOW" "$RUN_URL")
+          fi
+
+          send_with_retry \
+            "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "dev-build" ]; then
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
+            CAPTION=$(printf \
+              '🛠️ <b>OpenMIDIControl Dev Build Ready</b>\n\n' \
+              '🔹 <b>Branch:</b> %s\n' \
+              '🔹 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '📝 <b>Changes:</b>\n' \
+              '%s\n\n' \
+              '📎 <i>Artifact attached</i>' \
+              "$SAFE_BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" \
+              "$SHORT_COMMIT" "$SAFE_ACTOR" "$SAFE_CHANGELOG")
+
+            send_document_with_retry \
+              "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument" \
+              "${{ inputs.artifact-path }}" \
+              "$CAPTION" || \
+              echo "::warning::Telegram document upload failed"
+          else
+            MESSAGE=$(printf \
+              '❌ <b>OpenMIDIControl Dev Build Failed</b>\n\n' \
+              '🔹 <b>Branch:</b> %s\n' \
+              '🔹 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '⚠️ <i>Workflow %s failed.</i>\n\n' \
+              '📋 <a href="%s">View Workflow Logs</a>' \
+              "$SAFE_BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" \
+              "$SHORT_COMMIT" "$SAFE_ACTOR" "$GITHUB_WORKFLOW" "$RUN_URL")
+
+            send_with_retry \
+              "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+              "$MESSAGE" || true
+          fi
+
+        elif [ "${{ inputs.notification-type }}" = "beta-build" ]; then
+          STATUS="${{ inputs.status }}"
+          TAG="${{ inputs.tag }}"
+
+          if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
+            CAPTION=$(printf \
+              '🎉 <b>OpenMIDIControl %s Beta Available!</b>\n\n' \
+              '🔹 <b>Branch:</b> %s\n' \
+              '🔹 <b>Commit:</b> <a href="%s/%s/commit/%s">%s</a>\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '📝 <b>Changes:</b>\n' \
+              '%s\n\n' \
+              '🧪 <i>This is a beta release for testing. ' \
+              'Please report any issues.</i>\n\n' \
+              '📎 <i>Artifact attached</i>' \
+              "$SAFE_TAG" "$SAFE_BRANCH" "$SERVER_URL" "$REPO" "$COMMIT" \
+              "$SHORT_COMMIT" "$SAFE_ACTOR" "$SAFE_CHANGELOG")
+
+            send_document_with_retry \
+              "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument" \
+              "${{ inputs.artifact-path }}" \
+              "$CAPTION" || \
+              echo "::warning::Telegram document upload failed"
+          else
+            MESSAGE=$(printf \
+              '❌ <b>OpenMIDIControl %s Beta Build Failed</b>\n\n' \
+              '🔹 <b>Tag:</b> %s\n' \
+              '👤 <b>By:</b> @%s\n\n' \
+              '⚠️ <i>Workflow %s failed.</i>\n\n' \
+              '📋 <a href="%s">View Workflow Logs</a>' \
+              "$SAFE_TAG" "$SAFE_TAG" "$SAFE_ACTOR" \
+              "$GITHUB_WORKFLOW" "$RUN_URL")
+
+            send_with_retry \
+              "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+              "$MESSAGE" || true
+          fi
+        fi
