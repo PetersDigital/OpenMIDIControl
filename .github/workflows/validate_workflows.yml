@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
 # @description: Validates YAML syntax and GitHub Actions workflow correctness on PRs and main pushes
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
@@ -8,16 +9,16 @@ name: Validate Workflows
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [dev]
     paths:
       - '.github/**'
-      - '!**.md'
+      - '!**/*.md'
       - '!.github/notify-telegram-HTMLCSS-preview/**'
   pull_request:
+    branches: [dev, 'release/**', 'hotfix/**']
     paths:
       - '.github/**'
-      - '!**.md'
+      - '!**/*.md'
       - '!.github/notify-telegram-HTMLCSS-preview/**'
 
 concurrency:
@@ -31,6 +32,7 @@ jobs:
   yaml-lint:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
@@ -39,23 +41,19 @@ jobs:
       - name: YAML Lint
         uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c  # v3.4.0
         with:
-          config_data: |
-            extends: default
-            rules:
-              line-length: disable
-              truthy: disable
-              document-start: disable
-              comments: disable
+          file_or_dir: .github/workflows .github/actions
+          config_file: .github/workflows/.yamllint
 
   actionlint:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Action Lint
-        uses: docker://rhysd/actionlint:latest
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca  # v1.7.12
         with:
           args: -color
