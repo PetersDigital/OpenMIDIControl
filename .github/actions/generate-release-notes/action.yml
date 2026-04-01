@@ -1,0 +1,411 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: 'CD: Generate Release Notes'
+description: 'Generate release notes from git log (beta) or CHANGELOG.md (stable) with commit links'
+
+inputs:
+  tag:
+    description: 'Release tag (e.g., v1.0.0 or v1.0.0-beta.1)'
+    required: true
+  changelog-path:
+    description: 'Path to CHANGELOG.md file'
+    required: false
+    default: 'CHANGELOG.md'
+  include-metadata:
+    description: 'Include build metadata section (tag, commit, actor, security info)'
+    required: false
+    default: 'true'
+  commit-hash:
+    description: 'Commit hash for metadata (optional)'
+    required: false
+  triggered-by:
+    description: 'Username who triggered the release (optional, defaults to github.actor)'
+    required: false
+  from-ref:
+    description: 'Explicit git reference to start changelog from (optional, overrides auto-detection)'
+    required: false
+  changelog-type:
+    description: 'Type of changelog: full (since stable) or incremental (since previous release)'
+    required: false
+    default: 'auto'
+
+outputs:
+  notes-path:
+    description: 'Path to the generated release notes file'
+    value: ${{ steps.generate.outputs.notes-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Release Notes
+      id: generate
+      shell: bash
+      run: |
+        TAG="${{ inputs.tag }}"
+        VERSION="${TAG#v}"
+        CHANGELOG="${{ inputs.changelog-path }}"
+        FROM_REF="${{ inputs.from-ref }}"
+        CHANGELOG_TYPE="${{ inputs.changelog-type }}"
+        REPO="${{ github.repository }}"
+        SERVER_URL="${{ github.server_url }}"
+
+        # Authenticate GitHub CLI
+        gh auth setup-git
+
+        # Detect if this is a beta release
+        IS_BETA=false
+        IS_RC=false
+        IS_HOTFIX=false
+        if [[ "$TAG" == *"-beta."* ]]; then
+          IS_BETA=true
+        elif [[ "$TAG" == *"-rc."* ]]; then
+          IS_RC=true
+        elif [[ "$TAG" == *"-patch."* ]]; then
+          IS_HOTFIX=true
+        fi
+
+        # Function to parse conventional commits into changelog format with commit links
+        parse_commits() {
+          local from_ref="$1"
+          local to_ref="${2:-HEAD}"
+
+          # Get commits with hash and subject
+          git log --pretty=format:"%h|%s" "${from_ref}..${to_ref}" | while read -r line; do
+            # Split hash and message
+            commit_hash="${line%%|*}"
+            commit_msg="${line#*|}"
+
+            # Extract type and scope using regex
+            if [[ "$commit_msg" =~ ^([a-zA-Z]+)(\([a-zA-Z0-9/_-]+\))?:\ (.+)$ ]]; then
+              type="${BASH_REMATCH[1]}"
+              scope="${BASH_REMATCH[2]}"
+              description="${BASH_REMATCH[3]}"
+
+              # Create commit link
+              commit_link="[${commit_hash}](${SERVER_URL}/${REPO}/commit/${commit_hash})"
+
+              # Map conventional commit types to changelog sections
+              case "$type" in
+                feat|feature) echo "### Added|${description}|${commit_link}" ;;
+                fix) echo "### Fixed|${description}|${commit_link}" ;;
+                perf) echo "### Changed|${description}|${commit_link}" ;;
+                refactor) echo "### Changed|${description}|${commit_link}" ;;
+                docs) echo "### Documentation|${description}|${commit_link}" ;;
+                test) echo "### Testing|${description}|${commit_link}" ;;
+                chore|ci|build) echo "### Maintenance|${description}|${commit_link}" ;;
+                break*) echo "### Breaking Changes|${description}|${commit_link}" ;;
+                merge) echo "### Merged|${description}|${commit_link}" ;;  # Merge commits for major milestones
+                *) echo "### Other|${description}|${commit_link}" ;;
+              esac
+            fi
+          done
+        }
+
+        # Determine the starting reference for changelog
+        if [ -n "$FROM_REF" ]; then
+          # Use explicit from-ref if provided (RC/hotfix workflow)
+          PREV_TAG="$FROM_REF"
+          echo "Using explicit from-ref: $PREV_TAG"
+        elif [ "$IS_BETA" = true ]; then
+          # BETA: Find the previous beta release using GitHub API
+          PREV_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+
+          if [ -n "$PREV_BETA" ]; then
+            PREV_TAG="$PREV_BETA"
+            echo "Found previous beta: $PREV_TAG"
+          else
+            # Fall back to stable tag
+            PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            echo "No previous beta found. Using stable tag: $PREV_TAG"
+          fi
+        elif [ "$IS_RC" = true ]; then
+          # RC: Auto-detect based on tag pattern
+          BASE_VERSION=$(echo "$TAG" | sed 's/-rc\.[0-9]*$//')
+
+          # Check if this is rc.1
+          if [[ "$TAG" == *"-rc.1" ]]; then
+            # RC.1: Full changelog since stable
+            PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            echo "RC.1 detected - generating full changelog since: $PREV_TAG"
+          else
+            # RC.2+: Find previous RC
+            PREV_RC=$(git tag --list 'v*-rc.*' | sort -V | grep -E "^${BASE_VERSION}-rc\." | tail -n 2 | head -n 1 || echo "")
+
+            if [ -n "$PREV_RC" ]; then
+              PREV_TAG="$PREV_RC"
+              echo "Found previous RC: $PREV_TAG"
+            else
+              # Fallback to stable
+              PREV_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+              echo "No previous RC found. Using stable tag: $PREV_TAG"
+            fi
+          fi
+        elif [ "$IS_HOTFIX" = true ]; then
+          # HOTFIX: Auto-detect based on tag pattern
+          BASE_VERSION=$(echo "$TAG" | sed 's/-patch\.[0-9]*$//')
+
+          # Check if this is patch.1
+          if [[ "$TAG" == *"-patch.1" ]]; then
+            # First patch: Full changelog since stable
+            PREV_TAG=$(git describe --tags --match="$BASE_VERSION" --abbrev=0 2>/dev/null || echo "")
+            echo "Patch.1 detected - generating full changelog since: $PREV_TAG"
+          else
+            # Subsequent patch: Find previous patch
+            PREV_PATCH=$(git tag --list 'v*-patch.*' | sort -V | grep -E "^${BASE_VERSION}-patch\." | tail -n 2 | head -n 1 || echo "")
+
+            if [ -n "$PREV_PATCH" ]; then
+              PREV_TAG="$PREV_PATCH"
+              echo "Found previous patch: $PREV_TAG"
+            else
+              # Fallback to stable
+              PREV_TAG=$(git describe --tags --match="$BASE_VERSION" --abbrev=0 2>/dev/null || echo "")
+              echo "No previous patch found. Using stable tag: $PREV_TAG"
+            fi
+          fi
+        else
+          # STABLE: Use git describe
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+        fi
+
+        if [ "$IS_BETA" = true ]; then
+          # BETA RELEASE: Generate from git log
+          echo "**Beta Release** - This is a release candidate for testing. Final changelog will be available on stable release." > release_content.md
+          echo >> release_content.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "### Changes since ${PREV_TAG}" >> release_content.md
+            echo >> release_content.md
+
+            # Parse commits and group by type (now with commit links)
+            declare -A sections
+            while IFS='|' read -r section desc commit_link; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                if [ -n "$commit_link" ]; then
+                  sections["$section"]+="- ${desc} ${commit_link}"$'\n'
+                else
+                  sections["$section"]+="- ${desc}"$'\n'
+                fi
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+
+            # Output grouped sections with blank line after each section (matching CHANGELOG.md format)
+            # Merged section first (for merge commits), then Keep a Changelog standard + Other
+            for section in "### Merged" "### Added" "### Fixed" "### Changed" "### Deprecated" "### Removed" "### Security" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+                echo >> release_content.md  # Blank line after section for separation
+              fi
+            done
+
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 3 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s ([%h](${SERVER_URL}/${REPO}/commit/%h))" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            # First ever release
+            echo "### Initial Changes" >> release_content.md
+            echo >> release_content.md
+            git log --pretty=format:"- %s ([%h](${SERVER_URL}/${REPO}/commit/%h))" "${TAG}" >> release_content.md
+            echo >> release_content.md
+          fi
+        elif [ "$IS_RC" = true ]; then
+          # RC RELEASE: Generate from git log with RC-specific formatting
+          RC_NUM=$(echo "$TAG" | grep -oP 'rc\.\K[0-9]+')
+          BASE_VERSION=$(echo "$TAG" | sed 's/-rc\.[0-9]*$//')
+
+          {
+            echo "## Release Candidate: $TAG"
+            echo
+            echo "**This is a release candidate** - feature complete, ready for final testing."
+            echo
+          } > release_content.md
+
+          if [[ "$TAG" == *"-rc.1" ]]; then
+            echo "### All Changes since $BASE_VERSION" >> release_content.md
+          else
+            echo "### Changes since $PREV_TAG" >> release_content.md
+          fi
+          echo >> release_content.md
+
+          if [ -n "$PREV_TAG" ]; then
+            # Parse commits and group by type (now with commit links)
+            declare -A sections
+            while IFS='|' read -r section desc commit_link; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                if [ -n "$commit_link" ]; then
+                  sections["$section"]+="- ${desc} ${commit_link}"$'\n'
+                else
+                  sections["$section"]+="- ${desc}"$'\n'
+                fi
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+
+            # Output grouped sections with blank line after each section (matching CHANGELOG.md format)
+            # Merged section first (for merge commits), then Keep a Changelog standard + Other
+            for section in "### Merged" "### Added" "### Fixed" "### Changed" "### Deprecated" "### Removed" "### Security" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+                echo >> release_content.md  # Blank line after section for separation
+              fi
+            done
+
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 5 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s ([%h](${SERVER_URL}/${REPO}/commit/%h))" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            echo "*No previous tag found.*" >> release_content.md
+          fi
+
+          # Add testing focus section for RC
+          {
+            echo
+            echo "---"
+            echo "### Testing Focus"
+            echo "- [ ] USB Peripheral Mode stability"
+            echo "- [ ] MIDI 2.0 compatibility"
+            echo "- [ ] Performance under load"
+            echo
+            echo "**If no critical issues found, this becomes $BASE_VERSION stable.**"
+          } >> release_content.md
+        elif [ "$IS_HOTFIX" = true ]; then
+          # HOTFIX RELEASE: Generate from git log with hotfix-specific formatting
+          PATCH_NUM=$(echo "$TAG" | grep -oP 'patch\.\K[0-9]+')
+          BASE_VERSION=$(echo "$TAG" | sed 's/-patch\.[0-9]*$//')
+
+          {
+            echo "## Hotfix Release: $TAG"
+            echo
+            echo "**This is an urgent production fix** for $BASE_VERSION."
+            echo
+          } > release_content.md
+
+          if [[ "$TAG" == *"-patch.1" ]]; then
+            echo "### Changes since $BASE_VERSION" >> release_content.md
+          else
+            echo "### Changes since $PREV_TAG" >> release_content.md
+          fi
+          echo >> release_content.md
+
+          if [ -n "$PREV_TAG" ]; then
+            # Parse commits and group by type (now with commit links)
+            declare -A sections
+            while IFS='|' read -r section desc commit_link; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                if [ -n "$commit_link" ]; then
+                  sections["$section"]+="- ${desc} ${commit_link}"$'\n'
+                else
+                  sections["$section"]+="- ${desc}"$'\n'
+                fi
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+
+            # Output grouped sections with blank line after each section (matching CHANGELOG.md format)
+            # Merged section first (for merge commits), then Keep a Changelog standard + Other
+            for section in "### Merged" "### Added" "### Fixed" "### Changed" "### Deprecated" "### Removed" "### Security" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+                echo >> release_content.md  # Blank line after section for separation
+              fi
+            done
+
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 5 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s ([%h](${SERVER_URL}/${REPO}/commit/%h))" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            echo "*No previous tag found.*" >> release_content.md
+          fi
+
+          # Add hotfix notice
+          {
+            echo
+            echo "---"
+            echo "### 🔧 Hotfix Notice"
+            echo "This release contains urgent fixes for production issues."
+            echo "All users on $BASE_VERSION are encouraged to update immediately."
+          } >> release_content.md
+        else
+          # STABLE RELEASE: Generate from git log (same as beta/RC/hotfix)
+          echo "## Stable Release: $TAG" > release_content.md
+          echo >> release_content.md
+          echo "**Production release** - Feature complete and fully tested." >> release_content.md
+          echo >> release_content.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "### Changes since ${PREV_TAG}" >> release_content.md
+            echo >> release_content.md
+
+            # Parse commits and group by type (now with commit links)
+            declare -A sections
+            while IFS='|' read -r section desc commit_link; do
+              if [ -n "$section" ] && [ -n "$desc" ]; then
+                if [ -n "$commit_link" ]; then
+                  sections["$section"]+="- ${desc} ${commit_link}"$'\n'
+                else
+                  sections["$section"]+="- ${desc}"$'\n'
+                fi
+              fi
+            done < <(parse_commits "$PREV_TAG" "$TAG")
+
+            # Output grouped sections with blank line after each section (matching CHANGELOG.md format)
+            # Merged section first (for merge commits), then Keep a Changelog standard + Other
+            for section in "### Merged" "### Added" "### Fixed" "### Changed" "### Deprecated" "### Removed" "### Security" "### Other"; do
+              if [ -n "${sections[$section]}" ]; then
+                echo "$section" >> release_content.md
+                echo "${sections[$section]}" >> release_content.md
+                echo >> release_content.md  # Blank line after section for separation
+              fi
+            done
+
+            # If no conventional commits found, show raw commit log
+            if [ ! -s release_content.md ] || [ $(wc -l < release_content.md) -le 5 ]; then
+              echo "*No conventional commits detected. Raw changes:*" >> release_content.md
+              echo >> release_content.md
+              git log --pretty=format:"- %s ([%h](${SERVER_URL}/${REPO}/commit/%h))" "${PREV_TAG}..${TAG}" >> release_content.md
+              echo >> release_content.md
+            fi
+          else
+            echo "*No previous tag found.*" >> release_content.md
+          fi
+        fi
+
+        # Assemble final release notes
+        {
+          echo "## What's Changed"
+          echo
+          cat release_content.md
+
+          if [ "${{ inputs.include-metadata }}" = "true" ]; then
+            echo
+            echo "---"
+            echo "### Build & Security Metadata"
+            echo "- **Tag:** ${TAG}"
+            if [ -n "${{ inputs.commit-hash }}" ]; then
+              echo "- **Commit:** ${{ inputs.commit-hash }}"
+            fi
+            trigger_by="${{ inputs.triggered-by }}"
+            if [ -z "$trigger_by" ]; then
+              trigger_by="${GITHUB_ACTOR}"
+            fi
+            echo "- **Triggered By:** @${trigger_by}"
+            echo "- 🛡️**Provenance:** GitHub Native SLSA Attestation Included"
+            echo "- 🔐**Signatures:** Assets are signed with keyless Cosign (OIDC)"
+          fi
+        } > release_notes.md
+
+        echo "notes-path=$(realpath release_notes.md)" >> "$GITHUB_OUTPUT"
+      env:
+        GH_TOKEN: ${{ github.token }}

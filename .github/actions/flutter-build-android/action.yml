@@ -1,0 +1,136 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Flutter Build Android'
+description: 'Configure keystore and build Flutter Android APK'
+
+inputs:
+  working-directory:
+    description: 'Path to the Flutter project'
+    required: true
+    default: 'app'
+  keystore-base64:
+    description: 'Base64-encoded Android keystore'
+    required: true
+  key-password:
+    description: 'Android key password'
+    required: true
+  key-alias:
+    description: 'Android key alias'
+    required: true
+  store-password:
+    description: 'Android store password'
+    required: true
+  build-type:
+    description: 'Build type: release, debug, or profile'
+    required: false
+    default: 'release'
+  split-per-abi:
+    description: 'Build separate APKs per ABI'
+    required: false
+    default: 'false'
+  artifact-name:
+    description: 'Custom name for the output APK (without .apk extension)'
+    required: false
+
+outputs:
+  apk-path:
+    description: 'Path to the built APK'
+    value: ${{ steps.build.outputs.apk-path }}
+  apk-name:
+    description: 'Name of the built APK file'
+    value: ${{ steps.build.outputs.apk-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      with:
+        gradle-version: wrapper
+        cache-cleanup: 'on-success'
+
+    - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        channel: stable
+        cache: true
+
+    - name: Flutter Get Dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Configure Keystore
+      shell: bash
+      env:
+        KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        KEY_PASSWORD: ${{ inputs.key-password }}
+        KEY_ALIAS: ${{ inputs.key-alias }}
+        STORE_PASSWORD: ${{ inputs.store-password }}
+      run: |
+        KEYSTORE_PATH="$RUNNER_TEMP/upload-keystore.jks"
+        printf "%s" "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+        {
+          echo "storePassword=$STORE_PASSWORD"
+          echo "keyPassword=$KEY_PASSWORD"
+          echo "keyAlias=$KEY_ALIAS"
+          echo "storeFile=$KEYSTORE_PATH"
+        } > ${{ inputs.working-directory }}/android/key.properties
+
+    - name: Build Android APK
+      id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+          flutter build apk --${{ inputs.build-type }} --split-per-abi
+        else
+          flutter build apk --${{ inputs.build-type }}
+        fi
+
+        # Get absolute path to APK directory
+        APK_DIR="${{ github.workspace }}/${{ inputs.working-directory }}/build/app/outputs/flutter-apk"
+
+        if [ "${{ inputs.split-per-abi }}" = "true" ]; then
+          # Prefer arm64-v8a if split, otherwise take the first available APK
+          APK_FILE=$(find "$APK_DIR" -name "app-arm64-v8a-${{ inputs.build-type }}.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find "$APK_DIR" -name "app-*-${{ inputs.build-type }}.apk" | head -n 1)
+          fi
+        else
+          APK_FILE="$APK_DIR/app-${{ inputs.build-type }}.apk"
+        fi
+
+        if [ ! -f "$APK_FILE" ]; then
+          echo "::error::No APK found in $APK_DIR matching current build configuration."
+          exit 1
+        fi
+
+        # Validate APK size (minimum 10MB for release builds)
+        MIN_SIZE_MB=10
+        ACTUAL_SIZE_BYTES=$(stat -c%s "$APK_FILE" 2>/dev/null || stat -f%z "$APK_FILE")
+        ACTUAL_SIZE_MB=$((ACTUAL_SIZE_BYTES / 1024 / 1024))
+
+        if [ "$ACTUAL_SIZE_MB" -lt "$MIN_SIZE_MB" ]; then
+          echo "::error::APK size (${ACTUAL_SIZE_MB}MB) is below minimum (${MIN_SIZE_MB}MB). Build may be incomplete or corrupted."
+          echo "::error::This could indicate missing assets, incomplete compilation, or signing issues."
+          exit 1
+        fi
+
+        echo " APK validation passed: ${ACTUAL_SIZE_MB}MB"
+
+        if [ -n "${{ inputs.artifact-name }}" ]; then
+          FINAL_NAME="${{ inputs.artifact-name }}.apk"
+          mv "$APK_FILE" "$APK_DIR/$FINAL_NAME"
+          APK_FILE="$APK_DIR/$FINAL_NAME"
+        else
+          FINAL_NAME=$(basename "$APK_FILE")
+        fi
+
+        echo "apk-path=$(realpath "$APK_FILE")" >> "$GITHUB_OUTPUT"
+        echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
