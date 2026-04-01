@@ -1,0 +1,290 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Notify Telegram'
+description: 'Send formatted notification messages to Telegram'
+
+inputs:
+  telegram-token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram-chat-id:
+    description: 'Telegram Chat ID'
+    required: true
+  notification-type:
+    description: 'Type of notification: ci-failure, release, dev-build, beta-build, rc-build, build-skipped'
+    required: true
+  tag:
+    description: 'Release tag (for release notifications)'
+    required: false
+  branch:
+    description: 'Branch name (for dev/CI notifications)'
+    required: false
+  commit:
+    description: 'Commit SHA (optional, defaults to github.sha)'
+    required: false
+  status:
+    description: 'Status: success or failure'
+    required: false
+    default: 'success'
+  custom-message:
+    description: 'Custom message text (overrides templates)'
+    required: false
+  artifact-path:
+    description: 'Path to artifact file to send (for dev builds)'
+    required: false
+  changelog:
+    description: 'Changelog text (for dev build captions)'
+    required: false
+  release_reason:
+    description: 'Reason for release (from check-release-markers)'
+    required: false
+  skip_reason:
+    description: 'Reason for skipping release (from check-release-markers)'
+    required: false
+  patch_number:
+    description: 'Patch number (for hotfix notifications)'
+    required: false
+  base_version:
+    description: 'Base version (for hotfix notifications)'
+    required: false
+  rc_number:
+    description: 'RC number (for release candidate notifications)'
+    required: false
+  is_first_rc:
+    description: 'Whether this is the first RC (true/false)'
+    required: false
+  actor:
+    description: 'GitHub username who triggered the action (optional, defaults to github.actor)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Telegram Notification
+      shell: bash
+      env:
+        TELEGRAM_TOKEN: ${{ inputs.telegram-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+      run: |
+        SERVER_URL="${{ github.server_url }}"
+        REPO="${{ github.repository }}"
+        RUN_ID="${{ github.run_id }}"
+        RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+        COMMIT="${{ inputs.commit }}"
+        ACTOR="${{ inputs.actor }}"
+        if [ -z "$COMMIT" ]; then
+          COMMIT="${GITHUB_SHA}"
+        fi
+        if [ -z "$ACTOR" ]; then
+          ACTOR="${GITHUB_ACTOR}"
+        fi
+        SHORT_COMMIT="${COMMIT:0:7}"
+
+        # Escape HTML special characters
+        escape_html() {
+          local input="$1"
+          input="${input//&/&amp;}"
+          input="${input//</&lt;}"
+          input="${input//>/&gt;}"
+          printf '%s' "$input"
+        }
+
+        SAFE_BRANCH=$(escape_html "${{ inputs.branch }}")
+        SAFE_TAG=$(escape_html "${{ inputs.tag }}")
+        SAFE_CHANGELOG=$(escape_html "${{ inputs.changelog }}")
+        SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
+        SAFE_ACTOR=$(escape_html "$ACTOR")
+        SAFE_SKIP_REASON=$(escape_html "${{ inputs.skip_reason }}")
+
+        SEND_URL="https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage"
+
+        # Simple send function matching proven working approach
+        send_message() {
+          local message="$1"
+          
+          curl -s -X POST "$SEND_URL" \
+            -d "chat_id=$TELEGRAM_CHAT_ID" \
+            -d "parse_mode=HTML" \
+            -d "disable_web_page_preview=true" \
+            --data-urlencode "text=$message" || echo "::warning::Telegram notification failed"
+        }
+
+        # Handle custom message
+        if [ -n "${{ inputs.custom-message }}" ]; then
+          send_message "${{ inputs.custom-message }}"
+          exit 0
+        fi
+
+        WORKFLOW_URL="$RUN_URL"
+
+        # Notification types
+        if [ "${{ inputs.notification-type }}" = "ci-failure" ]; then
+          MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s' \
+            "<b>$GITHUB_WORKFLOW Failed</b>" \
+            "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+            "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_REF_NAME\">$SAFE_REF_NAME</a>" \
+            "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+            "<b>By:</b> @$SAFE_ACTOR" \
+            "<b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+            '<i>Check workflow logs for failure details.</i>')
+
+          send_message "$MESSAGE"
+
+        elif [ "${{ inputs.notification-type }}" = "rc-build" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              "<b>Release Candidate Available — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "🔗 <a href=\"$RELEASE_URL\">View Release &amp; Patch Notes</a>" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              "This is a release candidate for <b>$SAFE_TAG</b>.\nPlease test and report any issues at <a href=\"$SERVER_URL/$REPO/issues\">$REPO/issues</a>. Thanks!")
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              "<b>RC Build Failed — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Check workflow logs for failure details.</i>')
+          fi
+
+          send_message "$MESSAGE"
+
+        elif [ "${{ inputs.notification-type }}" = "build-skipped" ]; then
+          MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s' \
+            "<b>$GITHUB_WORKFLOW Skipped</b>" \
+            "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+            "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+            "<b>By:</b> @$SAFE_ACTOR" \
+            "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+            "<b>Reason:</b> $SAFE_SKIP_REASON")
+
+          send_message "$MESSAGE"
+
+        elif [ "${{ inputs.notification-type }}" = "release" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::Tag input is empty for release notification"
+            exit 1
+          fi
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              "<b>Stable Release Live — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Tag:</b> <a href=\"$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}\">$SAFE_TAG</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "🔗 <a href=\"$RELEASE_URL\">View Release &amp; Patch Notes</a>" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              'Stable Release deployment completed with keyless signatures and SLSA provenance.')
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s' \
+              "<b>Release Failed — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Tag:</b> $SAFE_TAG" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Check workflow logs for failure details.</i>')
+          fi
+
+          send_message "$MESSAGE"
+
+        elif [ "${{ inputs.notification-type }}" = "hotfix-release" ]; then
+          STATUS="${{ inputs.status }}"
+          PATCH_NUM="${{ inputs.patch_number }}"
+          BASE_VER="${{ inputs.base_version }}"
+          TAG="${{ inputs.tag }}"
+
+          if [ "$STATUS" = "success" ]; then
+            RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              "<b>Hotfix Release — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Base Version:</b> $BASE_VER" \
+              "<b>Patch:</b> $PATCH_NUM" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "🔗 <a href=\"$RELEASE_URL\">View Release Notes</a>" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              "Hotfix deployed version <b>$BASE_VER-patch.$PATCH_NUM</b> with keyless signatures and SLSA provenance.")
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s' \
+              "<b>Hotfix Failed — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Base Version:</b> $BASE_VER" \
+              "<b>Patch:</b> $PATCH_NUM" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Check workflow logs for failure details.</i>')
+          fi
+
+          send_message "$MESSAGE"
+
+        elif [ "${{ inputs.notification-type }}" = "dev-build" ]; then
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s\n\n%s' \
+              '<b>Dev Build Ready</b>' \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "$SAFE_CHANGELOG" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Debug build for development testing.</i>')
+
+            send_message "$MESSAGE"
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s' \
+              '<b>Dev Build Failed</b>' \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Check workflow logs for failure details.</i>')
+
+            send_message "$MESSAGE"
+          fi
+
+        elif [ "${{ inputs.notification-type }}" = "beta-build" ]; then
+          STATUS="${{ inputs.status }}"
+          TAG="${{ inputs.tag }}"
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              "<b>Beta Available — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "🔗 <a href=\"$RELEASE_URL\">View Release &amp; Patch Notes</a>" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              "This is a beta version draft release. Assets are available on the release page.\nPlease test and report any issues at <a href=\"$SERVER_URL/$REPO/issues\">$REPO/issues</a>. Thanks!")
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n%s\n\n%s\n\n%s' \
+              "<b>Beta Build Failed — $SAFE_TAG</b>" \
+              "<b>Repository:</b> <a href=\"$SERVER_URL/$REPO\">$REPO</a>" \
+              "<b>Branch:</b> <a href=\"$SERVER_URL/$REPO/tree/$SAFE_BRANCH\">$SAFE_BRANCH</a>" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "⚙️ <b>Workflow:</b> <a href=\"$WORKFLOW_URL\">$GITHUB_WORKFLOW</a>" \
+              '<i>Check workflow logs for failure details.</i>')
+          fi
+
+          send_message "$MESSAGE"
+        fi
