@@ -15,6 +15,9 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - UMP detection heuristics with Message Type (MT 0x1, 0x2) validation
 - Multi-cable support via preserved UMP group data
 - Android minSdkVersion enforced to 33 for UMP baseline
+- Dual-license header enforcement with SPDX identifier (GPL-3.0-or-later OR LicenseRef-Commercial)
+- GitHub Actions workflow for automated license header checking
+- Licensing documentation in `docs/LICENSING.md`
 
 ### Changed
 - Retained `MidiDeviceService` over `MidiUmpDeviceService` for broader device coverage (90% vs. 20%)
