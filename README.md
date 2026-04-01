@@ -173,7 +173,47 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 
 Full attributions: [CREDITS.md](CREDITS.md)
 
-## License
+## Licensing
 
-- Open source: GPL-3.0 ([LICENSE](LICENSE))
-- Commercial licensing: available separately from Peters Digital
+This project is dual-licensed under:
+
+* GNU General Public License v3.0 (GPLv3)
+* Commercial License (LicenseRef-Commercial)
+
+All source files include the SPDX identifier:
+```
+SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+```
+
+### Open Source Use (GPLv3)
+
+This software is available under the GPLv3. If you use, modify, or distribute
+this software, you must comply with the terms of the GPLv3.
+
+### Commercial Use
+
+If you wish to use this software without complying with GPLv3 (for example,
+in proprietary or closed-source applications), you must obtain a commercial
+license.
+
+Commercial licenses are granted on a case-by-case basis.
+
+For licensing inquiries, contact: [dencelbabu@gmail.com](mailto:dencelbabu@gmail.com)
+
+### License Header Enforcement
+
+License headers are automatically checked by CI. 
+
+See [docs/LICENSING.md](docs/LICENSING.md) for details.
+
+## License History
+
+Prior to version 0.2.2, this project used a custom dual-license notice.
+
+As of version 0.2.2, the project has been formally licensed under:
+
+* GNU General Public License v3.0 (GPLv3)
+* Commercial License (LicenseRef-Commercial)
+
+This change clarifies and standardizes the licensing terms. All past and current contributions are owned by Peters Digital and are available under the updated licensing terms.
+
