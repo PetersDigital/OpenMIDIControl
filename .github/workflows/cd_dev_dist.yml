@@ -1,0 +1,92 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: "CD: Development Distribution"
+
+on:
+  push:
+    branches-ignore: [main]
+    tags-ignore: ['**']
+
+concurrency:
+  group: dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 'CD: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  build-and-push-dev:
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Android APK (Split ABI)
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          split-per-abi: 'true'
+
+      - name: Normalize Branch and Name APK
+        id: name
+        run: |
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          CLEAN_BRANCH=$(echo "$GITHUB_REF_NAME" | sed -E 's/^(feature|fix|refactor|docs)\///')
+          CLEAN_BRANCH=$(echo "$CLEAN_BRANCH" | sed -E 's/-[0-9]{10,}$//')
+          CLEAN_BRANCH=$(echo "${CLEAN_BRANCH//\//-}" | cut -c1-20)
+
+          FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
+          APK_SRC="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          APK_DST="build/app/outputs/flutter-apk/$FINAL_NAME"
+          
+          mv "$APK_SRC" "$APK_DST"
+
+          CHANGELOG=$(git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}" 2>/dev/null || git log -n 5 --pretty=format:"- %s")
+
+          echo "apk-path=$APK_DST" >> "$GITHUB_OUTPUT"
+          echo "apk-name=$FINAL_NAME" >> "$GITHUB_OUTPUT"
+          echo "changelog<<EOFCHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOFCHANGELOG" >> "$GITHUB_OUTPUT"
+
+      - name: Send APK to Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: dev-build
+          branch: ${{ github.ref_name }}
+          artifact-path: app/${{ steps.name.outputs.apk-path }}
+          changelog: ${{ steps.name.outputs.changelog }}

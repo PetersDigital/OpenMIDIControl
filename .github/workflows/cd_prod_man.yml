@@ -1,0 +1,266 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: "CD: Manual Production Rebuild"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to rebuild (e.g., v1.0.2)"
+        required: true
+        type: string
+      force:
+        description: "Force overwrite existing release assets"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-manual-${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_commit: ${{ steps.validate.outputs.commit }}
+      tag: ${{ steps.validate.outputs.tag }}
+      has_windows: ${{ steps.validate.outputs.has_windows }}
+    steps:
+      - name: Checkout Repository (workflow engine code)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 'CD: Release Tag Validation'
+        id: validate
+        uses: ./.github/actions/release-tag-validation
+        with:
+          tag: ${{ github.event.inputs.tag }}
+          allowed_actors: ${{ vars.ALLOWED_RELEASE_ACTORS }}
+          gpg_public_key: ${{ secrets.GPG_PUBLIC_KEY }}
+          expected_fingerprint: ${{ secrets.EXPECTED_GPG_FINGERPRINT }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          main_branch: main
+
+  analyze-and-test:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          fetch-depth: 0
+      - name: 'CD: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  build-android:
+    needs: [validate-tag, analyze-and-test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Build Android APK
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android
+
+      - name: Confirm APK exists
+        run: |
+          ARTIFACT=${{ steps.build.outputs.apk-path }}
+          echo "Expected APK path: $ARTIFACT"
+          ls -la build/app/outputs/flutter-apk
+          if [ ! -f "$ARTIFACT" ]; then
+            echo "::error::APK not found: $ARTIFACT"
+            exit 1
+          fi
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/${{ steps.build.outputs.apk-name }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          retention-days: 1
+          path: |
+            app/${{ steps.build.outputs.apk-name }}
+            app/${{ steps.build.outputs.apk-name }}.sig
+            app/${{ steps.build.outputs.apk-name }}.pem
+
+  build-windows:
+    needs: [validate-tag, analyze-and-test]
+    if: needs.validate-tag.outputs.has_windows == 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Build Windows ZIP
+        id: build
+        uses: ./.github/actions/flutter-build-windows
+        with:
+          working-directory: app
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/${{ steps.build.outputs.zip-name }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          retention-days: 1
+          path: |
+            app/${{ steps.build.outputs.zip-name }}
+            app/${{ steps.build.outputs.zip-name }}.sig
+            app/${{ steps.build.outputs.zip-name }}.pem
+
+  provenance:
+    needs: [validate-tag, build-android, build-windows]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Provenance (Android)
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-windows.result == 'success'
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-windows.zip
+
+  publish-release:
+    needs: [validate-tag, build-android, build-windows, provenance]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.provenance.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Ensure GitHub CLI
+        if: github.event.inputs.force == 'true'
+        run: |
+          if ! command -v gh &> /dev/null; then
+            sudo apt-get update && sudo apt-get install gh -y
+          fi
+
+      - name: Delete existing assets (if forcing overwrite)
+        if: github.event.inputs.force == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.sig" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.pem" --yes || true
+
+          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.sig" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.pem" --yes || true
+          fi
+          gh release delete-asset "$TAG" "*.jsonl" --yes || true
+
+      - name: Generate Release Notes
+        uses: ./.github/actions/generate-release-notes
+        with:
+          tag: ${{ needs.validate-tag.outputs.tag }}
+          changelog-path: CHANGELOG.md
+          include-metadata: 'true'
+          commit-hash: ${{ needs.validate-tag.outputs.tag_commit }}
+          triggered-by: ${{ github.actor }}
+
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate-tag.outputs.tag }}
+          body_path: release_notes.md
+          draft: true
+          files: |
+            openmidicontrol-*-android.apk
+            openmidicontrol-*-android.apk.sig
+            openmidicontrol-*-android.apk.pem
+            openmidicontrol-*-windows.zip
+            openmidicontrol-*-windows.zip.sig
+            openmidicontrol-*-windows.zip.pem
+
+  notify-release:
+    runs-on: ubuntu-latest
+    needs: [validate-tag, publish-release]
+    if: always()
+    steps:
+      - name: Notify Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: release
+          tag: ${{ needs.validate-tag.outputs.tag }}
+          status: ${{ needs.publish-release.result }}

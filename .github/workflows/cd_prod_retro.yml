@@ -1,0 +1,370 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: "CD: Legacy Production Rebuild (Retroactive)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to rebuild (e.g., v0.2.1)"
+        required: true
+        type: string
+      force:
+        description: "Force overwrite existing release assets"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-manual-${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_commit: ${{ steps.validate.outputs.commit }}
+      tag: ${{ steps.validate.outputs.tag }}
+      has_windows: ${{ steps.windows_check.outputs.has_windows }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate Tag & Security
+        id: validate
+        run: |
+          ALLOWED_ACTORS="${{ vars.ALLOWED_RELEASE_ACTORS }}"
+          IFS=',' read -ra ACTORS <<< "$ALLOWED_ACTORS"
+
+          AUTHORIZED=false
+          for ACTOR in "${ACTORS[@]}"; do
+            CLEAN_ACTOR=$(echo "$ACTOR" | xargs)
+            if [ "$CLEAN_ACTOR" = "${{ github.actor }}" ]; then
+              AUTHORIZED=true
+              break
+            fi
+          done
+
+          if [ "$AUTHORIZED" != "true" ]; then
+            echo "::error::Unauthorized manual trigger by ${{ github.actor }}."
+            exit 1
+          fi
+
+          TAG="${{ github.event.inputs.tag }}"
+
+          if [[ ! "$TAG" =~ ^v[0-9] ]]; then
+            echo "::error::Ref '$TAG' is not a valid version tag format (v*)."
+            exit 1
+          fi
+
+          if ! git cat-file -t "$TAG" | grep -q "tag"; then
+            echo "::error::Tag $TAG is not an annotated tag."
+            exit 1
+          fi
+
+          echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --import
+
+          KEY_COUNT=$(gpg --list-keys --with-colons | grep '^pub' | wc -l)
+          if [ "$KEY_COUNT" -ne 1 ]; then
+            echo "::error::Expected exactly 1 GPG key, found $KEY_COUNT."
+            exit 1
+          fi
+
+          EXPECTED_FPR="${{ secrets.EXPECTED_GPG_FINGERPRINT }}"
+          ACTUAL_FPR=$(gpg --list-keys --with-colons --fingerprint | awk -F: '/^fpr/ {print $10; exit}')
+
+          if [ "$ACTUAL_FPR" != "$EXPECTED_FPR" ]; then
+            echo "::error::Fingerprint mismatch. Expected $EXPECTED_FPR but got $ACTUAL_FPR"
+            exit 1
+          fi
+
+          gpg --import-ownertrust <<EOF
+          ${ACTUAL_FPR}:6:
+          EOF
+
+          echo "Verifying GPG signature for $TAG..."
+          git tag -v "$TAG" || {
+            echo "::error::Tag signature invalid or signed by unknown key."
+            exit 1
+          }
+
+          COMMIT_HASH=$(git rev-parse "$TAG^{commit}")
+          echo "commit=$COMMIT_HASH" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$COMMIT_HASH" origin/main; then
+            echo "::error::Commit $COMMIT_HASH is not on origin/main. Release blocked."
+            exit 1
+          fi
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Verify GitHub Tag Signature (API)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.validate.outputs.tag }}"
+          TAG_OBJ=$(git rev-parse "$TAG^{tag}")
+
+          RESPONSE=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/git/tags/$TAG_OBJ)
+
+          VERIFIED=$(echo "$RESPONSE" | jq -r '.verification.verified // empty')
+
+          if [ "$VERIFIED" != "true" ]; then
+            echo "::error::GitHub API reports tag is NOT verified."
+            exit 1
+          fi
+
+          echo "✅ GitHub API verification passed."
+
+      - name: Check Windows Support
+        id: windows_check
+        run: |
+          if [ -d "app/windows" ]; then
+            echo "has_windows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_windows=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  analyze-and-test:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        shell: bash
+        run: |
+          git fetch origin main
+          git checkout origin/main -- .github/actions
+
+      - name: 'CD: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  build-android:
+    needs: [validate-tag, analyze-and-test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        working-directory: .
+        run: |
+          git fetch origin main
+          git checkout origin/main -- .github/actions
+
+      - name: Build Android APK
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-android
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/${{ steps.build.outputs.apk-name }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          retention-days: 1
+          path: |
+            app/${{ steps.build.outputs.apk-name }}
+            app/${{ steps.build.outputs.apk-name }}.sig
+            app/${{ steps.build.outputs.apk-name }}.pem
+
+  build-windows:
+    needs: [validate-tag, analyze-and-test]
+    if: needs.validate-tag.outputs.has_windows == 'true'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Restore modern CI actions from main
+        working-directory: .
+        run: |
+          git fetch origin main
+          git checkout origin/main -- .github/actions
+
+      - name: Build Windows ZIP
+        id: build
+        uses: ./.github/actions/flutter-build-windows
+        with:
+          working-directory: app
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.validate-tag.outputs.tag }}-windows
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: app/${{ steps.build.outputs.zip-name }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          retention-days: 1
+          path: |
+            app/${{ steps.build.outputs.zip-name }}
+            app/${{ steps.build.outputs.zip-name }}.sig
+            app/${{ steps.build.outputs.zip-name }}.pem
+
+  provenance:
+    needs: [validate-tag, build-android, build-windows]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Provenance (Android)
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-windows.result == 'success'
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-windows.zip
+
+  publish-release:
+    needs: [validate-tag, build-android, build-windows, provenance]
+    if: |
+      always() &&
+      needs.build-android.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.provenance.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-tag.outputs.tag_commit }}
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Ensure GitHub CLI
+        if: github.event.inputs.force == 'true'
+        run: |
+          if ! command -v gh &> /dev/null; then
+            sudo apt-get update && sudo apt-get install gh -y
+          fi
+
+      - name: Delete existing assets (if forcing overwrite)
+        if: github.event.inputs.force == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.validate-tag.outputs.tag }}"
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.sig" --yes || true
+          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.pem" --yes || true
+
+          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.sig" --yes || true
+            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.pem" --yes || true
+          fi
+
+      - name: Generate Release Notes
+        uses: ./.github/actions/generate-release-notes
+        with:
+          tag: ${{ needs.validate-tag.outputs.tag }}
+          changelog-path: CHANGELOG.md
+          include-metadata: 'true'
+          commit-hash: ${{ needs.validate-tag.outputs.tag_commit }}
+          triggered-by: ${{ github.actor }}
+
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate-tag.outputs.tag }}
+          body_path: release_notes.md
+          draft: true
+          files: |
+            openmidicontrol-*-android.apk
+            openmidicontrol-*-android.apk.sig
+            openmidicontrol-*-android.apk.pem
+            openmidicontrol-*-windows.zip
+            openmidicontrol-*-windows.zip.sig
+            openmidicontrol-*-windows.zip.pem
+
+  notify-release:
+    runs-on: ubuntu-latest
+    needs: [validate-tag, publish-release]
+    if: always()
+    steps:
+      - name: Notify Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: release
+          tag: ${{ needs.validate-tag.outputs.tag }}
+          status: ${{ needs.publish-release.result }}

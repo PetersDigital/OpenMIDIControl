@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+name: 'CD: Cosign Sign and Verify'
+description: 'Sign and verify one artifact with Cosign keyless.'
+inputs:
+  artifact_path:
+    description: 'Path to artifact to sign.'
+    required: true
+  repository:
+    description: 'GitHub repository slug (owner/repo) used in certificate identity regexp.'
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Sign artifact with Cosign
+      shell: bash
+      run: |
+        FILE="${{ inputs.artifact_path }}"
+        if [ ! -f "$FILE" ]; then
+          echo "::error::Artifact not found for signing: $FILE"
+          ls -la "$(dirname "$FILE")" || true
+          exit 1
+        fi
+        cosign sign-blob \
+          --yes \
+          --output-signature "${FILE}.sig" \
+          --output-certificate "${FILE}.pem" \
+          "$FILE"
+
+    - name: Verify Cosign signature
+      shell: bash
+      run: |
+        FILE="${{ inputs.artifact_path }}"
+        cosign verify-blob \
+          --certificate "${FILE}.pem" \
+          --signature "${FILE}.sig" \
+          --certificate-identity-regexp "https://github.com/${{ inputs.repository }}" \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          "$FILE"
