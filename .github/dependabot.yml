@@ -1,0 +1,67 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# .github/dependabot.yml
+version: 2
+
+updates:
+  # Monitor GitHub Actions for security updates
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Kolkata"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]
+    commit-message:
+      prefix: "chore(deps/ci)"
+
+  # Monitor NPM dependencies (commitlint, husky)
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Kolkata"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps/npm)"
+
+  # Monitor Flutter/Dart dependencies
+  - package-ecosystem: "pub"
+    directory: "/app"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      major-updates:
+        patterns: ["*"]
+        update-types: ["major"]
+    commit-message:
+      prefix: "chore(deps/flutter)"
