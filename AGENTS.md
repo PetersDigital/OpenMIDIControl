@@ -58,11 +58,6 @@ flutter pub get
 
 ### Run
 
-```powershell
-.\scripts\run_debug.ps1    # debug — interactive device picker
-.\scripts\run_release.ps1  # release — requires configured scripts\.env.ps1
-```
-
 ```bash
 flutter devices          # list connected devices
 flutter run -d <id>      # run on a specific device

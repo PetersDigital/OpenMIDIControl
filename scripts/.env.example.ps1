@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 $env:KEYSTORE_BASE64="YOUR_BASE64_STRING_HERE"
 $env:KEY_PASSWORD="YOUR_KEY_PASSWORD"
 $env:KEY_ALIAS="YOUR_KEY_ALIAS"
