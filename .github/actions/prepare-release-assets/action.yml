@@ -1,0 +1,74 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'Prepare Release Assets'
+description: 'Prepares the list of artifact files to be attached to a GitHub Release'
+
+inputs:
+  tag:
+    description: 'Release tag for artifact name prefix'
+    required: true
+  has-windows:
+    description: 'Whether Windows artifacts exist'
+    required: true
+  include-provenance:
+    description: 'Whether to include .jsonl provenance files'
+    required: false
+    default: 'true'
+
+outputs:
+  files:
+    description: 'Newline-separated list of asset files'
+    value: ${{ steps.assets.outputs.files }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare release assets list
+      id: assets
+      shell: bash
+      run: |
+        TAG="${{ inputs.tag }}"
+        HAS_WINDOWS="${{ inputs.has-windows }}"
+        INCLUDE_PROVENANCE="${{ inputs.include-provenance }}"
+
+        echo "=== Generating Asset List ==="
+        {
+          echo "files<<EOF"
+
+          # Android APK and signatures
+          for ext in apk apk.sig apk.pem; do
+            FILE="openmidicontrol-${TAG}-android.${ext}"
+            if [ -f "$FILE" ]; then
+              echo "$FILE"
+            else
+              echo "::warning::File not found: $FILE" >&2
+            fi
+          done
+
+          # Windows ZIP and signatures (if exists)
+          if [ "$HAS_WINDOWS" = "true" ]; then
+            for ext in zip zip.sig zip.pem; do
+              FILE="openmidicontrol-${TAG}-windows.${ext}"
+              if [ -f "$FILE" ]; then
+                echo "$FILE"
+              else
+                echo "::warning::File not found: $FILE" >&2
+              fi
+            done
+          fi
+
+          # Provenance files
+          if [ "$INCLUDE_PROVENANCE" = "true" ]; then
+            for file in ./*.jsonl; do
+              if [ -f "$file" ]; then
+                echo "$file"
+              fi
+            done
+          fi
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # Log findings to runner console
+        echo "Assets to be uploaded:"
+        ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
