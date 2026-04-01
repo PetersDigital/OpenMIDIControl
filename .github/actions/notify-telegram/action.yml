@@ -1,0 +1,447 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+name: 'CD: Notify Telegram'
+description: 'Send formatted notification messages to Telegram'
+
+inputs:
+  telegram-token:
+    description: 'Telegram Bot Token'
+    required: true
+  telegram-chat-id:
+    description: 'Telegram Chat ID'
+    required: true
+  notification-type:
+    description: 'Type of notification: ci-failure, release, dev-build, beta-build, rc-build, build-skipped'
+    required: true
+  tag:
+    description: 'Release tag (for release notifications)'
+    required: false
+  branch:
+    description: 'Branch name (for dev/CI notifications)'
+    required: false
+  commit:
+    description: 'Commit SHA (optional, defaults to github.sha)'
+    required: false
+  status:
+    description: 'Status: success or failure'
+    required: false
+    default: 'success'
+  custom-message:
+    description: 'Custom message text (overrides templates)'
+    required: false
+  artifact-path:
+    description: 'Path to artifact file to send (for dev builds)'
+    required: false
+  changelog:
+    description: 'Changelog text (for dev build captions)'
+    required: false
+  release_reason:
+    description: 'Reason for release (from check-release-markers)'
+    required: false
+  skip_reason:
+    description: 'Reason for skipping release (from check-release-markers)'
+    required: false
+  patch_number:
+    description: 'Patch number (for hotfix notifications)'
+    required: false
+  base_version:
+    description: 'Base version (for hotfix notifications)'
+    required: false
+  rc_number:
+    description: 'RC number (for release candidate notifications)'
+    required: false
+  is_first_rc:
+    description: 'Whether this is the first RC (true/false)'
+    required: false
+  actor:
+    description: 'GitHub username who triggered the action (optional, defaults to github.actor)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Telegram Notification
+      shell: bash
+      env:
+        TELEGRAM_TOKEN: ${{ inputs.telegram-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+      run: |
+        SERVER_URL="${{ github.server_url }}"
+        REPO="${{ github.repository }}"
+        RUN_ID="${{ github.run_id }}"
+        RUN_URL="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+        COMMIT="${{ inputs.commit }}"
+        ACTOR="${{ inputs.actor }}"
+        if [ -z "$COMMIT" ]; then
+          COMMIT="${GITHUB_SHA}"
+        fi
+        if [ -z "$ACTOR" ]; then
+          ACTOR="${GITHUB_ACTOR}"
+        fi
+        SHORT_COMMIT="${COMMIT:0:7}"
+
+        # Escape user-controlled inputs for HTML safety
+        escape_html() {
+          local input="$1"
+          input="${input//&/&amp;}"
+          input="${input//</&lt;}"
+          input="${input//>/&gt;}"
+          printf '%s' "$input"
+        }
+
+        SAFE_BRANCH=$(escape_html "${{ inputs.branch }}")
+        SAFE_TAG=$(escape_html "${{ inputs.tag }}")
+        SAFE_CHANGELOG=$(escape_html "${{ inputs.changelog }}")
+        SAFE_REF_NAME=$(escape_html "${{ github.ref_name }}")
+        SAFE_ACTOR=$(escape_html "$ACTOR")
+        SAFE_SKIP_REASON=$(escape_html "${{ inputs.skip_reason }}")
+        SEND_MESSAGE_URL="https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage"
+        SEND_DOCUMENT_URL="https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument"
+
+        # Truncate text to Telegram limits with suffix
+        truncate_for_telegram() {
+          local max_chars="$1"
+          local content="$2"
+          local suffix=$'\n\n<i>[truncated for Telegram size limit]</i>'
+          local suffix_len=${#suffix}
+          local keep_chars=$((max_chars - suffix_len))
+
+          if [ "$keep_chars" -le 0 ]; then
+            keep_chars=$((max_chars - 50))
+          fi
+
+          if [ "${#content}" -le "$max_chars" ]; then
+            printf '%s' "$content"
+          else
+            printf '%s%s' "${content:0:$keep_chars}" "$suffix"
+          fi
+        }
+
+        # Check Telegram JSON response for ok field
+        check_telegram_response() {
+          local response_file="$1"
+
+          if [ ! -f "$response_file" ] || [ ! -s "$response_file" ]; then
+            echo "ok=false"
+            echo "retry_after=0"
+            return
+          fi
+
+          local ok="false"
+          local retry_after="0"
+
+          if grep -q '"ok":true' "$response_file" 2>/dev/null; then
+            ok="true"
+          fi
+
+          local retry_match
+          retry_match=$(grep -o '"retry_after":[0-9]*' "$response_file" 2>/dev/null | head -1 | grep -o '[0-9]*$' || echo "0")
+          if [ -n "$retry_match" ] && [ "$retry_match" != "0" ]; then
+            retry_after="$retry_match"
+          fi
+
+          echo "ok=$ok"
+          echo "retry_after=$retry_after"
+        }
+
+        # Function to send messages with retry (URL-encoded POST)
+        send_with_retry() {
+          local url="$1"
+          local message="$2"
+          local max_retries=5
+          local retry_count=0
+          local backoff=2
+          local http_code=0
+          local response_file=''
+
+          message=$(truncate_for_telegram 4096 "$message")
+
+          while [ $retry_count -lt $max_retries ]; do
+            response_file=$(mktemp)
+            http_code=$(curl -sS -o "$response_file" -w "%{http_code}" -X POST "$url" \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              --data-urlencode "text=$message" 2>/dev/null || echo '000')
+
+            local check_output
+            check_output=$(check_telegram_response "$response_file" "$http_code")
+            rm -f "$response_file"
+
+            local ok retry_after
+            ok=$(printf '%s\n' "$check_output" | sed -n 's/^ok=//p')
+            retry_after=$(printf '%s\n' "$check_output" | sed -n 's/^retry_after=//p')
+
+            if [ "$http_code" = '200' ] && [ "$ok" = 'true' ]; then
+              return 0
+            fi
+
+            retry_count=$((retry_count + 1))
+
+            # Handle rate limiting (429)
+            if [ "$http_code" = '429' ] && [ "${retry_after:-0}" -gt 0 ] 2>/dev/null; then
+              echo "Telegram rate limited. Retrying in ${retry_after}s ($retry_count/$max_retries)..."
+              sleep "$retry_after"
+              continue
+            fi
+
+            # Handle 5xx and network errors with exponential backoff
+            case "$http_code" in
+              5*|000)
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Telegram temporary failure (HTTP $http_code). Retry in ${backoff}s ($retry_count/$max_retries)..."
+                  sleep "$backoff"
+                  backoff=$((backoff * 2))
+                  continue
+                fi
+                ;;
+            esac
+
+            if [ $retry_count -lt $max_retries ]; then
+              echo "Telegram API failed (HTTP $http_code), retrying ($retry_count/$max_retries)..."
+              sleep "$backoff"
+              backoff=$((backoff * 2))
+            fi
+          done
+
+          echo "::warning::Telegram notification failed after $max_retries attempts (HTTP $http_code; ok=$ok)"
+          return 1
+        }
+
+        # Function to send documents with retry (multipart)
+        send_document_with_retry() {
+          local url="$1"
+          local file_path="$2"
+          local caption="$3"
+          local max_retries=5
+          local retry_count=0
+          local backoff=2
+          local http_code=0
+          local response_file=''
+
+          if [ ! -f "$file_path" ]; then
+            echo "::warning::Telegram document not found: $file_path"
+            return 1
+          fi
+
+          caption=$(truncate_for_telegram 1024 "$caption")
+
+          while [ $retry_count -lt $max_retries ]; do
+            response_file=$(mktemp)
+            http_code=$(curl -sS -o "$response_file" -w "%{http_code}" -X POST "$url" \
+              --connect-timeout 10 \
+              --max-time 60 \
+              -F "chat_id=$TELEGRAM_CHAT_ID" \
+              -F "document=@$file_path" \
+              -F "parse_mode=HTML" \
+              -F "disable_web_page_preview=true" \
+              -F "caption=$caption" 2>/dev/null || echo '000')
+
+            local check_output
+            check_output=$(check_telegram_response "$response_file" "$http_code")
+            rm -f "$response_file"
+
+            local ok retry_after
+            ok=$(printf '%s\n' "$check_output" | sed -n 's/^ok=//p')
+            retry_after=$(printf '%s\n' "$check_output" | sed -n 's/^retry_after=//p')
+
+            if [ "$http_code" = '200' ] && [ "$ok" = 'true' ]; then
+              return 0
+            fi
+
+            retry_count=$((retry_count + 1))
+
+            if [ "$http_code" = '429' ] && [ "${retry_after:-0}" -gt 0 ] 2>/dev/null; then
+              echo "Telegram document rate limited. Retrying in ${retry_after}s ($retry_count/$max_retries)..."
+              sleep "$retry_after"
+              continue
+            fi
+
+            case "$http_code" in
+              5*|000)
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Telegram document temporary failure (HTTP $http_code). Retry in ${backoff}s ($retry_count/$max_retries)..."
+                  sleep "$backoff"
+                  backoff=$((backoff * 2))
+                  continue
+                fi
+                ;;
+            esac
+
+            if [ $retry_count -lt $max_retries ]; then
+              echo "Telegram document API failed (HTTP $http_code), retrying ($retry_count/$max_retries)..."
+              sleep "$backoff"
+              backoff=$((backoff * 2))
+            fi
+          done
+
+          echo "::warning::Telegram document upload failed after $max_retries attempts (HTTP $http_code; ok=$ok)"
+          return 1
+        }
+
+        # Handle custom message
+        if [ -n "${{ inputs.custom-message }}" ]; then
+          send_with_retry "$SEND_MESSAGE_URL" "${{ inputs.custom-message }}" || true
+          exit 0
+        fi
+
+        # Notification types
+        if [ "${{ inputs.notification-type }}" = "ci-failure" ]; then
+          MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s' \
+            '<b>OpenMIDIControl CI Pipeline Failed</b>' \
+            "<b>Branch:</b> $SAFE_REF_NAME" \
+            "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+            "<b>By:</b> @$SAFE_ACTOR" \
+            "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+            "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+
+          send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "rc-build" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG RC Build Ready!</b>" \
+              "<b>Branch:</b> $SAFE_BRANCH" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<a href=\"$RELEASE_URL\">View Release &amp; Patch Notes</a>" \
+              '<i>Build completed successfully with keyless signatures and SLSA provenance.</i>')
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG RC Build Failed</b>" \
+              "<b>Branch:</b> $SAFE_BRANCH" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+              "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+          fi
+
+          send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "build-skipped" ]; then
+          MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s' \
+            '<b>OpenMIDIControl Build Skipped</b>' \
+            "<b>Branch:</b> $SAFE_BRANCH" \
+            "<b>By:</b> @$SAFE_ACTOR" \
+            "<b>Reason:</b> $SAFE_SKIP_REASON")
+
+          send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "release" ]; then
+          RELEASE_URL="$SERVER_URL/$REPO/releases/tag/${{ inputs.tag }}"
+          STATUS="${{ inputs.status }}"
+
+          if [ -z "${{ inputs.tag }}" ]; then
+            echo "::error::Tag input is empty for release notification"
+            exit 1
+          fi
+
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG is Live!</b>" \
+              "<b>Tag:</b> $SAFE_TAG" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<a href=\"$RELEASE_URL\">View Release &amp; Patch Notes</a>" \
+              '<i>Deployment completed successfully with keyless signatures and SLSA provenance.</i>')
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG Release Failed</b>" \
+              "<b>Tag:</b> $SAFE_TAG" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+              "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+          fi
+
+          if [ -z "$MESSAGE" ]; then
+            echo "::error::MESSAGE variable is empty. Tag: $SAFE_TAG, Status: $STATUS"
+            exit 1
+          fi
+
+          send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "hotfix-release" ]; then
+          STATUS="${{ inputs.status }}"
+          PATCH_NUM="${{ inputs.patch_number }}"
+          BASE_VER="${{ inputs.base_version }}"
+          TAG="${{ inputs.tag }}"
+
+          if [ "$STATUS" = "success" ]; then
+            RELEASE_URL="$SERVER_URL/$REPO/releases/tag/$TAG"
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl Hotfix $SAFE_TAG Released!</b>" \
+              "<b>Base Version:</b> $BASE_VER" \
+              "<b>Patch:</b> $PATCH_NUM" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<a href=\"$RELEASE_URL\">View Release Notes</a>" \
+              '<i>Hotfix deployed with keyless signatures and SLSA provenance.</i>')
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl Hotfix $SAFE_TAG Failed</b>" \
+              "<b>Base Version:</b> $BASE_VER" \
+              "<b>Patch:</b> $PATCH_NUM" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+              "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+          fi
+
+          send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+
+        elif [ "${{ inputs.notification-type }}" = "dev-build" ]; then
+          STATUS="${{ inputs.status }}"
+
+          if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
+            CAPTION=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n%s\n\n%s' \
+              '<b>OpenMIDIControl Dev Build Ready</b>' \
+              "<b>Branch:</b> $SAFE_BRANCH" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              '<b>Changes:</b>' \
+              "$SAFE_CHANGELOG" \
+              '<i>Artifact attached</i>')
+
+            send_document_with_retry "$SEND_DOCUMENT_URL" "${{ inputs.artifact-path }}" "$CAPTION" || \
+              echo "::warning::Telegram document upload failed"
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n\n%s' \
+              '<b>OpenMIDIControl Dev Build Failed</b>' \
+              "<b>Branch:</b> $SAFE_BRANCH" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+              "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+
+            send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+          fi
+
+        elif [ "${{ inputs.notification-type }}" = "beta-build" ]; then
+          STATUS="${{ inputs.status }}"
+          TAG="${{ inputs.tag }}"
+
+          if [ "$STATUS" = "success" ] && [ -n "${{ inputs.artifact-path }}" ]; then
+            CAPTION=$(printf '%s\n\n%s\n%s\n%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG Beta Available!</b>" \
+              "<b>Branch:</b> $SAFE_BRANCH" \
+              "<b>Commit:</b> <a href=\"$SERVER_URL/$REPO/commit/$COMMIT\">$SHORT_COMMIT</a>" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              '<b>Changes:</b>' \
+              "$SAFE_CHANGELOG" \
+              '<i>This is a beta release for testing. Please report any issues.</i>' \
+              '<i>Artifact attached</i>')
+
+            send_document_with_retry "$SEND_DOCUMENT_URL" "${{ inputs.artifact-path }}" "$CAPTION" || \
+              echo "::warning::Telegram document upload failed"
+          else
+            MESSAGE=$(printf '%s\n\n%s\n%s\n\n%s\n\n%s' \
+              "<b>OpenMIDIControl $SAFE_TAG Beta Build Failed</b>" \
+              "<b>Tag:</b> $SAFE_TAG" \
+              "<b>By:</b> @$SAFE_ACTOR" \
+              "<i>Workflow $GITHUB_WORKFLOW failed.</i>" \
+              "<a href=\"$RUN_URL\">View Workflow Logs</a>")
+
+            send_with_retry "$SEND_MESSAGE_URL" "$MESSAGE" || true
+          fi
+        fi

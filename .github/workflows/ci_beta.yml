@@ -1,0 +1,343 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Builds release candidates on beta branch with signing, provenance, and draft GitHub releases
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CI: Beta Branch"
+
+on:
+  push:
+    branches: [beta]
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
+      - '!**.md'
+      - '!docs/**'
+
+concurrency:
+  group: beta-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    if: github.actor != 'dependabot[bot]'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+      - name: 'CI: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notify-on-failure: 'false'
+
+  build-rc:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: [analyze-and-test]
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      needs.analyze-and-test.result == 'success' &&
+      !contains(github.event.head_commit.message, '[wip]') &&
+      !contains(github.event.head_commit.message, '[skip-release]') &&
+      contains(github.event.head_commit.message, '[beta]')
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      has_windows: ${{ steps.check_windows.outputs.has_windows }}
+      should_release: 'true'
+      release_reason: 'beta_marker'
+      beta-tag: ${{ steps.tag.outputs.beta-tag }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Check Windows Support
+        id: check_windows
+        run: |
+          if [ -d "windows" ]; then
+            echo "has_windows=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_windows=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Beta Tag
+        id: tag
+        run: |
+          # Authenticate GitHub CLI
+          gh auth setup-git
+
+          # Try to find last beta release via GitHub API
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -E '\-beta\.' | head -1 || echo "")
+
+          if [ -n "$LAST_BETA" ]; then
+            echo "Found last beta release: $LAST_BETA"
+            LAST_RELEASE="$LAST_BETA"
+          else
+            # Fall back to git describe for stable tags
+            RAW_TAG=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LAST_RELEASE=$(echo "$RAW_TAG" | tr -d '\r\n ')
+            echo "No beta releases found. Using stable tag: $LAST_RELEASE"
+          fi
+
+          # Clean any invisible chars
+          LATEST_TAG=$(echo "$LAST_RELEASE" | tr -d '\r\n ')
+
+          # Extract version components using bash parameter expansion
+          VERSION="${LATEST_TAG#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          # Get commit count since last tag for beta increment
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            BETA_NUM=$(git rev-list --count HEAD)
+          else
+            BETA_NUM=$(git rev-list --count "$LATEST_TAG"..HEAD)
+          fi
+
+          if [ "$BETA_NUM" -eq 0 ]; then
+            BETA_NUM=1
+          fi
+
+          # Create beta tag
+          BETA_TAG="v${MAJOR}.${MINOR}.${PATCH}-beta.${BETA_NUM}"
+
+          echo "beta-tag=$BETA_TAG" >> "$GITHUB_OUTPUT"
+          echo "Generated beta tag: $BETA_TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Android APK
+        id: build_android
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          artifact-name: openmidicontrol-${{ steps.tag.outputs.beta-tag }}-android
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build_android.outputs.apk-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: android-apk
+          retention-days: 1
+          path: |
+            ${{ steps.build_android.outputs.apk-path }}
+            ${{ steps.build_android.outputs.apk-path }}.sig
+            ${{ steps.build_android.outputs.apk-path }}.pem
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    needs: [analyze-and-test, build-rc]
+    if: always() && needs.build-rc.result == 'success' && needs.build-rc.outputs.has_windows == 'true'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Build Windows ZIP
+        id: build_windows
+        uses: ./.github/actions/flutter-build-windows
+        with:
+          working-directory: app
+          build-type: release
+          artifact-name: openmidicontrol-${{ needs.build-rc.outputs.beta-tag }}-windows
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+
+      - name: 'CD: Cosign Sign and Verify (Windows)'
+        uses: ./.github/actions/cosign-sign-verify
+        with:
+          artifact_path: ${{ steps.build_windows.outputs.zip-path }}
+          repository: ${{ github.repository }}
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: windows-build
+          retention-days: 1
+          path: |
+            ${{ steps.build_windows.outputs.zip-path }}
+            ${{ steps.build_windows.outputs.zip-path }}.sig
+            ${{ steps.build_windows.outputs.zip-path }}.pem
+
+  provenance:
+    needs: [analyze-and-test, build-rc, build-windows]
+    timeout-minutes: 10
+    if: always() && needs.build-rc.result == 'success' && true
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Provenance (Android)
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-android.apk
+
+      - name: Generate Provenance (Windows)
+        if: needs.build-rc.outputs.has_windows == 'true'
+        uses: ./.github/actions/provenance-attestation
+        with:
+          subject_path: openmidicontrol-*-windows.zip
+
+  create-draft-release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs:
+      [analyze-and-test, build-rc, build-windows, provenance]
+    if: >-
+      always() &&
+      needs.build-rc.result == 'success' &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      needs.provenance.result == 'success' &&
+      true
+    permissions:
+      contents: write
+    outputs:
+      beta-tag: ${{ needs.build-rc.outputs.beta-tag }}
+      release_reason: ${{ 'beta_marker' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download Artifacts
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Release Notes
+        uses: ./.github/actions/generate-release-notes
+        with:
+          tag: ${{ needs.build-rc.outputs.beta-tag }}
+          changelog-path: CHANGELOG.md
+          include-metadata: 'true'
+          commit-hash: ${{ github.sha }}
+          triggered-by: ${{ github.actor }}
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded files ==="
+          ls -la
+          echo "========================"
+
+      - name: Prepare release assets list
+        id: assets
+        uses: ./.github/actions/prepare-release-assets
+        with:
+          tag: ${{ needs.build-rc.outputs.beta-tag }}
+          has-windows: ${{ needs.build-rc.outputs.has_windows }}
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          tag_name: ${{ needs.build-rc.outputs.beta-tag }}
+          name: ${{ needs.build-rc.outputs.beta-tag }} - Release Candidate
+          body_path: release_notes.md
+          draft: true
+          prerelease: true
+          files: ${{ steps.assets.outputs.files }}
+
+  notify-telegram:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    needs: [analyze-and-test, build-rc, create-draft-release]
+    if: always() && needs.build-rc.result == 'success'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download Artifacts for Notification
+        uses: ./.github/actions/download-and-prepare-artifacts
+
+      - name: Generate Changelog for Beta
+        id: changelog
+        run: |
+          # Get changelog from git log since last beta tag
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -E '\-beta\.' | head -1 || echo "")
+
+          if [ -n "$LAST_BETA" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s" "$LAST_BETA"..HEAD | head -20 | tr '\n' '\\n')
+          else
+            LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "v0.0.0")
+            CHANGELOG=$(git log --pretty=format:"- %s" "$LAST_STABLE"..HEAD | head -20 | tr '\n' '\\n')
+          fi
+
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Telegram (Beta Build or Skip)
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: ${{ true && 'beta-build' || 'build-skipped' }}
+          branch: ${{ github.ref_name }}
+          tag: ${{ needs.create-draft-release.outputs.beta-tag || 'N/A' }}
+          actor: ${{ github.actor }}
+          status: ${{ needs.build-rc.result }}
+          release_reason: ${{ 'beta_marker' }}
+          skip_reason: ${{ 'none' }}
+          artifact-path: >-
+            ${{
+            true &&
+            format('openmidicontrol-{0}-android.apk',
+            needs.create-draft-release.outputs.beta-tag) || '' }}
+          changelog: ${{ steps.changelog.outputs.changelog }}

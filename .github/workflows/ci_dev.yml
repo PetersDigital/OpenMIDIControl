@@ -1,0 +1,138 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Builds and distributes dev APKs to Telegram on every push to dev branch
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CI: Dev Branch"
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
+      - '!**.md'
+      - '!docs/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'schedule' || github.event_name != 'push' || true)
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+      - name: 'CI: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notify-on-failure: 'false'
+
+  build-and-push-dev:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    needs: [analyze-and-test]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && needs.analyze-and-test.result == 'success') ||
+      (github.event_name == 'push' && needs.analyze-and-test.result == 'success' &&
+       !contains(github.event.head_commit.message, '[wip]') && !contains(github.event.head_commit.message, '[skip-build]') &&
+       (contains(github.event.head_commit.message, '[dev]') || contains(github.event.head_commit.message, '[build]')))
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+
+      - name: Build Android APK (Split ABI)
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          split-per-abi: 'true'
+
+      - name: Normalize Branch and Name APK
+        id: name
+        run: |
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          CLEAN_BRANCH=$(echo "$GITHUB_REF_NAME" | sed -E 's/^(feature|fix|refactor|docs)\///')
+          CLEAN_BRANCH=$(echo "$CLEAN_BRANCH" | sed -E 's/-[0-9]{10,}$//')
+          CLEAN_BRANCH=$(echo "${CLEAN_BRANCH//\//-}" | cut -c1-20)
+
+          FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
+
+          # Use absolute path from build step
+          APK_SRC="${{ steps.build.outputs.apk-path }}"
+          # Destination directory (relative to current working-directory 'app')
+          APK_DST_DIR="build/app/outputs/flutter-apk"
+          APK_DST="$APK_DST_DIR/$FINAL_NAME"
+
+          mv "$APK_SRC" "$APK_DST"
+
+          # Production-grade git log with fallback for first push (github.event.before = 0000...)
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] || [ -z "${{ github.event.before }}" ]; then
+            RAW_COMMITS=$(git log -n 10 --pretty=format:"%s" 2>/dev/null || echo "Initial commit")
+          else
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+            RAW_COMMITS=$(git log -n 10 --pretty=format:"%s" \
+              "$RANGE" 2>/dev/null || \
+              (git fetch --unshallow && \
+                git log -n 10 --pretty=format:"%s" "$RANGE") || \
+              git log -n 10 --pretty=format:"%s")
+          fi
+
+          # Generate simple changelog for Telegram notification
+          CHANGELOG=$(echo "$RAW_COMMITS" | awk '{print "- " $0}')
+
+          # Provide absolute path for downstream reliability
+          {
+            echo "apk-path=$(realpath "$APK_DST")"
+            echo "apk-name=$FINAL_NAME"
+            echo "changelog<<EOFCHANGELOG"
+            echo "$CHANGELOG"
+            echo "EOFCHANGELOG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send APK to Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: dev-build
+          branch: ${{ github.ref_name }}
+          artifact-path: ${{ steps.name.outputs.apk-path }}
+          changelog: ${{ steps.name.outputs.changelog }}
