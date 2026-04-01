@@ -10,7 +10,7 @@ The release process is implemented via:
 This repository now uses reusable action modules in `.github/actions`:
 - `release-tag-validation`: tag authentication and GitHub signature validation
 - `cosign-sign-verify`: artifact Cosign sign + verify
-- `provenance-attestation`: `actions/attest-build-provenance` per artifact
+- `provenance-attestation`: `actions/attest` per artifact
 
 `release_manual.yml` (manual tag rebuild) and `release.yml` (push tags) share the same security checks with minimal duplication.
 
@@ -94,7 +94,7 @@ Verification ensures:
 
 ## Provenance (SLSA Attestation)
 
-- Uses `actions/attest-build-provenance`
+- Uses `actions/attest` (replaces legacy `actions/attest-build-provenance`)
 - Generates verifiable metadata about build process
 - Tied to specific artifacts
 
