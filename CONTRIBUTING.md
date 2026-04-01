@@ -1,5 +1,47 @@
 # Contributing to OpenMIDIControl
 
+## Licensing and Contributions
+
+### Contributor Copyright
+
+Contributors retain full copyright to their contributions. Your name and work will be permanently credited in the Git history.
+
+By submitting a contribution, you grant Peters Digital a perpetual, worldwide, royalty-free, non-exclusive license to use, reproduce, modify, distribute, and sublicense your contribution under both:
+
+* GNU General Public License v3.0 (GPLv3)
+* Commercial License (LicenseRef-Commercial)
+
+This license grant allows Peters Digital to maintain the project's dual-licensing model while ensuring contributors receive full credit for their work.
+
+### Corporate / Commercial Use
+
+This project's open source license (GPLv3) includes a "copyleft" provision: any company that modifies and distributes this software must also release their changes under GPLv3.
+
+If a corporate entity wishes to use this software (including open source contributions) in a proprietary, closed-source, or commercial product without complying with GPLv3, they must obtain a commercial license from Peters Digital.
+
+This ensures the project remains free and open for community contributors, while commercial companies cannot profit from community contributions without either contributing back or obtaining a commercial license.
+
+### License Headers
+
+All source files must include the dual-license header:
+
+**Dart:**
+```dart
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'package:flutter/material.dart';
+```
+
+**Kotlin:**
+```kotlin
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+package com.petersdigital.openmidicontrol
+```
+CI will fail if files are missing headers. See [docs/LICENSING.md](docs/LICENSING.md) for details.
+
 ## Development approach
 This project is maintained by Peters Digital and is primarily implemented with AI assistance. Human review is required for merges.
 
@@ -55,30 +97,7 @@ git push origin v0.2.1
 - When ready, convert draft to ready for review and remove `draft` label.
 
 ### GitHub CLI workflow
-Use `gh` in terminal to create and manage PRs quickly (PowerShell + Unix syntax).
-
-Windows PowerShell (line continuation with backtick `):
-
-```powershell
-# 1. Check out and push branch
-git checkout feat-android-midi-v0.2.1
-git push -u origin feat-android-midi-v0.2.1
-
-# 2. Create draft PR
-gh pr create --base main --head feat-android-midi-v0.2.1 `
-  --title "feat(midi): v0.2.1 milestone overhaul" `
-  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" `
-  --draft --assignee dencelkbabu --reviewer dencelkbabu `
-  --label "draft,needs review"
-
-# 3. Add bot reviewers in GitHub UI (if not automatic):
-#   copilot-pull-request-reviewer, gemini-code-assist
-
-# 4. Open PR in browser
-gh pr view --web
-```
-
-Unix/Bash style (line continuation with backslash `\`):
+Use `gh` in terminal to create and manage PRs quickly.
 
 ```bash
 # 1. Check out and push branch
@@ -149,9 +168,9 @@ Prefer explicit state tracking over implicit logic:
 For v0.2.0+, developers should validate the native Kotlin transport layer using `adb` and external MIDI tools:
 
 1. **Native Log Monitoring:**
-   ```powershell
+   ```bash
    # Filter for MIDI dispatcher and USB handshake events
-   adb logcat | Select-String "OpenMIDIControl|PeripheralMidi|MidiDispatcher"
+   adb logcat | grep -i "openmidicontrol\|PeripheralMidi\|MidiDispatcher"
    ```
 
 2. **Stimulating Inbound MIDI:**

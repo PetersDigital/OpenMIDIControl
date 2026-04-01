@@ -17,7 +17,7 @@ OpenMIDIControl/
 │   └── pubspec.yaml              # Dependencies & version
 ├── docs/                         # Additional documentation
 ├── references/                   # Reference materials (read-only)
-├── scripts/                      # PowerShell build/deploy scripts
+├── scripts/                      # Python build/deploy/development scripts
 ├── AGENTS.md                     # AI agent development guidelines
 ├── ARCHITECTURE.md               # System architecture & constraints
 ├── CHANGELOG.md                  # Version history (SemVer)
@@ -47,7 +47,7 @@ OpenMIDIControl/
 - Flutter 3.x (SDK ^3.11.0)
 - Android Studio / Android SDK
 - Android device with USB MIDI support (API 29+)
-- PowerShell 7+ (for build scripts)
+- Python 3.9+ (for scripts)
 
 ### Setup
 
@@ -58,9 +58,9 @@ flutter pub get
 
 ### Run
 
-```powershell
-.\scripts\run_debug.ps1    # debug — interactive device picker
-.\scripts\run_release.ps1  # release — requires configured scripts\.env.ps1
+```bash
+python scripts/run_debug.py    # debug — interactive device picker
+python scripts/run_release.py  # release — requires configured scripts/.env.py
 ```
 
 ```bash
@@ -116,9 +116,9 @@ flutter test
 
 ### Hardware Monitoring (HITL)
 
-```powershell
+```bash
 # Monitor native logs (look for "UMP Reconstruction" or "32-bit Payload")
-adb logcat | Select-String "openmidicontrol|PeripheralMidi|MidiReceiver"
+adb logcat | grep -i "openmidicontrol\|PeripheralMidi\|MidiReceiver"
 
 # Send test MIDI messages (Windows MIDI Services)
 midi endpoint send-message 0x20B00140  # CC1, Value 64
@@ -142,20 +142,7 @@ midi endpoint send-message 0x20B00140  # CC1, Value 64
 
 ### GitHub CLI
 
-```powershell
-# PowerShell
-git checkout -b <branch>
-git push -u origin <branch>
-gh pr create --base main --head <branch> `
-  --title "<conventional-commit-title>" `
-  --body "<description>" `
-  --draft --assignee dencelkbabu --reviewer dencelkbabu `
-  --label "draft,needs review"
-gh pr view --web
-```
-
 ```bash
-# Bash
 git checkout -b <branch>
 git push -u origin <branch>
 gh pr create --base main --head <branch> \
@@ -178,3 +165,59 @@ When making decisions, agents must prioritize in this order:
 
 - Do not include proprietary SDKs or copied code from restricted sources.
 - Avoid bundling anything that would violate the dual-licensing intent (GPL-3.0 / commercial).
+
+## License Headers (Mandatory for AI Agents)
+
+**Every new source file you create MUST include the dual-license header as the very first content.**
+
+This is a hard requirement. CI will fail without it.
+
+### Dart Files (`.dart`)
+```dart
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'package:flutter/material.dart';
+```
+
+### Kotlin Files (`.kt`)
+```kotlin
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+package com.petersdigital.openmidicontrol
+```
+
+### Python Scripts (`.py`)
+```python
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+```
+
+### PowerShell Scripts (`.ps1`)
+```powershell
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+```
+
+### Shell Scripts (`.sh`)
+```bash
+#!/bin/bash
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+```
+
+### YAML Files (`.yml`)
+```yaml
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+```
+
+**Rules:**
+- The header must be the **first content** in the file (after shebang `#!` if present)
+- Do NOT place headers after imports, packages, or other declarations
+- Apply to all new `.dart`, `.kt`, `.py`, `.ps1`, `.sh`, `.yml` files you create
+- Excluded: generated files (`.g.dart`), build outputs, simple configs (`pubspec.yaml`)
+- Note: `.py` is the preferred script format for cross-platform compatibility. Legacy `.ps1` files are being migrated to `.py`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/LICENSING.md](docs/LICENSING.md) for full licensing policy.
