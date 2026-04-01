@@ -1,0 +1,271 @@
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+---
+# @description: Builds and distributes dev APKs to Telegram on every push to dev branch
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: CI/CD
+name: "CI: Dev Branch"
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
+      - '!**.md'
+      - '!docs/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+concurrency:
+  group: dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-build-markers:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    if: github.actor != 'dependabot[bot]'
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+
+      - name: Check Triggers and Markers
+        id: check
+        run: |
+          # Manual dispatch: always build
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Scheduled run: only build if there are new commits in the last 24h
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            RECENT_COMMITS=$(git log --oneline --since="24 hours ago" 2>/dev/null | wc -l)
+            if [ "$RECENT_COMMITS" -eq 0 ]; then
+              echo "should_build=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Push event: use git log (deterministic, no payload dependency)
+          COMMITS=$(git log --format="%s" ${{ github.event.before }}..${{ github.sha }} 2>/dev/null || git log --format="%s" -1)
+
+          if echo "$COMMITS" | grep -iqE "\[wip\]|\[skip-build\]"; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$COMMITS" | grep -iqE "\[dev\]|\[build\]"; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_build=false" >> "$GITHUB_OUTPUT"
+
+  analyze-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    if: github.actor != 'dependabot[bot]'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+      - name: 'CI: Runner CI Core'
+        id: core
+        uses: ./.github/actions/flutter-ci-core
+        with:
+          working-directory: app
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  build-and-push-dev:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    needs: [check-build-markers, analyze-and-test]
+    if: always() && needs.analyze-and-test.result == 'success' && needs.check-build-markers.outputs.should_build == 'true'
+    defaults:
+      run:
+        working-directory: app
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+
+      - name: Build Android APK (Split ABI)
+        id: build
+        uses: ./.github/actions/flutter-build-android
+        with:
+          working-directory: app
+          keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
+          key-password: ${{ secrets.KEY_PASSWORD }}
+          key-alias: ${{ secrets.KEY_ALIAS }}
+          store-password: ${{ secrets.STORE_PASSWORD }}
+          build-type: release
+          split-per-abi: 'true'
+
+      - name: Normalize Branch and Name APK
+        id: name
+        run: |
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          CLEAN_BRANCH=$(echo "$GITHUB_REF_NAME" | sed -E 's/^(feature|fix|refactor|docs)\///')
+          CLEAN_BRANCH=$(echo "$CLEAN_BRANCH" | sed -E 's/-[0-9]{10,}$//')
+          CLEAN_BRANCH=$(echo "${CLEAN_BRANCH//\//-}" | cut -c1-20)
+
+          FINAL_NAME="app-${CLEAN_BRANCH}-${SHORT_SHA}.apk"
+
+          # Use absolute path from build step
+          APK_SRC="${{ steps.build.outputs.apk-path }}"
+          # Destination directory (relative to current working-directory 'app')
+          APK_DST_DIR="build/app/outputs/flutter-apk"
+          APK_DST="$APK_DST_DIR/$FINAL_NAME"
+
+          mv "$APK_SRC" "$APK_DST"
+
+          # Production-grade git log with fallback for first push (github.event.before = 0000...)
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] || [ -z "${{ github.event.before }}" ]; then
+            RAW_COMMITS=$(git log -n 10 --pretty=format:"%s" 2>/dev/null || echo "Initial commit")
+          else
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
+            RAW_COMMITS=$(git log -n 10 --pretty=format:"%s" \
+              "$RANGE" 2>/dev/null || \
+              (git fetch --unshallow && \
+                git log -n 10 --pretty=format:"%s" "$RANGE") || \
+              git log -n 10 --pretty=format:"%s")
+          fi
+
+          # Group commits by type and scope (Conventional Commits format: type(scope): description)
+          CHANGELOG=$(echo "$RAW_COMMITS" | awk '
+          BEGIN {
+            split("", features)
+            split("", fixes)
+            split("", refactors)
+            split("", docs)
+            split("", tests_arr)
+            split("", ci_arr)
+            split("", chores)
+            split("", others)
+            fc=0; fxc=0; rc=0; dc=0; tc=0; cc=0; chrc=0; oc=0
+          }
+          {
+            if (match($0, /^feat(\([^)]*\))?: (.+)$/, arr)) {
+              features[++fc] = arr[2]
+              feat_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", feat_scope)
+              feat_scopes[fc] = feat_scope
+            } else if (match($0, /^fix(\([^)]*\))?: (.+)$/, arr)) {
+              fixes[++fxc] = arr[2]
+              fix_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", fix_scope)
+              fix_scopes[fxc] = fix_scope
+            } else if (match($0, /^refactor(\([^)]*\))?: (.+)$/, arr)) {
+              refactors[++rc] = arr[2]
+              ref_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", ref_scope)
+              ref_scopes[rc] = ref_scope
+            } else if (match($0, /^docs(\([^)]*\))?: (.+)$/, arr)) {
+              docs[++dc] = arr[2]
+              doc_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", doc_scope)
+              doc_scopes[dc] = doc_scope
+            } else if (match($0, /^test(\([^)]*\))?: (.+)$/, arr)) {
+              tests_arr[++tc] = arr[2]
+              test_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", test_scope)
+              test_scopes[tc] = test_scope
+            } else if (match($0, /^ci(\([^)]*\))?: (.+)$/, arr)) {
+              ci_arr[++cc] = arr[2]
+              ci_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", ci_scope)
+              ci_scopes[cc] = ci_scope
+            } else if (match($0, /^chore(\([^)]*\))?: (.+)$/, arr)) {
+              chores[++chrc] = arr[2]
+              chore_scope = (arr[1] != "") ? arr[1] : "core"
+              gsub(/[()]/, "", chore_scope)
+              chore_scopes[chrc] = chore_scope
+            } else {
+              others[++oc] = $0
+            }
+          }
+          END {
+            if (fc > 0) {
+              print "**Features:**"
+              for (i=1; i<=fc; i++) printf "  feat%s: %s\n", (feat_scopes[i] != "core" ? "("feat_scopes[i]")" : ""), features[i]
+              print ""
+            }
+            if (fxc > 0) {
+              print "**Fixes:**"
+              for (i=1; i<=fxc; i++) printf "  fix%s: %s\n", (fix_scopes[i] != "core" ? "("fix_scopes[i]")" : ""), fixes[i]
+              print ""
+            }
+            if (rc > 0) {
+              print "**Refactors:**"
+              for (i=1; i<=rc; i++) printf "  refactor%s: %s\n", (ref_scopes[i] != "core" ? "("ref_scopes[i]")" : ""), refactors[i]
+              print ""
+            }
+            if (dc > 0) {
+              print "**Docs:**"
+              for (i=1; i<=dc; i++) printf "  docs%s: %s\n", (doc_scopes[i] != "core" ? "("doc_scopes[i]")" : ""), docs[i]
+              print ""
+            }
+            if (tc > 0) {
+              print "**Tests:**"
+              for (i=1; i<=tc; i++) printf "  test%s: %s\n", (test_scopes[i] != "core" ? "("test_scopes[i]")" : ""), tests_arr[i]
+              print ""
+            }
+            if (cc > 0) {
+              print "**CI/CD:**"
+              for (i=1; i<=cc; i++) printf "  ci%s: %s\n", (ci_scopes[i] != "core" ? "("ci_scopes[i]")" : ""), ci_arr[i]
+              print ""
+            }
+            if (chrc > 0) {
+              print "**Chores:**"
+              for (i=1; i<=chrc; i++) printf "  chore%s: %s\n", (chore_scopes[i] != "core" ? "("chore_scopes[i]")" : ""), chores[i]
+              print ""
+            }
+            if (oc > 0) {
+              print "**Other:**"
+              for (i=1; i<=oc; i++) printf "  - %s\n", others[i]
+            }
+          }' 2>/dev/null || echo "$RAW_COMMITS" | awk '{print "- " $0}')
+
+          # Provide absolute path for downstream reliability
+          {
+            echo "apk-path=$(realpath "$APK_DST")"
+            echo "apk-name=$FINAL_NAME"
+            echo "changelog<<EOFCHANGELOG"
+            echo "$CHANGELOG"
+            echo "EOFCHANGELOG"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send APK to Telegram
+        uses: ./.github/actions/notify-telegram
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          notification-type: dev-build
+          branch: ${{ github.ref_name }}
+          artifact-path: ${{ steps.name.outputs.apk-path }}
+          changelog: ${{ steps.name.outputs.changelog }}
