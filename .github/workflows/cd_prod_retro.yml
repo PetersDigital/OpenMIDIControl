@@ -39,10 +39,10 @@ jobs:
       tag: ${{ steps.validate.outputs.tag }}
       has_windows: ${{ steps.windows_check.outputs.has_windows }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout main (for modern actions)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.event.inputs.tag }}
+          ref: main
           fetch-depth: 0
           fetch-tags: true
 
@@ -52,10 +52,10 @@ jobs:
           ALLOWED_ACTORS="${{ vars.ALLOWED_RELEASE_ACTORS }}"
           IFS=',' read -ra ACTORS <<< "$ALLOWED_ACTORS"
 
-          AUTHORIZED=false
           for ACTOR in "${ACTORS[@]}"; do
             CLEAN_ACTOR=$(echo "$ACTOR" | xargs)
             if [ "$CLEAN_ACTOR" = "${{ github.actor }}" ]; then
+              echo "Authorized actor: $CLEAN_ACTOR"
               AUTHORIZED=true
               break
             fi
@@ -103,8 +103,10 @@ jobs:
           }
 
           COMMIT_HASH=$(git rev-parse "$TAG^{commit}")
-          echo "commit=$COMMIT_HASH" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          {
+            echo "commit=$COMMIT_HASH"
+            echo "tag=$TAG"
+          } >> "$GITHUB_OUTPUT"
 
           git fetch origin main
           if ! git merge-base --is-ancestor "$COMMIT_HASH" origin/main; then
@@ -132,7 +134,7 @@ jobs:
             exit 1
           fi
 
-          echo "✅ GitHub API verification passed."
+          echo "[OK] GitHub API verification passed."
 
       - name: Check Windows Support
         id: windows_check
@@ -151,33 +153,17 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          fetch-depth: 1
 
-      - name: Restore modern CI actions from main
-        shell: bash
+      - name: Overlay modern Actions from main
         working-directory: .
         run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- .github/actions
 
       - name: 'CD: Runner CI Core'
         id: core
@@ -198,33 +184,17 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          fetch-depth: 1
 
-      - name: Restore modern CI actions from main
-        shell: bash
+      - name: Overlay modern Actions from main
         working-directory: .
         run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- .github/actions
 
       - name: Build Android APK
         id: build
@@ -268,33 +238,18 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          fetch-depth: 1
 
-      - name: Restore modern CI actions from main
-        shell: bash
+      - name: Overlay modern Actions from main
         working-directory: .
+        shell: bash
         run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- .github/actions
 
       - name: Build Windows ZIP
         id: build
@@ -335,33 +290,17 @@ jobs:
       contents: read
       attestations: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout Tag Commit (source code)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
+          fetch-depth: 1
 
-      - name: Restore modern CI actions from main
-        shell: bash
+      - name: Overlay modern Actions from main
         working-directory: .
         run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- .github/actions
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -389,33 +328,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout main (for modern actions)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ needs.validate-tag.outputs.tag_commit }}
-
-      - name: Restore modern CI actions from main
-        shell: bash
-        working-directory: .
-        run: |
-          # Fetch the latest main branch from origin
-          git fetch origin main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Remove any existing .github/actions (from old tags)
-          rm -rf .github/actions
-
-          # Checkout the .github/actions directory directly from the fetched main branch
-          git checkout FETCH_HEAD -- .github/actions || {
-            echo "::error::Failed to checkout .github/actions from main branch"
-            exit 1
-          }
-
-          # Verify actions were restored
-          if [ ! -d ".github/actions" ] || [ -z "$(ls -A .github/actions)" ]; then
-            echo "::error::.github/actions is empty or missing"
-            exit 1
-          fi
+          ref: main
+          fetch-depth: 1
 
       - name: Download Artifacts
         uses: ./.github/actions/download-and-prepare-artifacts
@@ -439,14 +356,37 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.validate-tag.outputs.tag }}"
-          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk" --yes || true
-          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.sig" --yes || true
-          gh release delete-asset "$TAG" "openmidicontrol-${TAG}-android.apk.pem" --yes || true
+          HAS_WINDOWS="${{ needs.validate-tag.outputs.has_windows }}"
 
-          if [ "${{ needs.validate-tag.outputs.has_windows }}" = "true" ]; then
-            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip" --yes || true
-            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.sig" --yes || true
-            gh release delete-asset "$TAG" "openmidicontrol-${TAG}-windows.zip.pem" --yes || true
+          echo "=== Querying release assets ==="
+          # Get asset IDs as "id name" pairs
+          ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.id) \(.name)"')
+
+          echo "=== Deleting existing assets by ID ==="
+          # Android assets
+          for ext in apk apk.sig apk.pem; do
+            FILE="openmidicontrol-${TAG}-android.${ext}"
+            ASSET_ID=$(echo "$ASSETS" | awk -v f="$FILE" '$2 == f { print $1 }')
+            if [ -n "$ASSET_ID" ]; then
+              echo "Deleting $FILE (ID: $ASSET_ID)"
+              gh release delete-asset "$TAG" --archive-id "$ASSET_ID"
+            else
+              echo "Asset not found: $FILE"
+            fi
+          done
+
+          # Windows assets (if exists)
+          if [ "$HAS_WINDOWS" = "true" ]; then
+            for ext in zip zip.sig zip.pem; do
+              FILE="openmidicontrol-${TAG}-windows.${ext}"
+              ASSET_ID=$(echo "$ASSETS" | awk -v f="$FILE" '$2 == f { print $1 }')
+              if [ -n "$ASSET_ID" ]; then
+                echo "Deleting $FILE (ID: $ASSET_ID)"
+                gh release delete-asset "$TAG" --archive-id "$ASSET_ID"
+              else
+                echo "Asset not found: $FILE"
+              fi
+            done
           fi
 
       - name: Generate Release Notes
@@ -517,8 +457,10 @@ jobs:
     needs: [validate-tag, publish-release]
     if: always()
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout main (for actions)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: main
           fetch-depth: 1
 
       - name: Notify Telegram
@@ -528,4 +470,5 @@ jobs:
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
           notification-type: release
           tag: ${{ needs.validate-tag.outputs.tag }}
+          actor: ${{ github.actor }}
           status: ${{ needs.publish-release.result }}
