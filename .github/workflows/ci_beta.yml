@@ -160,7 +160,7 @@ jobs:
           gh auth setup-git
 
           # Try to find last beta release via GitHub API
-          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -E '\-beta\.' | head -1 || echo "")
 
           if [ -n "$LAST_BETA" ]; then
             echo "Found last beta release: $LAST_BETA"
@@ -308,7 +308,7 @@ jobs:
           gh auth setup-git
 
           # Try to find last beta release via GitHub API
-          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -E '\-beta\.' | head -1 || echo "")
 
           if [ -n "$LAST_BETA" ]; then
             echo "Found last beta release: $LAST_BETA"
@@ -437,7 +437,7 @@ jobs:
         id: changelog
         run: |
           # Get changelog from git log since last beta tag
-          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -- '-beta\.' | head -1 || echo "")
+          LAST_BETA=$(gh release list --limit 30 --json tagName --jq '.[].tagName' | grep -E '\-beta\.' | head -1 || echo "")
 
           if [ -n "$LAST_BETA" ]; then
             CHANGELOG=$(git log --pretty=format:"- %s" "$LAST_BETA"..HEAD | head -20 | tr '\n' '\\n')

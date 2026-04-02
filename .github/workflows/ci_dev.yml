@@ -91,9 +91,7 @@ jobs:
           if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] || [ -z "${{ github.event.before }}" ]; then
             CHANGELOG=$(git log -n 10 --pretty=format:"- %s" 2>/dev/null || echo "- Initial commit")
           else
-            CHANGELOG=$(git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}" 2>/dev/null || \
-                       (git fetch --unshallow && git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}") || \
-                       git log -n 10 --pretty=format:"- %s")
+            CHANGELOG=$(git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}" 2>/dev/null || (git fetch --unshallow && git log -n 10 --pretty=format:"- %s" "${{ github.event.before }}..${{ github.sha }}") || git log -n 10 --pretty=format:"- %s")
           fi
 
           # Provide absolute path for downstream reliability
