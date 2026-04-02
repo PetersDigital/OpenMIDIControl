@@ -361,7 +361,7 @@ jobs:
 
           echo "=== Querying release assets ==="
           # Get asset IDs as "id name" pairs
-          ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.id) \(.name)"')
+          ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.id) \(.name)"' || echo "")
 
           echo "=== Deleting existing assets by ID ==="
           # Android assets
