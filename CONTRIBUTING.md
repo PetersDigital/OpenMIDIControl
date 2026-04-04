@@ -45,7 +45,27 @@ We use **Semantic Versioning (SemVer)**:
 - `PATCH`: backwards-compatible fixes
 
 ## Commit messages (Conventional Commits)
-We use Conventional Commits:
+
+We use Conventional Commits enforced via **Commitlint** + **Husky**.
+
+### Automatic Validation
+
+When you commit, Husky will automatically validate your message:
+
+```bash
+git commit -m "feat(midi): add UMP reconstruction logic"
+# ✅ Commit message is valid!
+```
+
+If the message is invalid, the commit will be rejected:
+
+```bash
+git commit -m "added some stuff"
+# ✖   subject may not be empty [subject-empty]
+# ✖   type must be one of the defined values [type-enum]
+```
+
+### Manual Format
 
 Format:
 `<type>[optional scope]: <description>`
@@ -56,11 +76,59 @@ Examples:
 - `docs: update roadmap`
 - `chore(deps): update dependencies`
 
-- `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `build`, `ci`
+- `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `build`, `ci`, `merge`
 
 **Important**:
 - **No version numbers in commit subjects**. Versioning is handled only through Git tags and `CHANGELOG.md` updates.
 - Keep the title concise (imperative mood).
+- **Multiple scopes**: Use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
+
+### Local Validation (without committing)
+
+You can test your commit message before committing:
+
+```bash
+# Windows PowerShell
+"feat(midi): add UMP reconstruction logic" | Out-File -Encoding utf8 -NoNewline .commitlint-temp.txt
+npx commitlint --edit .commitlint-temp.txt
+Remove-Item .commitlint-temp.txt
+
+# Unix/Bash
+echo "feat(midi): add UMP reconstruction logic" | npx commitlint
+```
+
+### Setup (First Time Only)
+
+After cloning the repository, install dependencies and git hooks:
+
+```bash
+# Install Node.js dependencies and set up husky hooks
+npm install
+```
+
+This only needs to be done once per clone. The husky hooks will be automatically installed.
+
+### Scope Guidelines (v0.2.2+)
+
+Use these standardized scopes for commit messages:
+
+| Scope | When to Use |
+|-------|-------------|
+| `android/midi` | Native Kotlin MIDI layer (`MidiParser.kt`, `MainActivity.kt`) |
+| `android/ui` | Android-specific UI code (services, receivers) |
+| `ui/midi` | Dart MIDI service layer (`midi_service.dart`) |
+| `ui/fader` | Fader widgets (`hybrid_touch_fader.dart`) |
+| `core/midi` | Core MIDI models (`midi_event.dart`) |
+| `core/state` | State management (`control_state.dart`, Riverpod providers) |
+| `test/midi` | MIDI test suites (UMP transport tests) |
+| `docs` | Documentation updates |
+| `build` | Build configuration (Gradle, pubspec) |
+| `ci` | CI/CD workflows |
+
+Examples:
+- `feat(midi/bridge): optimize EventChannel JNI bridge with primitive batching`
+- `fix(android/midi): enhance isUmp detection with MT heuristic`
+- `test(midi/pipeline): implement automated UMP transport test suite`
 
 ## Release process
 
