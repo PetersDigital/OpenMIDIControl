@@ -98,3 +98,7 @@ lcov.info
 # Drift Web Worker build artifacts
 web/drift_worker.js.map
 web/drift_worker.js.deps
+
+# Node.js related (for Commitlint/Husky)
+node_modules/
+package-lock.json
