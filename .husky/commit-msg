@@ -1,0 +1,8 @@
+#!/bin/sh
+# Copyright (c) 2026 Peters Digital
+# SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+# Husky commit-msg hook
+# Validates commit messages against Conventional Commits spec
+
+npx --no -- commitlint --edit ${1}
