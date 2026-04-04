@@ -84,6 +84,8 @@ flutter test
 - **Versioning:** SemVer (`MAJOR.MINOR.PATCH`).
 - **Commits:** Conventional Commits — `feat(scope): description`, `fix(scope): description`.
   - Multiple scopes: use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
+  - **Enforced via Commitlint + Husky**: Invalid commit messages will be rejected automatically.
+  - Setup: Run `npm install` after cloning to install git hooks.
 - **State machines:** Prefer explicit, deterministic state machines for touch capture, MIDI feedback sync, and feedback loop prevention.
 - **Concurrency:** Use Kotlin Coroutines with strict suspension (no busy-wait). Do not introduce blocking I/O on MIDI threads.
 - **Dependencies:** Avoid heavy new dependencies without justification.
@@ -126,7 +128,7 @@ midi endpoint send-message 0x20B00140  # CC1, Value 64
 - Always update docs (README / ARCHITECTURE / CHANGELOG) when behavior changes.
 
 ### Checklist
-- [ ] Conventional Commit title
+- [ ] Conventional Commit title (enforced by Commitlint)
 - [ ] Tests added/updated (where applicable)
 - [ ] Docs updated (README/ARCHITECTURE/CHANGELOG)
 - [ ] No secrets in code or configs
