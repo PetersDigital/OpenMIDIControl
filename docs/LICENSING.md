@@ -39,7 +39,7 @@ package com.petersdigital.openmidicontrol
 
 ## CI/CD Enforcement
 
-A GitHub Actions workflow (`.github/workflows/license_check.yml`) runs on:
+A GitHub Actions workflow (`.github/workflows/validate_auto_license.yml`) runs on:
 - Push to `main` or `develop` branches
 - All pull requests targeting `main`
 
