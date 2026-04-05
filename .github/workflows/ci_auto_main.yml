@@ -5,7 +5,7 @@
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center: CI/CD
-name: "CI: Main Pipeline"
+name: "CI: Auto Main Branch"
 
 on:
   pull_request:

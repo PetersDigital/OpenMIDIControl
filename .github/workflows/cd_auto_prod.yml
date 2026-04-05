@@ -5,7 +5,7 @@
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center: CI/CD
-name: "CD: Automated Production Release"
+name: "CD: Auto Production Release"
 
 on:
   push:
