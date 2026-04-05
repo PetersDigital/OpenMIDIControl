@@ -5,7 +5,7 @@
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center CI/CD
-name: "CD: Legacy Production Rebuild (Retroactive)"
+name: "CD: Manual Legacy Rebuild (Retroactive)"
 
 on:
   workflow_dispatch:
