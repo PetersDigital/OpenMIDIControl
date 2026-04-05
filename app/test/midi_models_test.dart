@@ -148,19 +148,22 @@ void main() {
       expect(updated.outputPort, 2);
     });
 
-    test('copyWith does NOT clear connectedDevice when omitted (null coalescing)', () {
-      final device = MidiDevice(
-        id: 'dev-1',
-        name: 'Test',
-        manufacturer: 'Test Mfr',
-      );
-      final original = MidiConnectionState(connectedDevice: device);
+    test(
+      'copyWith does NOT clear connectedDevice when omitted (null coalescing)',
+      () {
+        final device = MidiDevice(
+          id: 'dev-1',
+          name: 'Test',
+          manufacturer: 'Test Mfr',
+        );
+        final original = MidiConnectionState(connectedDevice: device);
 
-      final updated = original.copyWith(isConnectionLost: true);
+        final updated = original.copyWith(isConnectionLost: true);
 
-      // This is the intentional design: omitting connectedDevice preserves it
-      expect(updated.connectedDevice, same(device));
-    });
+        // This is the intentional design: omitting connectedDevice preserves it
+        expect(updated.connectedDevice, same(device));
+      },
+    );
 
     test('disconnect clears device and ports for intentional disconnect', () {
       final device = MidiDevice(
@@ -183,25 +186,28 @@ void main() {
       expect(disconnected.outputPort, isNull);
     });
 
-    test('disconnect preserves device and ports for connection loss (auto-reconnect)', () {
-      final device = MidiDevice(
-        id: 'dev-1',
-        name: 'Test',
-        manufacturer: 'Test Mfr',
-      );
-      final original = MidiConnectionState(
-        connectedDevice: device,
-        isConnectionLost: false,
-        inputPort: 1,
-        outputPort: 2,
-      );
+    test(
+      'disconnect preserves device and ports for connection loss (auto-reconnect)',
+      () {
+        final device = MidiDevice(
+          id: 'dev-1',
+          name: 'Test',
+          manufacturer: 'Test Mfr',
+        );
+        final original = MidiConnectionState(
+          connectedDevice: device,
+          isConnectionLost: false,
+          inputPort: 1,
+          outputPort: 2,
+        );
 
-      final lost = original.disconnect(connectionLost: true);
+        final lost = original.disconnect(connectionLost: true);
 
-      expect(lost.connectedDevice, same(device));
-      expect(lost.isConnectionLost, isTrue);
-      expect(lost.inputPort, 1);
-      expect(lost.outputPort, 2);
-    });
+        expect(lost.connectedDevice, same(device));
+        expect(lost.isConnectionLost, isTrue);
+        expect(lost.inputPort, 1);
+        expect(lost.outputPort, 2);
+      },
+    );
   });
 }
