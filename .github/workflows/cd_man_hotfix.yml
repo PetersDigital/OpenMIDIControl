@@ -1,19 +1,19 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ---
-# @description: Builds Release Candidate releases on manual tag push with signing, provenance, and public GitHub releases
+# @description: Builds hotfix/patch releases for urgent production fixes with signing, provenance, and public GitHub releases
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center: CI/CD
-name: "CI: Release Candidate"
+name: "CD: Manual Hotfix Release"
 
 on:
   push:
     tags:
-      - 'v*-rc.*'
+      - 'v*-patch.*'
 
 concurrency:
-  group: rc-${{ github.workflow }}-${{ github.ref }}
+  group: hotfix-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -22,51 +22,52 @@ permissions:
   attestations: write
 
 jobs:
-  verify-rc-tag:
+  verify-patch-tag:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     if: github.actor != 'dependabot[bot]'
     outputs:
-      rc_number: ${{ steps.parse_tag.outputs.rc_number }}
-      is_first_rc: ${{ steps.parse_tag.outputs.is_first_rc }}
+      patch_number: ${{ steps.parse_tag.outputs.patch_number }}
       base_version: ${{ steps.parse_tag.outputs.base_version }}
+      is_first_patch: ${{ steps.parse_tag.outputs.is_first_patch }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Parse RC Tag
+      - name: Parse Patch Tag
         id: parse_tag
         run: |
           TAG="${{ github.ref_name }}"
           echo "Processing tag: $TAG"
 
-          # Extract base version (e.g., v0.2.2 from v0.2.2-rc.1)
-          BASE_VERSION="${TAG//-rc.[0-9]*}"
+          # Extract base version (e.g., v0.2.2 from v0.2.2-patch.1)
+          BASE_VERSION="${TAG//-patch.[0-9]*}"
           echo "Base version: $BASE_VERSION"
 
-          # Extract RC number
-          RC_NUM=$(echo "$TAG" | grep -oP 'rc\.\K[0-9]+')
-          echo "RC number: $RC_NUM"
+          # Extract patch number
+          PATCH_NUM=$(echo "$TAG" | grep -oP 'patch\.\K[0-9]+')
+          echo "Patch number: $PATCH_NUM"
 
-          # Determine if this is the first RC
-          if [ "$RC_NUM" -eq 1 ]; then
-            IS_FIRST_RC="true"
-            echo "This is the first RC (rc.1) - will generate full changelog"
+          # Determine if this is the first patch
+          if [ "$PATCH_NUM" -eq 1 ]; then
+            IS_FIRST_PATCH="true"
+            echo "This is the first patch for $BASE_VERSION"
           else
-            IS_FIRST_RC="false"
-            echo "This is RC.$RC_NUM - will generate incremental changelog"
+            IS_FIRST_PATCH="false"
+            echo "This is patch.$PATCH_NUM for $BASE_VERSION"
           fi
 
           {
             echo "base_version=$BASE_VERSION"
-            echo "rc_number=$RC_NUM"
-            echo "is_first_rc=$IS_FIRST_RC"
+            echo "patch_number=$PATCH_NUM"
+            echo "is_first_patch=$IS_FIRST_PATCH"
           } >> "$GITHUB_OUTPUT"
 
   analyze-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    if: github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: app
@@ -84,10 +85,10 @@ jobs:
           telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-  build-rc:
+  build-hotfix:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
-    needs: [verify-rc-tag, analyze-and-test]
+    needs: [verify-patch-tag, analyze-and-test]
     if: always() && needs.analyze-and-test.result == 'success'
     defaults:
       run:
@@ -168,9 +169,9 @@ jobs:
             ${{ steps.build_windows.outputs.zip-path }}.pem
 
   provenance:
-    needs: [verify-rc-tag, analyze-and-test, build-rc]
+    needs: [verify-patch-tag, analyze-and-test, build-hotfix]
     timeout-minutes: 10
-    if: always() && needs.build-rc.result == 'success'
+    if: always() && needs.build-hotfix.result == 'success'
     runs-on: ubuntu-22.04
     permissions:
       id-token: write
@@ -189,16 +190,16 @@ jobs:
           subject_path: openmidicontrol-*-android.apk
 
       - name: Generate Provenance (Windows)
-        if: needs.build-rc.outputs.has_windows == 'true'
+        if: needs.build-hotfix.outputs.has_windows == 'true'
         uses: ./.github/actions/provenance-attestation
         with:
           subject_path: openmidicontrol-*-windows.zip
 
-  create-rc-release:
+  create-hotfix-release:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    needs: [verify-rc-tag, analyze-and-test, build-rc, provenance]
-    if: always() && needs.build-rc.result == 'success' && needs.provenance.result == 'success'
+    needs: [verify-patch-tag, analyze-and-test, build-hotfix, provenance]
+    if: always() && needs.build-hotfix.result == 'success' && needs.provenance.result == 'success'
     permissions:
       contents: write
     steps:
@@ -213,54 +214,56 @@ jobs:
         id: changelog_range
         run: |
           TAG="${{ github.ref_name }}"
-          BASE_VERSION="${{ needs.verify-rc-tag.outputs.base_version }}"
-          IS_FIRST_RC="${{ needs.verify-rc-tag.outputs.is_first_rc }}"
+          BASE_VERSION="${{ needs.verify-patch-tag.outputs.base_version }}"
+          IS_FIRST_PATCH="${{ needs.verify-patch-tag.outputs.is_first_patch }}"
 
           echo "Tag: $TAG"
           echo "Base version: $BASE_VERSION"
-          echo "Is first RC: $IS_FIRST_RC"
+          echo "Is first patch: $IS_FIRST_PATCH"
 
-          if [ "$IS_FIRST_RC" = "true" ]; then
-            # RC.1: Full changelog since last stable
-            echo "Generating FULL changelog since last stable release"
+          if [ "$IS_FIRST_PATCH" = "true" ]; then
+            # First patch: Show changes since stable release
+            echo "Generating changelog since stable release"
 
-            # Find last stable tag
-            LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+            # Find stable tag
+            LAST_STABLE=$(git describe --tags --match="$BASE_VERSION" --abbrev=0 2>/dev/null || echo "")
 
             if [ -n "$LAST_STABLE" ]; then
               {
                 echo "from_ref=$LAST_STABLE"
-                echo "changelog_type=full"
+                echo "changelog_type=since_stable"
               } >> "$GITHUB_OUTPUT"
-              echo "Found last stable: $LAST_STABLE"
+              echo "Found stable: $LAST_STABLE"
             else
+              # Fallback to previous tag
+              PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
               {
-                echo "from_ref=$(git rev-list --max-parents=0 HEAD)"
-                echo "changelog_type=full"
+                echo "from_ref=$PREV_TAG"
+                echo "changelog_type=since_previous"
               } >> "$GITHUB_OUTPUT"
-              echo "No stable tag found, using initial commit"
+              echo "No stable tag found, using previous: $PREV_TAG"
             fi
           else
-            # RC.2+: Incremental changelog since previous RC
-            echo "Generating INCREMENTAL changelog since previous RC"
+            # Subsequent patch: Show changes since previous patch
+            echo "Generating changelog since previous patch"
 
-            # Find previous RC tag
-            PREV_RC=$(git tag --list 'v*-rc.*' | sort -V | grep -E "^${BASE_VERSION}-rc\." | tail -n 2 | head -n 1 || echo "")
+            # Find previous patch tag
+            PREV_PATCH=$(git tag --list 'v*-patch.*' | sort -V | grep -E "^${BASE_VERSION}-patch\." | tail -n 2 | head -n 1 || echo "")
 
-            if [ -n "$PREV_RC" ]; then
+            if [ -n "$PREV_PATCH" ]; then
               {
-                echo "from_ref=$PREV_RC"
-                echo "changelog_type=incremental"
+                echo "from_ref=$PREV_PATCH"
+                echo "changelog_type=since_previous"
               } >> "$GITHUB_OUTPUT"
-              echo "Found previous RC: $PREV_RC"
+              echo "Found previous patch: $PREV_PATCH"
             else
-              # Fallback to stable if no previous RC found
-              LAST_STABLE=$(git describe --tags --match='v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || echo "")
+              # Fallback to stable if no previous patch found
+              LAST_STABLE=$(git describe --tags --match="$BASE_VERSION" --abbrev=0 2>/dev/null || echo "")
               {
                 echo "from_ref=$LAST_STABLE"
-                echo "changelog_type=full"
+                echo "changelog_type=since_stable"
               } >> "$GITHUB_OUTPUT"
-              echo "No previous RC found, falling back to stable: $LAST_STABLE"
+              echo "No previous patch found, falling back to stable: $LAST_STABLE"
             fi
           fi
 
@@ -300,7 +303,7 @@ jobs:
             done
 
             # Windows ZIP and signatures (if exists)
-            if [ "${{ needs.build-rc.outputs.has_windows }}" = "true" ]; then
+            if [ "${{ needs.build-hotfix.outputs.has_windows }}" = "true" ]; then
               for ext in zip zip.sig zip.pem; do
                 FILE="openmidicontrol-${TAG}-windows.${ext}"
                 if [ -f "$FILE" ]; then
@@ -324,35 +327,36 @@ jobs:
           echo "Assets to be uploaded:"
           ls -la -- openmidicontrol-"${TAG}"-* ./*.jsonl 2>/dev/null || echo "No assets found."
 
-      - name: Create Public RC Release
+      - name: Create Public Hotfix Release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }} - Release Candidate
+          name: ${{ github.ref_name }} - Hotfix
           body_path: release_notes.md
           draft: false
-          prerelease: true
+          prerelease: false
           files: ${{ steps.assets.outputs.files }}
 
   notify-telegram:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
-    needs: [verify-rc-tag, analyze-and-test, build-rc, create-rc-release]
-    if: always() && needs.build-rc.result == 'success'
+    needs: [verify-patch-tag, analyze-and-test, build-hotfix, create-hotfix-release]
+    if: always() && needs.build-hotfix.result == 'success'
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Notify Telegram (RC Build)
+      - name: Notify Telegram (Hotfix Release)
         uses: ./.github/actions/notify-telegram
         with:
           telegram-token: ${{ secrets.TELEGRAM_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          notification-type: rc-build
+          notification-type: hotfix-release
           branch: ${{ github.ref_name }}
           tag: ${{ github.ref_name }}
-          actor: ${{ github.actor }}
-          status: ${{ needs.build-rc.result }}
+          status: ${{ needs.build-hotfix.result }}
+          patch_number: ${{ needs.verify-patch-tag.outputs.patch_number }}
+          base_version: ${{ needs.verify-patch-tag.outputs.base_version }}
