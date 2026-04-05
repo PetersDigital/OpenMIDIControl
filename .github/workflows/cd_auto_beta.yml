@@ -5,7 +5,7 @@
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
 # @cost-center: CI/CD
-name: "CI: Beta Branch"
+name: "CD: Auto Beta Branch"
 
 on:
   push:
@@ -433,5 +433,5 @@ jobs:
           status: ${{ needs.build-rc.result }}
           release_reason: ${{ needs.check-release-markers.outputs.release_reason }}
           skip_reason: ${{ needs.check-release-markers.outputs.skip_reason }}
-          artifact-path: ${{ needs.check-release-markers.outputs.should_release == 'true' && 'openmidicontrol-${{ needs.create-draft-release.outputs.beta-tag }}-android.apk' || '' }}
+          artifact-path: ${{ needs.check-release-markers.outputs.should_release == 'true' && format('openmidicontrol-{0}-android.apk', needs.create-draft-release.outputs.beta-tag) || '' }}
           changelog: ${{ steps.changelog.outputs.changelog }}

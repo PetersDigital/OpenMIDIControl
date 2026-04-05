@@ -1,7 +1,10 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
-
-name: 'Commitlint'
+# @description: Validates commit messages use Conventional Commits format on pull requests
+# @owner: @dencelkbabu
+# @sla: Best-effort (no uptime guarantee)
+# @cost-center: Validation
+name: "Validate: Conventional Commits (PR Gate)"
 
 on:
   pull_request:
