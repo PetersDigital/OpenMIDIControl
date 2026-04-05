@@ -13,8 +13,8 @@ Usage:
 
 Examples:
     python scripts/validate_workflows.py
-    python scripts/validate_workflows.py .github/workflows/cd_prod_*.yml
-    python scripts/validate_workflows.py .github/workflows/ci_*.yml
+    python scripts/validate_workflows.py .github/workflows/cd_auto_*.yml
+    python scripts/validate_workflows.py .github/workflows/ci_auto_*.yml
 """
 
 # Copyright (c) 2026 Peters Digital
@@ -311,7 +311,7 @@ def main() -> int:
 
     print_header("All checks passed!")
     print(f"\nTip: Run this script before committing workflow changes:")
-    print(f"  python scripts/validate_workflows.py .github/workflows/*.yml\n")
+    print(f"  python scripts/validate_workflows.py .github/workflows/validate_auto_*.yml\n")
 
     return 0
 

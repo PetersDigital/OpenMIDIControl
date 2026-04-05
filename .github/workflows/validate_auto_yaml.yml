@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ---
-# @description: Validates YAML syntax and GitHub Actions workflow correctness on PRs and main pushes
+# @description: Validates YAML syntax and GitHub Actions workflow correctness on pushes and PRs
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
-# @cost-center: CI/CD
-name: Validate Workflows
+# @cost-center: Validation
+name: "Validate: GitHub Actions Workflows"
 
 on:
   push:
