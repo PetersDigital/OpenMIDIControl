@@ -4,8 +4,8 @@
 # @description: Mark stale issues and pull requests with no activity, exempting bug and security items
 # @owner: @dencelkbabu
 # @sla: Best-effort (no uptime guarantee)
-# @cost-center: CI/CD
-name: "CI: Stale Manager"
+# @cost-center: Operations
+name: "Ops: Auto Stale Issue and PR Manager"
 
 on:
   schedule:
