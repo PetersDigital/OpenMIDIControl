@@ -218,7 +218,7 @@ Dependabot PRs skip validation workflows to reduce CI noise.
 
 ### Composite Actions
 
-The CI/CD pipeline uses 9 reusable composite actions in `.github/actions/`:
+The CI/CD pipeline uses 10 reusable composite actions in `.github/actions/`:
 - `flutter-ci-core` - Shared Flutter setup, analysis, testing
 - `cosign-sign-verify` - Keyless artifact signing
 - `provenance-attestation` - SLSA provenance generation
@@ -228,6 +228,7 @@ The CI/CD pipeline uses 9 reusable composite actions in `.github/actions/`:
 - `generate-release-notes` - CHANGELOG parsing
 - `notify-telegram` - Build notifications
 - `release-tag-validation` - Release gate validation
+- `prepare-release-assets` - Shared asset list generation for releases
 
 ## Release process
 

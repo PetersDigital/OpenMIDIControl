@@ -4,7 +4,74 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
+## [Unreleased]
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD)
+
+### Added
+- Enforce minSdkVersion 33 and decouple from Flutter SDK ([847db5e](https://github.com/PetersDigital/OpenMIDIControl/commit/847db5e))
+
+### Changed
+- **Standardize package identifiers**: Renamed Android/iOS package to lowercase (`com.PetersDigital.OpenMIDIControl` → `com.petersdigital.openmidicontrol`) to follow Android conventions. ([e338990](https://github.com/PetersDigital/OpenMIDIControl/commit/e338990))
+- **Update technical identifiers**: Updated AGENTS.md and README.md to reference the new lowercase package name. ([32e9444](https://github.com/PetersDigital/OpenMIDIControl/commit/32e9444))
+
+### Security
+- **Dual-Licensing Model**: Established GPL-3.0-or-later / LicenseRef-Commercial dual-licensing with comprehensive documentation (LICENSE, LICENSE-COMMERCIAL, COPYRIGHT, NOTICE, docs/LICENSING.md, docs/security/). ([680f5e1](https://github.com/PetersDigital/OpenMIDIControl/commit/680f5e1))
+- **License Headers**: Added copyright and SPDX license identifiers to all Kotlin (6 files) and Dart (13 files) source files. ([7ddd02d](https://github.com/PetersDigital/OpenMIDIControl/commit/7ddd02d), [064188a](https://github.com/PetersDigital/OpenMIDIControl/commit/064188a))
+
+### CI/CD Infrastructure
+- **Automated Dependency Updates**: Added Dependabot configuration for GitHub Actions and Flutter packages with monthly schedule, grouped updates, and commit prefix conventions. ([d18b1cd](https://github.com/PetersDigital/OpenMIDIControl/commit/d18b1cd9dd1492bfe433f43b41c7523cf7e9460b))
+- **YAML Linting & Validation Scope**: Integrated yamllint with custom rules (document-start, line-length 150, trailing-spaces, unix newlines) and actionlint for schema validation with Dependabot PR exemptions. Validation scope refined to exclude `*.md` files from `validate_auto_yaml.yml`. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **License Header Enforcement**: Automated CI check (`validate_auto_license.yml`) validating SPDX license headers across all source files (Dart, Kotlin, PowerShell, YAML, Python, Shell), with expanded PR coverage targeting `main`, `beta`, `release/**`, and `hotfix/**`. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **Commit Message Validation**: Added commitlint workflow (`validate_pr_commitlint.yml`) and Husky pre-commit hook enforcing Conventional Commits format on all branches. ([db2640a](https://github.com/PetersDigital/OpenMIDIControl/commit/db2640ad9de3fc9aae1afa9701fc51c4d2420761))
+- **CI/CD Optimization**: Removed `check-build-markers` and `check-release-markers` runner jobs from `cd_auto_dev.yml` and `cd_auto_beta.yml`. Marker detection now uses native GitHub `if:` conditions at zero runner cost. `analyze-and-test` always runs on push; APK/release builds require `[dev]`, `[build]`, or `[beta]` markers.
+- **Stale Issue Management**: Automated daily cleanup of inactive issues/PRs (60-day threshold, 14-day grace, bug/security exemptions) via `ops_schedule_stale.yml`. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **Supply Chain Security**: Implemented Cosign keyless signing with GitHub OIDC, SLSA provenance attestation, and GPG tag verification for production releases. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **Telegram Notifications**: Centralized notification system for CI failures, dev builds, beta releases, and production deployments via reusable `notify-telegram` composite action. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **Git Configuration**: Added `.gitattributes` to enforce LF line endings across platforms with CRLF exemption for PowerShell scripts. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **YAML Cleanup**: Added copyright and SPDX headers to all YAML configuration files (`.gemini/config.yaml`, `analysis_options.yaml`, `pubspec.yaml`) with document start markers. ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be))
+- **Modular Workflow Architecture**: Replaced monolithic workflows (`dev.yml`, `release.yml`) with 10 reusable composite actions ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be)):
+
+    | Composite Action | Purpose |
+    |------------------|--------|
+    | `flutter-ci-core` | Shared Flutter setup, analysis, testing |
+    | `cosign-sign-verify` | Keyless artifact signing with OIDC |
+    | `provenance-attestation` | SLSA provenance generation |
+    | `flutter-build-android` | Android APK builds with keystore |
+    | `flutter-build-windows` | Windows desktop builds |
+    | `download-and-prepare-artifacts` | Artifact collection and merging |
+    | `generate-release-notes` | CHANGELOG parsing for releases |
+    | `notify-telegram` | Build status notifications |
+    | `prepare-release-assets` | Shared asset collection for releases |
+    | `release-tag-validation` | Release gate validation |
+
+- **Workflow Naming Convention**: Renamed all 13 workflow files to `type_trigger_tier.yml` pattern ([5c09fab](https://github.com/PetersDigital/OpenMIDIControl/commit/5c09fabd54d0858f1958ee684da418d7fc3bb9be)):
+
+    | Workflow | Trigger | Purpose |
+    |----------|---------|---------|
+    | `cd_auto_dev.yml` | Push to `dev` | Automated dev builds |
+    | `cd_auto_beta.yml` | Push to `beta` | Automated beta releases |
+    | `cd_auto_prod.yml` | Push to `main` + tag | Automated production releases |
+    | `cd_man_prod.yml` | Manual dispatch | Manual production releases |
+    | `cd_man_rc.yml` | Manual dispatch | Release candidate builds |
+    | `cd_man_hotfix.yml` | Manual dispatch | Emergency hotfix deployments |
+    | `cd_man_retro.yml` | Manual dispatch | Historical release rebuilds |
+    | `ci_auto_main.yml` | Push to `main` | Main branch CI validation |
+    | `ci_auto_feature.yml` | Push to `feature/*` | Feature branch CI validation |
+    | `validate_auto_yaml.yml` | `.github/**` changes | YAML/workflow syntax validation |
+    | `validate_auto_license.yml` | Push/PR to protected branches | License header enforcement |
+    | `validate_pr_commitlint.yml` | Pull requests | Conventional commits validation |
+    | `ops_schedule_stale.yml` | Daily cron | Stale issue/PR management |
+
+### Development Tools
+- Add cross-platform Python Flutter launcher ([69ead12](https://github.com/PetersDigital/OpenMIDIControl/commit/69ead12))
+- Add automated license header management tools ([936aa5c](https://github.com/PetersDigital/OpenMIDIControl/commit/936aa5c))
+- Add workflow validator script with auto-fix ([2d3ef0f](https://github.com/PetersDigital/OpenMIDIControl/commit/2d3ef0f))
+- Add automated CHANGELOG.md generator from git history ([e827c80](https://github.com/PetersDigital/OpenMIDIControl/commit/e827c80))
+- Add unit tests for release notes generation ([b7c5041](https://github.com/PetersDigital/OpenMIDIControl/commit/b7c5041))
+- Add GitHub Actions cleanup utilities ([0a373eb](https://github.com/PetersDigital/OpenMIDIControl/commit/0a373eb))
+
 ## [0.2.1] - 2026-03-26
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1)
 
 ### Added
 - **Canonical Data Model (MidiEvent):** Introduced a strictly typed, immutable data model in Dart composed of discrete integer fields (message type, channel, data1, data2, timestamp) to represent raw transport data. This decouples the UI from JNI map serialization and prepares the architecture for Universal MIDI Packets (UMP).
@@ -25,6 +92,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Native Android Hardening:** Added strict bounds checking and validation for raw MIDI byte arrays and haptic vibration parameters in `MainActivity.kt` to prevent local denial-of-service crashes from malformed hardware packets.
 
 ## [0.2.0] - 2026-03-26
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0)
 
 ### Added
 - **True Peripheral Mode:** Native Android `MidiDeviceService` implementation for plug-and-play class compliance on Windows 11.
@@ -52,6 +120,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Release Build Stability:** Enabled `BuildConfig` generation for production APKs and resolved conflicting status byte parsing logic in the native MIDI layer.
 
 ## [0.1.5] - 2026-03-24
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5)
+
 ### Added
 - **Virtual MIDI Port:** App now publishes itself as a native Android MIDI device ("OpenMIDIControl").
 - **Metadata-Based Reconnection:** Implemented "fingerprint" matching using device name and manufacturer to allow automatic reconnection when Android assigns a new transient ID to hot-plugged hardware.
@@ -71,6 +141,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **SysEx Support:** Hardware-specific LCD feedback and mode handshaking removed from this milestone due to protocol instability.
 
 ## [0.1.0] - 2026-03-22
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.0.0...v0.1.0)
+
 ### Added
 - **v0.1.0 Flutter UI:** `OpenMIDIControl` now ships with the responsive command center (status row, 3×3 grid, and top-bar actions) plus the performance area containing two `HybridTouchFader` widgets that adjust for mobile or desktop layouts.
 - **Hybrid Touch Fader polish:** Each fader displays `DSEG7Modern` readouts, supports long-press CC selection, and keeps per-control color cues, gutters, and multi-touch capture semantics.
@@ -92,9 +164,12 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Secret Management:** Ensured release properties (`key.properties`) are excluded in `.gitignore`.
 
 ## [0.0.0] - 2026-03-19
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.0.0...HEAD)
+
 ### Added
 - Project initialized (documentation only).
 
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5
