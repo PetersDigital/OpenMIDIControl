@@ -4,7 +4,93 @@ All notable changes to this project will be documented in this file.
 
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
+## [Unreleased]
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD)
+
+### Added
+- Enforce minSdkVersion 33 and decouple from Flutter SDK
+
+### Changed
+- **Branding**: Updated internal references from "PetersDigital" to "Peters Digital" for corporate consistency.
+- **Standardize package identifiers**: Renamed Android/iOS package to lowercase (`com.PetersDigital.OpenMIDIControl` → `com.petersdigital.openmidicontrol`) to follow Android conventions.
+- **Update technical identifiers**: Updated AGENTS.md and README.md to reference the new lowercase package name.
+- **Hardware Monitoring**: Updated documentation in `AGENTS.md` with enhanced logging tags and platform-specific commands (PowerShell).
+- **Build Configuration**: Added a version sync tracking warning comment to `pubspec.yaml` to ensure `.version` and `pubspec.yaml` remain synchronized.
+
+### Security
+- **Dual-Licensing Model**: Established GPL-3.0-or-later / LicenseRef-Commercial dual-licensing with comprehensive documentation (LICENSE, LICENSE-COMMERCIAL, COPYRIGHT, NOTICE, docs/LICENSING.md, docs/security/).
+- **License Headers**: Added copyright and SPDX license identifiers to all Kotlin (6 files) and Dart (13 files) source files.
+
+### CI/CD Infrastructure
+- **Version Tracking**: Added a standalone `.version` file in the root directory to permanently decouple GitHub Actions beta/RC prerelease sequence generation from the `pubspec.yaml` version.
+- **Automated Dependency Updates**: Dependabot configuration now runs on a weekly cadence for GitHub Actions (`/`), npm (`/`), and Flutter pub dependencies (`/app`), targets the `dev` branch, uses dedicated `security-updates` groups (`applies-to: security-updates`), and enforces a pub open-PR limit of 5.
+- **YAML Linting & Validation Scope**: Integrated yamllint with custom rules (document-start, line-length 150, trailing-spaces, unix newlines) and actionlint for schema validation with Dependabot PR exemptions. Validation scope enforces `.github/**`-only checks for `validate_auto_yaml.yml` (excluding markdown/preview-only changes), with push runs on `dev` and PR gates on `dev`, `release/**`, and `hotfix/**`.
+- **License Header Enforcement**: Automated CI check (`validate_auto_license.yml`) validating SPDX license headers across all source files (Dart, Kotlin, PowerShell, YAML, Python, Shell), with push runs on `dev` and PR gates on `dev`, `release/**`, and `hotfix/**`.
+- **Main Promotion Guard**: Added a `pre-main-sync` gate in `ci_auto_main.yml` to ensure `beta`/`rc` release branch heads are already present in `dev` before merging into `main`.
+- **Commit Message Validation**: Added commitlint workflow (`validate_pr_commitlint.yml`) and Husky pre-commit hook enforcing Conventional Commits format, with PR gates on `dev`, `release/**`, and `hotfix/**` plus cancel-in-progress PR concurrency.
+- **Promotion Branch De-dup Pass**: Removed redundant validation/CI runs on promotion branches (`beta`, `rc`, `main`) where quality gates already pass upstream on `dev`, while retaining required release pipelines and the `pre-main-sync` integrity gate.
+- **CI/CD Optimization**: Removed `check-build-markers` and `check-release-markers` runner jobs from `cd_auto_dev.yml` and `cd_auto_beta.yml`. Marker detection now uses native GitHub `if:` conditions at zero runner cost. `analyze-and-test` always runs on push for code quality visibility. APK/release builds trigger automatically on their respective branch pushes without manual markers.
+- **Stale Issue Management**: Automated weekly cleanup of inactive issues/PRs (60-day threshold, 14-day grace, bug/security exemptions) via `ops_schedule_stale.yml`.
+- **Supply Chain Security**: Implemented Cosign keyless signing with GitHub OIDC, SLSA provenance attestation, and GPG tag verification for production releases.
+- **Telegram Notifications**: Centralized notification system for CI failures, dev builds, beta releases, and production deployments via the reusable `notify-telegram` composite action. 
+    - Templates use a standardized enterprise message vocabulary and emoji map with linked Repository, Branch/Tag, Commit, and Workflow URLs, canonical section labels (`🧭 Actions`, `🛠 Diagnostics`, `📊 Signals`, `🛡 Trust Signals`), and consistent status/environment/security markers across both runtime output and HTML/CSS preview artifacts.
+    - Replaced embedded Python JSON parsing with a lightweight pure-bash parser (`sed`-based extraction), removing the `python3` runtime dependency for minimal runners.
+    - Added dedicated HTML/CSS preview scenario for the truncation notice path (`telegram-11-truncated-message.html`) to document limit-safe rendering behavior.
+- **Git Configuration**: Added `.gitattributes` to enforce LF line endings across platforms with CRLF exemption for PowerShell scripts.
+- **YAML Cleanup**: Added copyright and SPDX headers to all YAML configuration files (`.gemini/config.yaml`, `analysis_options.yaml`, `pubspec.yaml`) with document start markers.
+- **Modular Workflow Architecture**: Replaced monolithic workflows (`dev.yml`, `release.yml`) with 11 reusable composite actions:
+
+    | Composite Action | Purpose |
+    |------------------|--------|
+    | `flutter-ci-core` | Shared Flutter setup, analysis, testing |
+    | `cosign-sign-verify` | Keyless artifact signing with OIDC |
+    | `provenance-attestation` | SLSA provenance generation |
+    | `flutter-build-android` | Android APK builds with keystore |
+    | `flutter-build-windows` | Windows desktop builds |
+    | `download-and-prepare-artifacts` | Artifact collection and merging |
+    | `generate-prerelease-tag` | Deterministic beta/RC tag generation from `pubspec.yaml` + `.version` |
+    | `generate-release-notes` | CHANGELOG parsing for releases |
+    | `notify-telegram` | Telegram build/release notifications with standardized enterprise templates |
+    | `prepare-release-assets` | Shared asset collection for releases |
+    | `release-tag-validation` | Release gate validation |
+
+- **Workflow Naming Convention**: Renamed all 13 workflow files to `type_trigger_tier.yml` pattern:
+
+    | Workflow | Trigger | Purpose |
+    |----------|---------|---------|
+    | `cd_auto_dev.yml` | Push to `dev` | Automated dev builds |
+    | `cd_auto_beta.yml` | Push to `beta` | Automated beta prerelease builds (public prerelease) |
+    | `cd_auto_rc.yml` | Push to `rc` | Automated release candidate builds (public prerelease) |
+    | `cd_auto_prod.yml` | Push to SemVer tag | Automated production releases |
+    | `cd_man_prod.yml` | Manual dispatch | Manual production rebuilds |
+    | `cd_man_hotfix.yml` | Push to `v*-patch.*` tag | Emergency hotfix deployments |
+    | `cd_man_retro.yml` | Manual dispatch | Historical release rebuilds |
+    | `ci_auto_main.yml` | PR to `main` | Main promotion sync guard (`pre-main-sync`) |
+    | `ci_auto_feature.yml` | Push to feature branches | Feature branch CI validation |
+    | `validate_auto_yaml.yml` | `.github/**` changes | YAML/workflow syntax validation |
+    | `validate_auto_license.yml` | Push to `dev`, PR to `dev`/`release/**`/`hotfix/**` | License header enforcement |
+    | `validate_pr_commitlint.yml` | Pull requests | Conventional commits validation |
+    | `ops_schedule_stale.yml` | Weekly cron | Stale issue/PR management |
+
+- **RC Release Visibility**: `cd_auto_rc.yml` no longer creates draft releases — RCs are immediately visible as public prereleases on GitHub Releases page.
+- **Hotfix Windows Build Fix**: `cd_man_hotfix.yml` now runs Windows builds in a separate `build-hotfix-windows` job on `windows-latest` instead of inlining them in the Ubuntu-based `build-hotfix` job, which previously failed because `flutter build windows` cannot cross-compile on Linux.
+- **CI Main Workflow Simplification**: `ci_auto_main.yml` was reduced to a lightweight promotion guard workflow (`pre-main-sync`) to avoid duplicate post-promotion CI runs on `main`.
+- **Feature Branch RC Exclusion**: `ci_auto_feature.yml` now excludes the `rc` branch to prevent double-triggering alongside `cd_auto_rc.yml`.
+- **Provenance-Aware Notifications**: `notify-telegram` in `cd_auto_beta.yml` and `cd_auto_rc.yml` now waits for `provenance` job completion before firing.
+- **Beta/RC Terminology Consistency**: Beta release notes now correctly say "pre-release build for testing" (not "release candidate"). Release name in `cd_auto_beta.yml` corrected to "Beta Release".
+
+### Development Tools
+- Add interactive conventional commit helper (`commit.py`) to enforce valid commit structures prior to push
+- Add cross-platform Python Flutter launcher
+- Remove legacy PowerShell launcher scripts (`run_debug.ps1`, `run_release.ps1`) in favor of Python equivalents
+- Add automated license header management tools
+- Add workflow validator script with auto-fix
+- Add automated CHANGELOG.md generator from git history
+- Add unit tests for release notes generation
+- Add GitHub Actions cleanup utilities
+
 ## [0.2.1] - 2026-03-26
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1)
 
 ### Added
 - **Canonical Data Model (MidiEvent):** Introduced a strictly typed, immutable data model in Dart composed of discrete integer fields (message type, channel, data1, data2, timestamp) to represent raw transport data. This decouples the UI from JNI map serialization and prepares the architecture for Universal MIDI Packets (UMP).
@@ -25,6 +111,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Native Android Hardening:** Added strict bounds checking and validation for raw MIDI byte arrays and haptic vibration parameters in `MainActivity.kt` to prevent local denial-of-service crashes from malformed hardware packets.
 
 ## [0.2.0] - 2026-03-26
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0)
 
 ### Added
 - **True Peripheral Mode:** Native Android `MidiDeviceService` implementation for plug-and-play class compliance on Windows 11.
@@ -52,6 +139,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Release Build Stability:** Enabled `BuildConfig` generation for production APKs and resolved conflicting status byte parsing logic in the native MIDI layer.
 
 ## [0.1.5] - 2026-03-24
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5)
+
 ### Added
 - **Virtual MIDI Port:** App now publishes itself as a native Android MIDI device ("OpenMIDIControl").
 - **Metadata-Based Reconnection:** Implemented "fingerprint" matching using device name and manufacturer to allow automatic reconnection when Android assigns a new transient ID to hot-plugged hardware.
@@ -71,6 +160,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **SysEx Support:** Hardware-specific LCD feedback and mode handshaking removed from this milestone due to protocol instability.
 
 ## [0.1.0] - 2026-03-22
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.0.0...v0.1.0)
+
 ### Added
 - **v0.1.0 Flutter UI:** `OpenMIDIControl` now ships with the responsive command center (status row, 3×3 grid, and top-bar actions) plus the performance area containing two `HybridTouchFader` widgets that adjust for mobile or desktop layouts.
 - **Hybrid Touch Fader polish:** Each fader displays `DSEG7Modern` readouts, supports long-press CC selection, and keeps per-control color cues, gutters, and multi-touch capture semantics.
@@ -92,9 +183,12 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Secret Management:** Ensured release properties (`key.properties`) are excluded in `.gitignore`.
 
 ## [0.0.0] - 2026-03-19
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.0.0...HEAD)
+
 ### Added
 - Project initialized (documentation only).
 
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5

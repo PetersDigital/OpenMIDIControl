@@ -90,6 +90,24 @@ Ensure:
   - Read and write
   - Allow GitHub Actions to create attestations
 
+### Dependabot
+
+Dependabot must be enabled for this repository. Configuration is tracked in `.github/dependabot.yml`.
+
+Current policy:
+- Weekly checks: Sunday 04:00 (Asia/Kolkata)
+- Target branch: `dev`
+- Ecosystems: `github-actions` (`/`), `npm` (`/`), `pub` (`/app`)
+- Grouping:
+  - `security-updates` group for all ecosystems
+  - Additional grouped non-security updates for actions/pub by update type
+- PR volume guardrail:
+  - `pub` uses `open-pull-requests-limit: 5`
+
+Operational expectation:
+- Treat Dependabot security PRs as priority review items
+- Merge security updates promptly after CI validation
+
 ---
 
 ## GPG Setup (Local)
@@ -132,9 +150,11 @@ To keep the release workflow hardening centralized, this repo now uses:
 - `.github/actions/cosign-sign-verify/action.yml` for artifact signing + verification
 - `.github/actions/provenance-attestation/action.yml` for attestations
 
-These are used from both release workflows:
-- `.github/workflows/release_manual.yml`
-- `.github/workflows/release.yml`
+These are used across release workflows:
+- `.github/workflows/cd_auto_prod.yml`
+- `.github/workflows/cd_man_prod.yml`
+- `.github/workflows/cd_man_retro.yml`
+- `.github/workflows/cd_man_hotfix.yml`
 
 ---
 
@@ -156,6 +176,7 @@ cosign verify-blob \
 ## Notes
 
 - Only annotated, signed tags are allowed
+- Branch promotion model is `feature/fix -> dev -> beta/rc -> main`
 - Releases must originate from main branch
 - Unauthorized actors cannot trigger builds
 - All artifacts are signed and verifiable
