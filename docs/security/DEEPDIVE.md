@@ -95,11 +95,7 @@ Mitigation:
 Mitigation:
 - Local vs remote commit comparison in `release-tag-validation`
 - `git fetch --tags --force` + remote `git ls-remote` check
-
-### Tag Retargeting
-Mitigation:
-- Local vs remote commit comparison
-- CI checks in `release_manual.yml` now include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
+- CI checks in `cd_auto_prod.yml`, `cd_man_prod.yml`, and `cd_man_retro.yml` include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
 
 ### Unauthorized Release Trigger
 Mitigation:
@@ -112,6 +108,29 @@ Mitigation:
 ### Compromised CI Secrets
 Mitigation:
 - Keyless signing (no private keys stored)
+
+### Vulnerable Third-Party Dependencies
+Mitigation:
+- Dependabot weekly monitoring for GitHub Actions, npm, and pub ecosystems
+- Dedicated `security-updates` grouping to prioritize vulnerability remediation
+- Controlled PR volume for pub updates (`open-pull-requests-limit: 5`)
+
+---
+
+## Dependency Supply Chain Controls
+
+Dependency monitoring is implemented with `.github/dependabot.yml` and acts as a continuous control alongside signing and provenance.
+
+- Schedule: weekly on Sunday at 04:00 (Asia/Kolkata)
+- Coverage:
+        - Workflow dependencies (`github-actions`)
+        - Tooling dependencies (`npm`)
+        - Application dependencies (`pub` in `/app`)
+- Risk-reduction behavior:
+        - Security advisories are grouped under `security-updates` for rapid review
+        - Non-security updates remain grouped by update type to keep review load predictable
+
+This reduces exposure window for known vulnerabilities while keeping update operations manageable.
 
 ---
 
