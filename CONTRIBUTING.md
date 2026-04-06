@@ -174,8 +174,8 @@ The repository uses modular GitHub Actions workflows and reusable composite acti
 
 | Prefix | Purpose | Examples |
 |--------|---------|----------|
-| `cd_auto_*` | Automated deployment on branch pushes | `cd_auto_dev.yml`, `cd_auto_prod.yml` |
-| `cd_man_*` | Manual deployment (requires approval) | `cd_man_prod.yml`, `cd_man_hotfix.yml` |
+| `cd_auto_*` | Automated deployment on branch pushes | `cd_auto_dev.yml`, `cd_auto_rc.yml`, `cd_auto_prod.yml` |
+| `cd_man_*` | Manual deployment / tag-triggered | `cd_man_prod.yml`, `cd_man_hotfix.yml`, `cd_man_retro.yml` |
 | `ci_auto_*` | Automated integration testing | `ci_auto_main.yml`, `ci_auto_feature.yml` |
 | `validate_*` | Code quality gates | `validate_auto_yaml.yml`, `validate_pr_commitlint.yml` |
 | `ops_*` | Operational automation | `ops_schedule_stale.yml` |
@@ -218,7 +218,7 @@ Dependabot PRs skip validation workflows to reduce CI noise.
 
 ### Composite Actions
 
-The CI/CD pipeline uses 9 reusable composite actions in `.github/actions/`:
+The CI/CD pipeline uses 10 reusable composite actions in `.github/actions/`:
 - `flutter-ci-core` - Shared Flutter setup, analysis, testing
 - `cosign-sign-verify` - Keyless artifact signing
 - `provenance-attestation` - SLSA provenance generation
@@ -228,6 +228,7 @@ The CI/CD pipeline uses 9 reusable composite actions in `.github/actions/`:
 - `generate-release-notes` - CHANGELOG parsing
 - `notify-telegram` - Build notifications
 - `release-tag-validation` - Release gate validation
+- `prepare-release-assets` - Shared asset list generation for releases
 
 ## Release process
 

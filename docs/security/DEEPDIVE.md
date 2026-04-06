@@ -95,11 +95,7 @@ Mitigation:
 Mitigation:
 - Local vs remote commit comparison in `release-tag-validation`
 - `git fetch --tags --force` + remote `git ls-remote` check
-
-### Tag Retargeting
-Mitigation:
-- Local vs remote commit comparison
-- CI checks in `release_manual.yml` now include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
+- CI checks in `cd_auto_prod.yml`, `cd_man_prod.yml`, and `cd_man_retro.yml` include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
 
 ### Unauthorized Release Trigger
 Mitigation:
