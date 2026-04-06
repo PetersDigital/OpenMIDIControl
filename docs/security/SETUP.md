@@ -132,9 +132,11 @@ To keep the release workflow hardening centralized, this repo now uses:
 - `.github/actions/cosign-sign-verify/action.yml` for artifact signing + verification
 - `.github/actions/provenance-attestation/action.yml` for attestations
 
-These are used from both release workflows:
-- `.github/workflows/release_manual.yml`
-- `.github/workflows/release.yml`
+These are used across release workflows:
+- `.github/workflows/cd_auto_prod.yml`
+- `.github/workflows/cd_man_prod.yml`
+- `.github/workflows/cd_man_retro.yml`
+- `.github/workflows/cd_man_hotfix.yml`
 
 ---
 
