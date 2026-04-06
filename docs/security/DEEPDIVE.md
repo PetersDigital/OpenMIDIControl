@@ -48,6 +48,7 @@ GitHub Actions (OIDC Identity)
 - Build runs in GitHub-hosted runners
 - Identity established via OIDC tokens
 - No long-lived secrets required for signing
+- Stable releases are promoted through `dev -> beta/rc -> main` with CI sync gates
 
 ### 3. Artifact Integrity
 
@@ -95,11 +96,12 @@ Mitigation:
 Mitigation:
 - Local vs remote commit comparison in `release-tag-validation`
 - `git fetch --tags --force` + remote `git ls-remote` check
+- CI checks in `cd_auto_prod.yml`, `cd_man_prod.yml`, and `cd_man_retro.yml` include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
 
-### Tag Retargeting
+### Release Branch Drift
 Mitigation:
-- Local vs remote commit comparison
-- CI checks in `release_manual.yml` now include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
+- `pre-main-sync` gate in `ci_auto_main.yml` requires `beta`/`rc` PR heads to already exist in `dev`
+- Enforces dev-first promotion chain before stable `main` merges
 
 ### Unauthorized Release Trigger
 Mitigation:
@@ -112,6 +114,30 @@ Mitigation:
 ### Compromised CI Secrets
 Mitigation:
 - Keyless signing (no private keys stored)
+
+### Vulnerable Third-Party Dependencies
+Mitigation:
+- Dependabot weekly monitoring for GitHub Actions, npm, and pub ecosystems
+- Dedicated `security-updates` grouping to prioritize vulnerability remediation
+- Controlled PR volume for pub updates (`open-pull-requests-limit: 5`)
+
+---
+
+## Dependency Supply Chain Controls
+
+Dependency monitoring is implemented with `.github/dependabot.yml` and acts as a continuous control alongside signing and provenance.
+
+- Schedule: weekly on Sunday at 04:00 (Asia/Kolkata)
+- Target branch: `dev`
+- Coverage:
+        - Workflow dependencies (`github-actions`)
+        - Tooling dependencies (`npm`)
+        - Application dependencies (`pub` in `/app`)
+- Risk-reduction behavior:
+        - Security advisories are grouped under `security-updates` for rapid review
+        - Non-security updates remain grouped by update type to keep review load predictable
+
+This reduces exposure window for known vulnerabilities while keeping update operations manageable.
 
 ---
 

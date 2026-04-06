@@ -18,6 +18,7 @@ OpenMIDIControl/
 ├── docs/                         # Additional documentation
 ├── references/                   # Reference materials (read-only)
 ├── scripts/                      # Python build/deploy/development scripts
+├── .version                      # Version tracking for CD workflows
 ├── AGENTS.md                     # AI agent development guidelines
 ├── ARCHITECTURE.md               # System architecture & constraints
 ├── CHANGELOG.md                  # Version history (SemVer)
@@ -87,7 +88,11 @@ flutter test
 ## Code Style
 
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
-- **Versioning:** SemVer (`MAJOR.MINOR.PATCH`).
+- **Versioning:** SemVer (`MAJOR.MINOR.PATCH`). See `.version` file for CD workflow tracking.
+  - Workflows read `pubspec.yaml` first, then check if `v{version}` exists as a git tag. If the tag exists, fall back to `.version`'s `NEXT_PLANNED_VERSION`.
+  - When bumping `app/pubspec.yaml` version, **always update `.version`** to match.
+  - Tag generation steps use `working-directory: '.'` to access `.version` at the repo root (job default is `app/`).
+  - Refer to [IMPLEMENTATION.md](IMPLEMENTATION.md) for planned future versions and their scope when deciding the next version number.
 - **Commits:** Conventional Commits — `feat(scope): description`, `fix(scope): description`.
   - Multiple scopes: use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
   - **Enforced via Commitlint + Husky**: Invalid commit messages will be rejected automatically.
@@ -133,6 +138,7 @@ midi endpoint send-message 0x20B00140  # CC1, Value 64
 - **Do not implement features without an issue or an explicit plan step.**
 - One concern per PR — keep changes small and reviewable.
 - Always update docs (README / ARCHITECTURE / CHANGELOG) when behavior changes.
+- Default promotion path is `feature/fix -> dev -> beta/rc -> main`.
 
 ### Checklist
 - [ ] Conventional Commit title (enforced by Commitlint)
@@ -149,7 +155,7 @@ midi endpoint send-message 0x20B00140  # CC1, Value 64
 ```bash
 git checkout -b <branch>
 git push -u origin <branch>
-gh pr create --base main --head <branch> \
+gh pr create --base dev --head <branch> \
   --title "<conventional-commit-title>" \
   --body "<description>" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
