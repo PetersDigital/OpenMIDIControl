@@ -75,7 +75,14 @@ python scripts/run_app.py --help            # Show all options
 
 ### `update_changelog.py` — CHANGELOG.md Auto-Generator
 
-Generates or updates `CHANGELOG.md` from git log using conventional commit format. Ensures changelog stays in sync with actual git history.
+Generates or updates `CHANGELOG.md` from git log using conventional commit format. Uses path-based routing to keep infrastructure changes separate from app development changes.
+
+**Features:**
+- Interactive mode with tag selection
+- Auto-detects version from git tags
+- Path-based routing: `.github/` → CI/CD Infrastructure, `scripts/` → Development Tools, everything else → type-based sections
+- Commit link generation
+- Footnote link management for version comparisons
 
 **Usage:**
 ```bash
@@ -87,14 +94,14 @@ python scripts/update_changelog.py 0.2.3     # Specific version
 
 ### `test_release_notes.py` — Release Notes Unit Tests
 
-Unit tests for release notes generation logic. Validates conventional commit parsing, changelog section grouping, and edge cases.
+Unit tests for release notes generation logic. Validates conventional commit parsing, changelog section grouping, path-based routing (CI/CD vs Development Tools vs App), and edge cases.
 
 **Usage:**
 ```bash
-python -m pytest scripts/test_release_notes.py
+python scripts/test_release_notes.py
 ```
 
-**Dependencies:** Python 3.9+, pytest (optional)
+**Dependencies:** Python 3.9+, Git
 
 ## CI/CD Validation
 
