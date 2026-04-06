@@ -57,6 +57,28 @@ We use **Semantic Versioning (SemVer)**:
 
 We use Conventional Commits enforced via **Commitlint** + **Husky**.
 
+### Recommended: Use the Interactive Commit Helper
+
+We provide an interactive commit helper script to ensure all commits follow the correct format:
+
+```bash
+python scripts/commit.py
+```
+
+This script guides you through:
+1. Selecting commit type (feat, fix, docs, etc.)
+2. Selecting scope (android, ui, ci, scripts, etc.)
+3. Entering description with validation
+4. Optional body, breaking changes, and issue references
+5. Preview and edit before committing
+6. Automatic validation against commitlint
+
+**Features:**
+- Auto-suggests scope based on staged files
+- Local validation before commitlint (no Node.js required)
+- Full commitlint integration if available
+- Merge commit support with branch-pattern scopes
+
 ### Automatic Validation
 
 When you commit, Husky will automatically validate your message:
@@ -97,12 +119,10 @@ Examples:
 You can test your commit message before committing:
 
 ```bash
-# Windows PowerShell
-"feat(midi): add UMP reconstruction logic" | Out-File -Encoding utf8 -NoNewline .commitlint-temp.txt
-npx commitlint --edit .commitlint-temp.txt
-Remove-Item .commitlint-temp.txt
+# Using the interactive helper
+python scripts/commit.py
 
-# Unix/Bash
+# Or validate a message directly
 echo "feat(midi): add UMP reconstruction logic" | npx commitlint
 ```
 
@@ -116,6 +136,22 @@ npm install
 ```
 
 This only needs to be done once per clone. The husky hooks will be automatically installed.
+
+### Script Dependencies
+
+All scripts in `scripts/` require:
+- **Python 3.9+** (stdlib only for most scripts)
+- **Git** (for git-dependent scripts)
+
+Optional dependencies for enhanced functionality:
+- **commitlint** — Used by `commit.py` for validation (falls back to local regex if unavailable)
+  - Install: `npm install @commitlint/cli @commitlint/config-conventional`
+  - Or use via: `npx`, `pnpm`, or `yarn`
+- **actionlint, yamllint** — Used by `validate_workflows.py` (optional)
+- **Flutter SDK** — Required for `run_app.py`
+- **GitHub CLI (`gh`)** — Required for `wipe_github_actions.py` scripts
+
+See `scripts/README.md` for detailed dependency information.
 
 ### Scope Guidelines (v0.2.2+)
 
@@ -138,6 +174,69 @@ Examples:
 - `feat(midi/bridge): optimize EventChannel JNI bridge with primitive batching`
 - `fix(android/midi): enhance isUmp detection with MT heuristic`
 - `test(midi/pipeline): implement automated UMP transport test suite`
+
+## CI/CD Infrastructure
+
+The repository uses modular GitHub Actions workflows and reusable composite actions. See [`.github/README.md`](.github/README.md) for complete documentation.
+
+### Workflow Types
+
+| Prefix | Purpose | Examples |
+|--------|---------|----------|
+| `cd_auto_*` | Automated deployment on branch pushes | `cd_auto_dev.yml`, `cd_auto_prod.yml` |
+| `cd_man_*` | Manual deployment (requires approval) | `cd_man_prod.yml`, `cd_man_hotfix.yml` |
+| `ci_auto_*` | Automated integration testing | `ci_auto_main.yml`, `ci_auto_feature.yml` |
+| `validate_*` | Code quality gates | `validate_auto_yaml.yml`, `validate_pr_commitlint.yml` |
+| `ops_*` | Operational automation | `ops_schedule_stale.yml` |
+
+### Validation Gates
+
+All PRs must pass these automated checks:
+
+1. **Flutter Analysis & Tests** - `flutter analyze --fatal-infos` + `flutter test`
+2. **YAML Validation** - yamllint + actionlint for workflow correctness
+3. **License Headers** - SPDX identifier validation across all source files
+4. **Commit Messages** - Conventional Commits format enforcement
+
+### Local Validation
+
+Run these commands before pushing:
+
+```bash
+# Flutter analysis and tests
+flutter analyze --fatal-infos
+flutter test
+
+# Validate workflow YAML
+python scripts/validate_workflows.py .github/workflows/*.yml
+
+# Check license headers
+python scripts/check_license_headers.py
+
+# Validate commit messages (after commit)
+npx commitlint --from HEAD~3 --to HEAD --verbose
+```
+
+### Dependabot
+
+Automated dependency updates are configured for:
+- **GitHub Actions**: Monthly checks, `ci(actions)` commit prefix
+- **Flutter/Pub**: Monthly checks, `chore(deps)` commit prefix
+
+Dependabot PRs skip validation workflows to reduce CI noise.
+
+### Composite Actions
+
+The CI/CD pipeline uses 9 reusable composite actions in `.github/actions/`:
+- `flutter-ci-core` - Shared Flutter setup, analysis, testing
+- `cosign-sign-verify` - Keyless artifact signing
+- `provenance-attestation` - SLSA provenance generation
+- `flutter-build-android` - Android APK builds with keystore
+- `flutter-build-windows` - Windows desktop builds
+- `download-and-prepare-artifacts` - Artifact collection
+- `generate-release-notes` - CHANGELOG parsing
+- `notify-telegram` - Build notifications
+- `release-tag-validation` - Release gate validation
 
 ## Release process
 

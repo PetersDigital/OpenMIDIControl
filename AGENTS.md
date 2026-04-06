@@ -48,6 +48,7 @@ OpenMIDIControl/
 - Android Studio / Android SDK
 - Android device with USB MIDI support (API 29+)
 - Python 3.9+ (for scripts)
+- Node.js (for commitlint + husky, optional but recommended)
 
 ### Setup
 
@@ -91,6 +92,7 @@ flutter test
   - Multiple scopes: use forward slashes — `feat(ui/midi): …`. **No hyphens between scopes.**
   - **Enforced via Commitlint + Husky**: Invalid commit messages will be rejected automatically.
   - Setup: Run `npm install` after cloning to install git hooks.
+  - **Recommended**: Use `python scripts/commit.py` for interactive commit creation with validation.
 - **State machines:** Prefer explicit, deterministic state machines for touch capture, MIDI feedback sync, and feedback loop prevention.
 - **Concurrency:** Use Kotlin Coroutines with strict suspension (no busy-wait). Do not introduce blocking I/O on MIDI threads.
 - **Dependencies:** Avoid heavy new dependencies without justification.
