@@ -12,6 +12,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   static const int maxLogs = 200;
   final Queue<String> _logs = Queue<String>();
   bool _pendingUpdate = false;
+  bool _disposed = false;
 
   @override
   List<String> build() {
@@ -24,6 +25,8 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
     });
 
     ref.onDispose(() {
+      _disposed = true;
+      _pendingUpdate = false;
       sub.cancel();
     });
 
@@ -63,6 +66,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
       _pendingUpdate = true;
       // Schedule state update for next frame (~16ms at 60Hz)
       SchedulerBinding.instance.scheduleFrameCallback((_) {
+        if (_disposed) return;
         _pendingUpdate = false;
         // Update state to trigger rebuilds only for listeners of this provider
         state = _logs.toList();
