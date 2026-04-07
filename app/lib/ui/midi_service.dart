@@ -420,22 +420,17 @@ class CcNotifier extends Notifier<ControlState> {
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
 
-    // Check if any values actually changed before creating a new map
-    var hasChanges = false;
+    // Lazy-init: only allocate new map when first change is detected
+    Map<int, int>? newValues;
     for (final entry in updates.entries) {
       if (state.ccValues[entry.key] != entry.value) {
-        hasChanges = true;
-        break;
+        newValues ??= Map<int, int>.from(state.ccValues);
+        newValues[entry.key] = entry.value;
       }
     }
-    if (!hasChanges) return;
-
-    // Only copy changed entries for better performance
-    final newValues = Map<int, int>.from(state.ccValues);
-    for (final entry in updates.entries) {
-      newValues[entry.key] = entry.value;
+    if (newValues != null) {
+      state = state.copyWith(ccValues: newValues);
     }
-    state = state.copyWith(ccValues: newValues);
   }
 }
 
