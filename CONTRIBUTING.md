@@ -168,7 +168,7 @@ Examples:
 
 ## CI/CD Infrastructure
 
-The repository uses modular GitHub Actions workflows and reusable composite actions. See [`.github/README.md`](.github/README.md) for complete documentation.
+The repository uses modular GitHub Actions workflows and reusable composite actions. See [`.github/CI_CD_README.md`](.github/CI_CD_README.md) for complete documentation.
 
 ### Workflow Types
 

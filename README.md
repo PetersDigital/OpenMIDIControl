@@ -12,7 +12,8 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.1** (Current) Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
+- **v0.2.2** (Current) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
+- **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
@@ -102,12 +103,24 @@ This roadmap tracks feature progress using Semantic Versioning. Progress is meas
 * **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
 
 #### ✅ API 33+ Baseline (Post-v0.2.1)
-- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
+- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP.
 
 ### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate system-wide virtual routing to Android's UMP-specific services.
-- **SDK Constraint Handling**: Utilize legacy port classes for public API compatibility while enforcing UMP via transport flags.
-- **Manual 32-bit Reconstruction**: Native implementation of 4-byte chunk reconstruction from standard `byte[]` buffers for 32-bit UMP delivery.
+
+**Implementation Status:** Core UMP transport layer implemented and tested.
+
+- **MidiParser Extraction**: UMP reconstruction logic extracted from `MainActivity.kt` into isolated, testable `MidiParser.kt` for comprehensive unit testing.
+- **MidiDeviceService with UMP Transport**: Virtual/Peripheral services extend Android's `MidiDeviceService` with `TRANSPORT_UNIVERSAL_MIDI_PACKETS` for system-level routing.
+- **SDK Constraint Handling**: Client ports use legacy `MidiDevice`/`MidiPort` classes while enforcing UMP via `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
+- **Manual 32-bit Reconstruction**: `MidiReceiver.onSend()` iterates `byte[]` in 4-byte chunks with defensive bounds checking and UMP group preservation.
+- **Enhanced isUmp Detection**: Improved heuristic using MT (Message Type) validation to prevent false positives from legacy byte streams.
+- **Dart Layer UMP Integration**: Simplified `MidiEvent` model with single 32-bit `ump` integer + bitwise extraction getters; primitive `Int64List` batching for JNI bridge.
+- **Thermal Stabilization**: Fixed stream subscription leaks, infinite update loops, global `ref.watch` removal, 8ms MIDI flood throttling, batched diagnostics.
+- **Perf Refinements**: Monotonic `Stopwatch` clock for MIDI throttling (immune to NTP jumps), lazy-init map allocation in `updateMultipleCCs()` to reduce memory churn during bursts, disposal guard in diagnostics logger to prevent state-write errors after auto-dispose.
+- **Automated Test Suite**: 10+ test files covering Kotlin native layer, Dart models/state, UI components, and end-to-end pipeline integration (10K event stress test).
+- **Bug Fixes**: Array bounds crash prevention, MIDI channel loss in UMP reconstruction, missing imports, redundant imports removal, legacy filtering comment corrections in Kotlin services.
+
+**See [IMPLEMENTATION.md](IMPLEMENTATION.md) for detailed v0.2.2 implementation notes and [TESTING.md](TESTING.md) for test suite documentation.**
 
 ### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
 - **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.

@@ -5,9 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
 ## [Unreleased]
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...HEAD)
+
+## [0.2.2] - 2026-04-07
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2)
 
 ### Added
+- **MidiParser Extraction**: Extracted UMP reconstruction logic from `MainActivity.kt` into isolated, testable `MidiParser.kt` static object for comprehensive unit testing without Android Service mocks.
+- **UMP Group Preservation**: Multi-cable UMP group data is now preserved during reconstruction (not discarded), enabling future MIDI 2.0 multi-group support.
+- **Enhanced isUmp Detection**: Improved heuristic detection using MT (Message Type) validation — checks for MT=0x1 (System) or MT=0x2 (MIDI 1.0 Channel Voice) to prevent false positives from legacy byte streams.
+- **Automated Test Suite** (10+ test files):
+  - Kotlin native tests: `MidiParserTest.kt` (6 test scenarios: UMP heuristic, legacy fallback, 32-bit reconstruction, spam filtering, echo suppression, batching bounds)
+  - Dart unit tests: `midi_event_test.dart`, `midi_models_test.dart`, `control_state_test.dart`, `diagnostics_test.dart`, `midi_settings_state_test.dart`
+  - Dart widget tests: `settings_screen_test.dart`, `midi_settings_screen_test.dart`, `open_midi_screen_test.dart`
+  - Integration tests: `midi_pipeline_integration_test.dart` (EventChannel multiplexing, 10K event stress test)
+- **Comprehensive Test Documentation**: Added [TESTING.md](TESTING.md) with complete test suite architecture, execution instructions, and conceptual fuzzing test design.
 - Enforce minSdkVersion 33 and decouple from Flutter SDK
 
 ### Changed
@@ -169,7 +181,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ### Added
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5
