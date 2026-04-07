@@ -32,8 +32,8 @@ class VirtualMidiService : MidiDeviceService() {
                 if (msg == null || count == 0) return
 
                 // Forward incoming MIDI from DAW (like FL Studio Mobile) to our Flutter App
-                // Legacy filtering (Active Sensing, Timing Clock) has been moved to MainActivity
-                // to support batched UMP reconstruction and filtering natively.
+                // Legacy filtering (Active Sensing, Timing Clock) now happens in
+                // MidiParser.processMidiPayload(), invoked by MainActivity.handleIncomingVirtualMidi()
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
