@@ -12,7 +12,8 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.1** (Current) Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
+- **v0.2.2** (Current) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
+- **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
 - Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
@@ -68,90 +69,9 @@ This repository currently documents the new direction, design constraints, and i
 - **Metadata Persistence**: Uses device name and manufacturer fingerprints to maintain connections across USB hot-plugs.
 - Rate limiting/coalescing to protect battery and thermal stability
 
-## Version Roadmap (v0.1.0 to v1.0.0)
+## Version Roadmap
 
-This roadmap tracks feature progress using Semantic Versioning. Progress is measured by functional milestones rather than specific dates.
-
-### ✅ Completed
-
-#### ✅ v0.1.0: Baseline
-* Established core wired control and UI baseline.
-* Implemented two expressive faders with high-precision tracking.
-* Integrated internal MIDI test harness.
-
-#### ✅ v0.1.5: MIDI Reliability & Logic Polish
-* **Virtual MIDI Port**: Implemented a native Android MIDI device ("OpenMIDIControl") for local data routing.
-* **Metadata Reconnection**: Added "fingerprint" matching (Name/Manufacturer) to handle transient Android IDs during USB hot-plugging.
-* **Bi-directional Logic**: Applied Jump, Hybrid, and Catch-up behaviors to incoming hardware MIDI data.
-* **UI Feedback**: Added translucent row highlighting for active input/output ports in MIDI settings.
-* **Responsive UI**: Dedicated ultra-wide phone landscape layout (optimized for S24 Ultra).
-* **Gesture Fixes**: Moved fader initialization to `onVerticalDragStart` to prevent accidental value jumps.
-* **Haptic Stability**: Resolved JVM crashes by standardizing number-to-long casting for vibration durations.
-
-#### ✅ v0.2.0: Advanced USB MIDI & Dual-Path Routing
-* **True Peripheral Mode**: Native Android `MidiDeviceService` for class compliance on Windows 11.
-* **Dual-Path Routing**: High-speed native Kotlin transport for peripheral mode.
-* **Performance Batching**: 8ms Coroutine-based buffering for smooth UI fader rendering.
-* **Binder Stability**: Port collision hiding and Dead Receiver Quarantine logic.
-
-#### ✅ v0.2.1: Canonical Data & State Model
-* **MidiPortBackend**: Unified abstraction for all future inputs (Native vs. USB Fallback).
-* **Universal Payload**: Introduction of the internal **32-bit UMP-ready** MIDI format as the system source of truth.
-* **Event vs. State Separation**: Decoupling raw transport data (`MidiEvent`) from UI-facing Riverpod logic (`ControlState`) with strict immutability.
-* **Service Centralization**: Simplified event processing into a single-pass `MidiService` stream.
-* **Diagnostic Tools**: Real-time MIDI event logger with native high-precision timestamps.
-
-#### ✅ API 33+ Baseline (Post-v0.2.1)
-- **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native support for MIDI 2.0 and UMP (SHA `97e002e`).
-
-### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate system-wide virtual routing to Android's UMP-specific services.
-- **SDK Constraint Handling**: Utilize legacy port classes for public API compatibility while enforcing UMP via transport flags.
-- **Manual 32-bit Reconstruction**: Native implementation of 4-byte chunk reconstruction from standard `byte[]` buffers for 32-bit UMP delivery.
-
-### ⏳ v0.2.3 – Core Routing Engine (UMP DAG)
-- **MidiRouter Graph**: Centralized routing Directed Acyclic Graph (DAG) operating exclusively on 32-bit UMP payloads.
-- **Transformer Nodes**: Logic modules for filtering, remapping, and splitting UMP streams.
-
-### ⏳ v0.3.0 – Control Expansion & High-Res State
-- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches.
-- **Native 32-bit Resolution UI**: Upgrade faders to leverage native UMP high-resolution values.
-- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
-
-### ⏳ v0.4.x – MIDI-CI & The MCU / HUI Protocol Series
-- **v0.4.0 (MIDI-CI Handshake)**: Capability Inquiry negotiation to declare the device as a MIDI 2.0 peripheral to the DAW.
-- **v0.4.1 (Core Logic)**: MCU protocol mapping translated through the UMP pipeline.
-- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
-
-### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
-* **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
-* **Performance Audit**: Benchmarking Kotlin Coroutine jitter and throughput.
-* **NDK Fast Path (Conditional)**: Migration to C++ AMidi and Dart FFI if Kotlin limits are reached.
-
-### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
-* **MIDI-CI Handshake**: Formal Capability Inquiry negotiation.
-* **OS UMP Integration**: Direct UMP payload transfer to Windows/macOS if supported.
-
-### ⏳ v0.6.0 – Full Preset Engine
-* **Dynamic Mapping**: Quick-flip layout modes (e.g., Orchestral vs. Synth mapping).
-* **Project Presets**: Advanced snapshot management and schema saving.
-
-### ⏳ v0.7.0 – Layout Editor
-* **Serializable Schema**: Requirement for all UI controls to be generated from JSON/config.
-* **Visual Editor**: Drag-and-drop resizing and positioning.
-* **Aesthetic Polish**: Glow trails and friction physics.
-
-### ⏳ v0.8.0 – Wireless Transport & Desktop Bridge
-* **Wireless MIDI**: Support for rtpMIDI (Wi-Fi) and Bluetooth MIDI.
-* **Bridge Protocols**: OSC and WebSocket support for custom bridges.
-
-### ⏳ v0.9.0 – Plugin & API Layer
-* **Extension Hooks**: Public API for custom transformers and layouts.
-* **Extensibility Stabilization**: Locking the API surface for v1.0.
-
-### ⏳ v1.0.0 – Contributor-Ready Release
-* **Stable Architecture**: Fully documented API and third-party developer resources.
-* **Final Polish**: Global bug squashing and UX refinement.
+The complete implementation history, current focus, and future version roadmap (v0.1.0 through v1.0.0) is maintained exclusively in [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 ## Repository Status
 

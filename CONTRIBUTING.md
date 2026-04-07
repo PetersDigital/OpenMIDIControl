@@ -45,8 +45,6 @@ CI will fail if files are missing headers. See [docs/LICENSING.md](docs/LICENSIN
 ## Development approach
 This project is maintained by Peters Digital and is primarily implemented with AI assistance. Human review is required for merges.
 
-Current phase: foundational implementation and documentation. Prefer small, reviewable increments.
-
 ## Branch strategy (dev-first)
 
 Default branch flow:
@@ -71,8 +69,8 @@ We use **Semantic Versioning (SemVer)**:
 The `.version` file tracks version state for CD workflows:
 
 ```
-CURRENT_STABLE_RELEASE_VERSION=0.2.1
-NEXT_PLANNED_VERSION=0.2.2
+CURRENT_STABLE_RELEASE_VERSION=0.2.2
+NEXT_PLANNED_VERSION=0.2.3
 ```
 
 - **`CURRENT_STABLE_RELEASE_VERSION`**: The latest stable release available to users. Used by workflows as the `from-ref` for `git log` changelog generation.
@@ -81,10 +79,10 @@ NEXT_PLANNED_VERSION=0.2.2
 **Version resolution logic:**
 1. Workflows read `pubspec.yaml` first.
 2. Check if `v{version}` exists as a git tag.
-3. If tag **doesn't** exist → use pubspec version (e.g., `0.2.2` with no `v0.2.2` tag → `v0.2.2-beta.1`).
+3. If tag **doesn't** exist → use pubspec version (e.g., `0.2.3` with no `v0.2.3` tag → `v0.2.3-beta.1`).
 4. If tag **exists** → fall back to `NEXT_PLANNED_VERSION` from `.version`.
 
-This means once `v0.2.2` is tagged and pushed, subsequent beta/RC pushes will automatically target `0.2.3` (from `.version`).
+This means once `v0.2.3` is tagged and pushed, subsequent beta/RC pushes will automatically target `0.2.4` (from `.version`).
 
 **When to update:**
 - Update `NEXT_PLANNED_VERSION` **before** starting work on the next version (e.g., when branching for v0.3.0 development).
@@ -230,7 +228,7 @@ Examples:
 
 ## CI/CD Infrastructure
 
-The repository uses modular GitHub Actions workflows and reusable composite actions. See [`.github/README.md`](.github/README.md) for complete documentation.
+The repository uses modular GitHub Actions workflows and reusable composite actions. See [`.github/CI_CD_README.md`](.github/CI_CD_README.md) for complete documentation.
 
 ### Workflow Types
 
@@ -311,8 +309,8 @@ See [`.github/CI_CD_README.md`](.github/CI_CD_README.md) for full details.
 Releases are triggered by pushing **signed SemVer tags**:
 
 ```bash
-git tag -s v0.2.1 -m "Release v0.2.1"
-git push origin v0.2.1
+git tag -s v0.2.2 -m "Release v0.2.2"
+git push origin v0.2.2
 ```
 
 1. Update `.version` — set `CURRENT_STABLE_RELEASE_VERSION` to the new version.
@@ -350,13 +348,13 @@ Use `gh` in terminal to create and manage PRs quickly.
 
 ```bash
 # 1. Check out and push branch
-git checkout feat-android-midi-v0.2.1
-git push -u origin feat-android-midi-v0.2.1
+git checkout feat-android-midi-v0.2.2
+git push -u origin feat-android-midi-v0.2.2
 
 # 2. Create draft PR
-gh pr create --base dev --head feat-android-midi-v0.2.1 \
-  --title "feat(midi): v0.2.1 milestone overhaul" \
-  --body "Canonical 32-bit MidiEvent model, ControlState separation, MidiPortBackend abstraction" \
+gh pr create --base dev --head feat-android-midi-v0.2.2 \
+  --title "feat(midi): v0.2.2 native UMP migration" \
+  --body "Core UMP transport layer implementation, MidiParser extraction, and performance batching" \
   --draft --assignee dencelkbabu --reviewer dencelkbabu \
   --label "draft,needs review"
 
@@ -414,19 +412,6 @@ Prefer explicit state tracking over implicit logic:
 - Avoid side effects in dedup checks; separate concerns into dedicated methods
 
 ### Hardware-in-the-Loop (HITL) Testing
-For v0.2.0+, developers should validate the native Kotlin transport layer using `adb` and external MIDI tools:
-
-1. **Native Log Monitoring:**
-   ```bash
-   # Filter for MIDI dispatcher and USB handshake events
-   adb logcat | grep -i "openmidicontrol\|PeripheralMidi\|MidiDispatcher"
-   ```
-
-2. **Stimulating Inbound MIDI:**
-   Use [Windows MIDI Services](https://microsoft.github.io/MIDI/tools/) to send raw bytes to the Android Peripheral:
-   ```bash
-   # Send Channel 1, CC 1 (Mod Wheel), Value 64
-   midi endpoint send-message 0x20B00140
-   ```
+For v0.2.0+, developers should validate the native Kotlin transport layer using `adb` and external MIDI tools. See [TESTING.md](TESTING.md) for full instructions on Hardware Monitoring (HITL) testing.
 
 See `ARCHITECTURE.md` for the defensive architecture overview and `USERGUIDE.md` for end-user validation steps.

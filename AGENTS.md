@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.2.2 – Native UMP Backend Migration**. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.2.3 – Core Routing Engine (UMP DAG)**. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ## Project Structure
 
@@ -90,6 +90,9 @@ flutter test
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
 - **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`. 
   - Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
+- **Monotonic Clocks for Timing:** Use `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for all MIDI throttling and rate-limiting logic. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle guarantees.
+- **Lazy-Init State Updates:** When batching multiple state changes (e.g., `updateMultipleCCs`), use lazy `Map` initialization with single-pass iteration — only allocate new state when the first actual change is detected. Avoid double-pass patterns (check-then-copy).
+- **Disposal Guards:** Notifiers using `scheduleFrameCallback` or similar async callbacks must check a `_disposed` flag before writing state. Always reset pending flags in `onDispose` to prevent stale state on re-mount.
 - **Versioning:** SemVer (`MAJOR.MINOR.PATCH`). See `.version` file for CD workflow tracking.
   - Workflows read `pubspec.yaml` first, then check if `v{version}` exists as a git tag. If the tag exists, fall back to `.version`'s `NEXT_PLANNED_VERSION`.
   - When bumping `app/pubspec.yaml` version, **always update `.version`** to match.
@@ -107,13 +110,11 @@ flutter test
 
 ## Testing Instructions
 
-- **Widget tests** for all UI components (`app/test/`).
-- **Unit tests** for domain logic (`MidiEvent`, `ControlState`).
-- **HITL (Hardware-in-the-Loop)** for native layer — requires a physical MIDI device.
-- Use `addTearDown` in tests to prevent state bleeding between cases.
-- Run `flutter analyze` and `flutter test` before every commit.
+### Automated Test Suite (v0.2.2+)
+The v0.2.2 release includes a comprehensive test suite with 10+ test files covering native layer, models, state, UI components, and integration tests. \
+See [TESTING.md](TESTING.md) for complete documentation and commands for all dart and native tests.
 
-### USB Peripheral Mode Validation
+### Manual Testing
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Confirm "USB PERIPHERAL MODE ACTIVE" green banner.
 3. Select "OpenMIDIControl" as MIDI Input/Output in DAW.
