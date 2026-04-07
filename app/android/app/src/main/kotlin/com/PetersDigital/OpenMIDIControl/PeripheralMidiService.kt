@@ -32,8 +32,8 @@ class PeripheralMidiService : MidiDeviceService() {
                 if (msg == null || count == 0) return
 
                 // Forward incoming MIDI from Host DAW (PC/Mac) to our Flutter App via USB
-                // Legacy filtering (Active Sensing, Timing Clock) has been moved to MainActivity
-                // to support batched UMP reconstruction and filtering natively.
+                // Legacy filtering (Active Sensing, Timing Clock) now happens in
+                // MidiParser.processMidiPayload(), invoked by MainActivity.handleIncomingVirtualMidi()
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
