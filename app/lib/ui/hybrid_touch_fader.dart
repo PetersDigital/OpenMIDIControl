@@ -50,6 +50,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   late int _ccNumber;
   late String _ccLabel;
 
+  // Monotonic clock for reliable MIDI throttling (immune to system clock changes)
+  late final Stopwatch _throttleStopwatch;
+
   // Track if user is actively dragging to prevent external MIDI echo feedback
   bool _isDragging = false;
 
@@ -65,6 +68,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   @override
   void initState() {
     super.initState();
+    _throttleStopwatch = Stopwatch()..start();
     _animationController = AnimationController(
       vsync: this,
       value: widget.initialValue.clamp(0.0, 1.0),
@@ -161,7 +165,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _sendMidiUpdateThrottled() {
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final nowMs = _throttleStopwatch.elapsedMilliseconds;
     if (nowMs - _lastMidiUpdateTimeMs < _midiUpdateThrottleMs) {
       return; // Throttle to prevent MIDI flooding
     }
