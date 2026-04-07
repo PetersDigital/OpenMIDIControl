@@ -23,6 +23,17 @@ updates:
     commit-message:
       prefix: "ci(actions)"
 
+  # Monitor NPM dependencies (commitlint, husky)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Kolkata"
+    commit-message:
+      prefix: "chore(npm)"
+
   # Monitor Flutter/Dart dependencies
   - package-ecosystem: "pub"
     directory: "/app"
