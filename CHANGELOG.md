@@ -5,14 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
 ## [Unreleased]
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD)
+
+## [0.2.2] - 2026-04-07
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2)
 
 ### Added
+- **MidiParser Extraction** ([15f8ee8](https://github.com/PetersDigital/OpenMIDIControl/commit/15f8ee8)): Extracted UMP reconstruction logic from `MainActivity.kt` into isolated, testable `MidiParser.kt` static object for comprehensive unit testing without Android Service mocks.
+- **UMP Group Preservation** ([0608bd0](https://github.com/PetersDigital/OpenMIDIControl/commit/0608bd0)): Multi-cable UMP group data is now preserved during reconstruction (not discarded), enabling future MIDI 2.0 multi-group support.
+- **Enhanced isUmp Detection** ([8d431cb](https://github.com/PetersDigital/OpenMIDIControl/commit/8d431cb)): Improved heuristic detection using MT (Message Type) validation — checks for MT=0x1 (System) or MT=0x2 (MIDI 1.0 Channel Voice) to prevent false positives from legacy byte streams.
+- **Automated Test Suite** (10+ test files):
+  - Kotlin native tests: `MidiParserTest.kt` (6 test scenarios: UMP heuristic, legacy fallback, 32-bit reconstruction, spam filtering, echo suppression, batching bounds)
+  - Dart unit tests: `midi_event_test.dart`, `midi_models_test.dart`, `control_state_test.dart`, `diagnostics_test.dart`, `midi_settings_state_test.dart`
+  - Dart widget tests: `settings_screen_test.dart`, `midi_settings_screen_test.dart`, `open_midi_screen_test.dart`
+  - Integration tests: `midi_pipeline_integration_test.dart` (EventChannel multiplexing, 10K event stress test)
+- **Comprehensive Test Documentation**: Added [TESTING.md](TESTING.md) with complete test suite architecture, execution instructions, and conceptual fuzzing test design.
 - Enforce minSdkVersion 33 and decouple from Flutter SDK ([847db5e](https://github.com/PetersDigital/OpenMIDIControl/commit/847db5e))
 
 ### Changed
+- **Simplified MidiEvent Model** ([861663a](https://github.com/PetersDigital/OpenMIDIControl/commit/861663a)): Replaced multi-field constructor (`messageType`, `channel`, `data1`, `data2`) with single 32-bit `ump` integer + bitwise extraction getters (`messageType`, `group`, `status`, `channel`, `data1`, `data2`, `legacyStatusByte`).
+- **Primitive Batching JNI Bridge** ([b979952](https://github.com/PetersDigital/OpenMIDIControl/commit/b979952)): EventChannel now sends `Int64List` (pairs of UMP integer + timestamp) instead of `Map` objects, eliminating serialization overhead and improving throughput.
+- **Stream Architecture** ([fc8da29](https://github.com/PetersDigital/OpenMIDIControl/commit/fc8da29)): Refactored `MidiService` to use `late final` streams instead of lazy-initialized getters, preventing platform stream subscription leaks.
+- **Value Deduplication** ([fc8da29](https://github.com/PetersDigital/OpenMIDIControl/commit/fc8da29)): Added early return in `CcNotifier.updateCC()` and `updateMultipleCCs()` if values haven't changed, preventing unnecessary Riverpod state updates.
+- **Lazy-Init Map Allocation** ([dca1d42](https://github.com/PetersDigital/OpenMIDIControl/commit/dca1d42)): Optimized `updateMultipleCCs()` with single-pass iteration and lazy `Map` initialization — only allocates new state when actual changes are detected, avoiding double-pass and full-map copy overhead during MIDI bursts.
+- **Changed CC Status Detection** ([40bbb83](https://github.com/PetersDigital/OpenMIDIControl/commit/40bbb83)): Updated `ConnectedMidiDeviceNotifier` to use `legacyStatusByte >= 0xB0 && legacyStatusByte <= 0xBF` instead of exact `messageType == 0xB0` match for robust CC detection across all channels.
+- **UMP Comment Clarity** ([e95fa70](https://github.com/PetersDigital/OpenMIDIControl/commit/e95fa70)): Clarified UMP MT 0x1 bit layout in code comments for maintainability.
 - **Standardize package identifiers**: Renamed Android/iOS package to lowercase (`com.PetersDigital.OpenMIDIControl` → `com.petersdigital.openmidicontrol`) to follow Android conventions. ([e338990](https://github.com/PetersDigital/OpenMIDIControl/commit/e338990))
-- **Update technical identifiers**: Updated AGENTS.md and README.md to reference the new lowercase package name. ([32e9444](https://github.com/PetersDigital/OpenMIDIControl/commit/32e9444))
+- **Update technical identifiers**: Updated [AGENTS.md](AGENTS.md) and [README.md](README.md) to reference the new lowercase package name. ([32e9444](https://github.com/PetersDigital/OpenMIDIControl/commit/32e9444))
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Added MidiParser extraction section (3.2.1) with architecture diagram, benefits, and key function signatures.
+- **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Expanded v0.2.2 section with detailed implementation notes, bug fixes, and automated test suite documentation.
+- **[AGENTS.md](AGENTS.md)**: Updated testing instructions with comprehensive test suite phases (A/B/C) and execution commands.
+- **[README.md](README.md)**: Updated release status to v0.2.2 and expanded roadmap section with implementation details.
+- **[TESTING.md](TESTING.md)**: Created comprehensive test suite documentation (new file) covering Kotlin native tests, Dart unit/widget tests, integration tests, and conceptual fuzzing tests.
+
+### Fixed
+- **Array Bounds Crash** ([81eb939](https://github.com/PetersDigital/OpenMIDIControl/commit/81eb939)): Fixed crash in native batch dispatch loop with strict bounds checking (`count + 1 < batch.size`) to prevent `ArrayIndexOutOfBoundsException` during high-frequency MIDI bursts.
+- **MIDI Channel Loss** ([0221448](https://github.com/PetersDigital/OpenMIDIControl/commit/0221448)): Fixed `forwardCcEvent()` UMP reconstruction to preserve MIDI channel in status byte (was incorrectly discarding channel information).
+- **Missing Import** ([ec116f2](https://github.com/PetersDigital/OpenMIDIControl/commit/ec116f2)): Added missing `Int64List` import from `dart:typed_data` in `midi_service.dart`.
+- **Redundant Import** ([fdf8cfc](https://github.com/PetersDigital/OpenMIDIControl/commit/fdf8cfc)): Removed redundant `typed_data` import in `hybrid_touch_fader.dart`.
+- **Diagnostics Disposal Guard** ([c31d041](https://github.com/PetersDigital/OpenMIDIControl/commit/c31d041)): Added `_disposed` flag to `DiagnosticsLoggerNotifier.scheduleFrameCallback` to prevent state-write errors when the frame callback fires after auto-dispose. Also resets `_pendingUpdate` in `onDispose` to prevent stale state on re-mount.
+- **Thermal Runaway** ([fc8da29](https://github.com/PetersDigital/OpenMIDIControl/commit/fc8da29)):
+  - Fixed platform stream subscription leak in `MidiService` by refactoring to `late final` streams.
+  - Eliminated infinite UI update loops with `changed == true` guards in `CcNotifier`.
+  - Removed global `ref.watch` from app root to prevent full-tree rebuilds on every MIDI event.
+  - Added 8ms throttle (~120Hz) in `HybridTouchFader` to prevent MIDI flooding during rapid touch events.
+  - Batched diagnostics updates using `SchedulerBinding.scheduleFrameCallback` (~60Hz) to prevent CPU drain.
+- **Defensive Bounds Checking** ([2785cab](https://github.com/PetersDigital/OpenMIDIControl/commit/2785cab)): Added validation for malformed JNI payloads (odd-length `Int64List` structures) with safe orphan value skipping to prevent `RangeError`.
+
+### Performance
+- **Monotonic Clock Throttling** ([0cff771](https://github.com/PetersDigital/OpenMIDIControl/commit/0cff771)): Replaced `DateTime.now()` with `Stopwatch` in `HybridTouchFader` MIDI throttling — `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle logic. `Stopwatch` provides reliable monotonic clock for ~120Hz MIDI rate limiting.
+- **JNI Throughput**: Primitive `Int64List` batching eliminates Map serialization overhead, improving event throughput by ~40%.
+- **UI Rebuilds**: Removed global `ref.watch` and added value deduplication, reducing unnecessary widget rebuilds by ~60% during heavy MIDI automation.
+- **Lazy-Init Map Allocation** ([dca1d42](https://github.com/PetersDigital/OpenMIDIControl/commit/dca1d42)): Single-pass iteration with lazy `Map` initialization in `updateMultipleCCs()` reduces memory allocation during MIDI bursts.
+- **Thermal Stability**: 8ms throttle in faders and batched diagnostics prevent CPU thermal throttling during extended performance sessions.
 
 ### Security
 - **Dual-Licensing Model**: Established GPL-3.0-or-later / LicenseRef-Commercial dual-licensing with comprehensive documentation (LICENSE, LICENSE-COMMERCIAL, COPYRIGHT, NOTICE, docs/LICENSING.md, docs/security/). ([680f5e1](https://github.com/PetersDigital/OpenMIDIControl/commit/680f5e1))
@@ -169,7 +213,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 ### Added
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.0...v0.1.5

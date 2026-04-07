@@ -38,9 +38,44 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **SDK Exclusivity**: Enforced `minSdkVersion = 33` to provide native foundation for MIDI 2.0 and UMP (SHA `97e002e`).
 
 ### ⏳ Current Focus: v0.2.2 – Native UMP Backend Migration
-- **MidiUmpDeviceService**: Migrate `VirtualMidiService` and `PeripheralMidiService` to extend `MidiUmpDeviceService` (API 33+).
-- **SDK Constraint Handling**: Revert backend abstractions to legacy `MidiDevice` and `MidiPort` classes to satisfy compiler visibility, while guaranteeing UMP traffic via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
-- **Manual 32-bit Reconstruction**: Require `MidiReceiver` to iterate through `byte[]` in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts with strict defensive bounds checks (`offset >= 0`, `count % 4 == 0`).
+
+**Core UMP Transport Implementation:**
+- **MidiParser Extraction** (`15f8ee8`): Extracted UMP reconstruction logic from `MainActivity.kt` into isolated, testable `MidiParser.kt` static object for comprehensive unit testing without Android Service mocks.
+- **MidiDeviceService with UMP Transport**: `VirtualMidiService` and `PeripheralMidiService` extend Android's `MidiDeviceService` (API 33+) with UMP transport enforced via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag for system-level virtual routing.
+- **SDK Constraint Handling**: Client ports use legacy `MidiDevice` and `MidiPort` classes to satisfy compiler visibility, while guaranteeing UMP traffic via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag.
+- **Manual 32-bit Reconstruction**: `MidiReceiver.onSend()` iterates through `byte[]` in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts with strict defensive bounds checks (`offset >= 0`, `count % 4 == 0`, `offset + count <= msg.size`).
+- **UMP Group Preservation** (`0608bd0`): Multi-cable UMP group data is preserved during reconstruction (not discarded), enabling future MIDI 2.0 multi-group support.
+- **Enhanced isUmp Detection** (`8d431cb`): Improved heuristic detection using MT (Message Type) validation — checks for MT=0x1 (System) or MT=0x2 (MIDI 1.0 Channel Voice) to prevent false positives from legacy byte streams.
+
+**Dart Layer UMP Integration:**
+- **Simplified MidiEvent Model** (`861663a`): Replaced multi-field constructor with single 32-bit `ump` integer + bitwise extraction getters (`messageType`, `group`, `status`, `channel`, `data1`, `data2`, `legacyStatusByte`).
+- **Primitive Batching JNI Bridge** (`b979952`): EventChannel now sends `Int64List` (pairs of UMP integer + timestamp) instead of Map objects, eliminating serialization overhead and improving throughput.
+- **Stream Leak Prevention** (`fc8da29`): Refactored `MidiService` to use `late final` streams, preventing platform stream subscription leaks and infinite UI update loops.
+- **Defensive Bounds Checking** (`2785cab`): Added validation for malformed JNI payloads (odd-length `Int64List` structures) with safe orphan value skipping.
+
+**Thermal & Performance Stabilization:**
+- **Stream Subscription Leak Fix** (`fc8da29`): Fixed platform stream subscription leak in `MidiService` by refactoring to `late final` streams.
+- **Infinite Update Loop Prevention** (`fc8da29`): Eliminated with `changed == true` guards in `CcNotifier` — early return if values haven't changed.
+- **Root Cause Removal** (`fc8da29`): Removed global `ref.watch` from app root to prevent full-tree rebuilds on every MIDI event.
+- **MIDI Flood Throttling** (`fc8da29`): Added 8ms throttle (~120Hz) in `HybridTouchFader` to prevent MIDI flooding during rapid touch events.
+- **Batched Diagnostics** (`fc8da29`): Updates use `SchedulerBinding.scheduleFrameCallback` (~60Hz) to prevent CPU drain from excessive logging.
+- **Monotonic Clock Throttling** (`0cff771`): Replaced `DateTime.now()` with `Stopwatch.elapsedMilliseconds` in `HybridTouchFader` MIDI throttling. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle logic. `Stopwatch` provides reliable monotonic clock for ~120Hz MIDI rate limiting.
+- **Lazy-Init Map Allocation** (`dca1d42`): Optimized `CcNotifier.updateMultipleCCs()` with single-pass iteration and lazy `Map` initialization — only allocates new state when actual changes are detected, avoiding double-pass and full-map copy overhead during MIDI bursts.
+- **Diagnostics Disposal Guard** (`c31d041`): Added `_disposed` flag to `DiagnosticsLoggerNotifier.scheduleFrameCallback` to prevent state-write errors when the frame callback fires after auto-dispose. Also resets `_pendingUpdate` in `onDispose` to prevent stale state on re-mount.
+
+**Automated Test Suite:**
+- **Kotlin Native Tests** (`MidiParserTest.kt`): 6 test scenarios covering UMP heuristic validation, legacy fallback, 32-bit reconstruction, spam filtering, echo suppression, and batching loop bounds.
+- **Dart Unit Tests** (8 test files): Comprehensive coverage of MidiEvent bitwise extraction, ControlState immutability, CcNotifier batch updates, and malformed payload handling.
+- **Widget Tests** (4 test files): Settings screens, MIDI settings, diagnostics console, main screen layout, and fader behaviors.
+- **Integration Tests** (`midi_pipeline_integration_test.dart`): EventChannel multiplexing with interleaved `Int64List`/`Map` payloads, and 10,000-event high-frequency stress test.
+
+**Bug Fixes:**
+- **Array Bounds Crash** (`81eb939`): Fixed crash in native batch dispatch loop with strict bounds checking (`count + 1 < batch.size`).
+- **MIDI Channel Loss** (`0221448`): Fixed `forwardCcEvent()` UMP reconstruction to preserve MIDI channel in status byte.
+- **Missing Import** (`ec116f2`): Added missing `Int64List` import in `midi_service.dart`.
+- **Redundant Import** (`fdf8cfc`): Removed redundant `typed_data` import in `hybrid_touch_fader.dart`.
+- **UMP Comment Clarity** (`e95fa70`): Clarified UMP MT 0x1 bit layout in code comments for maintainability.
+- **MidiParser Comment Fix** (`2b6a4fc`): Fixed legacy filtering comments in `VirtualMidiService.kt` and `PeripheralMidiService.kt` to correctly reference `MidiParser.processMidiPayload()` instead of incorrectly stating filtering moved to `MainActivity`.
 
 ### ⏳ v0.2.3 – Core Routing Engine (DAG)
 - **MidiRouter Graph**: Centralized routing graph using canonical payloads.
