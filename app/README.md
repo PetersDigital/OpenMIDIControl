@@ -1,48 +1,65 @@
 ![Release](https://img.shields.io/github/v/release/PetersDigital/OpenMIDIControl?style=for-the-badge&color=blue)
 
-This folder contains the Flutter-based UI for OpenMIDIControl.
+This folder contains the Flutter application source. See the [root README](../README.md) for project overview, architecture, and getting started.
 
-## Overview
+## Quick Reference
 
-- Fully responsive command center + performance layout (portrait mobile and landscape desktop), built on Material 3 with a dark obsidian palette.
-- Dual `HybridTouchFader` widgets drive the expressive controls, featuring DSEG7 readouts, long-press CC selection, and multi-touch capture with normalized `0.0..1.0` state values.
-- Settings + MIDI Settings screens handle behavior/layout toggles and discrete MIDI port selection, communicating with the Kotlin bridge via optimized platform channels.
+**Dependencies:**
+```bash
+flutter pub get
+```
 
-## Features
+**Run:**
+```bash
+flutter run -d <device>
+```
 
-1. **Command Center**: Status row (tempo, timecode, track), 3×3 transport grid, and responsive layout ordering that reflows between mobile/desktop and honors the layout-hand toggle.
-2. **Performance zone**: Two color-coded faders with hybrid/absolute behaviors, tuned gutters, and glassy, LED-inspired readouts.
-3. **Settings screens**: `Settings` controls Jump/Hybrid/Catch-Up modes, layout hand preference, and displays the current version/build metadata. `MIDI Settings` provides discrete port selection, active-port highlighting, and metadata-based device persistence.
-4. **State management**: Riverpod-driven providers keep layout and behavior state decoupled from the UI. Platform channels (MethodChannel/EventChannel) bind this intent stream to the native Android MIDI service.
+**Build:**
+```bash
+flutter build apk --release        # Android
+flutter build windows --release    # Windows
+```
 
-## Getting Started
+**Test:**
+```bash
+flutter test                        # All tests
+flutter test test/midi_event_test.dart          # Core models
+flutter test test/control_state_test.dart       # State management
+flutter test test/open_midi_screen_test.dart    # Main screen & faders
+flutter test test/midi_pipeline_integration_test.dart # Integration (10K stress)
+```
 
-1. Install Flutter 3.11.0 or later and target Android 10+ (API 29) devices or Windows/macOS desktops.
-2. From within this directory, run `flutter pub get` to pull `flutter_riverpod`, `google_fonts`, and other dependencies.
-3. Use `flutter run -d <device>` (e.g., `flutter run -d emulator-5554` or a Windows target) to start the UI.
-4. Interact with the settings (`⋯`) and MIDI settings (USB badge) icons in the top bar to configure MIDI ports and layout preferences.
-5. Long-press a fader label to bring up the CC picker and reassign CC numbers on the fly.
-
-## Building
-
-- `flutter build apk --release` to produce an Android APK.
-- `flutter build macos` / `flutter build windows` for desktop prototypes (adjust accordingly for Linux if supported).
-- Pass `--dart-define` flags when wiring native MIDI identifiers once the Kotlin bridge is in place.
-
-## Testing
-
-- `flutter test` runs the widget regression suite (the default `widget_test.dart` emulates a 1080×2400 viewport used by CI).
+See [TESTING.md](../TESTING.md) for complete test suite documentation.
 
 ## Project Structure
 
-- `lib/main.dart`: Entry point; wraps the UI in a `ProviderScope` and sets the Material 3 theme.
-- `lib/ui/open_midi_screen.dart`: Contains the responsive mobile/desktop command center and imports the `HybridTouchFader` widgets.
-- `lib/ui/hybrid_touch_fader.dart`: Custom slider with absolute/relative behaviors, DSEG7 readouts, and the CC picker long-press menu.
-- `lib/ui/settings_screen.dart`: Fader behavior + layout toggles plus version metadata.
-- `lib/ui/midi_settings_screen.dart`: Functional interface for MIDI device discovery, port selection, and activity monitoring.
+```
+lib/
+├── main.dart                          # Entry point, ProviderScope, M3 theme
+├── core/
+│   └── models/
+│       ├── midi_event.dart            # Immutable 32-bit UMP event model
+│       └── control_state.dart         # Riverpod state with immutability
+└── ui/
+    ├── open_midi_screen.dart          # Responsive command center layout
+    ├── hybrid_touch_fader.dart        # Fader with Jump/Hybrid/Catch-up
+    ├── midi_service.dart              # EventChannel batching & state distribution
+    ├── settings_screen.dart           # Behavior toggles, version metadata
+    ├── midi_settings_screen.dart      # Port selection, USB status
+    └── diagnostics/                   # Real-time MIDI event logger
+```
+
+## Key Changes in v0.2.2
+
+- **MidiEvent Model**: Simplified to single 32-bit `ump` integer with bitwise extraction getters
+- **EventChannel Batching**: Uses `Int64List` (UMP + timestamp pairs) instead of `Map` objects for ~40% throughput improvement
+- **Stream Architecture**: `late final` streams prevent subscription leaks
+- **Thermal Stability**: Value deduplication, 8ms fader throttle, batched diagnostics
 
 ## References
 
-- Design intent: [DESIGN.md](../DESIGN.md)
-- Implementation roadmap: [IMPLEMENTATION.md](../IMPLEMENTATION.md)
-- Change history: [CHANGELOG.md](../CHANGELOG.md)
+- Design: [DESIGN.md](../DESIGN.md)
+- Architecture: [ARCHITECTURE.md](../ARCHITECTURE.md)
+- Roadmap: [IMPLEMENTATION.md](../IMPLEMENTATION.md)
+- Changelog: [CHANGELOG.md](../CHANGELOG.md)
+- Testing: [TESTING.md](../TESTING.md)
