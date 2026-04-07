@@ -79,7 +79,8 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    if: github.actor != 'dependabot[bot]'
+    needs: [check-build-markers]
+    if: github.actor != 'dependabot[bot]' && needs.check-build-markers.outputs.should_build == 'true'
     defaults:
       run:
         working-directory: app
@@ -156,100 +157,8 @@ jobs:
               git log -n 10 --pretty=format:"%s")
           fi
 
-          # Group commits by type and scope (Conventional Commits format: type(scope): description)
-          CHANGELOG=$(echo "$RAW_COMMITS" | awk '
-          BEGIN {
-            split("", features)
-            split("", fixes)
-            split("", refactors)
-            split("", docs)
-            split("", tests_arr)
-            split("", ci_arr)
-            split("", chores)
-            split("", others)
-            fc=0; fxc=0; rc=0; dc=0; tc=0; cc=0; chrc=0; oc=0
-          }
-          {
-            if (match($0, /^feat(\([^)]*\))?: (.+)$/, arr)) {
-              features[++fc] = arr[2]
-              feat_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", feat_scope)
-              feat_scopes[fc] = feat_scope
-            } else if (match($0, /^fix(\([^)]*\))?: (.+)$/, arr)) {
-              fixes[++fxc] = arr[2]
-              fix_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", fix_scope)
-              fix_scopes[fxc] = fix_scope
-            } else if (match($0, /^refactor(\([^)]*\))?: (.+)$/, arr)) {
-              refactors[++rc] = arr[2]
-              ref_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", ref_scope)
-              ref_scopes[rc] = ref_scope
-            } else if (match($0, /^docs(\([^)]*\))?: (.+)$/, arr)) {
-              docs[++dc] = arr[2]
-              doc_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", doc_scope)
-              doc_scopes[dc] = doc_scope
-            } else if (match($0, /^test(\([^)]*\))?: (.+)$/, arr)) {
-              tests_arr[++tc] = arr[2]
-              test_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", test_scope)
-              test_scopes[tc] = test_scope
-            } else if (match($0, /^ci(\([^)]*\))?: (.+)$/, arr)) {
-              ci_arr[++cc] = arr[2]
-              ci_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", ci_scope)
-              ci_scopes[cc] = ci_scope
-            } else if (match($0, /^chore(\([^)]*\))?: (.+)$/, arr)) {
-              chores[++chrc] = arr[2]
-              chore_scope = (arr[1] != "") ? arr[1] : "core"
-              gsub(/[()]/, "", chore_scope)
-              chore_scopes[chrc] = chore_scope
-            } else {
-              others[++oc] = $0
-            }
-          }
-          END {
-            if (fc > 0) {
-              print "**Features:**"
-              for (i=1; i<=fc; i++) printf "  feat%s: %s\n", (feat_scopes[i] != "core" ? "("feat_scopes[i]")" : ""), features[i]
-              print ""
-            }
-            if (fxc > 0) {
-              print "**Fixes:**"
-              for (i=1; i<=fxc; i++) printf "  fix%s: %s\n", (fix_scopes[i] != "core" ? "("fix_scopes[i]")" : ""), fixes[i]
-              print ""
-            }
-            if (rc > 0) {
-              print "**Refactors:**"
-              for (i=1; i<=rc; i++) printf "  refactor%s: %s\n", (ref_scopes[i] != "core" ? "("ref_scopes[i]")" : ""), refactors[i]
-              print ""
-            }
-            if (dc > 0) {
-              print "**Docs:**"
-              for (i=1; i<=dc; i++) printf "  docs%s: %s\n", (doc_scopes[i] != "core" ? "("doc_scopes[i]")" : ""), docs[i]
-              print ""
-            }
-            if (tc > 0) {
-              print "**Tests:**"
-              for (i=1; i<=tc; i++) printf "  test%s: %s\n", (test_scopes[i] != "core" ? "("test_scopes[i]")" : ""), tests_arr[i]
-              print ""
-            }
-            if (cc > 0) {
-              print "**CI/CD:**"
-              for (i=1; i<=cc; i++) printf "  ci%s: %s\n", (ci_scopes[i] != "core" ? "("ci_scopes[i]")" : ""), ci_arr[i]
-              print ""
-            }
-            if (chrc > 0) {
-              print "**Chores:**"
-              for (i=1; i<=chrc; i++) printf "  chore%s: %s\n", (chore_scopes[i] != "core" ? "("chore_scopes[i]")" : ""), chores[i]
-              print ""
-            }
-            if (oc > 0) {
-              print "**Other:**"
-              for (i=1; i<=oc; i++) printf "  - %s\n", others[i]
-            }
-          }' 2>/dev/null || echo "$RAW_COMMITS" | awk '{print "- " $0}')
+          # Generate simple changelog for Telegram notification
+          CHANGELOG=$(echo "$RAW_COMMITS" | awk '{print "- " $0}')
 
           # Provide absolute path for downstream reliability
           {

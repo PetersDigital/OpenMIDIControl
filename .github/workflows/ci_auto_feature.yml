@@ -33,10 +33,6 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
-    strategy:
-      matrix:
-        flutter-version: ['3.41.0', '3.41.6']
-      fail-fast: false
     defaults:
       run:
         working-directory: app
@@ -52,4 +48,3 @@ jobs:
         uses: ./.github/actions/flutter-ci-core
         with:
           working-directory: app
-          flutter-version: ${{ matrix.flutter-version }}
