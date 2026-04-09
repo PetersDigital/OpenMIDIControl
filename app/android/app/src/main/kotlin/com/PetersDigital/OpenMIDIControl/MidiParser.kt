@@ -110,11 +110,6 @@ object MidiParser {
         lastSentTime: Map<Int, Long>,
         isDebug: Boolean
     ) {
-        if (isDebug) {
-            val typeStr = if (isVirtual) " (VIRTUAL)" else ""
-            println("MIDI IN$typeStr: CC $ccNumber Value: $ccValue Ch: ${(status and 0x0F) + 1}")
-        }
-
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
             val lastTime = lastSentTime[ccNumber] ?: 0L
