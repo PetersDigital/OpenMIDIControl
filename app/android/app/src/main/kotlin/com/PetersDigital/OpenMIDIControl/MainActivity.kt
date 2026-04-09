@@ -75,12 +75,8 @@ class MainActivity : FlutterActivity() {
 
                 if (isMidiConnected) {
                     lastUsbStateIsConnected = true
-                    if (currentUsbMode == "peripheral") {
-                        connectToUsbPeripheral()
-                    }
                 } else if (!connected) {
                     lastUsbStateIsConnected = false
-                    disconnectUsbPeripheral()
                     val event = mapOf(
                         "type" to "usb_state",
                         "state" to "DISCONNECTED"
@@ -126,74 +122,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun connectToUsbPeripheral() {
-        val devices = getAvailableMidiDevices()
-
-        val peripheralInfo = devices?.find { isUsbPeripheral(it) }
-
-        if (peripheralInfo != null) {
-            midiManager?.openDevice(peripheralInfo, { device ->
-                if (device != null) {
-                    var inputPort: MidiInputPort? = null
-                    var outputPort: MidiOutputPort? = null
-
-                    try {
-                        if (device.info.inputPortCount > 0) {
-                            inputPort = device.openInputPort(0)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("OpenMIDIControl", "Failed to open peripheral input port: ${e.message}")
-                    }
-
-                    try {
-                        if (device.info.outputPortCount > 0) {
-                            outputPort = device.openOutputPort(0)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("OpenMIDIControl", "Failed to open peripheral output port: ${e.message}")
-                    }
-
-                    if (inputPort != null && outputPort != null) {
-                        peripheralMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort)
-                        setupPeripheralMidiReceiver()
-
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "AVAILABLE"
-                        )
-                        Handler(Looper.getMainLooper()).post {
-                            eventSink?.success(event)
-                        }
-                        android.util.Log.d("OpenMIDIControl", "Connected to USB Peripheral Port natively")
-                    } else {
-                         // Failed to fully open ports, rollback
-                         inputPort?.close()
-                         outputPort?.close()
-                         device.close()
-                         disconnectUsbPeripheral()
-                    }
-                } else {
-                     android.util.Log.e("OpenMIDIControl", "Failed to open USB Peripheral device")
-                }
-            }, Handler(Looper.getMainLooper()))
-        } else {
-            android.util.Log.w("OpenMIDIControl", "No USB Peripheral device found")
-        }
-    }
-
-
-    private fun disconnectUsbPeripheral() {
-        peripheralMidiBackend?.close()
-        peripheralMidiBackend = null
-    }
-
-    private fun setupPeripheralMidiReceiver() {
-        peripheralMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            if (count < 3) return@startReceiving
-            handleIncomingVirtualMidi(msg, offset, count, timestamp)
-        }
-    }
-
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         activeInstance = this
@@ -223,12 +151,8 @@ class MainActivity : FlutterActivity() {
 
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
-                            if (currentUsbMode == "peripheral") {
-                                connectToUsbPeripheral()
-                            }
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
-                            disconnectUsbPeripheral()
                             val initEvent = mapOf(
                                 "type" to "usb_state",
                                 "state" to "DISCONNECTED"
@@ -252,12 +176,6 @@ class MainActivity : FlutterActivity() {
                     val mode = call.argument<String>("mode")
                     if (mode != null) {
                         currentUsbMode = mode
-                        if (currentUsbMode == "host") {
-                            disconnectUsbPeripheral()
-                        } else if (currentUsbMode == "peripheral" && lastUsbStateIsConnected) {
-                            // Turn on peripheral mode if plugged in
-                            connectToUsbPeripheral()
-                        }
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
@@ -312,18 +230,13 @@ class MainActivity : FlutterActivity() {
                             lastSentTime[cc] = nowNs
 
                             try {
-                                if (BuildConfig.DEBUG) {
-                                    android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
-                                }
                                 val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
                                 // Send to physically connected hardware (if any)
                                 hostMidiBackend?.send(msg, 0, msg.size, nowNs)
                                 // Send to virtual DAW out (e.g. FL Studio Mobile)
                                 VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
-                                // Send to Host PC/Mac via USB
-                                // We send directly to the actively opened physical hardware input port.
-                                // Do not use VirtualMidiService to attempt to reach the host PC.
-                                peripheralMidiBackend?.send(msg, 0, msg.size, nowNs)
+                                // Send to Host PC/Mac via USB explicitly using the bound service outputs
+                                PeripheralMidiService.activeInstance?.sendToHost(msg, 0, msg.size, nowNs)
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -592,7 +505,6 @@ class MainActivity : FlutterActivity() {
             unregisterReceiver(usbStateReceiver)
         } catch (e: Exception) { }
         disconnectDevice()
-        disconnectUsbPeripheral()
         activeInstance = null
         super.onDestroy()
     }
