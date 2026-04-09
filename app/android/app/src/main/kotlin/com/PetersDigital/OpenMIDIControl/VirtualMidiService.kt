@@ -31,9 +31,21 @@ class VirtualMidiService : MidiDeviceService() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
 
-                // Forward incoming MIDI from DAW (like FL Studio Mobile) to our Flutter App
-                // Legacy filtering (Active Sensing, Timing Clock) now happens in
-                // MidiParser.processMidiPayload(), invoked by MainActivity.handleIncomingVirtualMidi()
+                // Fast-reject real-time spam (legacy single-byte)
+                if (count == 1) {
+                    val status = msg[offset].toInt() and 0xFF
+                    if (status == 0xF8 || status == 0xFE) return
+                }
+
+                // Fast-reject UMP-wrapped real-time (MT=0x1)
+                if (count >= 4 && count % 4 == 0) {
+                    val mt = (msg[offset].toInt() ushr 4) and 0xF
+                    if (mt == 0x1) {
+                        val status = msg[offset + 1].toInt() and 0xFF
+                        if (status == 0xF8 || status == 0xFE) return
+                    }
+                }
+
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }
