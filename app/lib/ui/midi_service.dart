@@ -85,9 +85,7 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
-  late final Stream<dynamic> _rawStream = _eventsChannel
-      .receiveBroadcastStream()
-      .asBroadcastStream();
+  late final Stream<dynamic> _rawStream = _eventsChannel.receiveBroadcastStream();
 
   /// High-performance stream of parsed MIDI events.
   late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
@@ -108,8 +106,7 @@ class MidiService {
         }
 
         return parsedEvents;
-      })
-      .asBroadcastStream();
+      });
 
   /// System-level events (USB state, device additions, removals).
   late final Stream<Map<dynamic, dynamic>> systemEventsStream = _rawStream
@@ -118,8 +115,7 @@ class MidiService {
         final type = e['type'];
         return type == 'added' || type == 'removed' || type == 'usb_state';
       })
-      .cast<Map<dynamic, dynamic>>()
-      .asBroadcastStream();
+      .cast<Map<dynamic, dynamic>>();
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
@@ -262,6 +258,15 @@ class MidiConnectionState {
 }
 
 class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
+  Timer? _deviceRefreshTimer;
+
+  void _scheduleDeviceRefresh() {
+    _deviceRefreshTimer?.cancel();
+    _deviceRefreshTimer = Timer(const Duration(milliseconds: 300), () {
+      ref.invalidate(midiDevicesProvider);
+    });
+  }
+
   @override
   MidiConnectionState build() {
     final service = ref.watch(midiServiceProvider);
@@ -284,10 +289,10 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           service.vibrate(duration: 500);
         }
         // Refresh the available devices list
-        ref.invalidate(midiDevicesProvider);
+        _scheduleDeviceRefresh();
       } else if (type == 'added') {
         // Refresh device list on any new added event.
-        ref.invalidate(midiDevicesProvider);
+        _scheduleDeviceRefresh();
 
         // Check for auto-reconnect if we previously lost connection
         if (state.isConnectionLost) {
@@ -332,7 +337,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
             pattern: [0, 100, 100, 100],
             amplitude: [0, 255, 0, 255],
           );
-          ref.invalidate(midiDevicesProvider);
+          _scheduleDeviceRefresh();
         }
       }
     });
@@ -353,6 +358,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     });
 
     ref.onDispose(() {
+      _deviceRefreshTimer?.cancel();
       systemSub.cancel();
       midiSub.cancel();
     });
