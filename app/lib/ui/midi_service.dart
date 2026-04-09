@@ -85,7 +85,8 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
-  late final Stream<dynamic> _rawStream = _eventsChannel.receiveBroadcastStream();
+  late final Stream<dynamic> _rawStream = _eventsChannel
+      .receiveBroadcastStream();
 
   /// High-performance stream of parsed MIDI events.
   late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
