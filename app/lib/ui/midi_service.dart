@@ -165,15 +165,16 @@ class MidiService {
   }
 
   Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
-    try {
-      await _channel.invokeMethod('sendMidiCC', {
-        'cc': cc,
-        'value': value,
-        'isFinal': isFinal,
-      });
-    } catch (e) {
-      debugPrint('Failed to send CC $cc: $e');
-    }
+    // Fire-and-forget for performance — no need to await the platform result.
+    _channel
+        .invokeMethod('sendMidiCC', {
+          'cc': cc,
+          'value': value,
+          'isFinal': isFinal,
+        })
+        .catchError((e) {
+          debugPrint('Failed to send CC $cc: $e');
+        });
   }
 
   Future<void> setUsbMode(String mode) async {
