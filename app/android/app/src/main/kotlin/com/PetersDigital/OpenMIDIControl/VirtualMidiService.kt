@@ -31,7 +31,7 @@ class VirtualMidiService : MidiDeviceService() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
 
-                // Pre-filter DAWs that pack 0xF8/0xFE into arrays with valid CC data
+                // Skip messages that contain only timing clock (0xF8) or active sensing (0xFE)
                 var isSpamOnly = true
 
                 // Fast-reject UMP-wrapped real-time (MT=0x1)
