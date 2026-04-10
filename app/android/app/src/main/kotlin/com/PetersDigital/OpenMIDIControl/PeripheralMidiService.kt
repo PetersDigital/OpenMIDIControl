@@ -31,20 +31,35 @@ class PeripheralMidiService : MidiDeviceService() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
 
-                // Fast-reject real-time spam (legacy single-byte)
-                if (count == 1) {
-                    val status = msg[offset].toInt() and 0xFF
-                    if (status == 0xF8 || status == 0xFE) return
-                }
+                // Pre-filter DAWs that pack 0xF8/0xFE into arrays with valid CC data
+                var isSpamOnly = true
 
                 // Fast-reject UMP-wrapped real-time (MT=0x1)
                 if (count >= 4 && count % 4 == 0) {
-                    val mt = (msg[offset].toInt() ushr 4) and 0xF
-                    if (mt == 0x1) {
-                        val status = msg[offset + 1].toInt() and 0xFF
-                        if (status == 0xF8 || status == 0xFE) return
+                    for (i in offset until offset + count step 4) {
+                        val mt = (msg[i].toInt() ushr 4) and 0xF
+                        if (mt != 0x1) {
+                            isSpamOnly = false
+                            break
+                        }
+                        val status = msg[i + 1].toInt() and 0xFF
+                        if (status != 0xF8 && status != 0xFE) {
+                            isSpamOnly = false
+                            break
+                        }
+                    }
+                } else {
+                    // Fast-reject legacy single-byte stream
+                    for (i in offset until offset + count) {
+                        val status = msg[i].toInt() and 0xFF
+                        if (status != 0xF8 && status != 0xFE) {
+                            isSpamOnly = false
+                            break
+                        }
                     }
                 }
+
+                if (isSpamOnly) return
 
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
