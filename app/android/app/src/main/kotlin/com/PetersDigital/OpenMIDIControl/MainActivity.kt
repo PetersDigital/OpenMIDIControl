@@ -61,7 +61,6 @@ class MainActivity : FlutterActivity() {
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private var currentUsbMode = "peripheral"
     private var lastUsbStateIsConnected = false
 
     private val usbStateReceiver = object : BroadcastReceiver() {
@@ -173,9 +172,10 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "setUsbMode" -> {
+                    // Mode is retained for future use; the Dart side calls this to signal intent.
+                    // No-op until peripheral/host mode switching logic is re-implemented.
                     val mode = call.argument<String>("mode")
                     if (mode != null) {
-                        currentUsbMode = mode
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
