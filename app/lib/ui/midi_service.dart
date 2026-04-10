@@ -161,9 +161,9 @@ class MidiService {
     }
   }
 
-  Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
+  Future<void> sendCC(int cc, int value, {bool isFinal = false}) {
     // Fire-and-forget for performance — no need to await the platform result.
-    _channel
+    return _channel
         .invokeMethod('sendMidiCC', {
           'cc': cc,
           'value': value,
