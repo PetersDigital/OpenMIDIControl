@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telegram Message Previews – OpenMIDIControl CI/CD</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: #0e1621;
+    color: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    gap: 28px;
+  }
+
+  h1 { font-size: 22px; font-weight: 700; color: #fff; }
+  .subtitle { font-size: 13px; color: #6c7883; margin-top: -20px; }
+
+  .index { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 480px; }
+  .index a {
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #fff;
+    font-weight: 500;
+    transition: opacity .15s;
+  }
+  .index a:hover { opacity: .75; }
+  .idx-blue  { background: #2b5278; }
+  .idx-yellow{ background: #6b5a20; }
+  .idx-purple{ background: #4a3068; }
+  .idx-red   { background: #6b2020; }
+  .idx-green { background: #205a2a; }
+  .idx-gray  { background: #3a4450; }
+</style>
+</head>
+<body>
+
+<h1>Telegram Notification Previews</h1>
+<p class="subtitle">All 10 message types across OpenMIDIControl CI/CD workflows</p>
+
+<div class="index">
+  <a class="idx-blue"   href="telegram-01-dev-build.html">1 · Dev Build</a>
+  <a class="idx-yellow" href="telegram-02-beta-build.html">2 · Beta Build</a>
+  <a class="idx-purple" href="telegram-03-rc-build.html">3 · RC Build</a>
+  <a class="idx-red"    href="telegram-04-hotfix.html">4 · Hotfix</a>
+  <a class="idx-green"  href="telegram-05-prod-release.html">5 · Prod Release</a>
+  <a class="idx-green"  href="telegram-06-manual-prod.html">6 · Manual Prod</a>
+  <a class="idx-green"  href="telegram-07-manual-retro.html">7 · Manual Legacy</a>
+  <a class="idx-red"    href="telegram-08-build-failure.html">8 · Build Failure</a>
+  <a class="idx-red"    href="telegram-09-ci-failed.html">9 · CI Pipeline Failed</a>
+  <a class="idx-gray"   href="telegram-10-skipped.html">10 · Build Skipped</a>
+</div>
+
+</body>
+</html>

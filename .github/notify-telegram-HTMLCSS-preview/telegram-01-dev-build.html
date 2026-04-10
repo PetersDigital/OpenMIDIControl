@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1 · Dev Build — Telegram Preview</title>
+<link rel="stylesheet" href="telegram-styles.css">
+</head>
+<body>
+<a class="back" href="telegram-preview.html">&larr; All Previews</a>
+
+<div class="section-label blue">1 · Dev Build — Text message with changelog</div>
+
+<div class="phone-frame">
+  <div class="phone-header">
+    <div class="avatar blue">OM</div>
+    <div class="chat-info">
+      <div class="chat-name">OpenMIDIControl CI</div>
+      <div class="chat-status">bot</div>
+    </div>
+  </div>
+  <div class="phone-messages">
+    <div class="msg-row">
+      <div class="tgbubble">
+        <div class="body">
+          <b>Dev Build Ready</b><br><br>
+          <span class="label">Repository:</span> <a class="link" href="#">PetersDigital/OpenMIDIControl</a><br>
+          <span class="label">Branch:</span> <a class="link" href="#">dev</a><br>
+          <span class="label">Commit:</span> <a class="link" href="#">a1b2c3d</a><br><br>
+          Changes:<br>
+          <ul class="changes">
+            <li>implement UMP 32-bit packet reconstruction</li>
+            <li>add monotonic clock enforcement for throttle logic</li>
+            <li>fix fader catch-up mode race condition</li>
+            <li>update AGENTS.md with new native layer docs</li>
+            <li>add yamllint config and CI validation</li>
+          </ul><br>
+          <span class="label">&#9881;&#65039;</span> <b>Workflow:</b> <a class="link" href="#">CD: Auto Dev Branch</a><br><br>
+          <i>Debug build for development testing.</i>
+        </div>
+        <div class="ts">09:14 <span class="check">&#10003;&#10003;</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="source-note">Source: <code>cd_auto_dev.yml</code> — <code>notify-telegram</code> composite action</p>
+</body>
+</html>

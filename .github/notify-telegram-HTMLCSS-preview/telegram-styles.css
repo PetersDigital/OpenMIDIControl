@@ -1,0 +1,280 @@
+/* Shared Telegram Preview Styles */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #0e1621;
+  color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 64px;
+  gap: 20px;
+}
+
+a.back {
+  font-size: 14px;
+  color: #5b9bf5;
+  text-decoration: none;
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+a.back:hover { text-decoration: underline; }
+
+.section-label {
+  width: 100%;
+  max-width: 420px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 12px 0 6px 4px;
+  border-bottom: 1px solid #1e2c3a;
+}
+.section-label.green  { color: #4fae4e; }
+.section-label.blue   { color: #5b9bf5; }
+.section-label.red    { color: #e05555; }
+.section-label.yellow { color: #e8a832; }
+.section-label.purple { color: #a78bfa; }
+.section-label.gray   { color: #6c7883; }
+
+/* Phone frame */
+.phone-frame {
+  width: 100%;
+  max-width: 420px;
+  background: #0e1621;
+  border: 2px solid #1e2c3a;
+  border-radius: 24px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.phone-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px 16px;
+  border-bottom: 1px solid #1e2c3a;
+  margin-bottom: 16px;
+}
+
+.phone-header .avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.avatar.green  { background: linear-gradient(135deg, #4fae4e, #3a8f3a); }
+.avatar.blue   { background: linear-gradient(135deg, #5b9bf5, #3a7bd5); }
+.avatar.red    { background: linear-gradient(135deg, #e05555, #c43a3a); }
+.avatar.yellow { background: linear-gradient(135deg, #e8a832, #c48a20); }
+.avatar.purple { background: linear-gradient(135deg, #a78bfa, #7c5cbf); }
+
+.phone-header .chat-info { flex: 1; }
+.phone-header .chat-name { font-size: 15px; font-weight: 600; color: #fff; }
+.phone-header .chat-status { font-size: 12px; color: #6c7883; }
+
+.phone-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.msg-row { display: flex; flex-direction: column; gap: 4px; }
+
+/* Text message bubble */
+.tg-msg, .tgbubble {
+  background: #182533;
+  border-radius: 12px 12px 12px 2px;
+  padding: 10px 12px 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.tg-msg .body, .tgbubble .body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f5f5f5;
+}
+.tg-msg b, .tgbubble b { font-weight: 700; color: #ffffff; }
+.tg-msg i, .tgbubble i { font-style: italic; color: #8b9bab; font-size: 13px; }
+
+.tg-msg .label, .tgbubble .label { color: #6c7883; }
+.tg-msg .value, .tgbubble .value { color: #c4c9ce; }
+.tg-msg .link, .tgbubble .link { color: #5b9bf5; text-decoration: none; }
+.tg-msg .link:hover, .tgbubble .link:hover { text-decoration: underline; }
+
+.tg-msg .changes {
+  margin: 6px 0;
+  padding-left: 0;
+  list-style: none;
+}
+.tg-msg .changes li {
+  position: relative;
+  padding-left: 14px;
+  margin-bottom: 3px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: #c4c9ce;
+}
+.tg-msg .changes li::before {
+  content: '\2013';
+  position: absolute;
+  left: 0;
+  color: #6c7883;
+}
+
+.tg-msg .ts {
+  text-align: right;
+  font-size: 11px;
+  color: #546778;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.tg-msg .ts .check { color: #4fae4e; font-size: 13px; }
+
+.tgbubble .ts {
+  text-align: right;
+  font-size: 11px;
+  color: #546778;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.tgbubble .ts .check { color: #4fae4e; font-size: 13px; }
+
+/* File attachment */
+.tg-file {
+  background: #182533;
+  border-radius: 12px 12px 12px 2px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.tg-file .file-bar {
+  background: #0e1621;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+.tg-file .file-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.file-icon.apk { background: linear-gradient(135deg, #4fae4e, #3a8f3a); }
+.file-icon.zip { background: linear-gradient(135deg, #5b9bf5, #3a7bd5); }
+
+.tg-file .file-info { flex: 1; min-width: 0; }
+.tg-file .fname {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-file .fsize { font-size: 12px; color: #6c7883; margin-top: 2px; }
+
+.tg-file .fcap {
+  padding: 8px 12px 10px;
+  border-top: 1px solid #1e2c3a;
+}
+.tg-file .fcap .body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f5f5f5;
+}
+.tg-file .fcap .body b { font-weight: 700; color: #fff; }
+.tg-file .fcap .body i { font-style: italic; color: #8b9bab; font-size: 13px; }
+.tg-file .fcap .body .label { color: #6c7883; }
+.tg-file .fcap .body .value { color: #c4c9ce; }
+.tg-file .fcap .body .link { color: #5b9bf5; text-decoration: none; }
+.tg-file .fcap .body .link:hover { text-decoration: underline; }
+
+.tg-file .fcap .changes {
+  margin: 6px 0;
+  padding-left: 0;
+  list-style: none;
+}
+.tg-file .fcap .changes li {
+  position: relative;
+  padding-left: 14px;
+  margin-bottom: 3px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: #c4c9ce;
+}
+.tg-file .fcap .changes li::before {
+  content: '\2013';
+  position: absolute;
+  left: 0;
+  color: #6c7883;
+}
+
+.tg-file .fcap .ts {
+  text-align: right;
+  font-size: 11px;
+  color: #546778;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.tg-file .fcap .ts .check { color: #4fae4e; font-size: 13px; }
+
+/* Follow-up message (links-only second bubble) */
+.tg-followup {
+  background: #182533;
+  border-radius: 12px 12px 12px 2px;
+  padding: 10px 12px 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.tg-followup .body {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f5f5f5;
+}
+.tg-followup i { font-style: italic; color: #8b9bab; font-size: 13px; }
+.tg-followup .link { color: #5b9bf5; text-decoration: none; }
+.tg-followup .link:hover { text-decoration: underline; }
+
+.tg-followup .ts {
+  text-align: right;
+  font-size: 11px;
+  color: #546778;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.tg-followup .ts .check { color: #4fae4e; font-size: 13px; }
+
+.source-note {
+  font-size: 12px;
+  color: #6c7883;
+  max-width: 420px;
+  text-align: center;
+  margin-top: 4px;
+}
+.source-note code {
+  background: #182533;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
