@@ -466,9 +466,7 @@ class MainActivity : FlutterActivity() {
 
     private fun teardownMidiDeviceCallback() {
         deviceCallback?.let {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                midiManager?.unregisterDeviceCallback(it)
-            }
+            // Single call removes callback from all transports (UMP + byte-stream).
             midiManager?.unregisterDeviceCallback(it)
             deviceCallback = null
         }
