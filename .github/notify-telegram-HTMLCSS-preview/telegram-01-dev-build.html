@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1 - Dev Build - Telegram Preview</title>
+<link rel="stylesheet" href="telegram-styles.css">
+</head>
+<body>
+<a class="back" href="telegram-preview.html">&larr; All Previews</a>
+
+<div class="section-label blue">1 - Dev Build - Enterprise message + artifact delivery</div>
+
+<div class="phone-frame">
+  <div class="phone-header">
+    <div class="avatar blue">OM</div>
+    <div class="chat-info">
+      <div class="chat-name">OpenMIDIControl CI</div>
+      <div class="chat-status">bot</div>
+    </div>
+  </div>
+
+  <div class="phone-messages">
+    <div class="msg-row">
+      <div class="tgbubble enterprise">
+        <div class="body">
+          <b>🟢 DEV BUILD READY</b><br>
+          <span class="divider">────────────────────────</span>
+          <b>dev</b><br><br>
+
+          <b>Tier 1:</b> dev-build • success<br>
+          <b>Ref:</b> 🌿 <a class="link" href="#">dev</a> • <a class="link" href="#">a1b2c3d</a><br>
+          <b>Environment:</b> 🧩 Dev<br>
+          <b>Repo:</b> <a class="link" href="#">PetersDigital/OpenMIDIControl</a><br>
+
+          <span class="divider">────────────────────────</span>
+          <b>🧭 Actions:</b> Use buttons below for quick navigation.<br>
+
+          <span class="divider">────────────────────────</span>
+          <i>Dev build is ready for internal testing.</i>
+        </div>
+
+        <div class="tg-actions">
+          <a class="tg-btn" href="#">Open Logs</a>
+          <a class="tg-btn" href="#">Compare Changes</a>
+        </div>
+
+        <div class="ts">09:14 <span class="check">✓✓</span></div>
+      </div>
+    </div>
+
+    <div class="msg-row">
+      <div class="tg-file">
+        <div class="file-bar">
+          <div class="file-icon apk">📦</div>
+          <div class="file-info">
+            <div class="fname">app-dev-a1b2c3d.apk</div>
+            <div class="fsize">38.4 MB</div>
+          </div>
+        </div>
+        <div class="fcap">
+          <div class="body">
+            <b>📦 Build Artifact</b><br>
+            <b>Type:</b> dev-build<br>
+            <b>Ref:</b> dev • a1b2c3d
+          </div>
+          <div class="ts">09:14 <span class="check">✓✓</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="source-note">Source: <code>cd_auto_dev.yml</code> via <code>notify-telegram</code> with <code>send-artifact: true</code></p>
+</body>
+</html>

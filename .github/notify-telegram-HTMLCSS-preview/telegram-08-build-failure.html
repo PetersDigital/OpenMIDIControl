@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8 - Build Failure - Telegram Preview</title>
+<link rel="stylesheet" href="telegram-styles.css">
+</head>
+<body>
+<a class="back" href="telegram-preview.html">&larr; All Previews</a>
+
+<div class="section-label red">8 - Manual Production Failure - Diagnostics-expanded profile</div>
+
+<div class="phone-frame">
+  <div class="phone-header">
+    <div class="avatar red">OM</div>
+    <div class="chat-info">
+      <div class="chat-name">OpenMIDIControl CI</div>
+      <div class="chat-status">bot</div>
+    </div>
+  </div>
+
+  <div class="phone-messages">
+    <div class="msg-row">
+      <div class="tgbubble enterprise">
+        <div class="body">
+          <b>🔴 PIPELINE FAILED</b><br>
+          <span class="divider">────────────────────────</span>
+          <b>CD: Manual Prod Release</b><br><br>
+
+          <b>Tier 1:</b> ci-failure • failure<br>
+          <b>Ref:</b> 🌿 <a class="link" href="#">main</a> • <a class="link" href="#">5d6e7f8</a><br>
+          <b>Environment:</b> 🌍 Production<br>
+          <b>Repo:</b> <a class="link" href="#">PetersDigital/OpenMIDIControl</a><br>
+          <b>By:</b> @dencelkbabu<br>
+          <b>Workflow:</b> <a class="link" href="#">CD: Manual Prod Release</a><br>
+
+          <span class="divider">────────────────────────</span>
+          <b>🧭 Actions:</b> Use buttons below for quick navigation.<br>
+
+          <span class="divider">────────────────────────</span>
+          <b>🛠 Diagnostics:</b><br>
+          • Stage: Publish Release<br>
+          • Hint: Check logs for the failed stage and rerun after fixing root cause.<br>
+          • Retry: Validate failing stage, then rerun workflow from logs.<br>
+          • Logs: <a class="link" href="#">Open full run output</a><br>
+
+          <span class="divider">────────────────────────</span>
+          <i>Workflow failed. Open logs for diagnostics and retry after applying the fix.</i>
+        </div>
+
+        <div class="tg-actions">
+          <a class="tg-btn" href="#">Open Logs</a>
+          <a class="tg-btn" href="#">Compare Changes</a>
+        </div>
+
+        <div class="ts">10:42 <span class="check">✓✓</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="source-note">Source: <code>cd_man_prod.yml</code> failure path with <code>failure-stage</code> and <code>failure-hint</code></p>
+</body>
+</html>
