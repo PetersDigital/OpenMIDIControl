@@ -67,7 +67,7 @@ object MidiParser {
                         val ccNumber = (umpInt ushr 8) and 0xFF
                         val ccValue = umpInt and 0xFF
 
-                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime, isDebug)
+                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
                     }
                 }
                 // Silently drop other MTs
@@ -88,7 +88,7 @@ object MidiParser {
                 if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
                     val ccNumber = msg[i + 1].toInt() and 0xFF
                     val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime, isDebug)
+                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
                     i += 3
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
@@ -107,8 +107,7 @@ object MidiParser {
         isVirtual: Boolean,
         incomingEventsChannel: Channel<Pair<Long, Long>>,
         suppressionWindowNs: Long,
-        lastSentTime: Map<Int, Long>,
-        isDebug: Boolean
+        lastSentTime: Map<Int, Long>
     ) {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
