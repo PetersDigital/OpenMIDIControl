@@ -32,22 +32,30 @@ object MidiParser {
                                ((msg[offset + 2].toInt() and 0xFF) shl 8) or
                                (msg[offset + 3].toInt() and 0xFF)
             val firstMessageType = (firstUmpWord ushr 28) and 0xF
-            firstMessageType == 0x1 || firstMessageType == 0x2
+            firstMessageType in 0x0..0x5
         } else false
 
         if (isUmp) {
-            // Process UMP (32-bit Integers)
-            for (i in offset until offset + count step 4) {
-                // Reconstruct 32-bit integer (Big-Endian)
+            // Process UMP (32-bit Integers), respecting packet word lengths.
+            var i = offset
+            while (i < offset + count) {
+                if (i + 4 > offset + count) break
+
                 val byte1 = msg[i].toInt() and 0xFF
                 val byte2 = msg[i + 1].toInt() and 0xFF
                 val byte3 = msg[i + 2].toInt() and 0xFF
                 val byte4 = msg[i + 3].toInt() and 0xFF
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
-
-                // Extract Message Type (MT) from bits 31-28
                 val messageType = (umpInt ushr 28) and 0xF
+                val words = when (messageType) {
+                    0x0, 0x1, 0x2 -> 1
+                    0x3, 0x4 -> 2
+                    0x5 -> 4
+                    else -> 1
+                }
+
+                if (i + (words * 4) > offset + count) break
 
                 if (messageType == 0x1) {
                     // MT 0x1: System Real-Time / System Common
@@ -55,6 +63,7 @@ object MidiParser {
 
                     if (status == 0xF8 || status == 0xFE) {
                         // Drop Timing Clock (0xF8) and Active Sensing (0xFE)
+                        i += words * 4
                         continue
                     }
                     // Drop other MT 1 messages for now
@@ -71,6 +80,7 @@ object MidiParser {
                     }
                 }
                 // Silently drop other MTs
+                i += words * 4
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
