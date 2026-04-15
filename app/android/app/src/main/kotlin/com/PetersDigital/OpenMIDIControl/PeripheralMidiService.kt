@@ -30,13 +30,37 @@ class PeripheralMidiService : MidiDeviceService() {
         return arrayOf(object : MidiReceiver() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
-                val statusByte = msg[offset]
-                // Do NOT send Active Sensing or Timing Clock to the Flutter UI
-                if (statusByte == 0xFE.toByte() || statusByte == 0xF8.toByte()) {
-                    return // Skip adding to the Flutter queue
+
+                // Skip messages that contain only timing clock (0xF8) or active sensing (0xFE)
+                var isSpamOnly = true
+
+                // Fast-reject UMP-wrapped real-time (MT=0x1)
+                if (count >= 4 && count % 4 == 0) {
+                    for (i in offset until offset + count step 4) {
+                        val mt = (msg[i].toInt() ushr 4) and 0xF
+                        if (mt != 0x1) {
+                            isSpamOnly = false
+                            break
+                        }
+                        val status = msg[i + 1].toInt() and 0xFF
+                        if (status != 0xF8 && status != 0xFE) {
+                            isSpamOnly = false
+                            break
+                        }
+                    }
+                } else {
+                    // Fast-reject legacy single-byte stream
+                    for (i in offset until offset + count) {
+                        val status = msg[i].toInt() and 0xFF
+                        if (status != 0xF8 && status != 0xFE) {
+                            isSpamOnly = false
+                            break
+                        }
+                    }
                 }
 
-                // Forward incoming MIDI from Host DAW (PC/Mac) to our Flutter App via USB
+                if (isSpamOnly) return
+
                 msg.let {
                     MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
                 }

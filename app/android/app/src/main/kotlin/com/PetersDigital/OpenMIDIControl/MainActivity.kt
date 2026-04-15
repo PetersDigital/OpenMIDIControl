@@ -56,11 +56,11 @@ class MainActivity : FlutterActivity() {
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
     // Thread Separation: Coroutine Channel for incoming MIDI events
-    private val incomingEventsChannel = Channel<Map<String, Any>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // We store the 32-bit UMP and its timestamp as a Pair to ensure atomic queuing.
+    private val incomingEventsChannel = Channel<Pair<Long, Long>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private var currentUsbMode = "peripheral"
     private var lastUsbStateIsConnected = false
 
     private val usbStateReceiver = object : BroadcastReceiver() {
@@ -74,12 +74,8 @@ class MainActivity : FlutterActivity() {
 
                 if (isMidiConnected) {
                     lastUsbStateIsConnected = true
-                    if (currentUsbMode == "peripheral") {
-                        connectToUsbPeripheral()
-                    }
                 } else if (!connected) {
                     lastUsbStateIsConnected = false
-                    disconnectUsbPeripheral()
                     val event = mapOf(
                         "type" to "usb_state",
                         "state" to "DISCONNECTED"
@@ -111,76 +107,17 @@ class MainActivity : FlutterActivity() {
                 deviceInfo.inputPortCount > 0 && deviceInfo.outputPortCount > 0
     }
 
-    private fun connectToUsbPeripheral() {
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+    private fun getAvailableMidiDevices(): Array<MidiDeviceInfo>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val umpDevices = midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)?.toTypedArray()
+            if (umpDevices != null && umpDevices.isNotEmpty()) {
+                umpDevices
+            } else {
+                midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
+            }
         } else {
             @Suppress("DEPRECATION")
             midiManager?.getDevices()
-        }
-
-        val peripheralInfo = devices?.find { isUsbPeripheral(it) }
-
-        if (peripheralInfo != null) {
-            midiManager?.openDevice(peripheralInfo, { device ->
-                if (device != null) {
-                    var inputPort: MidiInputPort? = null
-                    var outputPort: MidiOutputPort? = null
-
-                    try {
-                        if (device.info.inputPortCount > 0) {
-                            inputPort = device.openInputPort(0)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("OpenMIDIControl", "Failed to open peripheral input port: ${e.message}")
-                    }
-
-                    try {
-                        if (device.info.outputPortCount > 0) {
-                            outputPort = device.openOutputPort(0)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("OpenMIDIControl", "Failed to open peripheral output port: ${e.message}")
-                    }
-
-                    if (inputPort != null && outputPort != null) {
-                        peripheralMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort)
-                        setupPeripheralMidiReceiver()
-
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "AVAILABLE"
-                        )
-                        Handler(Looper.getMainLooper()).post {
-                            eventSink?.success(event)
-                        }
-                        android.util.Log.d("OpenMIDIControl", "Connected to USB Peripheral Port natively")
-                    } else {
-                         // Failed to fully open ports, rollback
-                         inputPort?.close()
-                         outputPort?.close()
-                         device.close()
-                         disconnectUsbPeripheral()
-                    }
-                } else {
-                     android.util.Log.e("OpenMIDIControl", "Failed to open USB Peripheral device")
-                }
-            }, Handler(Looper.getMainLooper()))
-        } else {
-            android.util.Log.w("OpenMIDIControl", "No USB Peripheral device found")
-        }
-    }
-
-
-    private fun disconnectUsbPeripheral() {
-        peripheralMidiBackend?.close()
-        peripheralMidiBackend = null
-    }
-
-    private fun setupPeripheralMidiReceiver() {
-        peripheralMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            if (count < 3) return@startReceiving
-            handleIncomingVirtualMidi(msg, offset, count, timestamp)
         }
     }
 
@@ -213,12 +150,8 @@ class MainActivity : FlutterActivity() {
 
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
-                            if (currentUsbMode == "peripheral") {
-                                connectToUsbPeripheral()
-                            }
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
-                            disconnectUsbPeripheral()
                             val initEvent = mapOf(
                                 "type" to "usb_state",
                                 "state" to "DISCONNECTED"
@@ -239,15 +172,10 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "setUsbMode" -> {
+                    // Mode is retained for future use; the Dart side calls this to signal intent.
+                    // No-op until peripheral/host mode switching logic is re-implemented.
                     val mode = call.argument<String>("mode")
                     if (mode != null) {
-                        currentUsbMode = mode
-                        if (currentUsbMode == "host") {
-                            disconnectUsbPeripheral()
-                        } else if (currentUsbMode == "peripheral" && lastUsbStateIsConnected) {
-                            // Turn on peripheral mode if plugged in
-                            connectToUsbPeripheral()
-                        }
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
@@ -302,18 +230,15 @@ class MainActivity : FlutterActivity() {
                             lastSentTime[cc] = nowNs
 
                             try {
-                                if (BuildConfig.DEBUG) {
-                                    android.util.Log.d("OpenMIDIControl", "MIDI OUT: CC $cc Value: $value")
-                                }
-                                val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                                val legacyMsg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                                val umpMsg = buildUmpCcPacket(cc, value)
+
                                 // Send to physically connected hardware (if any)
-                                hostMidiBackend?.send(msg, 0, msg.size, nowNs)
+                                hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
                                 // Send to virtual DAW out (e.g. FL Studio Mobile)
-                                VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
-                                // Send to Host PC/Mac via USB
-                                // We send directly to the actively opened physical hardware input port.
-                                // Do not use VirtualMidiService to attempt to reach the host PC.
-                                peripheralMidiBackend?.send(msg, 0, msg.size, nowNs)
+                                VirtualMidiService.activeInstance?.sendToDaw(legacyMsg, 0, legacyMsg.size)
+                                // Send to Host PC/Mac via USB over UMP transport
+                                PeripheralMidiService.activeInstance?.sendToHost(umpMsg, 0, umpMsg.size, nowNs)
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -358,12 +283,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getMidiDevices(): List<Map<String, Any>> {
         val devicesList = mutableListOf<Map<String, Any>>()
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
-        }
+        val devices = getAvailableMidiDevices()
 
         devices?.forEach { deviceInfo ->
             if (isUsbPeripheral(deviceInfo)) {
@@ -457,12 +377,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
-        val devices: Array<MidiDeviceInfo>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
-        }
+        val devices = getAvailableMidiDevices()
         val deviceInfo = devices?.find { it.id.toString() == id }
 
         if (deviceInfo == null) {
@@ -504,80 +419,14 @@ class MainActivity : FlutterActivity() {
 
     private fun setupMidiReceiver() {
         hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
-            if (offset < 0 || count < 0 || offset + count > msg.size) return@startReceiving
-
-            // Check if it's a Control Change message on Channel 1 (0xB0)
-            // msg[0] contains the status byte. Masking with 0xFF handles signed bytes in Kotlin
-            val statusByte = msg[offset].toInt() and 0xFF
-            // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
-            if (statusByte == 0xFE || statusByte == 0xF8) {
-                return@startReceiving // Skip adding to the Flutter queue
-            }
-            if (count < 3) return@startReceiving
-
-            if (statusByte == 0xB0) {
-                val ccNumber = msg[offset + 1].toInt() and 0xFF
-                val ccValue = msg[offset + 2].toInt() and 0xFF
-
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d("OpenMIDIControl", "MIDI IN: CC $ccNumber Value: $ccValue")
-                }
-
-                val event = mapOf(
-                    "type" to "cc",
-                    "cc" to ccNumber,
-                    "value" to ccValue,
-                    "timestamp" to timestamp
-                )
-
-                incomingEventsChannel.trySend(event)
-            }
+            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
         }
     }
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
-
-        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed virtual MIDI packets
-        if (offset < 0 || count < 0 || offset + count > msg.size) return
-
-        // Check if it's a Control Change message on Channel 1 (0xB0)
-        val statusByte = msg[offset].toInt() and 0xFF
-        // Do NOT send Active Sensing (0xFE) or Timing Clock (0xF8) to the Flutter UI
-        if (statusByte == 0xFE || statusByte == 0xF8) {
-            return // Skip adding to the Flutter queue
-        }
-        if (count < 3) return
-
-        if (statusByte == 0xB0) {
-            val ccNumber = msg[offset + 1].toInt() and 0xFF
-            val ccValue = msg[offset + 2].toInt() and 0xFF
-
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("OpenMIDIControl", "MIDI IN (VIRTUAL): CC $ccNumber Value: $ccValue")
-            }
-
-            // Bidirectional Feedback Loop Prevention
-            val lastTime = lastSentTime[ccNumber] ?: 0L
-            val nowNs = timestamp ?: System.nanoTime()
-            val timeDiff = nowNs - lastTime
-
-            if (timeDiff < suppressionWindowNs) {
-                // Ignore message from host if we recently sent *any* value for this CC.
-                // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                return
-            }
-
-            val event = mapOf(
-                "type" to "cc",
-                "cc" to ccNumber,
-                "value" to ccValue,
-                "timestamp" to nowNs
-            )
-
-            incomingEventsChannel.trySend(event)
-        }
+        val nowNs = timestamp ?: System.nanoTime()
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
     private fun setupMidiDeviceCallback() {
@@ -608,6 +457,7 @@ class MainActivity : FlutterActivity() {
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), deviceCallback!!)
                 midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
             } else {
                 @Suppress("DEPRECATION")
@@ -618,6 +468,7 @@ class MainActivity : FlutterActivity() {
 
     private fun teardownMidiDeviceCallback() {
         deviceCallback?.let {
+            // Single call removes callback from all transports (UMP + byte-stream).
             midiManager?.unregisterDeviceCallback(it)
             deviceCallback = null
         }
@@ -629,18 +480,13 @@ class MainActivity : FlutterActivity() {
             // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
             // avoiding busy-wait loops and pinning the CPU.
             for (firstEvent in incomingEventsChannel) {
-                val batch = mutableListOf<Map<String, Any>>()
-                batch.add(firstEvent)
 
-                // Drain any other events currently in the channel buffer to process them as a batch
-                while (true) {
-                    val event = incomingEventsChannel.tryReceive().getOrNull() ?: break
-                    batch.add(event)
-                }
+                // Use the static parser to safely drain the channel into a bounded batch
+                val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
 
-                if (batch.isNotEmpty()) {
+                if (payload.isNotEmpty()) {
                     Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(mapOf("type" to "batch", "events" to batch))
+                        eventSink?.success(payload)
                     }
                 }
 
@@ -662,7 +508,6 @@ class MainActivity : FlutterActivity() {
             unregisterReceiver(usbStateReceiver)
         } catch (e: Exception) { }
         disconnectDevice()
-        disconnectUsbPeripheral()
         activeInstance = null
         super.onDestroy()
     }

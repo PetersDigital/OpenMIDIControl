@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:collection';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
@@ -10,6 +11,8 @@ import '../midi_service.dart';
 class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
   static const int maxLogs = 200;
   final Queue<String> _logs = Queue<String>();
+  bool _pendingUpdate = false;
+  bool _disposed = false;
 
   @override
   List<String> build() {
@@ -22,6 +25,8 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
     });
 
     ref.onDispose(() {
+      _disposed = true;
+      _pendingUpdate = false;
       sub.cancel();
     });
 
@@ -44,7 +49,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
         ? 'Port ${event.sourceId} | '
         : '';
 
-    if (event.messageType == 0xB0) {
+    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
     } else {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
@@ -56,8 +61,17 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
     if (_logs.length > maxLogs) {
       _logs.removeLast();
     }
-    // Update state to trigger rebuilds only for listeners of this provider
-    state = _logs.toList();
+    // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
+    if (!_pendingUpdate) {
+      _pendingUpdate = true;
+      // Schedule state update for next frame (~16ms at 60Hz)
+      SchedulerBinding.instance.scheduleFrameCallback((_) {
+        if (_disposed) return;
+        _pendingUpdate = false;
+        // Update state to trigger rebuilds only for listeners of this provider
+        state = _logs.toList();
+      });
+    }
   }
 
   void clear() {

@@ -4,7 +4,7 @@
 # Format: MAJOR.MINOR.PATCH
 
 # The latest stable release available to users
-CURRENT_STABLE_RELEASE_VERSION=0.2.1
+CURRENT_STABLE_RELEASE_VERSION=0.2.2
 
 # The next version being developed and tested
-NEXT_PLANNED_VERSION=0.2.2
+NEXT_PLANNED_VERSION=0.2.3
