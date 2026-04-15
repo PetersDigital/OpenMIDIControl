@@ -60,6 +60,25 @@ class MidiParserTest {
     }
 
     @Test
+    fun testMultiWordUmpSkipsUnsupportedPacketsWithoutDesync() = runBlocking {
+        val channel = Channel<Pair<Long, Long>>(capacity = 10)
+        // First packet: MT=4 (2-word message) with payload ignored
+        // Second packet: MT=2 CC message should still be parsed correctly after skip.
+        val payload = byteArrayOf(
+            0x40.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(),
+            0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(),
+            0x20.toByte(), 0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte()
+        )
+
+        MidiParser.processMidiPayload(payload, 0, payload.size, 3333L, false, channel, 0L, emptyMap(), false)
+
+        val parsed = channel.receive()
+        val expectedUmp = (0x2L shl 28) or (0x0L shl 24) or (0xB0L shl 16) or (0x0AL shl 8) or 0x7FL
+        assertEquals(expectedUmp, parsed.first)
+        assertEquals(3333L, parsed.second)
+    }
+
+    @Test
     fun testRealTimeSpamFilter() = runBlocking {
         val channel = Channel<Pair<Long, Long>>(capacity = 10)
         // 4 bytes: UMP MT=1, Group=0, Status=0xF8 (Timing Clock), 0x00, 0x00
