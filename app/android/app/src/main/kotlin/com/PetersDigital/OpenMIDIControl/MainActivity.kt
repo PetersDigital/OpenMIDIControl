@@ -230,13 +230,15 @@ class MainActivity : FlutterActivity() {
                             lastSentTime[cc] = nowNs
 
                             try {
-                                val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                                val legacyMsg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+                                val umpMsg = buildUmpCcPacket(cc, value)
+
                                 // Send to physically connected hardware (if any)
-                                hostMidiBackend?.send(msg, 0, msg.size, nowNs)
+                                hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
                                 // Send to virtual DAW out (e.g. FL Studio Mobile)
-                                VirtualMidiService.activeInstance?.sendToDaw(msg, 0, msg.size)
-                                // Send to Host PC/Mac via USB explicitly using the bound service outputs
-                                PeripheralMidiService.activeInstance?.sendToHost(msg, 0, msg.size, nowNs)
+                                VirtualMidiService.activeInstance?.sendToDaw(legacyMsg, 0, legacyMsg.size)
+                                // Send to Host PC/Mac via USB over UMP transport
+                                PeripheralMidiService.activeInstance?.sendToHost(umpMsg, 0, umpMsg.size, nowNs)
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
