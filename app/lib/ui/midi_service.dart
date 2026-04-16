@@ -96,6 +96,12 @@ class MidiService {
     _setupRouters();
   }
 
+  final StreamController<Map<int, int>> _uiStateController =
+      StreamController<Map<int, int>>.broadcast();
+  Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
+
+  final Stopwatch _stopwatch = Stopwatch()..start();
+
   void _setupRouters() {
     // Add default root nodes for the DAG to process from
     incomingRouter.addNode('source', SplitNode());
@@ -109,6 +115,17 @@ class MidiService {
 
     // Connect root to sink by default so events flow out
     outgoingRouter.addEdge('source', 'nativeSink');
+
+    // UI state sink for processing incoming CC streams cleanly
+    incomingRouter.addNode(
+      'uiStateSink',
+      UiStateSinkNode(
+        onUpdateCCs: (batchUpdates) {
+          _uiStateController.add(batchUpdates);
+        },
+      ),
+    );
+    incomingRouter.addEdge('source', 'uiStateSink');
   }
 
   late final Stream<dynamic> _rawStream = _eventsChannel
@@ -201,7 +218,7 @@ class MidiService {
         (0xB0 << 16) |
         ((cc & 0xFF) << 8) |
         (value & 0xFF);
-    final event = MidiEvent(ump, Stopwatch().elapsedMilliseconds);
+    final event = MidiEvent(ump, _stopwatch.elapsedMilliseconds);
 
     // Process through the outgoing router starting from the root 'source' node.
     outgoingRouter.process('source', [event]);
@@ -376,22 +393,6 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       }
     });
 
-    // Set up the incoming router UI sink for this specific provider instance
-    // Check if it exists to prevent StateError on rebuild
-    try {
-      service.incomingRouter.addNode(
-        'uiStateSink',
-        UiStateSinkNode(
-          onUpdateCCs: (batchUpdates) {
-            ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
-          },
-        ),
-      );
-      service.incomingRouter.addEdge('source', 'uiStateSink');
-    } on StateError catch (_) {
-      // Node already exists, which is fine on rebuild
-    }
-
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       // Process incoming events through the DAG starting from the root 'source' node
       service.incomingRouter.process('source', midiEvents);
@@ -401,8 +402,6 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       _deviceRefreshTimer?.cancel();
       systemSub.cancel();
       midiSub.cancel();
-      // Remove the UI sink since it holds a reference to the notifier
-      service.incomingRouter.removeNode('uiStateSink');
     });
 
     return const MidiConnectionState();
@@ -458,6 +457,16 @@ enum MidiStatus {
 class CcNotifier extends Notifier<ControlState> {
   @override
   ControlState build() {
+    final service = ref.watch(midiServiceProvider);
+
+    final sub = service.uiStateUpdates.listen((updates) {
+      updateMultipleCCs(updates);
+    });
+
+    ref.onDispose(() {
+      sub.cancel();
+    });
+
     return ControlState(ccValues: const <int, int>{});
   }
 
