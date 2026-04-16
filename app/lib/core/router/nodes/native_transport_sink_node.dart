@@ -18,20 +18,16 @@ class NativeTransportSinkNode extends SinkNode {
     for (var event in events) {
       if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
         // We assume CC events for now as per MidiService.sendCC
-        // TODO: Update method channel to accept full UMP lists when native supports it
-        // For now, mapping back to the existing sendMidiCC platform method.
         // isFinal is a bit tricky here since we don't track touch end state in the DAG yet.
         // We'll default to false, as rapid routing updates don't easily map to touch events.
-        batch.add({
-          'cc': event.data1,
-          'value': event.data2,
-          'isFinal': false,
-        });
+        batch.add({'ump': event.ump, 'isFinal': false});
       }
     }
 
     if (batch.isNotEmpty) {
-      channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((e) {
+      channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((
+        e,
+      ) {
         debugPrint('Failed to send MIDI CC batch: $e');
       });
     }
