@@ -115,6 +115,7 @@ void main() {
 
         // Force instantiation of providers that hook into the midi events stream
         container.read(connectedMidiDeviceProvider);
+        container.read(ccValuesProvider); // Initialize CcNotifier listener
 
         // Create a large batch payload with 10000 events mimicking rapid ping-ponging CC values
         final largeBatch = Int64List(20000);
