@@ -100,6 +100,24 @@ void main() {
       expect(() => router.addEdge('C', 'A'), throwsStateError);
     });
 
+    test('Duplicate edges are ignored and do not cause double-processing', () {
+      final router = MidiRouter();
+      final sink = _TestSinkNode();
+
+      router.addNode('source', SplitNode());
+      router.addNode('sink', sink);
+
+      // Add the same edge twice
+      router.addEdge('source', 'sink');
+      router.addEdge('source', 'sink');
+
+      final events = [MidiEvent(createUmp(0x2, 0, 0xB0, 10, 127), 0)];
+      router.process('source', events);
+
+      // Should only receive once, not twice
+      expect(sink.receivedEvents.length, 1);
+    });
+
     test('Stress Test: Processes 10,000+ events without stack overflow', () {
       final router = MidiRouter();
       final sink = _TestSinkNode();
