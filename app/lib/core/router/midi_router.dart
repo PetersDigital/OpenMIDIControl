@@ -56,11 +56,18 @@ class MidiRouter {
       throw StateError('Destination node $to does not exist.');
     }
 
-    _edges.putIfAbsent(from, () => []).add(to);
+    final children = _edges.putIfAbsent(from, () => []);
+
+    // Prevent duplicate edges to the same node
+    if (children.contains(to)) {
+      return;
+    }
+
+    children.add(to);
 
     if (_detectCycle()) {
       // Revert the edge addition if it causes a cycle
-      _edges[from]!.removeLast();
+      children.removeLast();
       throw StateError('Adding edge from $from to $to creates a cycle.');
     }
   }
