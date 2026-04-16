@@ -208,46 +208,36 @@ class MainActivity : FlutterActivity() {
                     val isFinal = call.argument<Boolean>("isFinal") ?: false
 
                     if (cc != null && value != null) {
-                        val nowNs = System.nanoTime()
-                        val lastTime = lastSentTime[cc] ?: 0L
-                        val timeDiff = nowNs - lastTime
-
-                        // Rate-limiting and Deduplication checks unless it's the final message
-                        var shouldSend = true
-                        if (!isFinal) {
-                            // Deduplication: if value hasn't changed and within suppression window, drop it
-                            if (lastSentValue[cc] == value && timeDiff < suppressionWindowNs) {
-                                shouldSend = false
-                            }
-                            // Rate Limiting: ensure we don't send faster than ~120Hz
-                            else if (timeDiff < rateLimitNs) {
-                                shouldSend = false
-                            }
-                        }
-
-                        if (shouldSend) {
-                            lastSentValue[cc] = value
-                            lastSentTime[cc] = nowNs
-
-                            try {
-                                val legacyMsg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
-                                val umpMsg = buildUmpCcPacket(cc, value)
-
-                                // Send to physically connected hardware (if any)
-                                hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
-                                // Send to virtual DAW out (e.g. FL Studio Mobile)
-                                VirtualMidiService.activeInstance?.sendToDaw(legacyMsg, 0, legacyMsg.size)
-                                // Send to Host PC/Mac via USB over UMP transport
-                                PeripheralMidiService.activeInstance?.sendToHost(umpMsg, 0, umpMsg.size, nowNs)
-                                result.success(true)
-                            } catch (e: Exception) {
-                                result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
-                            }
-                        } else {
-                            result.success(true) // Acknowledge without sending
+                        try {
+                            processMidiCcEvent(cc, value, isFinal, System.nanoTime())
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "CC and value are required", null)
+                    }
+                }
+                "sendMidiCCBatch" -> {
+                    val events = call.argument<List<Map<String, Any>>>("events")
+                    if (events != null) {
+                        try {
+                            val nowNs = System.nanoTime()
+                            for (event in events) {
+                                val cc = event["cc"] as? Int
+                                val value = event["value"] as? Int
+                                val isFinal = event["isFinal"] as? Boolean ?: false
+
+                                if (cc != null && value != null) {
+                                    processMidiCcEvent(cc, value, isFinal, nowNs)
+                                }
+                            }
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("BATCH_SEND_FAILED", "Failed to send MIDI CC batch: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Events batch is required", null)
                     }
                 }
                 "vibrate" -> {
@@ -278,6 +268,39 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    private fun processMidiCcEvent(cc: Int, value: Int, isFinal: Boolean, nowNs: Long) {
+        val lastTime = lastSentTime[cc] ?: 0L
+        val timeDiff = nowNs - lastTime
+
+        // Rate-limiting and Deduplication checks unless it's the final message
+        var shouldSend = true
+        if (!isFinal) {
+            // Deduplication: if value hasn't changed and within suppression window, drop it
+            if (lastSentValue[cc] == value && timeDiff < suppressionWindowNs) {
+                shouldSend = false
+            }
+            // Rate Limiting: ensure we don't send faster than ~120Hz
+            else if (timeDiff < rateLimitNs) {
+                shouldSend = false
+            }
+        }
+
+        if (shouldSend) {
+            lastSentValue[cc] = value
+            lastSentTime[cc] = nowNs
+
+            val legacyMsg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
+            val umpMsg = buildUmpCcPacket(cc, value)
+
+            // Send to physically connected hardware (if any)
+            hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
+            // Send to virtual DAW out (e.g. FL Studio Mobile)
+            VirtualMidiService.activeInstance?.sendToDaw(legacyMsg, 0, legacyMsg.size)
+            // Send to Host PC/Mac via USB over UMP transport
+            PeripheralMidiService.activeInstance?.sendToHost(umpMsg, 0, umpMsg.size, nowNs)
         }
     }
 
