@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/ui/midi_settings_state.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('UsbModeNotifier', () {
     test('defaults to peripheral mode', () {
       final container = ProviderContainer();
