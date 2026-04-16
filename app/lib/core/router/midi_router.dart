@@ -7,8 +7,8 @@ import '../models/midi_event.dart';
 import 'transformer_node.dart';
 
 class _WorkItem {
-  final String nodeId;
-  final List<MidiEvent> events;
+  String nodeId;
+  List<MidiEvent> events;
 
   _WorkItem(this.nodeId, this.events);
 }
@@ -18,6 +18,25 @@ class _WorkItem {
 class MidiRouter {
   final Map<String, TransformerNode> _nodes = {};
   final Map<String, List<String>> _edges = {};
+
+  // Pre-allocated queue and object pool to reduce GC pressure during high-frequency routing
+  final Queue<_WorkItem> _processQueue = Queue<_WorkItem>();
+  final List<_WorkItem> _workItemPool = [];
+
+  _WorkItem _getWorkItem(String nodeId, List<MidiEvent> events) {
+    if (_workItemPool.isNotEmpty) {
+      final item = _workItemPool.removeLast();
+      item.nodeId = nodeId;
+      item.events = events;
+      return item;
+    }
+    return _WorkItem(nodeId, events);
+  }
+
+  void _releaseWorkItem(_WorkItem item) {
+    item.events = const []; // Clear references
+    _workItemPool.add(item);
+  }
 
   /// Registers a new node in the graph.
   void addNode(String id, TransformerNode node) {
@@ -69,11 +88,10 @@ class MidiRouter {
       throw StateError('Source node $sourceNodeId does not exist.');
     }
 
-    final queue = Queue<_WorkItem>();
-    queue.add(_WorkItem(sourceNodeId, events));
+    _processQueue.add(_getWorkItem(sourceNodeId, events));
 
-    while (queue.isNotEmpty) {
-      final item = queue.removeFirst();
+    while (_processQueue.isNotEmpty) {
+      final item = _processQueue.removeFirst();
       final nodeId = item.nodeId;
       final batch = item.events;
 
@@ -83,9 +101,11 @@ class MidiRouter {
       if (processedBatch.isNotEmpty) {
         final children = _edges[nodeId] ?? const [];
         for (final childId in children) {
-          queue.add(_WorkItem(childId, processedBatch));
+          _processQueue.add(_getWorkItem(childId, processedBatch));
         }
       }
+
+      _releaseWorkItem(item);
     }
   }
 
