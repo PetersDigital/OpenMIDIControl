@@ -7,6 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/control_state.dart';
 import '../core/models/midi_event.dart';
+import '../core/router/midi_router.dart';
+import '../core/router/nodes/native_transport_sink_node.dart';
+import '../core/router/nodes/split_node.dart';
+import '../core/router/nodes/ui_state_sink_node.dart';
 import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
 
@@ -85,6 +89,28 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
+  final MidiRouter incomingRouter = MidiRouter();
+  final MidiRouter outgoingRouter = MidiRouter();
+
+  MidiService() {
+    _setupRouters();
+  }
+
+  void _setupRouters() {
+    // Add default root nodes for the DAG to process from
+    incomingRouter.addNode('source', SplitNode());
+    outgoingRouter.addNode('source', SplitNode());
+
+    // Set up the NativeTransportSinkNode here
+    outgoingRouter.addNode(
+      'nativeSink',
+      NativeTransportSinkNode(channel: _channel),
+    );
+
+    // Connect root to sink by default so events flow out
+    outgoingRouter.addEdge('source', 'nativeSink');
+  }
+
   late final Stream<dynamic> _rawStream = _eventsChannel
       .receiveBroadcastStream();
 
@@ -161,17 +187,24 @@ class MidiService {
     }
   }
 
-  Future<void> sendCC(int cc, int value, {bool isFinal = false}) {
-    // Fire-and-forget for performance — no need to await the platform result.
-    return _channel
-        .invokeMethod('sendMidiCC', {
-          'cc': cc,
-          'value': value,
-          'isFinal': isFinal,
-        })
-        .catchError((e) {
-          debugPrint('Failed to send CC $cc: $e');
-        });
+  Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
+    // Construct a UMP for the CC event.
+    // [4 bits Message Type][4 bits Group][8 bits Status][8 bits Data1][8 bits Data2]
+    // Message Type = 0x2 (MIDI 1.0 Voice)
+    // Group = 0 (default)
+    // Status = 0xB0 (CC on channel 0) -> let's assume channel 0 for now as previous logic didn't specify
+    // Data1 = cc
+    // Data2 = value
+    int ump =
+        (0x2 << 28) |
+        (0x0 << 24) |
+        (0xB0 << 16) |
+        ((cc & 0xFF) << 8) |
+        (value & 0xFF);
+    final event = MidiEvent(ump, Stopwatch().elapsedMilliseconds);
+
+    // Process through the outgoing router starting from the root 'source' node.
+    outgoingRouter.process('source', [event]);
   }
 
   Future<void> setUsbMode(String mode) async {
@@ -343,25 +376,33 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       }
     });
 
-    final midiSub = service.midiEventsStream.listen((midiEvents) {
-      final Map<int, int> batchUpdates = {};
-      for (var midiEvent in midiEvents) {
-        if (midiEvent.legacyStatusByte >= 0xB0 &&
-            midiEvent.legacyStatusByte <= 0xBF) {
-          batchUpdates[midiEvent.data1] = midiEvent.data2;
-        }
-      }
+    // Set up the incoming router UI sink for this specific provider instance
+    // Check if it exists to prevent StateError on rebuild
+    try {
+      service.incomingRouter.addNode(
+        'uiStateSink',
+        UiStateSinkNode(
+          onUpdateCCs: (batchUpdates) {
+            ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
+          },
+        ),
+      );
+      service.incomingRouter.addEdge('source', 'uiStateSink');
+    } on StateError catch (_) {
+      // Node already exists, which is fine on rebuild
+    }
 
-      // Update state EXACTLY once per batch to prevent O(N) map churning/rebuilds
-      if (batchUpdates.isNotEmpty) {
-        ref.read(ccValuesProvider.notifier).updateMultipleCCs(batchUpdates);
-      }
+    final midiSub = service.midiEventsStream.listen((midiEvents) {
+      // Process incoming events through the DAG starting from the root 'source' node
+      service.incomingRouter.process('source', midiEvents);
     });
 
     ref.onDispose(() {
       _deviceRefreshTimer?.cancel();
       systemSub.cancel();
       midiSub.cancel();
+      // Remove the UI sink since it holds a reference to the notifier
+      service.incomingRouter.removeNode('uiStateSink');
     });
 
     return const MidiConnectionState();
