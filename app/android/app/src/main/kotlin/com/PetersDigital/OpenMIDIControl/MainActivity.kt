@@ -209,7 +209,8 @@ class MainActivity : FlutterActivity() {
 
                     if (cc != null && value != null) {
                         try {
-                            processMidiCcEvent(cc, value, isFinal, System.nanoTime())
+                            val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (cc shl 8) or value
+                            processMidiCcEvent(umpInt, isFinal, System.nanoTime())
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -224,12 +225,11 @@ class MainActivity : FlutterActivity() {
                         try {
                             val nowNs = System.nanoTime()
                             for (event in events) {
-                                val cc = event["cc"] as? Int
-                                val value = event["value"] as? Int
+                                val umpNullable = event["ump"] as? Number
                                 val isFinal = event["isFinal"] as? Boolean ?: false
 
-                                if (cc != null && value != null) {
-                                    processMidiCcEvent(cc, value, isFinal, nowNs)
+                                if (umpNullable != null) {
+                                    processMidiCcEvent(umpNullable.toInt(), isFinal, nowNs)
                                 }
                             }
                             result.success(true)
@@ -271,7 +271,12 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun processMidiCcEvent(cc: Int, value: Int, isFinal: Boolean, nowNs: Long) {
+    private fun processMidiCcEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
+        val group = (umpInt ushr 24) and 0xF
+        val status = (umpInt ushr 16) and 0xFF
+        val cc = (umpInt ushr 8) and 0xFF
+        val value = umpInt and 0xFF
+
         val lastTime = lastSentTime[cc] ?: 0L
         val timeDiff = nowNs - lastTime
 
@@ -292,8 +297,13 @@ class MainActivity : FlutterActivity() {
             lastSentValue[cc] = value
             lastSentTime[cc] = nowNs
 
-            val legacyMsg = byteArrayOf(0xB0.toByte(), cc.toByte(), value.toByte())
-            val umpMsg = buildUmpCcPacket(cc, value)
+            val legacyMsg = byteArrayOf(status.toByte(), cc.toByte(), value.toByte())
+            val umpMsg = byteArrayOf(
+                (umpInt ushr 24).toByte(),
+                (umpInt ushr 16).toByte(),
+                (umpInt ushr 8).toByte(),
+                umpInt.toByte()
+            )
 
             // Send to physically connected hardware (if any)
             hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
