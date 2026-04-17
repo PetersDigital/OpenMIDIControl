@@ -12,11 +12,12 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.2** (Current) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
+- **v0.2.3** (Current) Core Routing Engine with DAG-based MidiRouter, TransformerNode abstraction, and comprehensive routing tests.
+- **v0.2.2** (Previous) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
 - **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
-- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.0 implementation.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.3 implementation.
 
 ## Current UI & Controls
 

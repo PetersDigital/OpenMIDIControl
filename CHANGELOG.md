@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on **Keep a Changelog**, and this project adheres to **Semantic Versioning (SemVer)**.
 
 ## [Unreleased]
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...HEAD)
+
+## [0.2.3] - 2026-04-17
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...v0.2.3)
+
+### Added
+- **MidiRouter Graph (Core Routing Engine)**: Implemented a centralized Directed Acyclic Graph (DAG) for deterministic N-to-N MIDI message routing and transformation.
+  - Cycle detection via depth-first search (`_detectCycle()`) prevents routing loops at add-time.
+  - Queue-based work dispatch avoids deep recursion and ensures reproducible processing order.
+  - Object pooling for work items reduces garbage collection pressure during high-frequency routing.
+  - Batch processing of `List<MidiEvent>` amortizes routing overhead across multiple events.
+- **TransformerNode Abstraction**: Introduced abstract base class for custom MIDI transformation logic.
+  - Supports filtering (velocity/channel-based), remapping (CC value scaling, message type conversion), and stream splitting (multi-path routing).
+  - Clean interface enables future protocol adapters and device-specific routers.
+- **Routing Engine Tests**: Comprehensive test suite covering DAG construction, cycle detection, batch routing, and error recovery.
 
 ## [0.2.2] - 2026-04-15
 [Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2)

@@ -120,6 +120,51 @@ To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
 - **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
+## 4.2 MidiRouter Graph (v0.2.3)
+
+The MidiRouter is a centralized **Directed Acyclic Graph (DAG)** for deterministic N-to-N message routing and transformation:
+
+**Core Components:**
+- **Nodes:** `TransformerNode` implementations that process batches of `MidiEvent` payloads. Each node applies a specific transformation (filtering, remapping, splitting streams).
+- **Edges:** Directed connections between nodes, validated to prevent cycles (enforced at add-time via `_detectCycle()`).
+- **Queue-Based Traversal:** Uses a pre-allocated work queue to avoid deep recursion and maintain consistent processing order.
+- **Object Pooling:** Work items are recycled from a pool to reduce garbage collection pressure during high-frequency routing cycles.
+
+**Processing Model:**
+```
+process(sourceNodeId, eventBatch)
+  → Queue.add(WorkItem(sourceNodeId, eventBatch))
+  → while Queue.isNotEmpty:
+      → node.process(batch) → processedBatch
+      → for each child in edges[node]:
+           Queue.add(WorkItem(child, processedBatch))
+```
+
+**Key Features:**
+- **Cycle Detection:** `_detectCycle()` uses depth-first search with recursion stack to catch cycles at add-time, preventing infinite routing loops.
+- **Batch Processing:** All nodes operate on `List<MidiEvent>` to amortize routing overhead across multiple events.
+- **Error Isolation:** Exceptions during processing clear the queue to prevent stale work items from lingering.
+- **Deterministic Order:** Queue-based dispatch ensures reproducible routing order regardless of node count.
+
+**TransformerNode Interface:**
+```dart
+abstract class TransformerNode {
+  List<MidiEvent> process(List<MidiEvent> events);
+}
+```
+
+Implementers can:
+- **Filter:** Remove events matching criteria (e.g., velocity < 64).
+- **Remap:** Transform CC values, channels, or message types.
+- **Split:** Send different events to different child nodes via multiple routing paths.
+- **Drop:** Return empty list to suppress downstream processing.
+
+**Example Use Cases (Future):**
+- Channel mapper: Remaps all CC messages to a target MIDI channel.
+- Velocity transformer: Applies dynamics curves or scaling.
+- Protocol adapter: Converts MIDI 1.0 to MIDI 2.0 format (or vice versa).
+- Device router: Routes specific CCs to hardware USB ports vs. virtual DAW ports.
+
 ## 5. Feedback Loop Prevention
 
 Use value-first suppression, not timing-only suppression.
