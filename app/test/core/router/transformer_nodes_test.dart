@@ -72,6 +72,21 @@ void main() {
       expect(result.first.data1, 15);
     });
 
+    test('FilterNode applies CC range filtering across MIDI channels', () {
+      final filter = FilterNode(minCc: 10, maxCc: 20);
+
+      final events = [
+        MidiEvent(createUmp(0x2, 0, 0xB2, 9, 127), 0), // ch 2, too low
+        MidiEvent(createUmp(0x2, 0, 0xB2, 12, 127), 0), // ch 2, in range
+        MidiEvent(createUmp(0x2, 0, 0xBF, 30, 127), 0), // ch 15, too high
+      ];
+
+      final result = filter.process(events);
+      expect(result.length, 1);
+      expect(result.first.channel, 2);
+      expect(result.first.data1, 12);
+    });
+
     test('RemapNode accurately remaps CC values', () {
       final remap = RemapNode(
         sourceCc: 10,
@@ -105,6 +120,51 @@ void main() {
       // Check third (untouched)
       expect(result[2].data1, 5);
       expect(result[2].data2, 127);
+    });
+
+    test('RemapNode remaps CC values on non-zero MIDI channels', () {
+      final remap = RemapNode(
+        sourceCc: 10,
+        destCc: 21,
+        sourceMin: 0,
+        sourceMax: 127,
+        destMin: 0,
+        destMax: 127,
+      );
+
+      final events = [
+        MidiEvent(createUmp(0x2, 0, 0xB5, 10, 64), 0), // ch 5, remap target
+        MidiEvent(createUmp(0x2, 0, 0xB6, 10, 32), 0), // ch 6, remap target
+      ];
+
+      final result = remap.process(events);
+      expect(result.length, 2);
+      expect(result[0].channel, 5);
+      expect(result[0].data1, 21);
+      expect(result[0].data2, 64);
+      expect(result[1].channel, 6);
+      expect(result[1].data1, 21);
+      expect(result[1].data2, 32);
+    });
+
+    test('RemapNode remaps CC on Channel 4 (status 0xB3)', () {
+      final remap = RemapNode(
+        sourceCc: 10,
+        destCc: 40,
+        sourceMin: 0,
+        sourceMax: 127,
+        destMin: 0,
+        destMax: 127,
+      );
+
+      final events = [MidiEvent(createUmp(0x2, 0, 0xB3, 10, 99), 0)];
+
+      final result = remap.process(events);
+      expect(result.length, 1);
+      expect(result.first.channel, 3);
+      expect(result.first.legacyStatusByte, 0xB3);
+      expect(result.first.data1, 40);
+      expect(result.first.data2, 99);
     });
 
     test('SplitNode passes batches through unmodified', () {

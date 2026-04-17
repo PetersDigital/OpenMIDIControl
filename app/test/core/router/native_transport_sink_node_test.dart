@@ -74,6 +74,28 @@ void main() {
       expect(capturedEvents[1]['isFinal'], isTrue);
     });
 
+    test('forwards CC events from non-zero MIDI channels', () async {
+      final node = NativeTransportSinkNode(channel: channel);
+
+      final ccCh2 = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0xB2, data1: 7, data2: 100),
+        0,
+        isFinal: true,
+      );
+      final ccCh15 = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0xBF, data1: 8, data2: 101),
+        0,
+        isFinal: false,
+      );
+
+      node.execute([ccCh2, ccCh15]);
+      await callCompleter.future;
+
+      expect(capturedEvents.length, 2);
+      expect(capturedEvents[0]['ump'], ccCh2.ump);
+      expect(capturedEvents[1]['ump'], ccCh15.ump);
+    });
+
     test('ignores non-CC events', () async {
       final node = NativeTransportSinkNode(channel: channel);
 
