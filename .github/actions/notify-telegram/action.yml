@@ -446,7 +446,18 @@ runs:
           local total=0
           local line escaped
           while IFS= read -r line; do
-            if [ -z "$(trim_ws "$line")" ]; then
+            line="$(trim_ws "$line")"
+            while :; do
+              case "$line" in
+                "- "*) line="${line#- }" ;;
+                "* "*) line="${line#* }" ;;
+                "• "*) line="${line#• }" ;;
+                *) break ;;
+              esac
+            done
+            line="$(trim_ws "$line")"
+
+            if [ -z "$line" ]; then
               continue
             fi
             total=$((total + 1))
