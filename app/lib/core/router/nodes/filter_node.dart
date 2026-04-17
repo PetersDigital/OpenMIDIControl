@@ -33,9 +33,7 @@ class FilterNode extends TransformerNode {
       }
       if (minCc != null || maxCc != null) {
         // Only apply CC range filtering to Control Change messages
-        // Assuming MIDI 1.0 Voice Message (0x2) and CC status (0xB0 to 0xBF)
-        // messageType == 2, status == 0xB0
-        if (event.messageType == 0x2 && event.status == 0xB0) {
+        if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
           final ccNumber = event.data1;
           if (minCc != null && ccNumber < minCc!) continue;
           if (maxCc != null && ccNumber > maxCc!) continue;

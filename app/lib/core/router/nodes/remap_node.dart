@@ -36,7 +36,7 @@ class RemapNode extends TransformerNode {
     bool needsTransformation = false;
     for (final event in events) {
       if (event.messageType == 0x2 &&
-          event.status == 0xB0 &&
+          (event.status & 0xF0) == 0xB0 &&
           event.data1 == sourceCc) {
         needsTransformation = true;
         break;
@@ -48,7 +48,7 @@ class RemapNode extends TransformerNode {
     final remapped = <MidiEvent>[];
     for (final event in events) {
       if (event.messageType == 0x2 &&
-          event.status == 0xB0 &&
+          (event.status & 0xF0) == 0xB0 &&
           event.data1 == sourceCc) {
         final val = event.data2;
         // Clamp input value to source range
