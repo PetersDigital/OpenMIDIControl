@@ -5,8 +5,15 @@ class MidiEvent {
   final int ump; // 32-bit Universal MIDI Packet integer
   final int timestamp; // nanoseconds or milliseconds
   final String sourceId; // e.g., device id or port name
+  final bool
+  isFinal; // Gesture finality semantics for routing and native transport
 
-  const MidiEvent(this.ump, this.timestamp, {this.sourceId = 'unknown'});
+  const MidiEvent(
+    this.ump,
+    this.timestamp, {
+    this.sourceId = 'unknown',
+    this.isFinal = false,
+  });
 
   // Bitwise extraction getters for standard MIDI 1.0 Voice fields
   int get messageType => (ump >> 28) & 0xF;
@@ -25,11 +32,13 @@ class MidiEvent {
     return other is MidiEvent &&
         other.ump == ump &&
         other.timestamp == timestamp &&
-        other.sourceId == sourceId;
+        other.sourceId == sourceId &&
+        other.isFinal == isFinal;
   }
 
   @override
-  int get hashCode => ump.hashCode ^ timestamp.hashCode ^ sourceId.hashCode;
+  int get hashCode =>
+      ump.hashCode ^ timestamp.hashCode ^ sourceId.hashCode ^ isFinal.hashCode;
 
   @override
   String toString() {
