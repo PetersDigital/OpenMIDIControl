@@ -200,7 +200,7 @@ jobs:
             ${{ steps.build_windows.outputs.zip-path }}.pem
 
   provenance:
-    needs: [verify-patch-tag, analyze-and-test, build-hotfix]
+    needs: [verify-patch-tag, analyze-and-test, build-hotfix, build-hotfix-windows]
     timeout-minutes: 10
     if: always() && needs.build-hotfix.result == 'success'
     runs-on: ubuntu-22.04
@@ -221,7 +221,7 @@ jobs:
           subject_path: openmidicontrol-*-android.apk
 
       - name: Generate Provenance (Windows)
-        if: needs.build-hotfix.outputs.has_windows == 'true'
+        if: needs.build-hotfix.outputs.has_windows == 'true' && needs.build-hotfix-windows.result == 'success'
         uses: ./.github/actions/provenance-attestation
         with:
           subject_path: openmidicontrol-*-windows.zip
@@ -229,7 +229,7 @@ jobs:
   create-hotfix-release:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
-    needs: [verify-patch-tag, analyze-and-test, build-hotfix, provenance]
+    needs: [verify-patch-tag, analyze-and-test, build-hotfix, build-hotfix-windows, provenance]
     if: always() && needs.build-hotfix.result == 'success' && needs.provenance.result == 'success'
     permissions:
       contents: write
@@ -331,7 +331,7 @@ jobs:
         uses: ./.github/actions/prepare-release-assets
         with:
           tag: ${{ github.ref_name }}
-          has-windows: ${{ needs.build-hotfix.outputs.has_windows }}
+          has-windows: ${{ needs.build-hotfix.outputs.has_windows == 'true' && needs.build-hotfix-windows.result == 'success' }}
 
       - name: Create Public Hotfix Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
