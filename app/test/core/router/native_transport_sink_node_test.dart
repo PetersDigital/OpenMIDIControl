@@ -1,0 +1,93 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'dart:async';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:app/core/models/midi_event.dart';
+import 'package:app/core/router/nodes/native_transport_sink_node.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  int buildUmp({
+    required int messageType,
+    required int status,
+    required int data1,
+    required int data2,
+  }) {
+    return (messageType << 28) |
+        (0x0 << 24) |
+        (status << 16) |
+        (data1 << 8) |
+        data2;
+  }
+
+  group('NativeTransportSinkNode', () {
+    late MethodChannel channel;
+    late List<Map<dynamic, dynamic>> capturedEvents;
+    late Completer<void> callCompleter;
+
+    setUp(() {
+      channel = const MethodChannel('com.petersdigital.openmidicontrol/midi');
+      capturedEvents = [];
+      callCompleter = Completer<void>();
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'sendMidiCCBatch') {
+              final events = (call.arguments as Map)['events'] as List<dynamic>;
+              capturedEvents = events.cast<Map<dynamic, dynamic>>();
+              if (!callCompleter.isCompleted) {
+                callCompleter.complete();
+              }
+            }
+            return null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test('forwards isFinal values for CC events', () async {
+      final node = NativeTransportSinkNode(channel: channel);
+
+      final ccOff = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
+        0,
+        isFinal: false,
+      );
+      final ccOn = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 1),
+        0,
+        isFinal: true,
+      );
+
+      node.execute([ccOff, ccOn]);
+      await callCompleter.future;
+
+      expect(capturedEvents.length, 2);
+      expect(capturedEvents[0]['isFinal'], isFalse);
+      expect(capturedEvents[1]['isFinal'], isTrue);
+    });
+
+    test('ignores non-CC events', () async {
+      final node = NativeTransportSinkNode(channel: channel);
+
+      final nonCc = MidiEvent(
+        buildUmp(messageType: 0x1, status: 0xF8, data1: 0, data2: 0),
+        0,
+        isFinal: true,
+      );
+
+      node.execute([nonCc]);
+
+      // Give the method channel a chance to be called if it was incorrectly triggered.
+      await Future<void>.delayed(Duration.zero);
+      expect(capturedEvents, isEmpty);
+    });
+  });
+}
