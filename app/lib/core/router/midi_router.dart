@@ -97,22 +97,35 @@ class MidiRouter {
 
     _processQueue.add(_getWorkItem(sourceNodeId, events));
 
-    while (_processQueue.isNotEmpty) {
-      final item = _processQueue.removeFirst();
-      final nodeId = item.nodeId;
-      final batch = item.events;
+    try {
+      while (_processQueue.isNotEmpty) {
+        final item = _processQueue.removeFirst();
+        try {
+          final nodeId = item.nodeId;
+          final batch = item.events;
 
-      final node = _nodes[nodeId]!;
-      final processedBatch = node.process(batch);
+          final node = _nodes[nodeId]!;
+          final processedBatch = node.process(batch);
 
-      if (processedBatch.isNotEmpty) {
-        final children = _edges[nodeId] ?? const [];
-        for (final childId in children) {
-          _processQueue.add(_getWorkItem(childId, processedBatch));
+          if (processedBatch.isNotEmpty) {
+            final children = _edges[nodeId] ?? const [];
+            for (final childId in children) {
+              _processQueue.add(_getWorkItem(childId, processedBatch));
+            }
+          }
+        } finally {
+          _releaseWorkItem(item);
         }
       }
+    } catch (_) {
+      _clearProcessQueue();
+      rethrow;
+    }
+  }
 
-      _releaseWorkItem(item);
+  void _clearProcessQueue() {
+    while (_processQueue.isNotEmpty) {
+      _releaseWorkItem(_processQueue.removeFirst());
     }
   }
 
