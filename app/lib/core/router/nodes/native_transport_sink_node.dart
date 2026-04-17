@@ -16,10 +16,9 @@ class NativeTransportSinkNode extends SinkNode {
   void execute(List<MidiEvent> events) {
     final batch = <Map<String, dynamic>>[];
     for (var event in events) {
-      if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
-        // We assume CC events for now as per MidiService.sendCC
-        // isFinal is a bit tricky here since we don't track touch end state in the DAG yet.
-        // We'll default to false, as rapid routing updates don't easily map to touch events.
+      if (event.messageType == 0x2 && event.status == 0xB0) {
+        // Forward explicit CC touch-finality semantics from routed MidiEvents.
+        // Upstream routing may preserve isFinal for gesture completion events.
         batch.add({'ump': event.ump, 'isFinal': event.isFinal});
       }
     }
