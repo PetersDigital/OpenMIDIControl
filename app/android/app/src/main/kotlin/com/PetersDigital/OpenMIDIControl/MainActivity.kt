@@ -208,12 +208,18 @@ class MainActivity : FlutterActivity() {
                     val isFinal = call.argument<Boolean>("isFinal") ?: false
 
                     if (cc != null && value != null) {
-                        try {
-                            val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (cc shl 8) or value
-                            processMidiCcEvent(umpInt, isFinal, System.nanoTime())
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
+                        if (cc !in 0..127 || value !in 0..127) {
+                            result.error("INVALID_ARGUMENT", "CC and value must be in the range 0..127", null)
+                        } else {
+                            try {
+                                val safeCc = cc and 0xFF
+                                val safeValue = value and 0xFF
+                                val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (safeCc shl 8) or safeValue
+                                processMidiCcEvent(umpInt, isFinal, System.nanoTime())
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
+                            }
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "CC and value are required", null)
