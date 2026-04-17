@@ -653,7 +653,7 @@ runs:
             -F "chat_id=$TELEGRAM_CHAT_ID"
             -F "parse_mode=HTML"
             -F "disable_content_type_detection=true"
-            -F "caption=$caption"
+            --form-string "caption=$caption"
             -F "document=@$file_path"
           )
 

@@ -37,7 +37,7 @@ on:
       - '!.github/notify-telegram-HTMLCSS-preview/**'
 
 concurrency:
-  group: feature-${{ github.workflow }}-${{ github.ref }}
+  group: feature-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:

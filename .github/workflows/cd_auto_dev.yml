@@ -139,6 +139,7 @@ jobs:
           artifact-path: ${{ steps.name.outputs.apk-path }}
           changelog: ${{ steps.name.outputs.changelog }}
           changelog-max-lines: '6'
+          include-details-on-success: 'true'
           fail-on-error: false
 
       - name: Notify Telegram (Dev Build Failure)
