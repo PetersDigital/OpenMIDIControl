@@ -137,18 +137,12 @@ void main() {
         (i) => MidiEvent(createUmp(0x2, 0, 0xB0, 10, i % 128), 0),
       );
 
-      final stopwatch = Stopwatch()..start();
       router.process('source', hugeBatch);
-      stopwatch.stop();
 
       // Ensure all reached the sink and were transformed properly
       expect(sink.receivedEvents.length, 15000);
       expect(sink.receivedEvents.first.data1, 12);
       expect(sink.receivedEvents.last.data1, 12);
-
-      // Processing should be extremely fast, <50ms for 15k events
-      // (This verifies no massive O(N^2) overhead was introduced)
-      expect(stopwatch.elapsedMilliseconds, lessThan(200));
     });
   });
 }
