@@ -219,7 +219,11 @@ class MidiService {
         (0xB0 << 16) |
         ((cc & 0xFF) << 8) |
         (value & 0xFF);
-    final event = MidiEvent(ump, _stopwatch.elapsedMilliseconds);
+    final event = MidiEvent(
+      ump,
+      _stopwatch.elapsedMilliseconds,
+      isFinal: isFinal,
+    );
 
     // Process through the outgoing router starting from the root 'source' node.
     outgoingRouter.process('source', [event]);

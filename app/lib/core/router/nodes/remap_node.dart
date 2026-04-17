@@ -76,7 +76,12 @@ class RemapNode extends TransformerNode {
         int newUmp = umpWithoutData | (finalData1 << 8) | finalData2;
 
         remapped.add(
-          MidiEvent(newUmp, event.timestamp, sourceId: event.sourceId),
+          MidiEvent(
+            newUmp,
+            event.timestamp,
+            sourceId: event.sourceId,
+            isFinal: event.isFinal,
+          ),
         );
       } else {
         remapped.add(event);

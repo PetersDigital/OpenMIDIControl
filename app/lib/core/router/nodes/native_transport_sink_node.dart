@@ -20,7 +20,7 @@ class NativeTransportSinkNode extends SinkNode {
         // We assume CC events for now as per MidiService.sendCC
         // isFinal is a bit tricky here since we don't track touch end state in the DAG yet.
         // We'll default to false, as rapid routing updates don't easily map to touch events.
-        batch.add({'ump': event.ump, 'isFinal': false});
+        batch.add({'ump': event.ump, 'isFinal': event.isFinal});
       }
     }
 
