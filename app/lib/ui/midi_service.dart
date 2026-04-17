@@ -96,6 +96,7 @@ class MidiService {
     _setupRouters();
   }
 
+  // Intentionally never closed: MidiService is a singleton Provider with app lifetime.
   final StreamController<Map<int, int>> _uiStateController =
       StreamController<Map<int, int>>.broadcast();
   Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
