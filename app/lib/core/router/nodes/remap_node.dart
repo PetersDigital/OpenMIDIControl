@@ -20,7 +20,14 @@ class RemapNode extends TransformerNode {
     this.sourceMax = 127,
     this.destMin = 0,
     this.destMax = 127,
-  });
+  }) : assert(sourceCc >= 0 && sourceCc <= 127),
+       assert(destCc >= 0 && destCc <= 127),
+       assert(sourceMin >= 0 && sourceMin <= 127),
+       assert(sourceMax >= 0 && sourceMax <= 127),
+       assert(destMin >= 0 && destMin <= 127),
+       assert(destMax >= 0 && destMax <= 127),
+       assert(sourceMin <= sourceMax),
+       assert(destMin <= destMax);
 
   @override
   List<MidiEvent> process(List<MidiEvent> events) {
@@ -60,6 +67,7 @@ class RemapNode extends TransformerNode {
               ((clampedVal - sourceMin) * (destMax - destMin) +
                       (sourceMax - sourceMin) ~/ 2) ~/
                   (sourceMax - sourceMin);
+          mappedVal = mappedVal.clamp(destMin, destMax) as int;
         }
 
         // Reconstruct the 32-bit UMP integer with the new CC number and value
