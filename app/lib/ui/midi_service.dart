@@ -101,6 +101,9 @@ class MidiService {
       StreamController<Map<int, int>>.broadcast();
   Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
 
+  final Map<int, int> _cachedCcState = {};
+  Map<int, int> get currentCcState => Map.unmodifiable(_cachedCcState);
+
   final Stopwatch _stopwatch = Stopwatch()..start();
 
   void _setupRouters() {
@@ -122,7 +125,10 @@ class MidiService {
       'uiStateSink',
       UiStateSinkNode(
         onUpdateCCs: (batchUpdates) {
-          _uiStateController.add(batchUpdates);
+          if (batchUpdates.isNotEmpty) {
+            _cachedCcState.addAll(batchUpdates);
+            _uiStateController.add(batchUpdates);
+          }
         },
       ),
     );
@@ -472,7 +478,11 @@ class CcNotifier extends Notifier<ControlState> {
       sub.cancel();
     });
 
-    return ControlState(ccValues: const <int, int>{});
+    return ControlState(
+      ccValues: service.currentCcState.isNotEmpty
+          ? service.currentCcState
+          : const <int, int>{},
+    );
   }
 
   void updateCC(int cc, int value) {
