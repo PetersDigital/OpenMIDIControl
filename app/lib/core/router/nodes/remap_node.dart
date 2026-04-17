@@ -67,7 +67,7 @@ class RemapNode extends TransformerNode {
               ((clampedVal - sourceMin) * (destMax - destMin) +
                       (sourceMax - sourceMin) ~/ 2) ~/
                   (sourceMax - sourceMin);
-          mappedVal = mappedVal.clamp(destMin, destMax) as int;
+          mappedVal = mappedVal.clamp(destMin, destMax);
         }
 
         // Reconstruct the 32-bit UMP integer with the new CC number and value
@@ -78,8 +78,8 @@ class RemapNode extends TransformerNode {
         int umpWithoutData = event.ump & 0xFFFF0000;
 
         // Ensure new CC number and mapped value are within the valid MIDI 1.0 range.
-        final int finalData1 = destCc.clamp(0, 127) as int;
-        final int finalData2 = mappedVal.clamp(0, 127) as int;
+        final int finalData1 = destCc.clamp(0, 127);
+        final int finalData2 = mappedVal.clamp(0, 127);
 
         int newUmp = umpWithoutData | (finalData1 << 8) | finalData2;
 
