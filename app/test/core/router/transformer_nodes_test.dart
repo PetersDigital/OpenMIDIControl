@@ -117,7 +117,7 @@ void main() {
       final result = split.process(events);
       expect(result.length, 2);
       // Same references returned
-      expect(result, equals(events));
+      expect(result, same(events));
     });
   });
 }
