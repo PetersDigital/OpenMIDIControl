@@ -217,6 +217,11 @@ class MidiService {
   }
 
   Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
+    if (cc < 0 || cc > 127 || value < 0 || value > 127) {
+      debugPrint('Invalid MIDI CC send request: cc=$cc value=$value');
+      return;
+    }
+
     // Construct a UMP for the CC event.
     // [4 bits Message Type][4 bits Group][8 bits Status][8 bits Data1][8 bits Data2]
     // Message Type = 0x2 (MIDI 1.0 Voice)
