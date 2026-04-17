@@ -77,9 +77,9 @@ class RemapNode extends TransformerNode {
         // Clear out the old Data1 and Data2 bytes (lower 16 bits)
         int umpWithoutData = event.ump & 0xFFFF0000;
 
-        // Ensure new CC number and mapped value are within 8-bit limits
-        int finalData1 = destCc & 0xFF;
-        int finalData2 = mappedVal & 0xFF;
+        // Ensure new CC number and mapped value are within the valid MIDI 1.0 range.
+        final int finalData1 = destCc.clamp(0, 127) as int;
+        final int finalData2 = mappedVal.clamp(0, 127) as int;
 
         int newUmp = umpWithoutData | (finalData1 << 8) | finalData2;
 
