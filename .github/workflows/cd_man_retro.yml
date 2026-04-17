@@ -441,7 +441,7 @@ jobs:
           fail-on-error: true
           signed-build: true
           provenance-verified: true
-          sbom-available: true
+          sbom-available: false
 
       - name: Notify Failure
         uses: ./.github/actions/notify-telegram

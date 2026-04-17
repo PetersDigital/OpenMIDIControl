@@ -378,6 +378,6 @@ jobs:
           fail-on-error: true
           signed-build: true
           provenance-verified: true
-          sbom-available: true
+          sbom-available: false
           failure-stage: Create Hotfix Release
           failure-hint: Validate release creation and uploaded artifact availability.
