@@ -92,16 +92,21 @@ class MidiService {
   final MidiRouter incomingRouter = MidiRouter();
   final MidiRouter outgoingRouter = MidiRouter();
 
-  MidiService() {
-    _setupRouters();
-  }
-
-  // Intentionally never closed: MidiService is a singleton Provider with app lifetime.
-  final StreamController<Map<int, int>> _uiStateController =
-      StreamController<Map<int, int>>.broadcast();
+  late final StreamController<Map<int, int>> _uiStateController;
   Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
 
   final Map<int, int> _cachedCcState = {};
+
+  MidiService() {
+    _uiStateController = StreamController<Map<int, int>>.broadcast(
+      onListen: () {
+        if (_cachedCcState.isNotEmpty) {
+          _uiStateController.add(Map.unmodifiable(_cachedCcState));
+        }
+      },
+    );
+    _setupRouters();
+  }
   Map<int, int> get currentCcState => Map.unmodifiable(_cachedCcState);
 
   final Stopwatch _stopwatch = Stopwatch()..start();
