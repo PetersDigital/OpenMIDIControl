@@ -15,6 +15,10 @@ inputs:
     description: 'Whether to include .jsonl provenance files'
     required: false
     default: 'true'
+  fail-on-missing:
+    description: 'Fail action when expected assets are missing'
+    required: false
+    default: 'false'
 
 outputs:
   files:
@@ -31,6 +35,19 @@ runs:
         TAG="${{ inputs.tag }}"
         HAS_WINDOWS="${{ inputs.has-windows }}"
         INCLUDE_PROVENANCE="${{ inputs.include-provenance }}"
+        FAIL_ON_MISSING="${{ inputs.fail-on-missing }}"
+        MISSING_COUNT=0
+        PROVENANCE_COUNT=0
+
+        add_asset_or_warn() {
+          local file="$1"
+          if [ -f "$file" ]; then
+            echo "$file"
+          else
+            echo "::warning::File not found: $file" >&2
+            MISSING_COUNT=$((MISSING_COUNT + 1))
+          fi
+        }
 
         echo "=== Generating Asset List ==="
         {
@@ -39,35 +56,37 @@ runs:
           # Android APK and signatures
           for ext in apk apk.sig apk.pem; do
             FILE="openmidicontrol-${TAG}-android.${ext}"
-            if [ -f "$FILE" ]; then
-              echo "$FILE"
-            else
-              echo "::warning::File not found: $FILE" >&2
-            fi
+            add_asset_or_warn "$FILE"
           done
 
           # Windows ZIP and signatures (if exists)
           if [ "$HAS_WINDOWS" = "true" ]; then
             for ext in zip zip.sig zip.pem; do
               FILE="openmidicontrol-${TAG}-windows.${ext}"
-              if [ -f "$FILE" ]; then
-                echo "$FILE"
-              else
-                echo "::warning::File not found: $FILE" >&2
-              fi
+              add_asset_or_warn "$FILE"
             done
           fi
 
           # Provenance files
           if [ "$INCLUDE_PROVENANCE" = "true" ]; then
+            shopt -s nullglob
             for file in ./*.jsonl; do
-              if [ -f "$file" ]; then
-                echo "$file"
-              fi
+              echo "$file"
+              PROVENANCE_COUNT=$((PROVENANCE_COUNT + 1))
             done
+            shopt -u nullglob
+            if [ "$PROVENANCE_COUNT" -eq 0 ]; then
+              echo "::warning::No provenance files (.jsonl) found." >&2
+              MISSING_COUNT=$((MISSING_COUNT + 1))
+            fi
           fi
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
+
+        if [ "$FAIL_ON_MISSING" = "true" ] && [ "$MISSING_COUNT" -gt 0 ]; then
+          echo "::error::Missing required release assets detected: $MISSING_COUNT"
+          exit 1
+        fi
 
         # Log findings to runner console
         echo "Assets to be uploaded:"

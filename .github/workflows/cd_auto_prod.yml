@@ -255,6 +255,7 @@ jobs:
         with:
           tag: ${{ needs.verify-tag-on-main.outputs.tag }}
           has-windows: ${{ needs.verify-tag-on-main.outputs.has_windows }}
+          fail-on-missing: 'true'
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0

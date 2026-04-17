@@ -332,6 +332,7 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           has-windows: ${{ needs.build-hotfix.outputs.has_windows == 'true' && needs.build-hotfix-windows.result == 'success' }}
+          fail-on-missing: 'true'
 
       - name: Create Public Hotfix Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0

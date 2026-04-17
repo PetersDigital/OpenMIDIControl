@@ -373,6 +373,7 @@ jobs:
         with:
           tag: ${{ needs.validate-tag.outputs.tag }}
           has-windows: ${{ needs.validate-tag.outputs.has_windows }}
+          fail-on-missing: 'true'
 
       - name: Update GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
