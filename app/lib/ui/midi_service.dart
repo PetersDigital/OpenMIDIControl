@@ -332,6 +332,22 @@ class MidiConnectionState {
 class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   Timer? _deviceRefreshTimer;
   String _lastUsbStatus = 'INIT';
+  final Stopwatch _eventStopwatch = Stopwatch()..start();
+  String? _lastDeviceEventKey;
+  int _lastDeviceEventMs = 0;
+  static const int _duplicateDeviceEventWindowMs = 500;
+
+  bool _isDuplicateDeviceEvent(String type, dynamic id) {
+    final key = '$type:$id';
+    final nowMs = _eventStopwatch.elapsedMilliseconds;
+    final isDuplicate =
+        key == _lastDeviceEventKey &&
+        (nowMs - _lastDeviceEventMs) < _duplicateDeviceEventWindowMs;
+
+    _lastDeviceEventKey = key;
+    _lastDeviceEventMs = nowMs;
+    return isDuplicate;
+  }
 
   void _scheduleDeviceRefresh() {
     _deviceRefreshTimer?.cancel();
@@ -354,6 +370,10 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       final id = event['id'];
 
       if (type == 'removed') {
+        if (_isDuplicateDeviceEvent(type as String, id)) {
+          return;
+        }
+
         // If the removed device is our currently connected device
         if (state.connectedDevice?.id == id) {
           state = state.disconnect(connectionLost: true);
@@ -361,13 +381,14 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
             pattern: [0, 100, 100, 100],
             amplitude: [0, 255, 0, 255],
           );
-        } else {
-          // General removal of a non-connected device
-          service.vibrate(duration: 500);
         }
         // Refresh the available devices list
         _scheduleDeviceRefresh();
       } else if (type == 'added') {
+        if (_isDuplicateDeviceEvent(type as String, id)) {
+          return;
+        }
+
         // Refresh device list on any new added event.
         _scheduleDeviceRefresh();
 
