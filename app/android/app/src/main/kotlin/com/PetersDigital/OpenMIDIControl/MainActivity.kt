@@ -121,12 +121,21 @@ class MainActivity : FlutterActivity() {
 
     private fun getAvailableMidiDevices(): Array<MidiDeviceInfo>? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val umpDevices = midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)?.toTypedArray()
-            if (umpDevices != null && umpDevices.isNotEmpty()) {
-                umpDevices
-            } else {
-                midiManager?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)?.toTypedArray()
-            }
+            val merged = LinkedHashMap<Int, MidiDeviceInfo>()
+
+            midiManager
+                ?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)
+                ?.forEach { device ->
+                    merged[device.id] = device
+                }
+
+            midiManager
+                ?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)
+                ?.forEach { device ->
+                    merged[device.id] = device
+                }
+
+            merged.values.toTypedArray()
         } else {
             @Suppress("DEPRECATION")
             midiManager?.getDevices()
