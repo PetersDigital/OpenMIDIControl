@@ -7,7 +7,7 @@ import kotlinx.coroutines.channels.Channel
 object MidiParser {
 
     // Pre-allocated batch buffer — reused across drain cycles to eliminate allocation churn.
-    // Every 8ms cycle in startBatchDispatchTimer would otherwise allocate 16KB + copyOfRange overhead (~2MB/sec GC pressure).
+    // Slot 0 stores the number of populated data longs; the remaining slots hold [ump, timestamp, ...].
     private val batch = LongArray(2000)
 
     /**
@@ -150,20 +150,23 @@ object MidiParser {
         firstEvent: Long,
         channel: Channel<Long>
     ): LongArray {
+        var writeIndex = 1
+        var usedDataLongs = 0
+
         // Unpack first event: upper 32 = UMP, lower 32 = timestamp
-        batch[0] = (firstEvent shr 32) and 0xFFFFFFFFL  // UMP
-        batch[1] = firstEvent and 0xFFFFFFFFL  // timestamp (lower 32 bits)
-        var count = 2
+        batch[writeIndex++] = (firstEvent shr 32) and 0xFFFFFFFFL
+        batch[writeIndex++] = firstEvent and 0xFFFFFFFFL
+        usedDataLongs += 2
 
         // Drain any other events currently in the channel buffer without exceeding capacity
-        while (count + 1 < batch.size) {
+        while (writeIndex + 1 < batch.size) {
             val packed = channel.tryReceive().getOrNull() ?: break
-            batch[count++] = (packed shr 32) and 0xFFFFFFFFL  // UMP
-            batch[count++] = packed and 0xFFFFFFFFL  // timestamp (lower 32 bits)
+            batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
+            batch[writeIndex++] = packed and 0xFFFFFFFFL
+            usedDataLongs += 2
         }
 
-        // Return exact-sized copy from reused buffer
-        // If batch is fully populated, clone() avoids the double-allocation path
-        return if (count == batch.size) batch.clone() else batch.copyOfRange(0, count)
+        batch[0] = usedDataLongs.toLong()
+        return batch
     }
 }

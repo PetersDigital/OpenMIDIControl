@@ -193,9 +193,10 @@ class MidiService {
       .map((event) {
         final data = event as Int64List;
         final List<MidiEvent> parsedEvents = [];
+        final int usedLongCount = data.isNotEmpty ? data[0] : 0;
 
-        // Decode the 1D LongArray batch (Pairs of UMP Integer, Timestamp)
-        for (int i = 0; i + 1 < data.length; i += 2) {
+        // Decode the populated portion of the reused LongArray batch.
+        for (int i = 1; i + 1 <= usedLongCount; i += 2) {
           int ump = data[i];
           int timestamp = data[i + 1];
 
