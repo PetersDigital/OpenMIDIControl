@@ -36,11 +36,9 @@ object MidiParser {
         } else false
 
         if (isUmp) {
-            // Process UMP (32-bit Integers), respecting packet word lengths.
+            // Process each 32-bit UMP word independently to avoid misalignment churn.
             var i = offset
-            while (i < offset + count) {
-                if (i + 4 > offset + count) break
-
+            while (i + 3 < offset + count) {
                 val byte1 = msg[i].toInt() and 0xFF
                 val byte2 = msg[i + 1].toInt() and 0xFF
                 val byte3 = msg[i + 2].toInt() and 0xFF
@@ -48,26 +46,17 @@ object MidiParser {
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
                 val messageType = (umpInt ushr 28) and 0xF
-                // MIDI 2.0 UMP Word Count Table
-                val words = when (messageType) {
-                    0x3, 0x4, 0x8, 0x9, 0xA -> 2
-                    0xB, 0xC -> 3
-                    0x5, 0xD, 0xE, 0xF -> 4
-                    else -> 1 // 0x0, 0x1, 0x2, 0x6, 0x7 are 1 word
-                }
-
-                if (i + (words * 4) > offset + count) break
 
                 if (messageType == 0x1) {
                     // MT 0x1: System Real-Time / System Common
                     val status = (umpInt ushr 16) and 0xFF
 
+                    // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
                     if (status == 0xF8 || status == 0xFE) {
-                        // Drop Timing Clock (0xF8) and Active Sensing (0xFE)
-                        i += words * 4
+                        i += 4
                         continue
                     }
-                    // Drop other MT 1 messages for now
+                    // Drop other MT 1 messages for now.
                 } else if (messageType == 0x2) {
                     // MT 0x2: MIDI 1.0 Channel Voice
                     val group = (umpInt ushr 24) and 0xF
@@ -80,8 +69,8 @@ object MidiParser {
                         forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
                     }
                 }
-                // Silently drop other MTs
-                i += words * 4
+                // Silently drop other MTs.
+                i += 4
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
