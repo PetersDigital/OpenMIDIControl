@@ -26,7 +26,11 @@ class NativeTransportSinkNode extends SinkNode {
     }
 
     if (writeIndex > 0) {
-      channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((
+      final payload = writeIndex == batch.length
+          ? batch
+          : (Int64List(writeIndex)..setRange(0, writeIndex, batch));
+
+      channel.invokeMethod('sendMidiCCBatch', {'events': payload}).catchError((
         e,
       ) {
         debugPrint('Failed to send MIDI CC batch: $e');
