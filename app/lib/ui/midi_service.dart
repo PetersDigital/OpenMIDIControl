@@ -52,6 +52,48 @@ final usbConnectionStateProvider =
       UsbConnectionStateNotifier.new,
     );
 
+class UsbHostConnectedStateNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final service = ref.watch(midiServiceProvider);
+    var lastUsbState = 'INIT';
+
+    final systemSub = service.systemEventsStream.listen((event) {
+      if (event['type'] != 'usb_state') return;
+
+      final usbState = event['state'] as String? ?? 'INIT';
+      if (usbState == lastUsbState) return;
+      lastUsbState = usbState;
+
+      // Reset host-connected evidence when USB session changes.
+      if (usbState == 'AVAILABLE' ||
+          usbState == 'DISCONNECTED' ||
+          usbState == 'INIT') {
+        state = false;
+      }
+    });
+
+    final midiSub = service.midiEventsStream.listen((midiEvents) {
+      // First real MIDI payload from host confirms host-side link is active.
+      if (midiEvents.isNotEmpty) {
+        state = true;
+      }
+    });
+
+    ref.onDispose(() {
+      systemSub.cancel();
+      midiSub.cancel();
+    });
+
+    return false;
+  }
+}
+
+final usbHostConnectedStateProvider =
+    NotifierProvider<UsbHostConnectedStateNotifier, bool>(
+      UsbHostConnectedStateNotifier.new,
+    );
+
 class MidiDevice {
   final String id;
   final String name;
@@ -512,6 +554,7 @@ enum MidiStatus {
   connected,
   connectionLost,
   usbActive,
+  usbHostConnected,
 }
 
 class CcNotifier extends Notifier<ControlState> {
@@ -565,10 +608,13 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   final devicesAsync = ref.watch(midiDevicesProvider);
   final usbState = ref.watch(usbConnectionStateProvider);
   final usbMode = ref.watch(usbModeProvider);
+  final usbHostConnected = ref.watch(usbHostConnectedStateProvider);
 
   // USB Mode takes highest precedence if in peripheral mode and connected
   if (usbMode == UsbMode.peripheral && usbState == 'AVAILABLE') {
-    return MidiStatus.usbActive;
+    return usbHostConnected
+        ? MidiStatus.usbHostConnected
+        : MidiStatus.usbActive;
   }
 
   if (connectionState.isConnectionLost) {

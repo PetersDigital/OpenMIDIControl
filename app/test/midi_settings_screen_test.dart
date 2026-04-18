@@ -42,6 +42,16 @@ void main() {
       expect(find.byIcon(Icons.check_circle_outline), findsNWidgets(1));
     });
 
+    testWidgets('shows USB host connected banner for usbHostConnected status', (
+      tester,
+    ) async {
+      await _pumpMidiSettings(tester, status: MidiStatus.usbHostConnected);
+
+      expect(find.text('USB HOST CONNECTED'), findsOneWidget);
+      expect(find.textContaining('MIDI data is flowing'), findsOneWidget);
+      expect(find.byIcon(Icons.usb), findsOneWidget);
+    });
+
     testWidgets('shows connected banner for connected status', (tester) async {
       await _pumpMidiSettings(tester, status: MidiStatus.connected);
 

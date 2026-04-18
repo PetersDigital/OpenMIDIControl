@@ -798,6 +798,11 @@ class _ConnectionStatusButtonState
         statusColor = Colors.green.shade400;
         _animationController.stop();
         break;
+      case MidiStatus.usbHostConnected:
+        statusText = "USB HOST CONNECTED";
+        statusColor = Colors.green.shade400;
+        _animationController.stop();
+        break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
         statusColor = Colors.green.shade400;
