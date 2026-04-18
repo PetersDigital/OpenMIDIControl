@@ -37,8 +37,8 @@ void main() {
     testWidgets('shows USB active banner for usbActive status', (tester) async {
       await _pumpMidiSettings(tester, status: MidiStatus.usbActive);
 
-      expect(find.text('USB PERIPHERAL MODE ACTIVE'), findsOneWidget);
-      expect(find.textContaining('USB MIDI peripheral'), findsOneWidget);
+      expect(find.text('USB PERIPHERAL MODE READY'), findsOneWidget);
+      expect(find.textContaining('ready. Connect host PC'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsNWidgets(1));
     });
 

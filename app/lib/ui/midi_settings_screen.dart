@@ -276,9 +276,10 @@ class MidiSettingsScreen extends ConsumerWidget {
         borderColor = Colors.green.shade900.withValues(alpha: 0.5);
         icon = Icons.check_circle_outline;
         iconColor = Colors.green.shade400;
-        titleText = 'USB PERIPHERAL MODE ACTIVE';
+        titleText = 'USB PERIPHERAL MODE READY';
         titleColor = Colors.green.shade400;
-        subText = 'Device is acting as a USB MIDI peripheral to host PC.';
+        subText =
+            'USB MIDI peripheral is ready. Connect host PC to start MIDI data flow.';
         break;
       case MidiStatus.connected:
         borderColor = Colors.green.shade900.withValues(alpha: 0.5);
