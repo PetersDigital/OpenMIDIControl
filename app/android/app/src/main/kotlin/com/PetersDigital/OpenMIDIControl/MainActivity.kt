@@ -55,9 +55,10 @@ class MainActivity : FlutterActivity() {
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
-    // Thread Separation: Coroutine Channel for incoming MIDI events
-    // We store the 32-bit UMP and its timestamp as a Pair to ensure atomic queuing.
-    private val incomingEventsChannel = Channel<Pair<Long, Long>>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // Thread Separation: Coroutine Channel for incoming MIDI events (packed as Long)
+    // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time)
+    // Eliminates Pair<Long, Long> heap allocation (~48 bytes per event, ~5,760 bytes/sec at 120 events/sec)
+    private val incomingEventsChannel = Channel<Long>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 

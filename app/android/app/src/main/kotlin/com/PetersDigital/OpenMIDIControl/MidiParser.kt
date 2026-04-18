@@ -13,7 +13,9 @@ object MidiParser {
     /**
      * Reconstructs 32-bit UMP integers or handles legacy byte streams,
      * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
-     * and queues the valid output pairs (UMP, Timestamp) to the given channel.
+     * and queues packed UMP+timestamp values to the given channel.
+     * Packing: upper 32 bits = UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
+     * This eliminates Pair<Long, Long> allocation churn (~5,760 bytes/sec at 50-120 events/sec).
      */
     fun processMidiPayload(
         msg: ByteArray,
@@ -21,7 +23,7 @@ object MidiParser {
         count: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Pair<Long, Long>>,
+        incomingEventsChannel: Channel<Long>,
         suppressionWindowNs: Long,
         lastSentTime: Map<Int, Long>,
         isDebug: Boolean = false
@@ -109,7 +111,7 @@ object MidiParser {
         ccValue: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Pair<Long, Long>>,
+        incomingEventsChannel: Channel<Long>,
         suppressionWindowNs: Long,
         lastSentTime: Map<Int, Long>
     ) {
@@ -128,7 +130,11 @@ object MidiParser {
         // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
         val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
 
-        incomingEventsChannel.trySend(Pair(umpInt, timestamp))
+        // Pack UMP (upper 32 bits) + timestamp (lower 32 bits) into a single Long
+        // Eliminates Pair<Long, Long> allocation (~48 bytes) per event (~5,760 bytes/sec at 120 events/sec)
+        // Store lower 32 bits of timestamp to preserve precision within 4-second window
+        val packed = (umpInt shl 32) or (timestamp and 0xFFFFFFFFL)
+        incomingEventsChannel.trySend(packed)
     }
 
     /**
@@ -137,20 +143,23 @@ object MidiParser {
      *
      * Uses a pre-allocated batch buffer reused across drain cycles to eliminate
      * the ~2MB/sec allocation churn that would otherwise occur at 120Hz dispatch rate.
+     * Unpacks received Long values (packed UMP + timestamp) back into alternating
+     * batch array format [ump, ts, ump, ts, ...].
      */
     suspend fun drainChannelToBatch(
-        firstEvent: Pair<Long, Long>,
-        channel: Channel<Pair<Long, Long>>
+        firstEvent: Long,
+        channel: Channel<Long>
     ): LongArray {
-        batch[0] = firstEvent.first
-        batch[1] = firstEvent.second
+        // Unpack first event: upper 32 = UMP, lower 32 = timestamp
+        batch[0] = (firstEvent shr 32) and 0xFFFFFFFFL  // UMP
+        batch[1] = firstEvent and 0xFFFFFFFFL  // timestamp (lower 32 bits)
         var count = 2
 
         // Drain any other events currently in the channel buffer without exceeding capacity
         while (count + 1 < batch.size) {
-            val nextEvent = channel.tryReceive().getOrNull() ?: break
-            batch[count++] = nextEvent.first
-            batch[count++] = nextEvent.second
+            val packed = channel.tryReceive().getOrNull() ?: break
+            batch[count++] = (packed shr 32) and 0xFFFFFFFFL  // UMP
+            batch[count++] = packed and 0xFFFFFFFFL  // timestamp (lower 32 bits)
         }
 
         // Return exact-sized copy from reused buffer
