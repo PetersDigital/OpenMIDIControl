@@ -404,6 +404,55 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     });
   }
 
+  bool _isPeripheralFingerprint(MidiDevice device) {
+    final name = device.name.toLowerCase();
+    final manufacturer = device.manufacturer.toLowerCase();
+    return name.contains('usb peripheral port') ||
+        name.contains('android usb peripheral') ||
+        manufacturer.contains('android usb peripheral') ||
+        name.contains('openmidicontrol');
+  }
+
+  Future<void> _tryAutoConnectPeripheral(MidiService service) async {
+    // Connectivity-phase behavior: only auto-connect in peripheral mode.
+    if (ref.read(usbModeProvider) != UsbMode.peripheral) return;
+
+    // Avoid reconnect churn when already connected and stable.
+    if (state.connectedDevice != null && !state.isConnectionLost) return;
+
+    final devices = await service.getAvailableDevices();
+    if (!ref.mounted) return;
+
+    final target = devices.cast<MidiDevice?>().firstWhere(
+      (d) =>
+          d != null &&
+          _isPeripheralFingerprint(d) &&
+          d.inputPorts.isNotEmpty &&
+          d.outputPorts.isNotEmpty,
+      orElse: () => null,
+    );
+    if (target == null) return;
+
+    final inputPort = target.inputPorts.first.number;
+    final outputPort = target.outputPorts.first.number;
+    final success = await service.connectToDevice(
+      target.id,
+      inputPort: inputPort,
+      outputPort: outputPort,
+    );
+    if (!ref.mounted) return;
+
+    if (success) {
+      state = MidiConnectionState(
+        connectedDevice: target,
+        isConnectionLost: false,
+        inputPort: inputPort,
+        outputPort: outputPort,
+      );
+      ref.invalidate(midiDevicesProvider);
+    }
+  }
+
   @override
   MidiConnectionState build() {
     final service = ref.watch(midiServiceProvider);
@@ -497,6 +546,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           _scheduleDeviceRefresh();
         } else if (usbStatus == 'AVAILABLE') {
           _scheduleDeviceRefresh();
+          unawaited(_tryAutoConnectPeripheral(service));
         }
       }
     });
