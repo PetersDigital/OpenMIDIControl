@@ -142,8 +142,10 @@ class MidiParserTest {
         // Drain it (batch size is fixed at 2000 Longs)
         val batch = MidiParser.drainChannelToBatch(firstEvent, channel)
 
-        // Since we only have 150 packed values, batch should have 300 Longs (150 pairs)
-        assertEquals(300, batch.size)
+        // Reused fixed-size buffer contract:
+        // batch[0] = used data longs, remainder is [ump, ts, ump, ts, ...]
+        assertEquals(2000, batch.size)
+        assertEquals(300L, batch[0])
 
         // The channel should be empty now
         var remainingCount = 0
