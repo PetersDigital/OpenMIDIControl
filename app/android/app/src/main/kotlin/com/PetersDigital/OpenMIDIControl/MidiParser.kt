@@ -6,6 +6,10 @@ import kotlinx.coroutines.channels.Channel
 
 object MidiParser {
 
+    // Pre-allocated batch buffer — reused across drain cycles to eliminate allocation churn.
+    // Every 8ms cycle in startBatchDispatchTimer would otherwise allocate 16KB + copyOfRange overhead (~2MB/sec GC pressure).
+    private val batch = LongArray(2000)
+
     /**
      * Reconstructs 32-bit UMP integers or handles legacy byte streams,
      * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
@@ -130,13 +134,14 @@ object MidiParser {
     /**
      * Drains the atomic channel into a 1D primitive LongArray for JNI dispatch.
      * Prevents object allocations on the main thread and respects array bounds.
+     *
+     * Uses a pre-allocated batch buffer reused across drain cycles to eliminate
+     * the ~2MB/sec allocation churn that would otherwise occur at 120Hz dispatch rate.
      */
     suspend fun drainChannelToBatch(
         firstEvent: Pair<Long, Long>,
-        channel: Channel<Pair<Long, Long>>,
-        maxBatchSize: Int = 2000
+        channel: Channel<Pair<Long, Long>>
     ): LongArray {
-        val batch = LongArray(maxBatchSize)
         batch[0] = firstEvent.first
         batch[1] = firstEvent.second
         var count = 2
@@ -148,7 +153,8 @@ object MidiParser {
             batch[count++] = nextEvent.second
         }
 
-        // Return exact-sized copy
-        return batch.copyOfRange(0, count)
+        // Return exact-sized copy from reused buffer
+        // If batch is fully populated, clone() avoids the double-allocation path
+        return if (count == batch.size) batch.clone() else batch.copyOfRange(0, count)
     }
 }
