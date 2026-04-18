@@ -61,6 +61,24 @@ class MainActivity : FlutterActivity() {
     // Eliminates Pair<Long, Long> heap allocation (~48 bytes per event, ~5,760 bytes/sec at 120 events/sec)
     private val incomingEventsChannel = Channel<Long>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var batchDispatchJob: Job? = null
+    private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
+        // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
+        // avoiding busy-wait loops and pinning the CPU.
+        for (firstEvent in incomingEventsChannel) {
+
+            // Use the static parser to safely drain the channel into a bounded batch
+            val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
+
+            if (payload.isNotEmpty()) {
+                Handler(Looper.getMainLooper()).post {
+                    eventSink?.success(payload)
+                }
+            }
+
+            // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
+            delay(8)
+        }
+    }
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var lastUsbStateIsConnected = false
@@ -584,24 +602,7 @@ class MainActivity : FlutterActivity() {
 
     private fun startBatchDispatchTimer() {
         stopBatchDispatchTimer()
-        batchDispatchJob = coroutineScope.launch {
-            // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
-            // avoiding busy-wait loops and pinning the CPU.
-            for (firstEvent in incomingEventsChannel) {
-
-                // Use the static parser to safely drain the channel into a bounded batch
-                val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
-
-                if (payload.isNotEmpty()) {
-                    Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(payload)
-                    }
-                }
-
-                // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
-                delay(8)
-            }
-        }
+        batchDispatchJob = coroutineScope.launch(block = batchDispatchRunnable)
     }
 
     private fun stopBatchDispatchTimer() {
