@@ -20,6 +20,7 @@ import android.media.midi.MidiReceiver
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -63,6 +64,19 @@ class MainActivity : FlutterActivity() {
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var lastUsbStateIsConnected = false
+    private var lastDeviceEventKey: String? = null
+    private var lastDeviceEventMs = 0L
+    private val duplicateDeviceEventWindowMs = 500L
+
+    private fun shouldSuppressDuplicateDeviceEvent(type: String, id: String): Boolean {
+        val nowMs = SystemClock.elapsedRealtime()
+        val key = "$type:$id"
+        val suppress = key == lastDeviceEventKey && (nowMs - lastDeviceEventMs) < duplicateDeviceEventWindowMs
+
+        lastDeviceEventKey = key
+        lastDeviceEventMs = nowMs
+        return suppress
+    }
 
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -494,9 +508,14 @@ class MainActivity : FlutterActivity() {
         if (deviceCallback == null) {
             deviceCallback = object : MidiManager.DeviceCallback() {
                 override fun onDeviceAdded(device: MidiDeviceInfo) {
+                    val id = device.id.toString()
+                    if (shouldSuppressDuplicateDeviceEvent("added", id)) {
+                        return
+                    }
+
                     val event = mapOf(
                         "type" to "added",
-                        "id" to device.id.toString()
+                        "id" to id
                     )
                     Handler(Looper.getMainLooper()).post {
                         eventSink?.success(event)
@@ -504,13 +523,18 @@ class MainActivity : FlutterActivity() {
                 }
 
                 override fun onDeviceRemoved(device: MidiDeviceInfo) {
+                    val id = device.id.toString()
+                    if (shouldSuppressDuplicateDeviceEvent("removed", id)) {
+                        return
+                    }
+
                     // Disconnect if the removed device ID matches the current host backend portId.
-                    if (hostMidiBackend?.portId == device.id.toString()) {
+                    if (hostMidiBackend?.portId == id) {
                         disconnectDevice()
                     }
                     val event = mapOf(
                         "type" to "removed",
-                        "id" to device.id.toString()
+                        "id" to id
                     )
                     Handler(Looper.getMainLooper()).post {
                         eventSink?.success(event)
