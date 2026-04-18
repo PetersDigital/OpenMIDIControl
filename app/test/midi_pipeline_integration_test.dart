@@ -52,6 +52,7 @@ void main() {
         // 1. Send High-Speed Batch 1
         streamController.add(
           Int64List.fromList([
+            4, // used data longs
             0x21BF0A7F, 1000, // CC 10 = 127
             0x21BF0B40, 1010, // CC 11 = 64
           ]),
@@ -63,6 +64,7 @@ void main() {
         // 3. Send High-Speed Batch 2
         streamController.add(
           Int64List.fromList([
+            2, // used data longs
             0x21BF0A00, 1020, // CC 10 = 0
           ]),
         );
@@ -118,13 +120,14 @@ void main() {
         container.read(ccValuesProvider); // Initialize CcNotifier listener
 
         // Create a large batch payload with 10000 events mimicking rapid ping-ponging CC values
-        final largeBatch = Int64List(20000);
+        final largeBatch = Int64List(20001);
+        largeBatch[0] = 20000; // used data longs
         for (int i = 0; i < 10000; i++) {
           final value = i % 128;
           // UMP representation: MT=2, Grp=0, Status=0xB0, CC=7, Value=value
           final umpInt = (0x2 << 28) | (0xB0 << 16) | (7 << 8) | value;
-          largeBatch[i * 2] = umpInt;
-          largeBatch[(i * 2) + 1] = i * 1000;
+          largeBatch[(i * 2) + 1] = umpInt;
+          largeBatch[(i * 2) + 2] = i * 1000;
         }
 
         // Send the batch
@@ -138,5 +141,78 @@ void main() {
         streamController.close();
       },
     );
+
+    test('USB AVAILABLE auto-connects peripheral fingerprint target', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final streamController = StreamController<dynamic>();
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockStreamHandler(
+            const EventChannel('com.petersdigital.openmidicontrol/midi_events'),
+            MockStreamHandler.inline(
+              onListen: (Object? arguments, MockStreamHandlerEventSink events) {
+                streamController.stream.listen((event) {
+                  events.success(event);
+                });
+              },
+            ),
+          );
+
+      final methodCalls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.petersdigital.openmidicontrol/midi'),
+            (call) async {
+              methodCalls.add(call);
+
+              if (call.method == 'getMidiDevices') {
+                return [
+                  {
+                    'id': 'periph-1',
+                    'name': 'Android USB Peripheral Port',
+                    'manufacturer': 'PetersDigital',
+                    'inputPorts': [
+                      {'number': 0, 'name': 'In 0'},
+                    ],
+                    'outputPorts': [
+                      {'number': 1, 'name': 'Out 1'},
+                    ],
+                  },
+                ];
+              }
+
+              if (call.method == 'connectToDevice') {
+                return true;
+              }
+
+              return null;
+            },
+          );
+
+      // Initialize notifier listeners.
+      container.read(connectedMidiDeviceProvider);
+
+      // Trigger phase-2 path.
+      streamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
+      await Future.delayed(const Duration(milliseconds: 700));
+
+      final didScan = methodCalls.any((c) => c.method == 'getMidiDevices');
+      final connectCall = methodCalls
+          .where((c) => c.method == 'connectToDevice')
+          .toList();
+
+      expect(didScan, isTrue);
+      expect(connectCall.length, 1);
+      expect(connectCall.first.arguments['id'], 'periph-1');
+      expect(connectCall.first.arguments['inputPort'], 0);
+      expect(connectCall.first.arguments['outputPort'], 1);
+
+      final connectionState = container.read(connectedMidiDeviceProvider);
+      expect(connectionState.connectedDevice?.id, 'periph-1');
+
+      streamController.close();
+    });
   });
 }
