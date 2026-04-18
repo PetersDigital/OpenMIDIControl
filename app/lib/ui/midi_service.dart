@@ -453,10 +453,6 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   MidiConnectionState build() {
     final service = ref.watch(midiServiceProvider);
 
-    // Eagerly instantiate the CC notifier so early MIDI batches are replayed
-    // even if no UI widget has read ccValuesProvider yet.
-    ref.read(ccValuesProvider);
-
     // Listen to device connection events from Kotlin
     final systemSub = service.systemEventsStream.listen((event) {
       final type = event['type'];
