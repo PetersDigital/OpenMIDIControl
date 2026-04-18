@@ -67,6 +67,8 @@ class MainActivity : FlutterActivity() {
     private var lastDeviceEventKey: String? = null
     private var lastDeviceEventMs = 0L
     private val duplicateDeviceEventWindowMs = 500L
+    private val legacyMsgBuffer = ByteArray(3)
+    private val umpMsgBuffer = ByteArray(4)
 
     private fun shouldSuppressDuplicateDeviceEvent(type: String, id: String): Boolean {
         val nowMs = SystemClock.elapsedRealtime()
@@ -343,20 +345,21 @@ class MainActivity : FlutterActivity() {
             lastSentValue[cc] = value
             lastSentTime[cc] = nowNs
 
-            val legacyMsg = byteArrayOf(status.toByte(), cc.toByte(), value.toByte())
-            val umpMsg = byteArrayOf(
-                (umpInt ushr 24).toByte(),
-                (umpInt ushr 16).toByte(),
-                (umpInt ushr 8).toByte(),
-                umpInt.toByte()
-            )
+            legacyMsgBuffer[0] = status.toByte()
+            legacyMsgBuffer[1] = cc.toByte()
+            legacyMsgBuffer[2] = value.toByte()
+
+            umpMsgBuffer[0] = (umpInt ushr 24).toByte()
+            umpMsgBuffer[1] = (umpInt ushr 16).toByte()
+            umpMsgBuffer[2] = (umpInt ushr 8).toByte()
+            umpMsgBuffer[3] = umpInt.toByte()
 
             // Send to physically connected hardware (if any)
-            hostMidiBackend?.send(legacyMsg, 0, legacyMsg.size, nowNs)
+            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, nowNs)
             // Send to virtual DAW out (e.g. FL Studio Mobile)
-            VirtualMidiService.activeInstance?.sendToDaw(legacyMsg, 0, legacyMsg.size)
+            VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
             // Send to Host PC/Mac via USB over UMP transport
-            PeripheralMidiService.activeInstance?.sendToHost(umpMsg, 0, umpMsg.size, nowNs)
+            PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, nowNs)
         }
     }
 
