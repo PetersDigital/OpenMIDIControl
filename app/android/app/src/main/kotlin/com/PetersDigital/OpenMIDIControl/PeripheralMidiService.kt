@@ -27,6 +27,8 @@ class PeripheralMidiService : MidiDeviceService() {
     }
 
     override fun onGetInputPortReceivers(): Array<MidiReceiver> {
+        MainActivity.activeInstance?.notifyUsbHostConnected()
+
         return arrayOf(object : MidiReceiver() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return

@@ -64,6 +64,7 @@ class MainActivity : FlutterActivity() {
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var lastUsbStateIsConnected = false
+    private var lastUsbHostConnectedState = false
     private var lastDeviceEventKey: String? = null
     private var lastDeviceEventMs = 0L
     private val duplicateDeviceEventWindowMs = 500L
@@ -78,6 +79,23 @@ class MainActivity : FlutterActivity() {
         lastDeviceEventKey = key
         lastDeviceEventMs = nowMs
         return suppress
+    }
+
+    fun notifyUsbHostConnected() {
+        if (lastUsbHostConnectedState) return
+
+        lastUsbHostConnectedState = true
+        val event = mapOf(
+            "type" to "usb_state",
+            "state" to "HOST_CONNECTED"
+        )
+        Handler(Looper.getMainLooper()).post {
+            eventSink?.success(event)
+        }
+    }
+
+    fun notifyUsbHostDisconnected() {
+        lastUsbHostConnectedState = false
     }
 
     private val usbStateReceiver = object : BroadcastReceiver() {
@@ -103,6 +121,7 @@ class MainActivity : FlutterActivity() {
                 } else if (!connected) {
                     if (lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = false
+                        notifyUsbHostDisconnected()
                         val event = mapOf(
                             "type" to "usb_state",
                             "state" to "DISCONNECTED"
@@ -187,6 +206,7 @@ class MainActivity : FlutterActivity() {
 
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
+                            lastUsbHostConnectedState = false
                             val initEvent = mapOf(
                                 "type" to "usb_state",
                                 "state" to "AVAILABLE"
@@ -194,6 +214,7 @@ class MainActivity : FlutterActivity() {
                             eventSink?.success(initEvent)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
+                            notifyUsbHostDisconnected()
                             val initEvent = mapOf(
                                 "type" to "usb_state",
                                 "state" to "DISCONNECTED"

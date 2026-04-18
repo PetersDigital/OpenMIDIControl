@@ -65,6 +65,11 @@ class UsbHostConnectedStateNotifier extends Notifier<bool> {
       if (usbState == lastUsbState) return;
       lastUsbState = usbState;
 
+      if (usbState == 'HOST_CONNECTED') {
+        state = true;
+        return;
+      }
+
       // Reset host-connected evidence when USB session changes.
       if (usbState == 'AVAILABLE' ||
           usbState == 'DISCONNECTED' ||
@@ -616,6 +621,10 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
     return usbHostConnected
         ? MidiStatus.usbHostConnected
         : MidiStatus.usbActive;
+  }
+
+  if (usbMode == UsbMode.peripheral && usbState == 'HOST_CONNECTED') {
+    return MidiStatus.usbHostConnected;
   }
 
   if (connectionState.isConnectionLost) {
