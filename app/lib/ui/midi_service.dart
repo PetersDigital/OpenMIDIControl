@@ -331,6 +331,7 @@ class MidiConnectionState {
 
 class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   Timer? _deviceRefreshTimer;
+  String _lastUsbStatus = 'INIT';
 
   void _scheduleDeviceRefresh() {
     _deviceRefreshTimer?.cancel();
@@ -403,16 +404,29 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           }
         }
       } else if (type == 'usb_state') {
-        final usbStatus = event['state'];
+        final usbStatus = event['state'] as String? ?? 'INIT';
+
+        // Guardrail: only react to USB state transitions.
+        // Duplicate broadcasts can otherwise retrigger disconnect+haptics repeatedly.
+        if (usbStatus == _lastUsbStatus) {
+          return;
+        }
+        _lastUsbStatus = usbStatus;
 
         if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
-          // FORCE the teardown. Do NOT hide this behind a connectedDevice != null check.
-          // The physical cable is gone; the state must reflect it immediately.
-          state = state.disconnect(connectionLost: true);
-          service.vibrate(
-            pattern: [0, 100, 100, 100],
-            amplitude: [0, 255, 0, 255],
-          );
+          final shouldHandleDisconnect =
+              state.connectedDevice != null || !state.isConnectionLost;
+
+          // Only disconnect once per transition to avoid repeated thermal churn.
+          if (shouldHandleDisconnect) {
+            state = state.disconnect(connectionLost: true);
+            service.vibrate(
+              pattern: [0, 100, 100, 100],
+              amplitude: [0, 255, 0, 255],
+            );
+          }
+          _scheduleDeviceRefresh();
+        } else if (usbStatus == 'AVAILABLE') {
           _scheduleDeviceRefresh();
         }
       }
