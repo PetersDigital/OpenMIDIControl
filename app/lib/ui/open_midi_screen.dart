@@ -828,78 +828,74 @@ class _ConnectionStatusButtonState
         break;
     }
 
-    Widget buildButton(double glowAlpha) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: statusColor.withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: showGlow
-              ? [
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: glowAlpha),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: glowAlpha * 0.35),
-                    blurRadius: 18,
-                    spreadRadius: 4,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showGlow) ...[
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withValues(alpha: glowAlpha),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              statusText,
-              style: TextStyle(
-                fontFamily: 'Inter',
+    final buttonContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: statusColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showGlow) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
                 color: statusColor,
-                fontSize: 12, // Same size for both contexts
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
+                shape: BoxShape.circle,
               ),
             ),
+            const SizedBox(width: 8),
           ],
-        ),
-      );
-    }
+          Text(
+            statusText,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: statusColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Tooltip(
       message: 'MIDI Settings',
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: showGlow
-            ? AnimatedBuilder(
-                animation: _glowOpacity,
-                builder: (context, child) => buildButton(_glowOpacity.value),
-              )
-            : buildButton(0.0),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (showGlow)
+              FadeTransition(
+                opacity: _glowOpacity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor,
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const SizedBox(height: 34, width: 100),
+                ),
+              ),
+            buttonContent,
+          ],
+        ),
       ),
     );
   }
