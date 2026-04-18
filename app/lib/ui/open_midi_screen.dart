@@ -764,7 +764,7 @@ class _ConnectionStatusButtonState
     extends ConsumerState<_ConnectionStatusButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _glowAnimation;
+  late Animation<double> _glowOpacity;
 
   @override
   void initState() {
@@ -773,7 +773,7 @@ class _ConnectionStatusButtonState
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    _glowAnimation = Tween<double>(begin: 6.0, end: 12.0).animate(
+    _glowOpacity = Tween<double>(begin: 0.25, end: 0.55).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
   }
@@ -829,7 +829,7 @@ class _ConnectionStatusButtonState
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedBuilder(
-          animation: _glowAnimation,
+          animation: _glowOpacity,
           builder: (context, child) {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -843,13 +843,17 @@ class _ConnectionStatusButtonState
                 boxShadow: showGlow
                     ? [
                         BoxShadow(
-                          color: statusColor.withValues(alpha: 0.4),
-                          blurRadius: _glowAnimation.value,
+                          color: statusColor.withValues(
+                            alpha: _glowOpacity.value,
+                          ),
+                          blurRadius: 10,
                           spreadRadius: 2,
                         ),
                         BoxShadow(
-                          color: statusColor.withValues(alpha: 0.1),
-                          blurRadius: _glowAnimation.value * 2,
+                          color: statusColor.withValues(
+                            alpha: _glowOpacity.value * 0.35,
+                          ),
+                          blurRadius: 18,
                           spreadRadius: 4,
                         ),
                       ]
@@ -867,8 +871,10 @@ class _ConnectionStatusButtonState
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: statusColor,
-                            blurRadius: _glowAnimation.value / 2,
+                            color: statusColor.withValues(
+                              alpha: _glowOpacity.value,
+                            ),
+                            blurRadius: 6,
                             spreadRadius: 1,
                           ),
                         ],
