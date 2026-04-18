@@ -661,12 +661,43 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
   final usbState = ref.watch(usbConnectionStateProvider);
   final usbMode = ref.watch(usbModeProvider);
   final usbHostConnected = ref.watch(usbHostConnectedStateProvider);
+  final manualSelection = ref.watch(manualPortSelectionProvider);
 
-  // USB Mode takes highest precedence if in peripheral mode and connected
+  return resolveMidiStatus(
+    connectionState: connectionState,
+    devices: devicesAsync.value ?? const <MidiDevice>[],
+    usbState: usbState,
+    usbMode: usbMode,
+    usbHostConnected: usbHostConnected,
+    manualSelection: manualSelection,
+  );
+});
+
+MidiStatus resolveMidiStatus({
+  required MidiConnectionState connectionState,
+  required List<MidiDevice> devices,
+  required String usbState,
+  required UsbMode usbMode,
+  required bool usbHostConnected,
+  required bool manualSelection,
+}) {
+  if (connectionState.isConnectionLost) {
+    return MidiStatus.connectionLost;
+  }
+
+  if (usbMode == UsbMode.peripheral && usbHostConnected) {
+    return MidiStatus.usbHostConnected;
+  }
+
+  if (connectionState.connectedDevice != null) {
+    return MidiStatus.connected;
+  }
+
+  // USB mode remains the top-level readiness state while the host link is
+  // being negotiated, but once a device is actually connected we surface that
+  // higher-level connection state instead of staying on READY.
   if (usbMode == UsbMode.peripheral && usbState == 'AVAILABLE') {
-    return usbHostConnected
-        ? MidiStatus.usbHostConnected
-        : MidiStatus.usbActive;
+    return MidiStatus.usbActive;
   }
 
   // Strict UX semantics: host link events alone do not imply data flow.
@@ -675,25 +706,13 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
     return MidiStatus.usbActive;
   }
 
-  if (connectionState.isConnectionLost) {
-    return MidiStatus.connectionLost;
-  }
+  final visibleDevices = manualSelection
+      ? devices
+      : devices.where((device) => !device.name.startsWith('Virtual'));
 
-  if (connectionState.connectedDevice != null) {
-    return MidiStatus.connected;
-  }
-
-  final devices = devicesAsync.value ?? [];
-  // Exclude internal ports from the "available" check if manual selection is off,
-  // otherwise the UI will always show AVAILABLE because of the virtual ports.
-  final manualSelection = ref.watch(manualPortSelectionProvider);
-  final externalDevices = devices
-      .where((d) => manualSelection || d.manufacturer != 'PetersDigital')
-      .toList();
-
-  if (externalDevices.isNotEmpty) {
+  if (visibleDevices.isNotEmpty) {
     return MidiStatus.available;
   }
 
   return MidiStatus.disconnected;
-});
+}

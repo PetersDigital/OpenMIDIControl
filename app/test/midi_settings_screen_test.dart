@@ -85,6 +85,28 @@ void main() {
       expect(find.textContaining('plug in a USB MIDI device'), findsOneWidget);
       expect(find.byIcon(Icons.usb_off), findsOneWidget);
     });
+
+    test(
+      'resolveMidiStatus prefers connected device over peripheral ready',
+      () {
+        final status = resolveMidiStatus(
+          connectionState: MidiConnectionState(
+            connectedDevice: MidiDevice(
+              id: 'host-1',
+              name: 'USB Host Bridge',
+              manufacturer: 'PetersDigital',
+            ),
+          ),
+          devices: const <MidiDevice>[],
+          usbState: 'AVAILABLE',
+          usbMode: UsbMode.peripheral,
+          usbHostConnected: false,
+          manualSelection: false,
+        );
+
+        expect(status, MidiStatus.connected);
+      },
+    );
   });
 
   group('MidiSettingsScreen - Controls', () {
