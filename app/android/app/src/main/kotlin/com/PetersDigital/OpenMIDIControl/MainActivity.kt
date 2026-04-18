@@ -351,10 +351,6 @@ class MainActivity : FlutterActivity() {
         val devices = getAvailableMidiDevices()
 
         devices?.forEach { deviceInfo ->
-            if (isUsbPeripheral(deviceInfo)) {
-                return@forEach
-            }
-
             val id = deviceInfo.id.toString()
             val properties = deviceInfo.properties
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
