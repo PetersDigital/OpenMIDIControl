@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,17 +13,17 @@ void main() {
 
   group('MidiService.sendCC', () {
     const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
-    late List<Map<dynamic, dynamic>> capturedEvents;
+    late Int64List capturedEvents;
     late Completer<void> callCompleter;
 
     setUp(() {
-      capturedEvents = [];
+      capturedEvents = Int64List(0);
       callCompleter = Completer<void>();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             if (call.method == 'sendMidiCCBatch') {
-              final events = (call.arguments as Map)['events'] as List<dynamic>;
-              capturedEvents = events.cast<Map<dynamic, dynamic>>();
+              final events = (call.arguments as Map)['events'] as Int64List;
+              capturedEvents = events;
               if (!callCompleter.isCompleted) {
                 callCompleter.complete();
               }
@@ -42,8 +43,8 @@ void main() {
       await service.sendCC(10, 64, isFinal: true);
       await callCompleter.future;
 
-      expect(capturedEvents.length, 1);
-      expect(capturedEvents.first['isFinal'], isTrue);
+      expect(capturedEvents.length, 2);
+      expect(capturedEvents[1], 1);
     });
   });
 }
