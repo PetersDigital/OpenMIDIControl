@@ -289,17 +289,16 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "sendMidiCCBatch" -> {
-                    val events = call.argument<List<Map<String, Any>>>("events")
+                    val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
                             val nowNs = System.nanoTime()
-                            for (event in events) {
-                                val umpNullable = event["ump"] as? Number
-                                val isFinal = event["isFinal"] as? Boolean ?: false
+                            for (i in 0 until events.size step 2) {
+                                if (i + 1 >= events.size) break
 
-                                if (umpNullable != null) {
-                                    processMidiCcEvent(umpNullable.toInt(), isFinal, nowNs)
-                                }
+                                val umpInt = events[i].toInt()
+                                val isFinal = events[i + 1] != 0L
+                                processMidiCcEvent(umpInt, isFinal, nowNs)
                             }
                             result.success(true)
                         } catch (e: Exception) {
