@@ -83,6 +83,9 @@ class MainActivity : FlutterActivity() {
 
     private var lastUsbStateIsConnected = false
     private var lastUsbHostConnectedState = false
+    private var lastUsbBroadcastKey: String? = null
+    private var lastUsbBroadcastMs = 0L
+    private val duplicateUsbBroadcastWindowMs = 500L
     private var lastDeviceEventKey: String? = null
     private var lastDeviceEventMs = 0L
     private val duplicateDeviceEventWindowMs = 500L
@@ -116,12 +119,30 @@ class MainActivity : FlutterActivity() {
         lastUsbHostConnectedState = false
     }
 
+    private fun shouldSuppressDuplicateUsbBroadcast(
+        connected: Boolean,
+        configured: Boolean,
+        midi: Boolean
+    ): Boolean {
+        val nowMs = SystemClock.elapsedRealtime()
+        val key = "$connected:$configured:$midi"
+        val suppress = key == lastUsbBroadcastKey && (nowMs - lastUsbBroadcastMs) < duplicateUsbBroadcastWindowMs
+
+        lastUsbBroadcastKey = key
+        lastUsbBroadcastMs = nowMs
+        return suppress
+    }
+
     private val usbStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "android.hardware.usb.action.USB_STATE") {
                 val connected = intent.extras?.getBoolean("connected") ?: false
                 val configured = intent.extras?.getBoolean("configured") ?: false
                 val midi = intent.extras?.getBoolean("midi") ?: false
+
+                if (shouldSuppressDuplicateUsbBroadcast(connected, configured, midi)) {
+                    return
+                }
 
                 val isMidiConnected = connected && configured && midi
 
