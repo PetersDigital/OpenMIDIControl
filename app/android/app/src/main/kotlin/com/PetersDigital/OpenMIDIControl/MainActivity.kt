@@ -74,15 +74,26 @@ class MainActivity : FlutterActivity() {
                 val isMidiConnected = connected && configured && midi
 
                 if (isMidiConnected) {
-                    lastUsbStateIsConnected = true
+                    if (!lastUsbStateIsConnected) {
+                        lastUsbStateIsConnected = true
+                        val event = mapOf(
+                            "type" to "usb_state",
+                            "state" to "AVAILABLE"
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            eventSink?.success(event)
+                        }
+                    }
                 } else if (!connected) {
-                    lastUsbStateIsConnected = false
-                    val event = mapOf(
-                        "type" to "usb_state",
-                        "state" to "DISCONNECTED"
-                    )
-                    Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(event)
+                    if (lastUsbStateIsConnected) {
+                        lastUsbStateIsConnected = false
+                        val event = mapOf(
+                            "type" to "usb_state",
+                            "state" to "DISCONNECTED"
+                        )
+                        Handler(Looper.getMainLooper()).post {
+                            eventSink?.success(event)
+                        }
                     }
                 }
             }
@@ -151,6 +162,11 @@ class MainActivity : FlutterActivity() {
 
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
+                            val initEvent = mapOf(
+                                "type" to "usb_state",
+                                "state" to "AVAILABLE"
+                            )
+                            eventSink?.success(initEvent)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
                             val initEvent = mapOf(
