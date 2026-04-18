@@ -761,29 +761,7 @@ class _ConnectionStatusButton extends ConsumerStatefulWidget {
 }
 
 class _ConnectionStatusButtonState
-    extends ConsumerState<_ConnectionStatusButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _glowOpacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _glowOpacity = Tween<double>(begin: 0.25, end: 0.55).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
+    extends ConsumerState<_ConnectionStatusButton> {
   @override
   Widget build(BuildContext context) {
     final midiStatus = ref.watch(midiStatusProvider);
@@ -796,35 +774,27 @@ class _ConnectionStatusButtonState
       case MidiStatus.usbActive:
         statusText = "USB PERIPHERAL MODE READY";
         statusColor = Colors.green.shade400;
-        _animationController.stop();
         break;
       case MidiStatus.usbHostConnected:
         statusText = "USB HOST CONNECTED";
         statusColor = Colors.green.shade400;
-        _animationController.stop();
         break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
         statusColor = Colors.green.shade400;
-        _animationController.stop();
         break;
       case MidiStatus.available:
         statusText = "AVAILABLE";
         statusColor = const Color(0xFFFFCA28); // Amber
         showGlow = true;
-        if (!_animationController.isAnimating) {
-          _animationController.repeat(reverse: true);
-        }
         break;
       case MidiStatus.connectionLost:
         statusText = "CONNECTION LOST";
         statusColor = const Color(0xFFE57373); // Red
-        _animationController.stop();
         break;
       case MidiStatus.disconnected:
         statusText = "DISCONNECTED";
         statusColor = const Color(0xFFE57373); // Red
-        _animationController.stop();
         break;
     }
 
@@ -872,26 +842,23 @@ class _ConnectionStatusButtonState
           alignment: Alignment.center,
           children: [
             if (showGlow)
-              FadeTransition(
-                opacity: _glowOpacity,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor,
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.35),
-                        blurRadius: 18,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: const SizedBox(height: 34, width: 100),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: statusColor.withValues(alpha: 0.45),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: statusColor.withValues(alpha: 0.2),
+                      blurRadius: 18,
+                      spreadRadius: 4,
+                    ),
+                  ],
                 ),
+                child: const SizedBox(height: 34, width: 100),
               ),
             buttonContent,
           ],
