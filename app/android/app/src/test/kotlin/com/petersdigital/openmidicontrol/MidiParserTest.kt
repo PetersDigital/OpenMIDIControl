@@ -139,12 +139,12 @@ class MidiParserTest {
 
         val firstEvent = channel.receive()
 
-        // Drain it (batch size is fixed at 2000 Longs)
+        // Drain it and verify the returned payload is sized to the populated batch slice.
         val batch = MidiParser.drainChannelToBatch(firstEvent, channel)
 
-        // Reused fixed-size buffer contract:
+        // Reused fixed-size buffer contract changed: batch is now a sized copy.
         // batch[0] = used data longs, remainder is [ump, ts, ump, ts, ...]
-        assertEquals(2000, batch.size)
+        assertEquals(301, batch.size)
         assertEquals(300L, batch[0])
 
         // The channel should be empty now
