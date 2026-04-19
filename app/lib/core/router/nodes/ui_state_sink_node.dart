@@ -11,14 +11,15 @@ class UiStateSinkNode extends SinkNode {
 
   @override
   void execute(List<MidiEvent> events) {
-    final Map<int, int> batchUpdates = {};
+    Map<int, int>? batchUpdates;
     for (var event in events) {
       if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
+        batchUpdates ??= {};
         batchUpdates[event.data1] = event.data2;
       }
     }
 
-    if (batchUpdates.isNotEmpty) {
+    if (batchUpdates != null) {
       onUpdateCCs(batchUpdates);
     }
   }

@@ -8,6 +8,7 @@ import 'package:app/core/router/nodes/filter_node.dart';
 import 'package:app/core/router/nodes/remap_node.dart';
 import 'package:app/core/router/nodes/split_node.dart';
 import 'package:app/core/router/nodes/sink_node.dart';
+import 'package:app/core/router/nodes/ui_state_sink_node.dart';
 
 class _TestSinkNode extends SinkNode {
   final List<MidiEvent> receivedEvents = [];
@@ -85,6 +86,39 @@ void main() {
       expect(sinkA.receivedEvents.length, 1);
       expect(sinkB.receivedEvents.length, 1);
       expect(sinkA.receivedEvents.first, equals(sinkB.receivedEvents.first));
+    });
+
+    test('UiStateSinkNode skips allocation for non-CC events', () {
+      bool called = false;
+      final node = UiStateSinkNode(
+        onUpdateCCs: (_) {
+          called = true;
+        },
+      );
+
+      final events = [
+        MidiEvent(createUmp(0x2, 0, 0xF8, 0, 0), 0),
+        MidiEvent(createUmp(0x2, 0, 0xF7, 0, 0), 0),
+      ];
+
+      node.execute(events);
+
+      expect(called, isFalse);
+    });
+
+    test('UiStateSinkNode forwards CC updates only for CC events', () {
+      final received = <Map<int, int>>[];
+      final node = UiStateSinkNode(onUpdateCCs: received.add);
+
+      final events = [
+        MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0),
+        MidiEvent(createUmp(0x2, 0, 0x90, 11, 127), 0),
+      ];
+
+      node.execute(events);
+
+      expect(received, hasLength(1));
+      expect(received.single, equals({10: 64}));
     });
 
     test('Cycle Detection prevents infinite loops on configuration', () {
