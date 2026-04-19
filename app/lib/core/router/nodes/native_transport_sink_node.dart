@@ -7,34 +7,61 @@ import 'package:flutter/services.dart';
 import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
+import 'dart:async';
+
 class NativeTransportSinkNode extends SinkNode {
   final MethodChannel channel;
+
+  static const int _maxBufferSize = 10;
+  static const Duration _flushInterval = Duration(milliseconds: 16);
+
+  final List<MidiEvent> _eventBuffer = [];
+  Timer? _flushTimer;
 
   NativeTransportSinkNode({required this.channel});
 
   @override
   void execute(List<MidiEvent> events) {
-    final batch = Int64List(events.length * 2);
-    var writeIndex = 0;
+    if (events.isEmpty) return;
+
     for (var event in events) {
+      // Filter out non-CC events before buffering to save space
       if (event.messageType == 0x2 && (event.legacyStatusByte & 0xF0) == 0xB0) {
-        // Forward explicit CC touch-finality semantics from routed MidiEvents.
-        // Upstream routing may preserve isFinal for gesture completion events.
-        batch[writeIndex++] = event.ump;
-        batch[writeIndex++] = event.isFinal ? 1 : 0;
+        _eventBuffer.add(event);
       }
     }
 
-    if (writeIndex > 0) {
-      final payload = writeIndex == batch.length
-          ? batch
-          : (Int64List(writeIndex)..setRange(0, writeIndex, batch));
+    if (_eventBuffer.isEmpty) return;
 
-      channel.invokeMethod('sendMidiCCBatch', {'events': payload}).catchError((
-        e,
-      ) {
-        debugPrint('Failed to send MIDI CC batch: $e');
-      });
+    if (_flushTimer == null || !_flushTimer!.isActive) {
+      _flushTimer = Timer(_flushInterval, _flush);
     }
+
+    if (_eventBuffer.length >= _maxBufferSize) {
+      _flush();
+    }
+  }
+
+  void _flush() {
+    if (_eventBuffer.isEmpty) return;
+
+    final batch = Int64List(_eventBuffer.length * 2);
+    for (int i = 0; i < _eventBuffer.length; i++) {
+      batch[i * 2] = _eventBuffer[i].ump;
+      batch[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
+    }
+
+    channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((e) {
+      debugPrint('Failed to send MIDI CC batch: $e');
+    });
+
+    _eventBuffer.clear();
+    _flushTimer?.cancel();
+    _flushTimer = null;
+  }
+
+  void dispose() {
+    _flushTimer?.cancel();
+    _eventBuffer.clear();
   }
 }
