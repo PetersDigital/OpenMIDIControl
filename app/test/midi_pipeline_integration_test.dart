@@ -286,5 +286,64 @@ void main() {
 
       systemStreamController.close();
     });
+
+    test(
+      'coalesces rapid device refresh events into a single midi device scan',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final systemStreamController = StreamController<dynamic>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/system_events',
+              ),
+              MockStreamHandler.inline(
+                onListen:
+                    (Object? arguments, MockStreamHandlerEventSink events) {
+                      systemStreamController.stream.listen((event) {
+                        events.success(event);
+                      });
+                    },
+              ),
+            );
+
+        final methodCalls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('com.petersdigital.openmidicontrol/midi'),
+              (call) async {
+                if (call.method == 'getMidiDevices') {
+                  methodCalls.add(call);
+                  return <dynamic>[];
+                }
+                return null;
+              },
+            );
+
+        container.read(connectedMidiDeviceProvider);
+        container.listen<AsyncValue<List<MidiDevice>>>(
+          midiDevicesProvider,
+          (previous, next) {},
+          fireImmediately: false,
+        );
+
+        methodCalls.clear();
+
+        systemStreamController.add({'type': 'added', 'id': 'dev-1'});
+        systemStreamController.add({'type': 'added', 'id': 'dev-2'});
+        systemStreamController.add({'type': 'removed', 'id': 'dev-3'});
+
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+
+        expect(
+          methodCalls.where((c) => c.method == 'getMidiDevices').length,
+          1,
+        );
+
+        systemStreamController.close();
+      },
+    );
   });
 }
