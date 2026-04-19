@@ -70,7 +70,8 @@ class MainActivity : FlutterActivity() {
         // avoiding busy-wait loops and pinning the CPU.
         for (firstEvent in incomingEventsChannel) {
 
-            // Use the static parser to safely drain the channel into a bounded batch
+            // Use the static parser to safely drain the channel into a bounded batch.
+            // This returns an immutable/safe sized slice of the payload per cycle.
             val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
 
             if (payload.isNotEmpty()) {

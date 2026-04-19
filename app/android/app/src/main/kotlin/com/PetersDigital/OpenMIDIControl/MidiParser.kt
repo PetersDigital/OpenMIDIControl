@@ -145,6 +145,9 @@ object MidiParser {
      * the ~2MB/sec allocation churn that would otherwise occur at 120Hz dispatch rate.
      * Unpacks received Long values (packed UMP + timestamp) back into alternating
      * batch array format [ump, ts, ump, ts, ...].
+     *
+     * Returns a dynamically sized copy of the populated slice to reduce JNI serialization
+     * overhead and ensure an immutable/safe payload object per dispatch cycle.
      */
     suspend fun drainChannelToBatch(
         firstEvent: Long,
@@ -167,6 +170,6 @@ object MidiParser {
         }
 
         batch[0] = usedDataLongs.toLong()
-        return batch
+        return batch.copyOf(writeIndex)
     }
 }
