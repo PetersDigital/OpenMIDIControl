@@ -395,10 +395,11 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     return isDuplicate;
   }
 
-  void _scheduleDeviceRefresh() {
+  void _scheduleDeviceRefresh([VoidCallback? onRefreshComplete]) {
     _deviceRefreshTimer?.cancel();
     _deviceRefreshTimer = Timer(const Duration(milliseconds: 300), () {
       ref.invalidate(midiDevicesProvider);
+      onRefreshComplete?.call();
     });
   }
 
@@ -539,8 +540,9 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           }
           _scheduleDeviceRefresh();
         } else if (usbStatus == 'AVAILABLE') {
-          _scheduleDeviceRefresh();
-          unawaited(_tryAutoConnectPeripheral(service));
+          _scheduleDeviceRefresh(() {
+            unawaited(_tryAutoConnectPeripheral(service));
+          });
         }
       }
     });
