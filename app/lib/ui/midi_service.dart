@@ -206,7 +206,8 @@ class MidiService {
         }
 
         return parsedEvents;
-      });
+      })
+      .asBroadcastStream();
 
   /// System-level events (USB state, device additions, removals).
   late final Stream<Map<dynamic, dynamic>> systemEventsStream = _rawStream
