@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
@@ -65,6 +66,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _hardwareIsCatchingUp = true;
   bool _hardwareMustCrossMovingUp = false;
   double? _lastHardwareValue;
+
+  double? _pendingIncomingNormalized;
+  bool _isIncomingUpdateScheduled = false;
 
   SpringSimulation? _springSimulation;
 
@@ -255,56 +259,68 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         // So the next time we let go, the hardware will need to catch up again.
         _hardwareIsCatchingUp = true;
         _lastHardwareValue = null;
+        _pendingIncomingNormalized = null; // discard pending
         return; // Prevent echo feedback loop
       }
 
-      final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
+      _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
-      if (widget.behavior == FaderBehavior.jump) {
-        _animateToIncomingValue(incomingNormalized);
-        return;
-      }
+      if (!_isIncomingUpdateScheduled) {
+        _isIncomingUpdateScheduled = true;
+        SchedulerBinding.instance.scheduleFrameCallback((_) {
+          if (!mounted) return;
+          _isIncomingUpdateScheduled = false;
 
-      if (widget.behavior == FaderBehavior.catchUp ||
-          widget.behavior == FaderBehavior.hybrid) {
-        // If the hardware was just moved after the user let go of the screen, determine direction
-        if (_hardwareIsCatchingUp) {
-          if (_lastHardwareValue == null) {
-            // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
-            _hardwareMustCrossMovingUp =
-                incomingNormalized < _animationController.value;
-            _lastHardwareValue = incomingNormalized;
+          final incomingNormalized = _pendingIncomingNormalized;
+          if (incomingNormalized == null) return;
+
+          if (widget.behavior == FaderBehavior.jump) {
+            _animateToIncomingValue(incomingNormalized);
             return;
           }
 
-          // Check if it has crossed the threshold
-          bool crossed = false;
-          if (_hardwareMustCrossMovingUp &&
-              incomingNormalized >= _animationController.value) {
-            crossed = true;
-          }
-          if (!_hardwareMustCrossMovingUp &&
-              incomingNormalized <= _animationController.value) {
-            crossed = true;
-          }
+          if (widget.behavior == FaderBehavior.catchUp ||
+              widget.behavior == FaderBehavior.hybrid) {
+            // If the hardware was just moved after the user let go of the screen, determine direction
+            if (_hardwareIsCatchingUp) {
+              if (_lastHardwareValue == null) {
+                // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
+                _hardwareMustCrossMovingUp =
+                    incomingNormalized < _animationController.value;
+                _lastHardwareValue = incomingNormalized;
+                return;
+              }
 
-          if (crossed) {
-            _hardwareIsCatchingUp = false;
-            _animationController.animateTo(
-              incomingNormalized,
-              duration: _kFaderSmoothingDuration,
-              curve: Curves.linear,
-            );
+              // Check if it has crossed the threshold
+              bool crossed = false;
+              if (_hardwareMustCrossMovingUp &&
+                  incomingNormalized >= _animationController.value) {
+                crossed = true;
+              }
+              if (!_hardwareMustCrossMovingUp &&
+                  incomingNormalized <= _animationController.value) {
+                crossed = true;
+              }
+
+              if (crossed) {
+                _hardwareIsCatchingUp = false;
+                _animationController.animateTo(
+                  incomingNormalized,
+                  duration: _kFaderSmoothingDuration,
+                  curve: Curves.linear,
+                );
+              }
+              _lastHardwareValue = incomingNormalized;
+            } else {
+              // Already caught up, track normally
+              _animationController.animateTo(
+                incomingNormalized,
+                duration: _kFaderSmoothingDuration,
+                curve: Curves.linear,
+              );
+            }
           }
-          _lastHardwareValue = incomingNormalized;
-        } else {
-          // Already caught up, track normally
-          _animationController.animateTo(
-            incomingNormalized,
-            duration: _kFaderSmoothingDuration,
-            curve: Curves.linear,
-          );
-        }
+        });
       }
     });
 
