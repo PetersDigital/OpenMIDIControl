@@ -76,7 +76,7 @@ class UsbHostConnectedStateNotifier extends Notifier<bool> {
 
     final midiSub = service.midiEventsStream.listen((midiEvents) {
       // First real MIDI payload from host confirms host-side link is active.
-      if (midiEvents.isNotEmpty) {
+      if (midiEvents.isNotEmpty && !state) {
         state = true;
       }
     });
