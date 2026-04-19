@@ -1,6 +1,5 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
-import 'dart:collection';
 
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,15 +8,10 @@ import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
 
 class DiagnosticLogEntry {
-  final DateTime timestamp;
   final MidiEvent rawEvent;
   String? formatted; // Lazy-computed
 
-  DiagnosticLogEntry({
-    required this.timestamp,
-    required this.rawEvent,
-    this.formatted,
-  });
+  DiagnosticLogEntry({required this.rawEvent, this.formatted});
 
   String getFormatted() {
     formatted ??= _formatMidiEvent(rawEvent);
@@ -50,7 +44,7 @@ class DiagnosticLogEntry {
 
 class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
   static const int maxLogs = 200;
-  final Queue<DiagnosticLogEntry> _logs = Queue<DiagnosticLogEntry>();
+  final List<DiagnosticLogEntry> _pendingEvents = [];
   bool _pendingUpdate = false;
   bool _disposed = false;
 
@@ -62,12 +56,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
       if (midiEvents.isEmpty) return;
 
       for (var midiEvent in midiEvents) {
-        _logs.addFirst(
-          DiagnosticLogEntry(timestamp: DateTime.now(), rawEvent: midiEvent),
-        );
-        if (_logs.length > maxLogs) {
-          _logs.removeLast();
-        }
+        _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvent));
       }
 
       // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
@@ -77,8 +66,18 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
         SchedulerBinding.instance.scheduleFrameCallback((_) {
           if (_disposed) return;
           _pendingUpdate = false;
-          // Only convert to list when listeners exist (build is active)
-          state = _logs.toList();
+          if (_pendingEvents.isEmpty) return;
+
+          // Prepend new events (reversed because they are appended in chronological order)
+          // to the existing state, capped at maxLogs.
+          final nextState = _pendingEvents.reversed.take(maxLogs).toList();
+          _pendingEvents.clear();
+
+          if (state.isNotEmpty && nextState.length < maxLogs) {
+            nextState.addAll(state.take(maxLogs - nextState.length));
+          }
+
+          state = nextState;
         });
       }
     });
@@ -87,14 +86,14 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
       _disposed = true;
       _pendingUpdate = false;
       sub.cancel();
-      _logs.clear();
+      _pendingEvents.clear();
     });
 
     return [];
   }
 
   void clear() {
-    _logs.clear();
+    _pendingEvents.clear();
     state = [];
   }
 }

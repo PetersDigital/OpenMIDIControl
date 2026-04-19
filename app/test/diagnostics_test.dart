@@ -38,10 +38,7 @@ void main() {
         isFinal: false,
       );
 
-      final entry = DiagnosticLogEntry(
-        timestamp: DateTime.now(),
-        rawEvent: event,
-      );
+      final entry = DiagnosticLogEntry(rawEvent: event);
 
       // Verify it's null before requested
       expect(entry.formatted, isNull);
