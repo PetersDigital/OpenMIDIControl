@@ -8,32 +8,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
 
-class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
-  static const int maxLogs = 200;
-  final Queue<String> _logs = Queue<String>();
-  bool _pendingUpdate = false;
-  bool _disposed = false;
+class DiagnosticLogEntry {
+  final DateTime timestamp;
+  final MidiEvent rawEvent;
+  String? formatted; // Lazy-computed
 
-  @override
-  List<String> build() {
-    final service = ref.watch(midiServiceProvider);
+  DiagnosticLogEntry({
+    required this.timestamp,
+    required this.rawEvent,
+    this.formatted,
+  });
 
-    final sub = service.midiEventsStream.listen((midiEvents) {
-      for (var midiEvent in midiEvents) {
-        _addLog(_formatMidiEvent(midiEvent));
-      }
-    });
-
-    ref.onDispose(() {
-      _disposed = true;
-      _pendingUpdate = false;
-      sub.cancel();
-    });
-
-    return [];
+  String getFormatted() {
+    formatted ??= _formatMidiEvent(rawEvent);
+    return formatted!;
   }
 
-  String _formatMidiEvent(MidiEvent event) {
+  static String _formatMidiEvent(MidiEvent event) {
     // utilizes actual event.timestamp (nanoseconds) provided by native layer
     final totalMs = event.timestamp ~/ 1000000;
     final h = (totalMs ~/ 3600000);
@@ -55,23 +46,51 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
     }
   }
+}
 
-  void _addLog(String logMessage) {
-    _logs.addFirst(logMessage);
-    if (_logs.length > maxLogs) {
-      _logs.removeLast();
-    }
-    // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
-    if (!_pendingUpdate) {
-      _pendingUpdate = true;
-      // Schedule state update for next frame (~16ms at 60Hz)
-      SchedulerBinding.instance.scheduleFrameCallback((_) {
-        if (_disposed) return;
-        _pendingUpdate = false;
-        // Update state to trigger rebuilds only for listeners of this provider
-        state = _logs.toList();
-      });
-    }
+class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
+  static const int maxLogs = 200;
+  final Queue<DiagnosticLogEntry> _logs = Queue<DiagnosticLogEntry>();
+  bool _pendingUpdate = false;
+  bool _disposed = false;
+
+  @override
+  List<DiagnosticLogEntry> build() {
+    final service = ref.watch(midiServiceProvider);
+
+    final sub = service.midiEventsStream.listen((midiEvents) {
+      if (midiEvents.isEmpty) return;
+
+      for (var midiEvent in midiEvents) {
+        _logs.addFirst(
+          DiagnosticLogEntry(timestamp: DateTime.now(), rawEvent: midiEvent),
+        );
+        if (_logs.length > maxLogs) {
+          _logs.removeLast();
+        }
+      }
+
+      // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
+      if (!_pendingUpdate) {
+        _pendingUpdate = true;
+        // Schedule state update for next frame (~16ms at 60Hz)
+        SchedulerBinding.instance.scheduleFrameCallback((_) {
+          if (_disposed) return;
+          _pendingUpdate = false;
+          // Only convert to list when listeners exist (build is active)
+          state = _logs.toList();
+        });
+      }
+    });
+
+    ref.onDispose(() {
+      _disposed = true;
+      _pendingUpdate = false;
+      sub.cancel();
+      _logs.clear();
+    });
+
+    return [];
   }
 
   void clear() {
@@ -81,6 +100,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
 }
 
 final diagnosticsProvider =
-    NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, List<String>>(
-      DiagnosticsLoggerNotifier.new,
-    );
+    NotifierProvider.autoDispose<
+      DiagnosticsLoggerNotifier,
+      List<DiagnosticLogEntry>
+    >(DiagnosticsLoggerNotifier.new);

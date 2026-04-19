@@ -4,10 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/diagnostics/diagnostics_logger.dart';
 import 'package:app/ui/diagnostics/diagnostics_console.dart';
 
 void main() {
+  group('DiagnosticLogEntry', () {
+    test('lazily formats string correctly', () {
+      final event = MidiEvent(
+        (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 127,
+        123456789000000,
+        isFinal: false,
+      );
+
+      final entry = DiagnosticLogEntry(
+        timestamp: DateTime.now(),
+        rawEvent: event,
+      );
+
+      // Verify it's null before requested
+      expect(entry.formatted, isNull);
+
+      final formatted = entry.getFormatted();
+
+      // Verify it computed the exact expected format
+      expect(formatted, contains('MIDI IN: Ch 1 | CC 7 | Val 127'));
+      expect(entry.formatted, isNotNull);
+    });
+  });
+
   group('DiagnosticsLoggerNotifier', () {
     test('initial state is empty list', () {
       final container = ProviderContainer();

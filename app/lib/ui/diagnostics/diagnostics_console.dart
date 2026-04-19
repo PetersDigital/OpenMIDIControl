@@ -58,10 +58,11 @@ class DiagnosticsConsole extends ConsumerWidget {
                 : ListView.builder(
                     itemCount: logs.length,
                     itemBuilder: (context, index) {
+                      final entry = logs[index];
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: Text(
-                          logs[index],
+                          entry.getFormatted(), // Lazy format on render
                           style: const TextStyle(
                             color: Colors.lightGreenAccent,
                             fontFamily: 'monospace', // Terminal-like font
