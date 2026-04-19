@@ -41,6 +41,7 @@ class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "com.petersdigital.openmidicontrol/midi"
     private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
+    private val SYSTEM_EVENT_CHANNEL = "com.petersdigital.openmidicontrol/system_events"
     private var midiManager: MidiManager? = null
 
     // Abstracted Host and Peripheral Backends
@@ -48,6 +49,7 @@ class MainActivity : FlutterActivity() {
     private var peripheralMidiBackend: MidiPortBackend? = null
 
     private var eventSink: EventChannel.EventSink? = null
+    private var systemEventSink: EventChannel.EventSink? = null
     private var deviceCallback: MidiManager.DeviceCallback? = null
 
     // Rate-limiting and Deduplication state
@@ -111,7 +113,7 @@ class MainActivity : FlutterActivity() {
             "state" to "HOST_CONNECTED"
         )
         Handler(Looper.getMainLooper()).post {
-            eventSink?.success(event)
+            systemEventSink?.success(event)
         }
     }
 
@@ -154,7 +156,7 @@ class MainActivity : FlutterActivity() {
                             "state" to "AVAILABLE"
                         )
                         Handler(Looper.getMainLooper()).post {
-                            eventSink?.success(event)
+                            systemEventSink?.success(event)
                         }
                     }
                 } else if (!connected) {
@@ -166,7 +168,7 @@ class MainActivity : FlutterActivity() {
                             "state" to "DISCONNECTED"
                         )
                         Handler(Looper.getMainLooper()).post {
-                            eventSink?.success(event)
+                            systemEventSink?.success(event)
                         }
                     }
                 }
@@ -234,6 +236,19 @@ class MainActivity : FlutterActivity() {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
                     startBatchDispatchTimer()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    eventSink = null
+                    stopBatchDispatchTimer()
+                }
+            }
+        )
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, SYSTEM_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    systemEventSink = events
                     setupMidiDeviceCallback()
 
                     // Immediately evaluate the initial sticky intent if available
@@ -250,7 +265,7 @@ class MainActivity : FlutterActivity() {
                                 "type" to "usb_state",
                                 "state" to "AVAILABLE"
                             )
-                            eventSink?.success(initEvent)
+                            systemEventSink?.success(initEvent)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
                             notifyUsbHostDisconnected()
@@ -258,14 +273,13 @@ class MainActivity : FlutterActivity() {
                                 "type" to "usb_state",
                                 "state" to "DISCONNECTED"
                             )
-                            eventSink?.success(initEvent)
+                            systemEventSink?.success(initEvent)
                         }
                     }
                 }
 
                 override fun onCancel(arguments: Any?) {
-                    eventSink = null
-                    stopBatchDispatchTimer()
+                    systemEventSink = null
                     teardownMidiDeviceCallback()
                 }
             }
@@ -580,7 +594,7 @@ class MainActivity : FlutterActivity() {
                         "id" to id
                     )
                     Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(event)
+                        systemEventSink?.success(event)
                     }
                 }
 
@@ -599,7 +613,7 @@ class MainActivity : FlutterActivity() {
                         "id" to id
                     )
                     Handler(Looper.getMainLooper()).post {
-                        eventSink?.success(event)
+                        systemEventSink?.success(event)
                     }
                 }
             }

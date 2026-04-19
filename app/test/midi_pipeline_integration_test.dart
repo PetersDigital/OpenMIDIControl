@@ -21,6 +21,8 @@ void main() {
         // Create a mocked stream controller to inject payloads into the REAL MidiService
         final streamController = StreamController<dynamic>();
 
+        final systemStreamController = StreamController<dynamic>();
+
         // Hook up the flutter test binary messenger to mock the EventChannel
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockStreamHandler(
@@ -31,6 +33,21 @@ void main() {
                 onListen:
                     (Object? arguments, MockStreamHandlerEventSink events) {
                       streamController.stream.listen((event) {
+                        events.success(event);
+                      });
+                    },
+              ),
+            );
+
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/system_events',
+              ),
+              MockStreamHandler.inline(
+                onListen:
+                    (Object? arguments, MockStreamHandlerEventSink events) {
+                      systemStreamController.stream.listen((event) {
                         events.success(event);
                       });
                     },
@@ -59,7 +76,10 @@ void main() {
         );
 
         // 2. Send System Map (USB Disconnect)
-        streamController.add({'type': 'usb_state', 'state': 'DISCONNECTED'});
+        systemStreamController.add({
+          'type': 'usb_state',
+          'state': 'DISCONNECTED',
+        });
 
         // 3. Send High-Speed Batch 2
         streamController.add(
@@ -89,6 +109,7 @@ void main() {
         expect(receivedMidi[1][0].data2, 0);
 
         streamController.close();
+        systemStreamController.close();
       },
     );
 
@@ -195,14 +216,16 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final streamController = StreamController<dynamic>();
+      final systemStreamController = StreamController<dynamic>();
 
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockStreamHandler(
-            const EventChannel('com.petersdigital.openmidicontrol/midi_events'),
+            const EventChannel(
+              'com.petersdigital.openmidicontrol/system_events',
+            ),
             MockStreamHandler.inline(
               onListen: (Object? arguments, MockStreamHandlerEventSink events) {
-                streamController.stream.listen((event) {
+                systemStreamController.stream.listen((event) {
                   events.success(event);
                 });
               },
@@ -244,7 +267,7 @@ void main() {
       container.read(connectedMidiDeviceProvider);
 
       // Trigger phase-2 path.
-      streamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
+      systemStreamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
       await Future.delayed(const Duration(milliseconds: 700));
 
       final didScan = methodCalls.any((c) => c.method == 'getMidiDevices');
@@ -261,7 +284,7 @@ void main() {
       final connectionState = container.read(connectedMidiDeviceProvider);
       expect(connectionState.connectedDevice?.id, 'periph-1');
 
-      streamController.close();
+      systemStreamController.close();
     });
   });
 }

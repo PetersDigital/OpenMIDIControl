@@ -132,6 +132,10 @@ class MidiService {
     'com.petersdigital.openmidicontrol/midi_events',
   );
 
+  static const EventChannel _systemEventsChannel = EventChannel(
+    'com.petersdigital.openmidicontrol/system_events',
+  );
+
   final MidiRouter incomingRouter = MidiRouter();
   final MidiRouter outgoingRouter = MidiRouter();
 
@@ -210,13 +214,10 @@ class MidiService {
       .asBroadcastStream();
 
   /// System-level events (USB state, device additions, removals).
-  late final Stream<Map<dynamic, dynamic>> systemEventsStream = _rawStream
-      .where((e) {
-        if (e is! Map) return false;
-        final type = e['type'];
-        return type == 'added' || type == 'removed' || type == 'usb_state';
-      })
-      .cast<Map<dynamic, dynamic>>();
+  late final Stream<Map<dynamic, dynamic>> systemEventsStream =
+      _systemEventsChannel
+          .receiveBroadcastStream()
+          .cast<Map<dynamic, dynamic>>();
 
   Future<List<MidiDevice>> getAvailableDevices() async {
     try {
