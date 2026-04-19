@@ -52,6 +52,8 @@ class MainActivity : FlutterActivity() {
     private var systemEventSink: EventChannel.EventSink? = null
     private var deviceCallback: MidiManager.DeviceCallback? = null
 
+    private val mainThreadHandler = Handler(Looper.getMainLooper())
+
     // Rate-limiting and Deduplication state
     private val lastSentValue = ConcurrentHashMap<Int, Int>()
     private val lastSentTime = ConcurrentHashMap<Int, Long>()
@@ -72,7 +74,7 @@ class MainActivity : FlutterActivity() {
             val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
 
             if (payload.isNotEmpty()) {
-                Handler(Looper.getMainLooper()).post {
+                mainThreadHandler.post {
                     eventSink?.success(payload)
                 }
             }
@@ -112,7 +114,7 @@ class MainActivity : FlutterActivity() {
             "type" to "usb_state",
             "state" to "HOST_CONNECTED"
         )
-        Handler(Looper.getMainLooper()).post {
+        mainThreadHandler.post {
             systemEventSink?.success(event)
         }
     }
@@ -155,7 +157,7 @@ class MainActivity : FlutterActivity() {
                             "type" to "usb_state",
                             "state" to "AVAILABLE"
                         )
-                        Handler(Looper.getMainLooper()).post {
+                        mainThreadHandler.post {
                             systemEventSink?.success(event)
                         }
                     }
@@ -167,7 +169,7 @@ class MainActivity : FlutterActivity() {
                             "type" to "usb_state",
                             "state" to "DISCONNECTED"
                         )
-                        Handler(Looper.getMainLooper()).post {
+                        mainThreadHandler.post {
                             systemEventSink?.success(event)
                         }
                     }
@@ -560,7 +562,7 @@ class MainActivity : FlutterActivity() {
             } else {
                 result.error("CONNECTION_FAILED", "Failed to open device", null)
             }
-        }, Handler(Looper.getMainLooper()))
+        }, mainThreadHandler)
     }
 
     private fun disconnectDevice() {
@@ -593,7 +595,7 @@ class MainActivity : FlutterActivity() {
                         "type" to "added",
                         "id" to id
                     )
-                    Handler(Looper.getMainLooper()).post {
+                    mainThreadHandler.post {
                         systemEventSink?.success(event)
                     }
                 }
@@ -612,7 +614,7 @@ class MainActivity : FlutterActivity() {
                         "type" to "removed",
                         "id" to id
                     )
-                    Handler(Looper.getMainLooper()).post {
+                    mainThreadHandler.post {
                         systemEventSink?.success(event)
                     }
                 }
@@ -622,7 +624,7 @@ class MainActivity : FlutterActivity() {
                 midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
             } else {
                 @Suppress("DEPRECATION")
-                midiManager?.registerDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
+                midiManager?.registerDeviceCallback(deviceCallback, mainThreadHandler)
             }
         }
     }
