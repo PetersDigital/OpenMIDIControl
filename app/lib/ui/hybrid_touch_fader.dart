@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
@@ -64,6 +65,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _hardwareIsCatchingUp = true;
   bool _hardwareMustCrossMovingUp = false;
   double? _lastHardwareValue;
+
+  SpringSimulation? _springSimulation;
 
   @override
   void initState() {
@@ -208,6 +211,33 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     }
   }
 
+  void _animateToIncomingValue(double incomingNormalized) {
+    final description = SpringDescription.withDampingRatio(
+      mass: 1.0,
+      stiffness: 100.0,
+      ratio: 0.9,
+    );
+
+    if (_springSimulation == null) {
+      _springSimulation = SpringSimulation(
+        description,
+        _animationController.value,
+        incomingNormalized,
+        0.0,
+      );
+      _animationController.animateWith(_springSimulation!);
+    } else {
+      // Retarget the existing simulation
+      _springSimulation = SpringSimulation(
+        description,
+        _animationController.value,
+        incomingNormalized,
+        _animationController.velocity,
+      );
+      _animationController.animateWith(_springSimulation!);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Listen to external MIDI CC updates for this specific fader's CC only.
@@ -231,13 +261,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
       if (widget.behavior == FaderBehavior.jump) {
-        // Smoothly interpolate the value using _kFaderSmoothingDuration fallback
-        // to avoid 120Hz animation cancellation churn.
-        _animationController.animateTo(
-          incomingNormalized,
-          duration: _kFaderSmoothingDuration,
-          curve: Curves.linear,
-        );
+        _animateToIncomingValue(incomingNormalized);
         return;
       }
 
