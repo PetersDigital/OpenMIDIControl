@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app/ui/hybrid_touch_fader.dart';
+import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/open_midi_screen.dart';
 
 void main() {
@@ -74,6 +75,86 @@ void main() {
       // 0 becomes "  0" with padding
       expect(find.textContaining('0'), findsOneWidget);
     });
+
+    testWidgets(
+      'jump behavior animates to external CC updates using spring retargeting',
+      (tester) async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 200,
+                  height: 400,
+                  child: HybridTouchFader(
+                    ccNumber: 1,
+                    label: 'MOD',
+                    activeColor: Colors.blue,
+                    labelColor: Colors.white,
+                    behavior: FaderBehavior.jump,
+                    initialValue: 0.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('  0'), findsOneWidget);
+
+        container.read(ccValuesProvider.notifier).updateCC(1, 127);
+
+        await tester.pumpAndSettle(const Duration(seconds: 1));
+
+        expect(find.text('127'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'jump behavior retargets spring simulation on rapid successive CC updates',
+      (tester) async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 200,
+                  height: 400,
+                  child: HybridTouchFader(
+                    ccNumber: 1,
+                    label: 'MOD',
+                    activeColor: Colors.blue,
+                    labelColor: Colors.white,
+                    behavior: FaderBehavior.jump,
+                    initialValue: 0.0,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('  0'), findsOneWidget);
+
+        final notifier = container.read(ccValuesProvider.notifier);
+        notifier.updateCC(1, 127);
+        notifier.updateCC(1, 64);
+
+        await tester.pumpAndSettle(const Duration(seconds: 1));
+
+        expect(find.text(' 64'), findsOneWidget);
+      },
+    );
 
     testWidgets('renders active color as fader track', (tester) async {
       await pumpFader(tester, initialValue: 0.5);
