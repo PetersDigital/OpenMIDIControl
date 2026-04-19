@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/diagnostics/diagnostics_logger.dart';
 import 'package:app/ui/diagnostics/diagnostics_console.dart';
+import 'package:app/ui/midi_service.dart';
+
+class FakeMidiService extends MidiService {
+  final StreamController<List<MidiEvent>> _midiController =
+      StreamController<List<MidiEvent>>();
+
+  FakeMidiService() : super();
+
+  @override
+  Stream<List<MidiEvent>> get midiEventsStream => _midiController.stream;
+
+  void addEvents(List<MidiEvent> events) {
+    _midiController.add(events);
+  }
+
+  void disposeController() {
+    _midiController.close();
+  }
+}
 
 void main() {
   group('DiagnosticLogEntry', () {
@@ -52,6 +73,68 @@ void main() {
       container.read(diagnosticsProvider.notifier).clear();
       expect(container.read(diagnosticsProvider), isEmpty);
     });
+
+    testWidgets(
+      'batches multiple midi events into a single diagnostics state update',
+      (tester) async {
+        final fakeService = FakeMidiService();
+        final container = ProviderContainer(
+          overrides: [midiServiceProvider.overrideWithValue(fakeService)],
+        );
+        addTearDown(() {
+          fakeService.disposeController();
+          container.dispose();
+        });
+
+        int updateCount = 0;
+        container.listen<List<DiagnosticLogEntry>>(diagnosticsProvider, (
+          previous,
+          next,
+        ) {
+          updateCount++;
+        }, fireImmediately: false);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: SizedBox()),
+          ),
+        );
+
+        expect(updateCount, 0);
+        expect(container.read(diagnosticsProvider), isEmpty);
+
+        final event1 = MidiEvent(
+          (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 10,
+          1000,
+          isFinal: false,
+        );
+        final event2 = MidiEvent(
+          (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 20,
+          2000,
+          isFinal: false,
+        );
+        final event3 = MidiEvent(
+          (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 30,
+          3000,
+          isFinal: false,
+        );
+
+        fakeService.addEvents([event1]);
+        fakeService.addEvents([event2]);
+        fakeService.addEvents([event3]);
+
+        await tester.pump(const Duration(milliseconds: 16));
+
+        expect(
+          updateCount,
+          1,
+          reason:
+              'Diagnostics provider state should update only once per frame',
+        );
+        expect(container.read(diagnosticsProvider), hasLength(3));
+      },
+    );
   });
 
   group('DiagnosticsConsole', () {
