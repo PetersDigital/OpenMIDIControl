@@ -93,6 +93,55 @@ void main() {
     );
 
     test(
+      'midiEventsStream shares parsed batch object across listeners',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final streamController = StreamController<dynamic>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/midi_events',
+              ),
+              MockStreamHandler.inline(
+                onListen:
+                    (Object? arguments, MockStreamHandlerEventSink events) {
+                      streamController.stream.listen((event) {
+                        events.success(event);
+                      });
+                    },
+              ),
+            );
+
+        final midiService = container.read(midiServiceProvider);
+        final receivedA = <List<dynamic>>[];
+        final receivedB = <List<dynamic>>[];
+
+        midiService.midiEventsStream.listen(receivedA.add);
+        midiService.midiEventsStream.listen(receivedB.add);
+
+        await Future.delayed(Duration.zero);
+
+        streamController.add(Int64List.fromList([2, 0x21BF0A7F, 1000]));
+
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        expect(receivedA, hasLength(1));
+        expect(receivedB, hasLength(1));
+        expect(
+          identical(receivedA[0], receivedB[0]),
+          isTrue,
+          reason: 'Parsed batch should be shared by broadcast stream',
+        );
+        expect(receivedA[0][0].data1, 10);
+        expect(receivedB[0][0].data2, 127);
+
+        streamController.close();
+      },
+    );
+
+    test(
       'High-Frequency Sweep (State Stress Test) processes 10,000 updates correctly',
       () async {
         final container = ProviderContainer();
