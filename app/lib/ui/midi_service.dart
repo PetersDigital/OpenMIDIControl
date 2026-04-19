@@ -646,7 +646,8 @@ class CcNotifier extends Notifier<ControlState> {
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
 
-    // Lazy-init: only allocate new map when first change is detected
+    // Maintained lazy-init behavior after profiling consideration.
+    // Only allocate new map when first true value change is detected.
     Map<int, int>? newValues;
     for (final entry in updates.entries) {
       if (state.ccValues[entry.key] != entry.value) {

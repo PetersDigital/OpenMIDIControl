@@ -11,6 +11,8 @@ class UiStateSinkNode extends SinkNode {
 
   @override
   void execute(List<MidiEvent> events) {
+    // Lazy-init the batch update map only when a CC event is observed.
+    // This avoids allocations for non-CC or empty event batches.
     Map<int, int>? batchUpdates;
     for (var event in events) {
       if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
