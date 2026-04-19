@@ -29,7 +29,6 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -55,8 +54,8 @@ class MainActivity : FlutterActivity() {
     private val mainThreadHandler = Handler(Looper.getMainLooper())
 
     // Rate-limiting and Deduplication state
-    private val lastSentValue = ConcurrentHashMap<Int, Int>()
-    private val lastSentTime = ConcurrentHashMap<Int, Long>()
+    private val lastSentValue = IntArray(128) { -1 }
+    private val lastSentTime = LongArray(128)
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
@@ -401,7 +400,9 @@ class MainActivity : FlutterActivity() {
         val cc = (umpInt ushr 8) and 0xFF
         val value = umpInt and 0xFF
 
-        val lastTime = lastSentTime[cc] ?: 0L
+        if (cc !in 0..127) return
+
+        val lastTime = lastSentTime[cc]
         val timeDiff = nowNs - lastTime
 
         // Rate-limiting and Deduplication checks unless it's the final message

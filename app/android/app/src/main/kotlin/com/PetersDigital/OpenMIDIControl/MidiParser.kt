@@ -25,7 +25,7 @@ object MidiParser {
         isVirtual: Boolean,
         incomingEventsChannel: Channel<Long>,
         suppressionWindowNs: Long,
-        lastSentTime: Map<Int, Long>,
+        lastSentTime: LongArray,
         isDebug: Boolean = false
     ) {
         // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
@@ -113,19 +113,22 @@ object MidiParser {
         isVirtual: Boolean,
         incomingEventsChannel: Channel<Long>,
         suppressionWindowNs: Long,
-        lastSentTime: Map<Int, Long>
+        lastSentTime: LongArray
     ) {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
-            val lastTime = lastSentTime[ccNumber] ?: 0L
-            val timeDiff = timestamp - lastTime
+            if (ccNumber in 0..127) {
+                val lastTime = lastSentTime[ccNumber]
+                val timeDiff = timestamp - lastTime
 
-            if (timeDiff < suppressionWindowNs) {
-                // Ignore message from host if we recently sent *any* value for this CC.
-                // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                return
+                if (timeDiff < suppressionWindowNs) {
+                    // Ignore message from host if we recently sent *any* value for this CC.
+                    // This prevents delayed echoes from older values causing oscillation during rapid movement.
+                    return
+                }
             }
         }
+
 
         // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
         val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
