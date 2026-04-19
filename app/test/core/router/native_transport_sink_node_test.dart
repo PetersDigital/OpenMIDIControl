@@ -115,6 +115,27 @@ void main() {
       },
     );
 
+    test(
+      'dispose cancels pending batch flush and frees timer resources',
+      () async {
+        final node = NativeTransportSinkNode(channel: channel);
+
+        final event = MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
+          0,
+          isFinal: false,
+        );
+
+        node.execute([event]);
+        node.dispose();
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(methodCallCount, 0);
+        expect(capturedEvents, isEmpty);
+      },
+    );
+
     test('flushes immediately when buffer max size is reached', () async {
       final node = NativeTransportSinkNode(channel: channel);
 
