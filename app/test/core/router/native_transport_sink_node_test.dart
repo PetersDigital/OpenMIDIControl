@@ -180,6 +180,33 @@ void main() {
       node.dispose();
     });
 
+    test(
+      'flushes dynamic batch when execute receives more than max buffer size at once',
+      () async {
+        final node = NativeTransportSinkNode(channel: channel);
+
+        final events = List.generate(11, (i) {
+          return MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: i, data2: i),
+            0,
+            isFinal: false,
+          );
+        });
+
+        node.execute(events);
+
+        // immediate flush should occur because 11 > max buffer size
+        expect(methodCallCount, 1);
+        expect(capturedEvents.length, 22);
+        for (int i = 0; i < 11; i++) {
+          expect(capturedEvents[i * 2], events[i].ump);
+          expect(capturedEvents[i * 2 + 1], 0);
+        }
+
+        node.dispose();
+      },
+    );
+
     test('forwards isFinal values for CC events', () async {
       final node = NativeTransportSinkNode(channel: channel);
 
