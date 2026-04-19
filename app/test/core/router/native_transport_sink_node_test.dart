@@ -89,6 +89,32 @@ void main() {
       node.dispose();
     });
 
+    test(
+      'repeated execute calls before timer flush still produce one batch',
+      () async {
+        final node = NativeTransportSinkNode(channel: channel);
+
+        final event = MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
+          0,
+          isFinal: false,
+        );
+
+        node.execute([event]);
+        node.execute([event]);
+        node.execute([event]);
+
+        expect(methodCallCount, 0);
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(methodCallCount, 1);
+        expect(capturedEvents.length, 6);
+
+        node.dispose();
+      },
+    );
+
     test('flushes immediately when buffer max size is reached', () async {
       final node = NativeTransportSinkNode(channel: channel);
 
