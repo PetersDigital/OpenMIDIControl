@@ -74,19 +74,17 @@ class UsbHostConnectedStateNotifier extends Notifier<bool> {
       }
     });
 
-    final midiSub = service.midiEventsStream.listen((midiEvents) {
-      // First real MIDI payload from host confirms host-side link is active.
-      if (midiEvents.isNotEmpty && !state) {
-        state = true;
-      }
-    });
-
     ref.onDispose(() {
       systemSub.cancel();
-      midiSub.cancel();
     });
 
     return false;
+  }
+
+  void setConnected() {
+    if (!state) {
+      state = true;
+    }
   }
 }
 
@@ -547,7 +545,18 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       }
     });
 
+    // Capture the notifier once to avoid high-frequency ref.read overhead.
+    // ConnectedMidiDeviceNotifier and UsbHostConnectedStateNotifier are both core
+    // services whose lifecycles are tied to the app runtime.
+    final usbHostConnectedNotifier = ref.read(
+      usbHostConnectedStateProvider.notifier,
+    );
+
     final midiSub = service.midiEventsStream.listen((midiEvents) {
+      // First real MIDI payload from host confirms host-side link is active.
+      if (midiEvents.isNotEmpty) {
+        usbHostConnectedNotifier.setConnected();
+      }
       // Process incoming events through the DAG starting from the root 'source' node
       service.incomingRouter.process('source', midiEvents);
     });
