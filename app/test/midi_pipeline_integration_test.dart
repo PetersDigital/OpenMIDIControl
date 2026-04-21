@@ -345,6 +345,94 @@ void main() {
     });
 
     test(
+      'does not duplicate reconnect attempts during repeated USB AVAILABLE events',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final systemStreamController = StreamController<dynamic>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/system_events',
+              ),
+              MockStreamHandler.inline(
+                onListen:
+                    (Object? arguments, MockStreamHandlerEventSink events) {
+                      systemStreamController.stream.listen((event) {
+                        events.success(event);
+                      });
+                    },
+              ),
+            );
+
+        final methodCalls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('com.petersdigital.openmidicontrol/midi'),
+              (call) async {
+                methodCalls.add(call);
+                if (call.method == 'connectToDevice') {
+                  return true;
+                }
+                if (call.method == 'getMidiDevices') {
+                  return [
+                    {
+                      'id': 'periph-1',
+                      'name': 'Android USB Peripheral Port',
+                      'manufacturer': 'PetersDigital',
+                      'inputPorts': [
+                        {'number': 0, 'name': 'In 0'},
+                      ],
+                      'outputPorts': [
+                        {'number': 1, 'name': 'Out 1'},
+                      ],
+                    },
+                  ];
+                }
+                return null;
+              },
+            );
+
+        container.read(connectedMidiDeviceProvider);
+
+        final device = MidiDevice(
+          id: 'periph-1',
+          name: 'Android USB Peripheral Port',
+          manufacturer: 'PetersDigital',
+          inputPorts: [MidiPort(number: 0, name: 'In 0')],
+          outputPorts: [MidiPort(number: 1, name: 'Out 1')],
+        );
+
+        await container
+            .read(connectedMidiDeviceProvider.notifier)
+            .connect(device, inputPort: 0, outputPort: 1);
+
+        systemStreamController.add({
+          'type': 'usb_state',
+          'state': 'DISCONNECTED',
+        });
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        methodCalls.clear();
+
+        systemStreamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
+        systemStreamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
+        systemStreamController.add({'type': 'usb_state', 'state': 'AVAILABLE'});
+
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+
+        final connectCalls = methodCalls.where(
+          (c) => c.method == 'connectToDevice',
+        );
+        expect(connectCalls.length, 1);
+        expect(connectCalls.first.arguments['id'], 'periph-1');
+
+        systemStreamController.close();
+      },
+    );
+
+    test(
       'coalesces rapid device refresh events into a single midi device scan',
       () async {
         final container = ProviderContainer();
