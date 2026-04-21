@@ -407,6 +407,7 @@ class MidiConnectionState {
 
 class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   Timer? _deviceRefreshTimer;
+  bool _autoReconnectPending = false;
   String _lastUsbStatus = 'INIT';
   final Stopwatch _eventStopwatch = Stopwatch()..start();
   String? _lastDeviceEventKey;
@@ -442,44 +443,113 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         name.contains('openmidicontrol');
   }
 
-  Future<void> _tryAutoConnectPeripheral(MidiService service) async {
-    // Connectivity-phase behavior: only auto-connect in peripheral mode.
-    if (ref.read(usbModeProvider) != UsbMode.peripheral) return;
+  void _tryAutoReconnectPreviousDevice(
+    MidiService service,
+    MidiDevice? previousDevice,
+    int? previousInput,
+    int? previousOutput,
+  ) {
+    if (_autoReconnectPending) return;
+    _autoReconnectPending = true;
 
-    // Avoid reconnect churn when already connected and stable.
-    if (state.connectedDevice != null && !state.isConnectionLost) return;
+    Future.delayed(const Duration(milliseconds: 500), () async {
+      if (!ref.mounted) {
+        _autoReconnectPending = false;
+        return;
+      }
+      _autoReconnectPending = false;
 
-    final devices = await service.getAvailableDevices();
-    if (!ref.mounted) return;
+      // Connectivity-phase behavior: only auto-connect in peripheral mode.
+      if (ref.read(usbModeProvider) != UsbMode.peripheral) return;
 
-    final target = devices.cast<MidiDevice?>().firstWhere(
-      (d) =>
-          d != null &&
-          _isPeripheralFingerprint(d) &&
-          d.inputPorts.isNotEmpty &&
-          d.outputPorts.isNotEmpty,
-      orElse: () => null,
-    );
-    if (target == null) return;
+      // Avoid reconnect churn when already connected and stable.
+      if (state.connectedDevice != null && !state.isConnectionLost) return;
 
-    final inputPort = target.inputPorts.first.number;
-    final outputPort = target.outputPorts.first.number;
-    final success = await service.connectToDevice(
-      target.id,
-      inputPort: inputPort,
-      outputPort: outputPort,
-    );
-    if (!ref.mounted) return;
+      if (previousDevice == null) return;
 
-    if (success) {
-      state = MidiConnectionState(
-        connectedDevice: target,
-        isConnectionLost: false,
+      final devices = await service.getAvailableDevices();
+      if (!ref.mounted) return;
+
+      final target = devices.cast<MidiDevice?>().firstWhere(
+        (d) =>
+            d != null &&
+            d.id == previousDevice.id &&
+            d.name == previousDevice.name &&
+            d.manufacturer == previousDevice.manufacturer,
+        orElse: () => null,
+      );
+      if (target == null) return;
+
+      // Found the matching fingerprint under a new ID. Auto-reconnect!
+      connect(target, inputPort: previousInput, outputPort: previousOutput);
+      ref.invalidate(midiDevicesProvider);
+    });
+  }
+
+  void _tryAutoConnectPeripheral(MidiService service) {
+    if (_autoReconnectPending) return;
+    _autoReconnectPending = true;
+
+    Future(() async {
+      if (!ref.mounted) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      // Connectivity-phase behavior: only auto-connect in peripheral mode.
+      if (ref.read(usbModeProvider) != UsbMode.peripheral) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      // Avoid reconnect churn when already connected and stable.
+      if (state.connectedDevice != null && !state.isConnectionLost) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      final devices = await service.getAvailableDevices();
+      if (!ref.mounted) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      final target = devices.cast<MidiDevice?>().firstWhere(
+        (d) =>
+            d != null &&
+            _isPeripheralFingerprint(d) &&
+            d.inputPorts.isNotEmpty &&
+            d.outputPorts.isNotEmpty,
+        orElse: () => null,
+      );
+      if (target == null) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      final inputPort = target.inputPorts.first.number;
+      final outputPort = target.outputPorts.first.number;
+      final success = await service.connectToDevice(
+        target.id,
         inputPort: inputPort,
         outputPort: outputPort,
       );
-      ref.invalidate(midiDevicesProvider);
-    }
+      if (!ref.mounted) {
+        _autoReconnectPending = false;
+        return;
+      }
+
+      if (success) {
+        state = MidiConnectionState(
+          connectedDevice: target,
+          isConnectionLost: false,
+          inputPort: inputPort,
+          outputPort: outputPort,
+        );
+        ref.invalidate(midiDevicesProvider);
+      }
+      _autoReconnectPending = false;
+    });
   }
 
   @override
@@ -522,28 +592,12 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
           // Immediately check the new device name/manufacturer to see if it's the one we lost
           if (previousDevice != null) {
-            // Wait for the new device list to populate from Android
-            Future.delayed(const Duration(milliseconds: 500), () async {
-              final devices = await service.getAvailableDevices();
-              final newDevice = devices.cast<MidiDevice?>().firstWhere(
-                (d) =>
-                    d != null &&
-                    d.id == id &&
-                    d.name == previousDevice.name &&
-                    d.manufacturer == previousDevice.manufacturer,
-                orElse: () => null,
-              );
-
-              if (newDevice != null) {
-                // Found the matching fingerprint under a new ID. Auto-reconnect!
-                connect(
-                  newDevice,
-                  inputPort: previousInput,
-                  outputPort: previousOutput,
-                );
-                ref.invalidate(midiDevicesProvider);
-              }
-            });
+            _tryAutoReconnectPreviousDevice(
+              service,
+              previousDevice,
+              previousInput,
+              previousOutput,
+            );
           }
         }
       } else if (type == 'usb_state') {
@@ -570,8 +624,21 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           }
           _scheduleDeviceRefresh();
         } else if (usbStatus == 'AVAILABLE') {
+          final previousDevice = state.connectedDevice;
+          final previousInput = state.inputPort;
+          final previousOutput = state.outputPort;
+
           _scheduleDeviceRefresh(() {
-            unawaited(_tryAutoConnectPeripheral(service));
+            if (state.isConnectionLost) {
+              _tryAutoReconnectPreviousDevice(
+                service,
+                previousDevice,
+                previousInput,
+                previousOutput,
+              );
+            } else {
+              _tryAutoConnectPeripheral(service);
+            }
           });
         }
       }
@@ -595,6 +662,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
     ref.onDispose(() {
       _deviceRefreshTimer?.cancel();
+      _autoReconnectPending = false;
       systemSub.cancel();
       midiSub.cancel();
     });
