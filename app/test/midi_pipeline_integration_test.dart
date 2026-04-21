@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/midi_service.dart';
 
 void main() {
@@ -157,6 +158,62 @@ void main() {
         );
         expect(receivedA[0][0].data1, 10);
         expect(receivedB[0][0].data2, 127);
+
+        streamController.close();
+      },
+    );
+
+    test(
+      'midiEventsStream list length comes from used long count and defers event materialization',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final streamController = StreamController<dynamic>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/midi_events',
+              ),
+              MockStreamHandler.inline(
+                onListen:
+                    (Object? arguments, MockStreamHandlerEventSink events) {
+                      streamController.stream.listen((event) {
+                        events.success(event);
+                      });
+                    },
+              ),
+            );
+
+        final midiService = container.read(midiServiceProvider);
+        final receivedMidi = <List<MidiEvent>>[];
+        midiService.midiEventsStream.listen(receivedMidi.add);
+
+        await Future.delayed(Duration.zero);
+
+        streamController.add(
+          Int64List.fromList([
+            4, // used data longs
+            0x21BF0A7F, 1000, // CC 10 = 127
+            0x21BF0B40, 1010, // CC 11 = 64
+          ]),
+        );
+
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        expect(receivedMidi, hasLength(1));
+        final batch = receivedMidi.first;
+        expect(batch, hasLength(2));
+        expect(
+          identical(batch[0], batch[0]),
+          isTrue,
+          reason:
+              'Lazy ingest wrapper should cache materialized events per index',
+        );
+        expect(batch[0].data1, 10);
+        expect(batch[0].data2, 127);
+        expect(batch[1].data1, 11);
+        expect(batch[1].data2, 64);
 
         streamController.close();
       },
