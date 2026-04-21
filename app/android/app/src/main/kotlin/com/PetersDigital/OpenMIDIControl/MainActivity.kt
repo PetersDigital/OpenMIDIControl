@@ -63,20 +63,34 @@ class MainActivity : FlutterActivity() {
     // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time)
     // Eliminates Pair<Long, Long> heap allocation (~48 bytes per event, ~5,760 bytes/sec at 120 events/sec)
     private val incomingEventsChannel = Channel<Long>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val emptyBuffers = Channel<LongArray>(capacity = 2)
+
+    init {
+        emptyBuffers.trySend(LongArray(2000))
+        emptyBuffers.trySend(LongArray(2000))
+    }
+
     private var batchDispatchJob: Job? = null
     private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
         // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
         // avoiding busy-wait loops and pinning the CPU.
         for (firstEvent in incomingEventsChannel) {
 
-            // Use the static parser to safely drain the channel into a bounded batch.
-            // This returns an immutable/safe sized slice of the payload per cycle.
-            val payload = MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel)
+            val payload = emptyBuffers.receive()
 
-            if (payload.isNotEmpty()) {
+            // Use the static parser to safely drain the channel into a bounded batch.
+            MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel, payload)
+
+            if (payload[0] > 0) {
                 mainThreadHandler.post {
-                    eventSink?.success(payload)
+                    try {
+                        eventSink?.success(payload)
+                    } finally {
+                        emptyBuffers.trySend(payload)
+                    }
                 }
+            } else {
+                emptyBuffers.trySend(payload)
             }
 
             // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning

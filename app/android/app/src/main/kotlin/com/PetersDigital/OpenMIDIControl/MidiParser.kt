@@ -6,10 +6,6 @@ import kotlinx.coroutines.channels.Channel
 
 object MidiParser {
 
-    // Pre-allocated batch buffer — reused across drain cycles to eliminate allocation churn.
-    // Slot 0 stores the number of populated data longs; the remaining slots hold [ump, timestamp, ...].
-    private val batch = LongArray(2000)
-
     /**
      * Reconstructs 32-bit UMP integers or handles legacy byte streams,
      * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
@@ -149,13 +145,12 @@ object MidiParser {
      * Unpacks received Long values (packed UMP + timestamp) back into alternating
      * batch array format [ump, ts, ump, ts, ...].
      *
-     * Returns a dynamically sized copy of the populated slice to reduce JNI serialization
-     * overhead and ensure an immutable/safe payload object per dispatch cycle.
      */
-    suspend fun drainChannelToBatch(
+    fun drainChannelToBatch(
         firstEvent: Long,
-        channel: Channel<Long>
-    ): LongArray {
+        channel: Channel<Long>,
+        batch: LongArray
+    ) {
         var writeIndex = 1
         var usedDataLongs = 0
 
@@ -173,6 +168,5 @@ object MidiParser {
         }
 
         batch[0] = usedDataLongs.toLong()
-        return batch.copyOf(writeIndex)
     }
 }
