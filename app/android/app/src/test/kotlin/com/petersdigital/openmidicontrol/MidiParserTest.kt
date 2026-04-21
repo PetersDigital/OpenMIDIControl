@@ -20,7 +20,7 @@ class MidiParserTest {
         // Process it. The heuristic inside processMidiPayload checks MT=1 or MT=2.
         // The first byte 0xB0 means MT=0xB. This should not be parsed as UMP.
         // It should fallback to legacy byte stream parsing.
-        MidiParser.processMidiPayload(payload, 0, 8, 12345L, false, channel, 0L, emptyMap(), false)
+        MidiParser.processMidiPayload(payload, 0, 8, 12345L, false, channel, 0L, LongArray(128), false)
 
         val packed = channel.receive()
 
@@ -41,7 +41,7 @@ class MidiParserTest {
         // 3 bytes: Standard CC
         val payload = byteArrayOf(0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
-        MidiParser.processMidiPayload(payload, 0, 3, 1111L, false, channel, 0L, emptyMap(), false)
+        MidiParser.processMidiPayload(payload, 0, 3, 1111L, false, channel, 0L, LongArray(128), false)
 
         val packed = channel.receive()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -57,7 +57,7 @@ class MidiParserTest {
         // 4 bytes: Valid UMP MT=2, Group=3, Status=0xB1, CC=10, Val=127
         val payload = byteArrayOf(0x23.toByte(), 0xB1.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
-        MidiParser.processMidiPayload(payload, 0, 4, 2222L, false, channel, 0L, emptyMap(), false)
+        MidiParser.processMidiPayload(payload, 0, 4, 2222L, false, channel, 0L, LongArray(128), false)
 
         val packed = channel.receive()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -78,7 +78,7 @@ class MidiParserTest {
             0x20.toByte(), 0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte()
         )
 
-        MidiParser.processMidiPayload(payload, 0, payload.size, 3333L, false, channel, 0L, emptyMap(), false)
+        MidiParser.processMidiPayload(payload, 0, payload.size, 3333L, false, channel, 0L, LongArray(128), false)
 
         val packed = channel.receive()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -96,8 +96,8 @@ class MidiParserTest {
         // 4 bytes: UMP MT=1, Group=0, Status=0xFE (Active Sensing), 0x00, 0x00
         val activeSensingPayload = byteArrayOf(0x10.toByte(), 0xFE.toByte(), 0x00, 0x00)
 
-        MidiParser.processMidiPayload(clockPayload, 0, 4, 3333L, false, channel, 0L, emptyMap(), false)
-        MidiParser.processMidiPayload(activeSensingPayload, 0, 4, 3334L, false, channel, 0L, emptyMap(), false)
+        MidiParser.processMidiPayload(clockPayload, 0, 4, 3333L, false, channel, 0L, LongArray(128), false)
+        MidiParser.processMidiPayload(activeSensingPayload, 0, 4, 3334L, false, channel, 0L, LongArray(128), false)
 
         assertTrue("Channel should be empty after dropping spam messages", channel.isEmpty)
     }
@@ -109,7 +109,7 @@ class MidiParserTest {
         val payload = byteArrayOf(0x20.toByte(), 0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
         // Simulate sent value at time 1000
-        val lastSentTime = mapOf(0x0A to 1000L)
+        val lastSentTime = LongArray(128).apply { this[0x0A] = 1000L }
         val suppressionWindowNs = 500L
 
         // Attempt to receive Virtual MIDI at time 1200 (within suppression window 1000 + 500 = 1500)
@@ -138,13 +138,13 @@ class MidiParserTest {
         }
 
         val firstEvent = channel.receive()
+        val batch = LongArray(2000)
 
-        // Drain it and verify the returned payload is sized to the populated batch slice.
-        val batch = MidiParser.drainChannelToBatch(firstEvent, channel)
+        // Drain it into the provided reusable buffer.
+        MidiParser.drainChannelToBatch(firstEvent, channel, batch)
 
-        // Reused fixed-size buffer contract changed: batch is now a sized copy.
-        // batch[0] = used data longs, remainder is [ump, ts, ump, ts, ...]
-        assertEquals(301, batch.size)
+        // Buffer contract: batch[0] = used data longs, remainder is [ump, ts, ump, ts, ...]
+        assertEquals(2000, batch.size)
         assertEquals(300L, batch[0])
 
         // The channel should be empty now
