@@ -44,7 +44,19 @@ void main() {
       await callCompleter.future;
 
       expect(capturedEvents.length, 2);
+      expect(capturedEvents[0], isNot(0));
       expect(capturedEvents[1], 1);
+    });
+
+    test('sends non-final CC through sendCC and native transport', () async {
+      final service = MidiService();
+
+      await service.sendCC(20, 32, isFinal: false);
+      await callCompleter.future;
+
+      expect(capturedEvents.length, 2);
+      expect(capturedEvents[0], isNot(0));
+      expect(capturedEvents[1], 0);
     });
   });
 }
