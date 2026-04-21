@@ -71,6 +71,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _isIncomingUpdateScheduled = false;
 
   SpringSimulation? _springSimulation;
+  ProviderSubscription<int?>? _ccSubscription;
 
   @override
   void initState() {
@@ -85,10 +86,21 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     // Dynamic elements now use AnimatedBuilder directly.
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.label;
+
+    _setupListener();
+  }
+
+  void _setupListener() {
+    _ccSubscription?.close();
+    _ccSubscription = ref.listenManual<int?>(
+      ccValuesProvider.select((state) => state.ccValues[_ccNumber]),
+      _handleCcUpdate,
+    );
   }
 
   @override
   void dispose() {
+    _ccSubscription?.close();
     _animationController.dispose();
     super.dispose();
   }
@@ -212,6 +224,80 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         _ccLabel =
             'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
       });
+      _setupListener();
+    }
+  }
+
+  void _handleCcUpdate(int? previous, int? next) {
+    if (next == null || next == previous) return;
+
+    if (_isDragging) {
+      // If we are touching it, the hardware is now out of sync with our finger.
+      // So the next time we let go, the hardware will need to catch up again.
+      _hardwareIsCatchingUp = true;
+      _lastHardwareValue = null;
+      _pendingIncomingNormalized = null; // discard pending
+      return; // Prevent echo feedback loop
+    }
+
+    _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
+
+    if (!_isIncomingUpdateScheduled) {
+      _isIncomingUpdateScheduled = true;
+      SchedulerBinding.instance.scheduleFrameCallback((_) {
+        if (!mounted) return;
+        _isIncomingUpdateScheduled = false;
+
+        final incomingNormalized = _pendingIncomingNormalized;
+        if (incomingNormalized == null) return;
+
+        if (widget.behavior == FaderBehavior.jump) {
+          _animateToIncomingValue(incomingNormalized);
+          return;
+        }
+
+        if (widget.behavior == FaderBehavior.catchUp ||
+            widget.behavior == FaderBehavior.hybrid) {
+          // If the hardware was just moved after the user let go of the screen, determine direction
+          if (_hardwareIsCatchingUp) {
+            if (_lastHardwareValue == null) {
+              // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
+              _hardwareMustCrossMovingUp =
+                  incomingNormalized < _animationController.value;
+              _lastHardwareValue = incomingNormalized;
+              return;
+            }
+
+            // Check if it has crossed the threshold
+            bool crossed = false;
+            if (_hardwareMustCrossMovingUp &&
+                incomingNormalized >= _animationController.value) {
+              crossed = true;
+            }
+            if (!_hardwareMustCrossMovingUp &&
+                incomingNormalized <= _animationController.value) {
+              crossed = true;
+            }
+
+            if (crossed) {
+              _hardwareIsCatchingUp = false;
+              _animationController.animateTo(
+                incomingNormalized,
+                duration: _kFaderSmoothingDuration,
+                curve: Curves.linear,
+              );
+            }
+            _lastHardwareValue = incomingNormalized;
+          } else {
+            // Already caught up, track normally
+            _animationController.animateTo(
+              incomingNormalized,
+              duration: _kFaderSmoothingDuration,
+              curve: Curves.linear,
+            );
+          }
+        }
+      });
     }
   }
 
@@ -244,86 +330,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
-    // Listen to external MIDI CC updates for this specific fader's CC only.
-    // .select() ensures this listener only fires when our CC value changes.
-    ref.listen<
-      int?
-    >(ccValuesProvider.select((state) => state.ccValues[_ccNumber]), (
-      previous,
-      next,
-    ) {
-      if (next == null || next == previous) return;
-
-      if (_isDragging) {
-        // If we are touching it, the hardware is now out of sync with our finger.
-        // So the next time we let go, the hardware will need to catch up again.
-        _hardwareIsCatchingUp = true;
-        _lastHardwareValue = null;
-        _pendingIncomingNormalized = null; // discard pending
-        return; // Prevent echo feedback loop
-      }
-
-      _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
-
-      if (!_isIncomingUpdateScheduled) {
-        _isIncomingUpdateScheduled = true;
-        SchedulerBinding.instance.scheduleFrameCallback((_) {
-          if (!mounted) return;
-          _isIncomingUpdateScheduled = false;
-
-          final incomingNormalized = _pendingIncomingNormalized;
-          if (incomingNormalized == null) return;
-
-          if (widget.behavior == FaderBehavior.jump) {
-            _animateToIncomingValue(incomingNormalized);
-            return;
-          }
-
-          if (widget.behavior == FaderBehavior.catchUp ||
-              widget.behavior == FaderBehavior.hybrid) {
-            // If the hardware was just moved after the user let go of the screen, determine direction
-            if (_hardwareIsCatchingUp) {
-              if (_lastHardwareValue == null) {
-                // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
-                _hardwareMustCrossMovingUp =
-                    incomingNormalized < _animationController.value;
-                _lastHardwareValue = incomingNormalized;
-                return;
-              }
-
-              // Check if it has crossed the threshold
-              bool crossed = false;
-              if (_hardwareMustCrossMovingUp &&
-                  incomingNormalized >= _animationController.value) {
-                crossed = true;
-              }
-              if (!_hardwareMustCrossMovingUp &&
-                  incomingNormalized <= _animationController.value) {
-                crossed = true;
-              }
-
-              if (crossed) {
-                _hardwareIsCatchingUp = false;
-                _animationController.animateTo(
-                  incomingNormalized,
-                  duration: _kFaderSmoothingDuration,
-                  curve: Curves.linear,
-                );
-              }
-              _lastHardwareValue = incomingNormalized;
-            } else {
-              // Already caught up, track normally
-              _animationController.animateTo(
-                incomingNormalized,
-                duration: _kFaderSmoothingDuration,
-                curve: Curves.linear,
-              );
-            }
-          }
-        });
-      }
-    });
-
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
 
