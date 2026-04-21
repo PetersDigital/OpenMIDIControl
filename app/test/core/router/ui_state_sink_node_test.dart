@@ -68,5 +68,59 @@ void main() {
       expect(received, isNotNull);
       expect(received, equals({7: 64, 10: 127}));
     });
+
+    test('emits isolated snapshots for executeSingle calls', () {
+      final received = <Map<int, int>>[];
+      final node = UiStateSinkNode(
+        onUpdateCCs: (updates) {
+          received.add(updates);
+        },
+      );
+
+      node.executeSingle(
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+          0,
+        ),
+      );
+      node.executeSingle(
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+          0,
+        ),
+      );
+
+      expect(received, hasLength(2));
+      expect(received[0], equals({7: 64}));
+      expect(received[1], equals({10: 127}));
+      expect(received[0], isNot(same(received[1])));
+    });
+
+    test('returns stable snapshots across multiple execute calls', () {
+      final received = <Map<int, int>>[];
+      final node = UiStateSinkNode(
+        onUpdateCCs: (updates) {
+          received.add(updates);
+        },
+      );
+
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+          0,
+        ),
+      ]);
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+          0,
+        ),
+      ]);
+
+      expect(received, hasLength(2));
+      expect(received[0], equals({7: 64}));
+      expect(received[1], equals({10: 127}));
+      expect(received[0], isNot(same(received[1])));
+    });
   });
 }
