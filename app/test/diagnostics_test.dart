@@ -132,6 +132,56 @@ void main() {
         expect(container.read(diagnosticsProvider), hasLength(3));
       },
     );
+
+    testWidgets(
+      'publishes a new diagnostics update for events in the next frame',
+      (tester) async {
+        final fakeService = FakeMidiService();
+        final container = ProviderContainer(
+          overrides: [midiServiceProvider.overrideWithValue(fakeService)],
+        );
+        addTearDown(() {
+          fakeService.disposeController();
+          container.dispose();
+        });
+
+        int updateCount = 0;
+        container.listen<List<DiagnosticLogEntry>>(diagnosticsProvider, (
+          previous,
+          next,
+        ) {
+          updateCount++;
+        }, fireImmediately: false);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: SizedBox()),
+          ),
+        );
+
+        final event1 = MidiEvent(
+          (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 10,
+          1000,
+          isFinal: false,
+        );
+        final event2 = MidiEvent(
+          (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 20,
+          2000,
+          isFinal: false,
+        );
+
+        fakeService.addEvents([event1]);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(updateCount, 1);
+        expect(container.read(diagnosticsProvider), hasLength(1));
+
+        fakeService.addEvents([event2]);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(updateCount, 2);
+        expect(container.read(diagnosticsProvider), hasLength(2));
+      },
+    );
   });
 
   group('DiagnosticsConsole', () {
