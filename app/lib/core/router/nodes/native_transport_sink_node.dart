@@ -15,12 +15,10 @@ class NativeTransportSinkNode extends SinkNode {
   static const int _maxBufferSize = 10;
   static const Duration _flushInterval = Duration(milliseconds: 16);
 
-  static final Int64List _singleCcBuffer = Int64List(
-    2,
-  ); // Reusable pool for single CCs
-  static final Int64List _multiCcBuffer = Int64List(
-    _maxBufferSize * 2,
-  ); // Preallocated batch buffer
+  static final List<Int64List> _bufferPool = [Int64List(0)];
+
+  @visibleForTesting
+  static int get bufferPoolLength => _bufferPool.length;
 
   final List<MidiEvent> _eventBuffer = [];
   Timer? _flushTimer;
@@ -41,51 +39,39 @@ class NativeTransportSinkNode extends SinkNode {
     if (_eventBuffer.isEmpty) return;
 
     if (_flushTimer == null || !_flushTimer!.isActive) {
-      _flushTimer = Timer.periodic(_flushInterval, (_) => _flush());
+      _flushTimer = Timer(_flushInterval, () => _flush());
     }
 
     if (_eventBuffer.length >= _maxBufferSize) {
+      _flushTimer?.cancel();
+      _flushTimer = null;
       _flush();
     }
   }
 
   void _flush() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+
     if (_eventBuffer.isEmpty) {
-      _flushTimer?.cancel();
-      _flushTimer = null;
       return;
     }
 
-    if (_eventBuffer.length == 1) {
-      _singleCcBuffer[0] = _eventBuffer[0].ump;
-      _singleCcBuffer[1] = _eventBuffer[0].isFinal ? 1 : 0;
-      channel
-          .invokeMethod('sendMidiCCBatch', {'events': _singleCcBuffer})
-          .catchError((e) {
-            debugPrint('Failed to send MIDI CC batch: $e');
-          });
-    } else {
-      // If the buffer exceeds the preallocated size, allocate a dynamic one for this flush
-      final bool usePreallocated = _eventBuffer.length <= _maxBufferSize;
-      final Int64List batch = usePreallocated
-          ? _multiCcBuffer
-          : Int64List(_eventBuffer.length * 2);
-
-      for (int i = 0; i < _eventBuffer.length; i++) {
-        batch[i * 2] = _eventBuffer[i].ump;
-        batch[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
-      }
-
-      final batchView = usePreallocated
-          ? Int64List.sublistView(batch, 0, _eventBuffer.length * 2)
-          : batch;
-
-      channel.invokeMethod('sendMidiCCBatch', {'events': batchView}).catchError(
-        (e) {
-          debugPrint('Failed to send MIDI CC batch: $e');
-        },
-      );
+    final int count = _eventBuffer.length;
+    while (_bufferPool.length <= count) {
+      _bufferPool.add(Int64List(_bufferPool.length * 2));
     }
+
+    final batch = _bufferPool[count];
+
+    for (int i = 0; i < count; i++) {
+      batch[i * 2] = _eventBuffer[i].ump;
+      batch[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
+    }
+
+    channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((e) {
+      debugPrint('Failed to send MIDI CC batch: $e');
+    });
 
     _eventBuffer.clear();
   }
