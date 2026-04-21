@@ -182,6 +182,54 @@ void main() {
         expect(container.read(diagnosticsProvider), hasLength(2));
       },
     );
+
+    testWidgets(
+      'retains only the most recent maxLogs entries when buffer overflows',
+      (tester) async {
+        final fakeService = FakeMidiService();
+        final container = ProviderContainer(
+          overrides: [midiServiceProvider.overrideWithValue(fakeService)],
+        );
+        addTearDown(() {
+          fakeService.disposeController();
+          container.dispose();
+        });
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: SizedBox()),
+          ),
+        );
+
+        int updateCount = 0;
+        container.listen<List<DiagnosticLogEntry>>(
+          diagnosticsProvider,
+          (_, value) => updateCount++,
+          fireImmediately: false,
+        );
+
+        expect(container.read(diagnosticsProvider), isEmpty);
+
+        final events = List.generate(DiagnosticsLoggerNotifier.maxLogs + 5, (
+          index,
+        ) {
+          return MidiEvent(
+            (0x2 << 28) | (0xB0 << 16) | (7 << 8) | index,
+            index * 1000,
+            isFinal: false,
+          );
+        });
+
+        fakeService.addEvents(events);
+        await tester.pump(const Duration(milliseconds: 16));
+
+        final state = container.read(diagnosticsProvider);
+        expect(state, hasLength(DiagnosticsLoggerNotifier.maxLogs));
+        expect(state.first.rawEvent, equals(events.last));
+        expect(state.last.rawEvent, equals(events[5]));
+      },
+    );
   });
 
   group('DiagnosticsConsole', () {
