@@ -60,6 +60,15 @@ class UiStateSinkNode extends SinkNode {
   UiStateSinkNode({required this.onUpdateCCs});
 
   @override
+  void executeSingle(MidiEvent event) {
+    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
+      _reusableBatch.clear();
+      _reusableBatch[event.data1] = event.data2;
+      onUpdateCCs(_reusableBatch);
+    }
+  }
+
+  @override
   void execute(List<MidiEvent> events) {
     bool hasUpdates = false;
 

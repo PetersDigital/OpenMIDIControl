@@ -10,4 +10,13 @@ abstract class TransformerNode {
   /// Implementing classes should filter, remap, or simply pass through the events
   /// and return the processed list.
   List<MidiEvent> process(List<MidiEvent> events);
+
+  /// Fast-path for processing a single [MidiEvent] without list allocation.
+  ///
+  /// Returns a modified [MidiEvent], the original event if passed through,
+  /// or null if the event is filtered out or consumed.
+  MidiEvent? processSingle(MidiEvent event) {
+    final result = process([event]);
+    return result.isNotEmpty ? result.first : null;
+  }
 }

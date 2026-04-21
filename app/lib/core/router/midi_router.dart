@@ -13,6 +13,13 @@ class _WorkItem {
   _WorkItem(this.nodeId, this.events);
 }
 
+class _WorkItemSingle {
+  String nodeId;
+  MidiEvent event;
+
+  _WorkItemSingle(this.nodeId, this.event);
+}
+
 /// A centralized Directed Acyclic Graph (DAG) for routing, filtering,
 /// and remapping MIDI events.
 class MidiRouter {
@@ -22,6 +29,9 @@ class MidiRouter {
   // Pre-allocated queue and object pool to reduce GC pressure during high-frequency routing
   final Queue<_WorkItem> _processQueue = Queue<_WorkItem>();
   final List<_WorkItem> _workItemPool = [];
+
+  final Queue<_WorkItemSingle> _processSingleQueue = Queue<_WorkItemSingle>();
+  final List<_WorkItemSingle> _workItemSinglePool = [];
 
   _WorkItem _getWorkItem(String nodeId, List<MidiEvent> events) {
     if (_workItemPool.isNotEmpty) {
@@ -36,6 +46,20 @@ class MidiRouter {
   void _releaseWorkItem(_WorkItem item) {
     item.events = const []; // Clear references
     _workItemPool.add(item);
+  }
+
+  _WorkItemSingle _getWorkItemSingle(String nodeId, MidiEvent event) {
+    if (_workItemSinglePool.isNotEmpty) {
+      final item = _workItemSinglePool.removeLast();
+      item.nodeId = nodeId;
+      item.event = event;
+      return item;
+    }
+    return _WorkItemSingle(nodeId, event);
+  }
+
+  void _releaseWorkItemSingle(_WorkItemSingle item) {
+    _workItemSinglePool.add(item);
   }
 
   /// Registers a new node in the graph.
@@ -126,6 +150,48 @@ class MidiRouter {
   void _clearProcessQueue() {
     while (_processQueue.isNotEmpty) {
       _releaseWorkItem(_processQueue.removeFirst());
+    }
+  }
+
+  /// Fast-path for routing a single [MidiEvent] without creating intermediate lists.
+  void processSingle(String sourceNodeId, MidiEvent event) {
+    if (!_nodes.containsKey(sourceNodeId)) {
+      throw StateError('Source node $sourceNodeId does not exist.');
+    }
+
+    _processSingleQueue.add(_getWorkItemSingle(sourceNodeId, event));
+
+    try {
+      while (_processSingleQueue.isNotEmpty) {
+        final item = _processSingleQueue.removeFirst();
+        try {
+          final nodeId = item.nodeId;
+          final ev = item.event;
+
+          final node = _nodes[nodeId]!;
+          final processedEvent = node.processSingle(ev);
+
+          if (processedEvent != null) {
+            final children = _edges[nodeId] ?? const [];
+            for (final childId in children) {
+              _processSingleQueue.add(
+                _getWorkItemSingle(childId, processedEvent),
+              );
+            }
+          }
+        } finally {
+          _releaseWorkItemSingle(item);
+        }
+      }
+    } catch (_) {
+      _clearProcessSingleQueue();
+      rethrow;
+    }
+  }
+
+  void _clearProcessSingleQueue() {
+    while (_processSingleQueue.isNotEmpty) {
+      _releaseWorkItemSingle(_processSingleQueue.removeFirst());
     }
   }
 

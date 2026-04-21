@@ -30,6 +30,43 @@ class RemapNode extends TransformerNode {
        assert(destMin <= destMax);
 
   @override
+  MidiEvent? processSingle(MidiEvent event) {
+    if (event.messageType == 0x2 &&
+        (event.status & 0xF0) == 0xB0 &&
+        event.data1 == sourceCc) {
+      final val = event.data2;
+      int clampedVal = val < sourceMin
+          ? sourceMin
+          : (val > sourceMax ? sourceMax : val);
+
+      int mappedVal;
+      if (sourceMax == sourceMin) {
+        mappedVal = destMin;
+      } else {
+        mappedVal =
+            destMin +
+            ((clampedVal - sourceMin) * (destMax - destMin) +
+                    (sourceMax - sourceMin) ~/ 2) ~/
+                (sourceMax - sourceMin);
+        mappedVal = mappedVal.clamp(destMin, destMax);
+      }
+
+      int umpWithoutData = event.ump & 0xFFFF0000;
+      final int finalData1 = destCc.clamp(0, 127);
+      final int finalData2 = mappedVal.clamp(0, 127);
+      int newUmp = umpWithoutData | (finalData1 << 8) | finalData2;
+
+      return MidiEvent(
+        newUmp,
+        event.timestamp,
+        sourceId: event.sourceId,
+        isFinal: event.isFinal,
+      );
+    }
+    return event;
+  }
+
+  @override
   List<MidiEvent> process(List<MidiEvent> events) {
     if (events.isEmpty) return events;
 

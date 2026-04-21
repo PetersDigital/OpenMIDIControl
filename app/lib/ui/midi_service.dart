@@ -318,7 +318,7 @@ class MidiService {
     );
 
     // Process through the outgoing router starting from the root 'source' node.
-    outgoingRouter.process('source', [event]);
+    outgoingRouter.processSingle('source', event);
   }
 
   Future<void> setUsbMode(String mode) async {

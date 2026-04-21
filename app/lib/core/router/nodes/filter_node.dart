@@ -19,6 +19,24 @@ class FilterNode extends TransformerNode {
   });
 
   @override
+  MidiEvent? processSingle(MidiEvent event) {
+    if (allowedChannel != null && event.channel != allowedChannel) {
+      return null;
+    }
+    if (allowedMessageType != null && event.messageType != allowedMessageType) {
+      return null;
+    }
+    if (minCc != null || maxCc != null) {
+      if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
+        final ccNumber = event.data1;
+        if (minCc != null && ccNumber < minCc!) return null;
+        if (maxCc != null && ccNumber > maxCc!) return null;
+      }
+    }
+    return event;
+  }
+
+  @override
   List<MidiEvent> process(List<MidiEvent> events) {
     if (events.isEmpty) return events;
 

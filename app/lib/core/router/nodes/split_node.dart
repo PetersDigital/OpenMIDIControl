@@ -10,6 +10,11 @@ import '../transformer_node.dart';
 /// as a critical structural marker for visual layout editors.
 class SplitNode extends TransformerNode {
   @override
+  MidiEvent? processSingle(MidiEvent event) {
+    return event;
+  }
+
+  @override
   List<MidiEvent> process(List<MidiEvent> events) {
     // Simply passes the batch through unmodified. The router's adjacency list
     // handles dispatching this output to all defined children.

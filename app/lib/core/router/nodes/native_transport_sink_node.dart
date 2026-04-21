@@ -26,6 +26,24 @@ class NativeTransportSinkNode extends SinkNode {
   NativeTransportSinkNode({required this.channel});
 
   @override
+  void executeSingle(MidiEvent event) {
+    // Filter out non-CC events
+    if (event.messageType == 0x2 && (event.legacyStatusByte & 0xF0) == 0xB0) {
+      _eventBuffer.add(event);
+
+      if (_flushTimer == null || !_flushTimer!.isActive) {
+        _flushTimer = Timer(_flushInterval, () => _flush());
+      }
+
+      if (_eventBuffer.length >= _maxBufferSize) {
+        _flushTimer?.cancel();
+        _flushTimer = null;
+        _flush();
+      }
+    }
+  }
+
+  @override
   void execute(List<MidiEvent> events) {
     if (events.isEmpty) return;
 
