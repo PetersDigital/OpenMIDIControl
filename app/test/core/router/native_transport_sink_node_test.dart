@@ -89,6 +89,29 @@ void main() {
       node.dispose();
     });
 
+    test('flushes single CC event through executeSingle fast path', () async {
+      final node = NativeTransportSinkNode(channel: channel);
+
+      final event = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0xB0, data1: 5, data2: 55),
+        0,
+        isFinal: true,
+      );
+
+      node.executeSingle(event);
+
+      expect(methodCallCount, 0);
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(methodCallCount, 1);
+      expect(capturedEvents.length, 2);
+      expect(capturedEvents[0], event.ump);
+      expect(capturedEvents[1], 1);
+
+      node.dispose();
+    });
+
     test('flushes single CC event using single-CC buffer', () async {
       final node = NativeTransportSinkNode(channel: channel);
 
