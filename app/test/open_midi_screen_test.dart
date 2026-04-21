@@ -181,6 +181,55 @@ void main() {
       expect(find.textContaining('Pan'), findsOneWidget);
     });
 
+    testWidgets('updates only selected CC after changing CC assignment', (
+      tester,
+    ) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 200,
+                height: 400,
+                child: HybridTouchFader(
+                  ccNumber: 1,
+                  label: 'MOD',
+                  activeColor: Colors.blue,
+                  labelColor: Colors.white,
+                  behavior: FaderBehavior.jump,
+                  initialValue: 0.0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final notifier = container.read(ccValuesProvider.notifier);
+      notifier.updateCC(1, 127);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('127'), findsOneWidget);
+
+      await tester.longPress(find.text('MOD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CC2 – Breath'));
+      await tester.pumpAndSettle();
+
+      // After switching to CC2, updates to CC1 should no longer affect the fader.
+      notifier.updateCC(1, 10);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('127'), findsOneWidget);
+
+      notifier.updateCC(2, 64);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text(' 64'), findsOneWidget);
+    });
+
     testWidgets('shows correct label font size for mobile', (tester) async {
       await pumpFader(tester, isMobile: true);
 
