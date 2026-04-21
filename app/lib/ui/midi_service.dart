@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
+import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,46 @@ import '../core/router/nodes/split_node.dart';
 import '../core/router/nodes/ui_state_sink_node.dart';
 import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
+
+class _LazyMidiEventList extends ListBase<MidiEvent> {
+  final Int64List _data;
+  final int _usedLongCount;
+  final List<MidiEvent?> _cache;
+
+  _LazyMidiEventList(this._data, this._usedLongCount)
+    : _cache = List<MidiEvent?>.filled(
+        _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0,
+        null,
+        growable: false,
+      );
+
+  @override
+  int get length => _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0;
+
+  @override
+  set length(int newLength) =>
+      throw UnsupportedError('Cannot modify _LazyMidiEventList');
+
+  @override
+  MidiEvent operator [](int index) {
+    if (index < 0 || index >= length) throw RangeError.index(index, this);
+
+    final cached = _cache[index];
+    if (cached != null) {
+      return cached;
+    }
+
+    final int i = 1 + (index * 2);
+    final event = MidiEvent(_data[i], _data[i + 1]);
+    _cache[index] = event;
+    return event;
+  }
+
+  @override
+  void operator []=(int index, MidiEvent value) {
+    throw UnsupportedError('Cannot modify _LazyMidiEventList');
+  }
+}
 
 class MidiPort {
   final int number;
@@ -195,19 +236,10 @@ class MidiService {
       })
       .map((event) {
         final data = event as Int64List;
-        final List<MidiEvent> parsedEvents = [];
         final int usedLongCount = data.isNotEmpty ? data[0] : 0;
 
-        // Decode the populated portion of the reused LongArray batch.
-        for (int i = 1; i + 1 <= usedLongCount; i += 2) {
-          int ump = data[i];
-          int timestamp = data[i + 1];
-
-          // Phase 3: Directly initialize UMP events natively using the bitwise getters in the model
-          parsedEvents.add(MidiEvent(ump, timestamp));
-        }
-
-        return parsedEvents;
+        // Phase 3: Defer MidiEvent instantiation using a lazy list.
+        return _LazyMidiEventList(data, usedLongCount);
       })
       .asBroadcastStream();
 
