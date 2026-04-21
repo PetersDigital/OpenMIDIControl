@@ -74,7 +74,7 @@ class UiStateSinkNode extends SinkNode {
     }
 
     if (hasUpdates) {
-      onUpdateCCs(_reusableBatch);
+      onUpdateCCs(Map<int, int>.from(_reusableBatch));
     }
   }
 }
