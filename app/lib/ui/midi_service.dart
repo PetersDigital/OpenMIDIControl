@@ -788,7 +788,7 @@ class CcNotifier extends Notifier<ControlState> {
     for (final cc in _activeCcs) {
       newValues[cc] = _hotCcState[cc];
     }
-    state = state.copyWith(ccValues: newValues);
+    state = ControlState(ccValues: newValues);
   }
 }
 

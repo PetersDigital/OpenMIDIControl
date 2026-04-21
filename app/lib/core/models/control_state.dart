@@ -9,7 +9,7 @@ class ControlState {
     : ccValues = Map.unmodifiable(ccValues);
 
   ControlState copyWith({Map<int, int>? ccValues}) {
-    return ControlState(ccValues: Map.unmodifiable(ccValues ?? this.ccValues));
+    return ControlState(ccValues: ccValues ?? this.ccValues);
   }
 
   ControlState copyWithCC(int cc, int val) {
