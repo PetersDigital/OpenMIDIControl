@@ -1,11 +1,56 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:collection';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
+
+class _RingBufferList<T> extends ListBase<T> {
+  final List<T?> _buffer;
+  final int _head;
+  final int _length;
+
+  _RingBufferList(int capacity)
+    : _buffer = List<T?>.filled(capacity, null, growable: false),
+      _head = 0,
+      _length = 0;
+
+  _RingBufferList._(this._buffer, this._head, this._length);
+
+  @override
+  int get length => _length;
+
+  @override
+  set length(int newLength) =>
+      throw UnsupportedError('Cannot resize _RingBufferList directly');
+
+  @override
+  T operator [](int index) {
+    if (index < 0 || index >= _length) throw RangeError.index(index, this);
+    return _buffer[(_head + index) % _buffer.length] as T;
+  }
+
+  @override
+  void operator []=(int index, T value) {
+    if (index < 0 || index >= _length) throw RangeError.index(index, this);
+    _buffer[(_head + index) % _buffer.length] = value;
+  }
+
+  _RingBufferList<T> addFront(Iterable<T> elements) {
+    var newHead = _head;
+    var newLength = _length;
+    for (final e in elements) {
+      newHead = (newHead - 1) % _buffer.length;
+      if (newHead < 0) newHead += _buffer.length;
+      _buffer[newHead] = e;
+      if (newLength < _buffer.length) newLength++;
+    }
+    return _RingBufferList<T>._(_buffer, newHead, newLength);
+  }
+}
 
 class DiagnosticLogEntry {
   final MidiEvent rawEvent;
@@ -68,16 +113,13 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
           _pendingUpdate = false;
           if (_pendingEvents.isEmpty) return;
 
-          // Prepend new events (reversed because they are appended in chronological order)
-          // to the existing state, capped at maxLogs.
-          final nextState = _pendingEvents.reversed.take(maxLogs).toList();
+          // Publish minimal delta by sharing the underlying ring buffer array
+          // and emitting a new wrapper. The sequential addition of events naturally
+          // prepends them in reverse chronological order since we advance the head backwards.
+          state = (state as _RingBufferList<DiagnosticLogEntry>).addFront(
+            _pendingEvents,
+          );
           _pendingEvents.clear();
-
-          if (state.isNotEmpty && nextState.length < maxLogs) {
-            nextState.addAll(state.take(maxLogs - nextState.length));
-          }
-
-          state = nextState;
         });
       }
     });
@@ -89,12 +131,12 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
       _pendingEvents.clear();
     });
 
-    return [];
+    return _RingBufferList<DiagnosticLogEntry>(maxLogs);
   }
 
   void clear() {
     _pendingEvents.clear();
-    state = [];
+    state = _RingBufferList<DiagnosticLogEntry>(maxLogs);
   }
 }
 
