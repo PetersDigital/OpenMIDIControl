@@ -33,39 +33,7 @@ class PeripheralMidiService : MidiDeviceService() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
                 if (msg == null || count == 0) return
 
-                // Skip messages that contain only timing clock (0xF8) or active sensing (0xFE)
-                var isSpamOnly = true
-
-                // Fast-reject UMP-wrapped real-time (MT=0x1)
-                if (count >= 4 && count % 4 == 0) {
-                    for (i in offset until offset + count step 4) {
-                        val mt = (msg[i].toInt() ushr 4) and 0xF
-                        if (mt != 0x1) {
-                            isSpamOnly = false
-                            break
-                        }
-                        val status = msg[i + 1].toInt() and 0xFF
-                        if (status != 0xF8 && status != 0xFE) {
-                            isSpamOnly = false
-                            break
-                        }
-                    }
-                } else {
-                    // Fast-reject legacy single-byte stream
-                    for (i in offset until offset + count) {
-                        val status = msg[i].toInt() and 0xFF
-                        if (status != 0xF8 && status != 0xFE) {
-                            isSpamOnly = false
-                            break
-                        }
-                    }
-                }
-
-                if (isSpamOnly) return
-
-                msg.let {
-                    MainActivity.activeInstance?.handleIncomingVirtualMidi(it, offset, count, timestamp)
-                }
+                MainActivity.activeInstance?.handleIncomingVirtualMidi(msg, offset, count, timestamp)
             }
         })
     }
