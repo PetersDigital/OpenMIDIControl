@@ -53,6 +53,47 @@ class _CcBatchContainer extends MapBase<int, int> {
   }
 }
 
+class _CcBatchSnapshot extends MapBase<int, int> {
+  final List<int> _values;
+  final List<int> _keys;
+
+  _CcBatchSnapshot._(this._values, this._keys);
+
+  factory _CcBatchSnapshot.from(_CcBatchContainer source) {
+    return _CcBatchSnapshot._(
+      List<int>.of(source._values, growable: false),
+      List<int>.of(source._keys, growable: false),
+    );
+  }
+
+  @override
+  int? operator [](Object? key) {
+    if (key is int && key >= 0 && key < 128) {
+      final val = _values[key];
+      if (val != -1) return val;
+    }
+    return null;
+  }
+
+  @override
+  void operator []=(int key, int value) {
+    throw UnsupportedError('Snapshot is immutable');
+  }
+
+  @override
+  void clear() {
+    throw UnsupportedError('Snapshot is immutable');
+  }
+
+  @override
+  Iterable<int> get keys => _keys;
+
+  @override
+  int? remove(Object? key) {
+    throw UnsupportedError('Snapshot is immutable');
+  }
+}
+
 class UiStateSinkNode extends SinkNode {
   final void Function(Map<int, int>) onUpdateCCs;
   final _CcBatchContainer _reusableBatch = _CcBatchContainer();
@@ -64,7 +105,7 @@ class UiStateSinkNode extends SinkNode {
     if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
       _reusableBatch.clear();
       _reusableBatch[event.data1] = event.data2;
-      onUpdateCCs(_reusableBatch);
+      onUpdateCCs(_CcBatchSnapshot.from(_reusableBatch));
     }
   }
 
@@ -83,7 +124,7 @@ class UiStateSinkNode extends SinkNode {
     }
 
     if (hasUpdates) {
-      onUpdateCCs(Map<int, int>.from(_reusableBatch));
+      onUpdateCCs(_CcBatchSnapshot.from(_reusableBatch));
     }
   }
 }
