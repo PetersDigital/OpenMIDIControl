@@ -651,8 +651,12 @@ enum MidiStatus {
 }
 
 class CcNotifier extends Notifier<ControlState> {
+  late final Int32List _hotCcState;
+  final List<int> _activeCcs = [];
+
   @override
   ControlState build() {
+    _hotCcState = Int32List(128)..fillRange(0, 128, -1);
     final service = ref.watch(midiServiceProvider);
 
     final sub = service.uiStateUpdates.listen((updates) {
@@ -663,33 +667,60 @@ class CcNotifier extends Notifier<ControlState> {
       sub.cancel();
     });
 
-    return ControlState(
-      ccValues: service.currentCcState.isNotEmpty
-          ? service.currentCcState
-          : const <int, int>{},
-    );
+    final current = service.currentCcState;
+    if (current.isNotEmpty) {
+      for (final entry in current.entries) {
+        if (entry.key >= 0 && entry.key < 128) {
+          _hotCcState[entry.key] = entry.value;
+          _activeCcs.add(entry.key);
+        }
+      }
+      return ControlState(ccValues: current);
+    }
+
+    return ControlState(ccValues: const <int, int>{});
   }
 
   void updateCC(int cc, int value) {
-    if (state.ccValues[cc] == value) return;
-    state = state.copyWithCC(cc, value);
+    if (cc < 0 || cc >= 128) return;
+    if (_hotCcState[cc] == value) return;
+
+    if (_hotCcState[cc] == -1) {
+      _activeCcs.add(cc);
+    }
+    _hotCcState[cc] = value;
+    _publishState();
   }
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
 
-    // Maintained lazy-init behavior after profiling consideration.
-    // Only allocate new map when first true value change is detected.
-    Map<int, int>? newValues;
+    bool hasChanges = false;
     for (final entry in updates.entries) {
-      if (state.ccValues[entry.key] != entry.value) {
-        newValues ??= Map<int, int>.from(state.ccValues);
-        newValues[entry.key] = entry.value;
+      final cc = entry.key;
+      final val = entry.value;
+      if (cc >= 0 && cc < 128) {
+        if (_hotCcState[cc] != val) {
+          if (_hotCcState[cc] == -1) {
+            _activeCcs.add(cc);
+          }
+          _hotCcState[cc] = val;
+          hasChanges = true;
+        }
       }
     }
-    if (newValues != null) {
-      state = state.copyWith(ccValues: newValues);
+
+    if (hasChanges) {
+      _publishState();
     }
+  }
+
+  void _publishState() {
+    final newValues = <int, int>{};
+    for (final cc in _activeCcs) {
+      newValues[cc] = _hotCcState[cc];
+    }
+    state = state.copyWith(ccValues: newValues);
   }
 }
 
