@@ -19,6 +19,20 @@ class _TestSinkNode extends SinkNode {
   }
 }
 
+class _SingleEventSinkNode extends SinkNode {
+  MidiEvent? receivedEvent;
+
+  @override
+  void executeSingle(MidiEvent event) {
+    receivedEvent = event;
+  }
+
+  @override
+  void execute(List<MidiEvent> events) {
+    receivedEvent = events.isNotEmpty ? events.first : null;
+  }
+}
+
 void main() {
   group('MidiRouter DAG Logic', () {
     int createUmp(
@@ -65,6 +79,23 @@ void main() {
 
       expect(sink.receivedEvents.length, 1);
       expect(sink.receivedEvents.first.channel, 0);
+    });
+
+    test('Router processes single events through processSingle fast path', () {
+      final router = MidiRouter();
+      final sink = _SingleEventSinkNode();
+
+      router.addNode('source', SplitNode());
+      router.addNode('sink', sink);
+      router.addEdge('source', 'sink');
+
+      final event = MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0);
+
+      router.processSingle('source', event);
+
+      expect(sink.receivedEvent, isNotNull);
+      expect(sink.receivedEvent!.data1, 10);
+      expect(sink.receivedEvent!.data2, 64);
     });
 
     test('Router duplicates events at SplitNode dynamically', () {
