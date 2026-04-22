@@ -103,8 +103,17 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
     final sub = service.midiEventsStream.listen((midiEvents) {
       if (midiEvents.isEmpty) return;
 
-      for (var midiEvent in midiEvents) {
-        _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvent));
+      // Prevent excessive instantiation by limiting the batch to maxLogs
+      int startIndex = 0;
+      if (midiEvents.length > DiagnosticsLoggerNotifier.maxLogs) {
+        startIndex = midiEvents.length - DiagnosticsLoggerNotifier.maxLogs;
+      }
+
+      for (int i = startIndex; i < midiEvents.length; i++) {
+        if (_pendingEvents.length >= DiagnosticsLoggerNotifier.maxLogs) {
+          _pendingEvents.removeAt(0);
+        }
+        _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvents[i]));
       }
 
       // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events.
