@@ -407,6 +407,7 @@ class MidiConnectionState {
 
 class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   Timer? _deviceRefreshTimer;
+  final List<VoidCallback> _pendingRefreshCallbacks = [];
   bool _autoReconnectPending = false;
   String _lastUsbStatus = 'INIT';
   final Stopwatch _eventStopwatch = Stopwatch()..start();
@@ -427,10 +428,26 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   }
 
   void _scheduleDeviceRefresh([VoidCallback? onRefreshComplete]) {
-    _deviceRefreshTimer?.cancel();
+    if (onRefreshComplete != null) {
+      _pendingRefreshCallbacks.add(onRefreshComplete);
+    }
+
+    // Coalesce multiple refresh requests into a single delayed execution
+    // instead of resetting the timer (which can delay refresh forever in bursts)
+    if (_deviceRefreshTimer != null && _deviceRefreshTimer!.isActive) {
+      return;
+    }
+
     _deviceRefreshTimer = Timer(const Duration(milliseconds: 300), () {
       ref.invalidate(midiDevicesProvider);
-      onRefreshComplete?.call();
+
+      if (_pendingRefreshCallbacks.isNotEmpty) {
+        final callbacks = List<VoidCallback>.from(_pendingRefreshCallbacks);
+        _pendingRefreshCallbacks.clear();
+        for (final cb in callbacks) {
+          cb();
+        }
+      }
     });
   }
 
@@ -467,7 +484,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
       if (previousDevice == null) return;
 
-      final devices = await service.getAvailableDevices();
+      final devices = await ref.read(midiDevicesProvider.future);
       if (!ref.mounted) return;
 
       final target = devices.cast<MidiDevice?>().firstWhere(
@@ -508,7 +525,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         return;
       }
 
-      final devices = await service.getAvailableDevices();
+      final devices = await ref.read(midiDevicesProvider.future);
       if (!ref.mounted) {
         _autoReconnectPending = false;
         return;
@@ -662,6 +679,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
 
     ref.onDispose(() {
       _deviceRefreshTimer?.cancel();
+      _pendingRefreshCallbacks.clear();
       _autoReconnectPending = false;
       systemSub.cancel();
       midiSub.cancel();

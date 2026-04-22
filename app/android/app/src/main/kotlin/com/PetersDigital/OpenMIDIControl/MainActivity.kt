@@ -53,6 +53,8 @@ class MainActivity : FlutterActivity() {
 
     private val mainThreadHandler = Handler(Looper.getMainLooper())
 
+    private var cachedDevicesList: List<Map<String, Any>>? = null
+
     // Rate-limiting and Deduplication state
     private val lastSentValue = IntArray(128) { -1 }
     private val lastSentTime = LongArray(128)
@@ -164,6 +166,7 @@ class MainActivity : FlutterActivity() {
                 val isMidiConnected = connected && configured && midi
 
                 if (isMidiConnected) {
+                    cachedDevicesList = null // Invalidate cache on USB state transition
                     if (!lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = true
                         val event = mapOf(
@@ -175,6 +178,7 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 } else if (!connected) {
+                    cachedDevicesList = null // Invalidate cache on USB state transition
                     if (lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = false
                         notifyUsbHostDisconnected()
@@ -454,6 +458,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getMidiDevices(): List<Map<String, Any>> {
+        cachedDevicesList?.let { return it }
+
         val devicesList = mutableListOf<Map<String, Any>>()
         val devices = getAvailableMidiDevices()
 
@@ -507,6 +513,7 @@ class MainActivity : FlutterActivity() {
             )
         }
 
+        cachedDevicesList = devicesList
         return devicesList
     }
 
@@ -606,6 +613,8 @@ class MainActivity : FlutterActivity() {
                         return
                     }
 
+                    cachedDevicesList = null // Invalidate cache
+
                     val event = mapOf(
                         "type" to "added",
                         "id" to id
@@ -620,6 +629,8 @@ class MainActivity : FlutterActivity() {
                     if (shouldSuppressDuplicateDeviceEvent("removed", id)) {
                         return
                     }
+
+                    cachedDevicesList = null // Invalidate cache
 
                     // Disconnect if the removed device ID matches the current host backend portId.
                     if (hostMidiBackend?.portId == id) {
