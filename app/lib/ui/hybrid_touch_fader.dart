@@ -302,16 +302,16 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     }
   }
 
-  void _animateToIncomingValue(double incomingNormalized) {
-    final description = SpringDescription.withDampingRatio(
-      mass: 1.0,
-      stiffness: 100.0,
-      ratio: 0.9,
-    );
+  static final _springDesc = SpringDescription.withDampingRatio(
+    mass: 1.0,
+    stiffness: 100.0,
+    ratio: 0.9,
+  );
 
+  void _animateToIncomingValue(double incomingNormalized) {
     if (_springSimulation == null) {
       _springSimulation = SpringSimulation(
-        description,
+        _springDesc,
         _animationController.value,
         incomingNormalized,
         0.0,
@@ -320,7 +320,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     } else {
       // Retarget the existing simulation
       _springSimulation = SpringSimulation(
-        description,
+        _springDesc,
         _animationController.value,
         incomingNormalized,
         _animationController.velocity,

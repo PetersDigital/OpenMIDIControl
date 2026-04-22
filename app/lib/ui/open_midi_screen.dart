@@ -70,9 +70,11 @@ class OpenMIDIMainScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mq = MediaQuery.of(context);
-    final isLandscape = mq.orientation == Orientation.landscape;
-    final isTablet = mq.size.shortestSide >= 600;
+    final orientation = MediaQuery.orientationOf(context);
+    final size = MediaQuery.sizeOf(context);
+
+    final isLandscape = orientation == Orientation.landscape;
+    final isTablet = size.shortestSide >= 600;
 
     return Scaffold(
       backgroundColor: const Color(0xFF111318),

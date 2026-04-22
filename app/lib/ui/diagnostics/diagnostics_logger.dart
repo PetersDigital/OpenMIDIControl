@@ -91,7 +91,8 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
   static const int maxLogs = 200;
   static const Duration _publishCadence = Duration(milliseconds: 100);
 
-  final List<DiagnosticLogEntry> _pendingEvents = [];
+  final Queue<DiagnosticLogEntry> _pendingEvents =
+      ListQueue<DiagnosticLogEntry>();
   bool _pendingUpdate = false;
   bool _disposed = false;
   Timer? _publishTimer;
@@ -111,7 +112,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
 
       for (int i = startIndex; i < midiEvents.length; i++) {
         if (_pendingEvents.length >= DiagnosticsLoggerNotifier.maxLogs) {
-          _pendingEvents.removeAt(0);
+          _pendingEvents.removeFirst();
         }
         _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvents[i]));
       }
