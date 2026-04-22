@@ -721,18 +721,33 @@ enum MidiStatus {
 class CcNotifier extends Notifier<ControlState> {
   late final Int32List _hotCcState;
   final List<int> _activeCcs = [];
+  late final List<StreamController<int>> _hotCcControllers;
+  Timer? _pendingIncomingPublishTimer;
+  bool _hasPendingIncomingState = false;
+  static const Duration _incomingStatePublishInterval = Duration(
+    milliseconds: 16,
+  );
 
   @override
   ControlState build() {
     _hotCcState = Int32List(128)..fillRange(0, 128, -1);
+    _hotCcControllers = List<StreamController<int>>.generate(
+      128,
+      (_) => StreamController<int>.broadcast(),
+      growable: false,
+    );
     final service = ref.watch(midiServiceProvider);
 
     final sub = service.uiStateUpdates.listen((updates) {
-      updateMultipleCCs(updates);
+      ingestIncomingUpdates(updates);
     });
 
     ref.onDispose(() {
       sub.cancel();
+      _pendingIncomingPublishTimer?.cancel();
+      for (final controller in _hotCcControllers) {
+        controller.close();
+      }
     });
 
     final current = service.currentCcState;
@@ -749,38 +764,63 @@ class CcNotifier extends Notifier<ControlState> {
     return ControlState(ccValues: const <int, int>{});
   }
 
+  Stream<int> watchHotCc(int cc) async* {
+    if (cc < 0 || cc >= 128) return;
+
+    final current = _hotCcState[cc];
+    if (current >= 0) {
+      yield current;
+    }
+
+    yield* _hotCcControllers[cc].stream;
+  }
+
+  void ingestIncomingUpdates(Map<int, int> updates) {
+    if (updates.isEmpty) return;
+    if (!_applyUpdates(updates)) return;
+
+    _hasPendingIncomingState = true;
+    _pendingIncomingPublishTimer ??= Timer(_incomingStatePublishInterval, () {
+      _pendingIncomingPublishTimer = null;
+      if (!_hasPendingIncomingState) return;
+      _hasPendingIncomingState = false;
+      _publishState();
+    });
+  }
+
   void updateCC(int cc, int value) {
     if (cc < 0 || cc >= 128) return;
-    if (_hotCcState[cc] == value) return;
-
-    if (_hotCcState[cc] == -1) {
-      _activeCcs.add(cc);
-    }
-    _hotCcState[cc] = value;
+    if (!_applySingleUpdate(cc, value)) return;
     _publishState();
   }
 
   void updateMultipleCCs(Map<int, int> updates) {
     if (updates.isEmpty) return;
-
-    bool hasChanges = false;
-    for (final entry in updates.entries) {
-      final cc = entry.key;
-      final val = entry.value;
-      if (cc >= 0 && cc < 128) {
-        if (_hotCcState[cc] != val) {
-          if (_hotCcState[cc] == -1) {
-            _activeCcs.add(cc);
-          }
-          _hotCcState[cc] = val;
-          hasChanges = true;
-        }
-      }
-    }
-
-    if (hasChanges) {
+    if (_applyUpdates(updates)) {
       _publishState();
     }
+  }
+
+  bool _applyUpdates(Map<int, int> updates) {
+    bool hasChanges = false;
+    for (final entry in updates.entries) {
+      if (_applySingleUpdate(entry.key, entry.value)) {
+        hasChanges = true;
+      }
+    }
+    return hasChanges;
+  }
+
+  bool _applySingleUpdate(int cc, int value) {
+    if (cc < 0 || cc >= 128) return false;
+    if (_hotCcState[cc] == value) return false;
+
+    if (_hotCcState[cc] == -1) {
+      _activeCcs.add(cc);
+    }
+    _hotCcState[cc] = value;
+    _hotCcControllers[cc].add(value);
+    return true;
   }
 
   void _publishState() {
@@ -795,6 +835,18 @@ class CcNotifier extends Notifier<ControlState> {
 final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(
   CcNotifier.new,
 );
+
+final hotCcValueStreamProvider = StreamProvider.autoDispose.family<int, int>((
+  ref,
+  cc,
+) {
+  final notifier = ref.watch(ccValuesProvider.notifier);
+  return notifier.watchHotCc(cc);
+});
+
+final hotCcValueProvider = Provider.family<int?, int>((ref, cc) {
+  return ref.watch(hotCcValueStreamProvider(cc)).asData?.value;
+});
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);

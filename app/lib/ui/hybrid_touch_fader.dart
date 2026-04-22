@@ -93,7 +93,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   void _setupListener() {
     _ccSubscription?.close();
     _ccSubscription = ref.listenManual<int?>(
-      ccValuesProvider.select((state) => state.ccValues[_ccNumber]),
+      hotCcValueProvider(_ccNumber),
       _handleCcUpdate,
     );
   }
