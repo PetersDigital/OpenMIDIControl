@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:async';
 import 'dart:collection';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
@@ -89,9 +89,12 @@ class DiagnosticLogEntry {
 
 class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
   static const int maxLogs = 200;
+  static const Duration _publishCadence = Duration(milliseconds: 100);
+
   final List<DiagnosticLogEntry> _pendingEvents = [];
   bool _pendingUpdate = false;
   bool _disposed = false;
+  Timer? _publishTimer;
 
   @override
   List<DiagnosticLogEntry> build() {
@@ -104,11 +107,12 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
         _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvent));
       }
 
-      // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
+      // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events.
+      // Throttling to a fixed cadence instead of frame cadence reduces CPU load
+      // significantly under sustained input.
       if (!_pendingUpdate) {
         _pendingUpdate = true;
-        // Schedule state update for next frame (~16ms at 60Hz)
-        SchedulerBinding.instance.scheduleFrameCallback((_) {
+        _publishTimer = Timer(_publishCadence, () {
           if (_disposed) return;
           _pendingUpdate = false;
           if (_pendingEvents.isEmpty) return;
@@ -127,6 +131,7 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
     ref.onDispose(() {
       _disposed = true;
       _pendingUpdate = false;
+      _publishTimer?.cancel();
       sub.cancel();
       _pendingEvents.clear();
     });
