@@ -333,6 +333,19 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   Widget build(BuildContext context) {
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
+    final TextStyle displayTextStyle = TextStyle(
+      fontFamily: 'DSEG7Modern',
+      fontSize: displayFontSize,
+      color: Colors.red,
+      height: 1.0,
+    );
+    final TextStyle ghostDisplayTextStyle = TextStyle(
+      fontFamily: 'DSEG7Modern',
+      fontSize: displayFontSize,
+      color: Colors.red.withValues(alpha: 0.06),
+      height: 1.0,
+    );
+    final Widget activeTrack = Container(color: widget.activeColor);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -359,12 +372,13 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                 // Filled active track
                 AnimatedBuilder(
                   animation: _animationController,
+                  child: activeTrack,
                   builder: (context, child) {
                     return FractionallySizedBox(
                       heightFactor: _animationController.value,
                       widthFactor: 1.0,
                       alignment: Alignment.bottomCenter,
-                      child: Container(color: widget.activeColor),
+                      child: child,
                     );
                   },
                 ),
@@ -390,12 +404,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                               Text(
                                 "888",
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'DSEG7Modern',
-                                  fontSize: displayFontSize,
-                                  color: Colors.red.withValues(alpha: 0.06),
-                                  height: 1.0,
-                                ),
+                                style: ghostDisplayTextStyle,
                               ),
                               // Active value
                               AnimatedBuilder(
@@ -407,12 +416,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                                   return Text(
                                     ccValue.toString().padLeft(3, ' '),
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'DSEG7Modern',
-                                      fontSize: displayFontSize,
-                                      color: Colors.red,
-                                      height: 1.0,
-                                    ),
+                                    style: displayTextStyle,
                                   );
                                 },
                               ),
