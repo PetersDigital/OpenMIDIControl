@@ -66,9 +66,11 @@ class MainActivity : FlutterActivity() {
     // Eliminates boxed Long allocation churn in the hot ingest path.
     private val incomingEventNotifier = Channel<Unit>(capacity = Channel.CONFLATED, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private val incomingEventsBuffer = MidiParser.IncomingEventsBuffer(1000, incomingEventNotifier)
-    private val emptyBuffers = Channel<LongArray>(capacity = 2)
-
+    private val emptyBuffers = Channel<LongArray>(capacity = 4)
+ 
     init {
+        emptyBuffers.trySend(LongArray(2000))
+        emptyBuffers.trySend(LongArray(2000))
         emptyBuffers.trySend(LongArray(2000))
         emptyBuffers.trySend(LongArray(2000))
     }
