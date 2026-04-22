@@ -5,6 +5,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:isolate';
 
 import '../core/models/control_state.dart';
 import '../core/models/midi_event.dart';
@@ -175,7 +176,11 @@ class MidiService {
     'com.petersdigital.openmidicontrol/system_events',
   );
 
-  final MidiRouter incomingRouter = MidiRouter();
+  SendPort? _workerSendPort;
+  final List<dynamic> _queuedEvents = [];
+  late final ReceivePort _workerReceivePort;
+  Isolate? _workerIsolate;
+
   final MidiRouter outgoingRouter = MidiRouter();
 
   late final StreamController<Map<int, int>> _uiStateController;
@@ -192,14 +197,40 @@ class MidiService {
       },
     );
     _setupRouters();
+    _initWorker();
   }
   Map<int, int> get currentCcState => Map.unmodifiable(_cachedCcState);
 
   final Stopwatch _stopwatch = Stopwatch()..start();
 
+  Future<void> _initWorker() async {
+    _workerReceivePort = ReceivePort();
+    _workerReceivePort.listen((message) {
+      if (message is SendPort) {
+        _workerSendPort = message;
+        if (_queuedEvents.isNotEmpty) {
+          for (final e in _queuedEvents) {
+            _workerSendPort!.send(e);
+          }
+          _queuedEvents.clear();
+        }
+      } else if (message is Map<int, int>) {
+        if (message.isNotEmpty) {
+          _cachedCcState.addAll(message);
+          _uiStateController.add(message);
+        }
+      }
+    });
+
+    _workerIsolate = await Isolate.spawn(
+      _midiWorkerEntryPoint,
+      _workerReceivePort.sendPort,
+      debugName: 'MidiWorkerIsolate',
+    );
+  }
+
   void _setupRouters() {
     // Add default root nodes for the DAG to process from
-    incomingRouter.addNode('source', SplitNode());
     outgoingRouter.addNode('source', SplitNode());
 
     // Set up the NativeTransportSinkNode here
@@ -210,20 +241,12 @@ class MidiService {
 
     // Connect root to sink by default so events flow out
     outgoingRouter.addEdge('source', 'nativeSink');
+  }
 
-    // UI state sink for processing incoming CC streams cleanly
-    incomingRouter.addNode(
-      'uiStateSink',
-      UiStateSinkNode(
-        onUpdateCCs: (batchUpdates) {
-          if (batchUpdates.isNotEmpty) {
-            _cachedCcState.addAll(batchUpdates);
-            _uiStateController.add(batchUpdates);
-          }
-        },
-      ),
-    );
-    incomingRouter.addEdge('source', 'uiStateSink');
+  void dispose() {
+    _uiStateController.close();
+    _workerReceivePort.close();
+    _workerIsolate?.kill();
   }
 
   late final Stream<dynamic> _rawStream = _eventsChannel
@@ -668,13 +691,20 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       usbHostConnectedStateProvider.notifier,
     );
 
-    final midiSub = service.midiEventsStream.listen((midiEvents) {
-      // First real MIDI payload from host confirms host-side link is active.
-      if (midiEvents.isNotEmpty) {
-        usbHostConnectedNotifier.setConnected();
+    final rawSub = service._rawStream.listen((event) {
+      if (event is Int64List) {
+        final int usedLongCount = event.isNotEmpty ? event[0] : 0;
+        // First real MIDI payload from host confirms host-side link is active.
+        if (usedLongCount > 0) {
+          usbHostConnectedNotifier.setConnected();
+        }
+        // Send directly to the worker isolate
+        if (service._workerSendPort != null) {
+          service._workerSendPort!.send(event);
+        } else {
+          service._queuedEvents.add(event);
+        }
       }
-      // Process incoming events through the DAG starting from the root 'source' node
-      service.incomingRouter.process('source', midiEvents);
     });
 
     ref.onDispose(() {
@@ -682,7 +712,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       _pendingRefreshCallbacks.clear();
       _autoReconnectPending = false;
       systemSub.cancel();
-      midiSub.cancel();
+      rawSub.cancel();
     });
 
     return const MidiConnectionState();
@@ -957,4 +987,31 @@ MidiStatus resolveMidiStatus({
   }
 
   return MidiStatus.disconnected;
+}
+
+void _midiWorkerEntryPoint(SendPort mainSendPort) {
+  final receivePort = ReceivePort();
+  mainSendPort.send(receivePort.sendPort);
+
+  final incomingRouter = MidiRouter();
+  incomingRouter.addNode('source', SplitNode());
+  incomingRouter.addNode(
+    'uiStateSink',
+    UiStateSinkNode(
+      onUpdateCCs: (batchUpdates) {
+        if (batchUpdates.isNotEmpty) {
+          mainSendPort.send(batchUpdates);
+        }
+      },
+    ),
+  );
+  incomingRouter.addEdge('source', 'uiStateSink');
+
+  receivePort.listen((message) {
+    if (message is Int64List) {
+      final int usedLongCount = message.isNotEmpty ? message[0] : 0;
+      final events = _LazyMidiEventList(message, usedLongCount);
+      incomingRouter.process('source', events);
+    }
+  });
 }

@@ -259,7 +259,14 @@ void main() {
 
         // Send the batch
         streamController.add(largeBatch);
-        await Future.delayed(const Duration(milliseconds: 100));
+
+        // Poll until the state is updated or timeout (since Isolate spawn can take variable time)
+        int attempts = 0;
+        while (container.read(ccValuesProvider).ccValues[7] == null &&
+            attempts < 50) {
+          await Future.delayed(const Duration(milliseconds: 50));
+          attempts++;
+        }
 
         // Assert the ControlState processed the batch updates correctly and reflects the final value
         final finalState = container.read(ccValuesProvider);
