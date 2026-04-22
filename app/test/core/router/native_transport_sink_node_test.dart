@@ -135,52 +135,52 @@ void main() {
       node.dispose();
     });
 
-    test('reuses existing pool buffers for repeated single-CC flushes', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+    test(
+      'reuses existing buffer for repeated single-CC flushes without growing',
+      () async {
+        final node = NativeTransportSinkNode(channel: channel);
 
-      final event1 = MidiEvent(
-        buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 1),
-        0,
-        isFinal: false,
-      );
-      final event2 = MidiEvent(
-        buildUmp(messageType: 0x2, status: 0xB0, data1: 1, data2: 2),
-        0,
-        isFinal: false,
-      );
+        final event1 = MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 1),
+          0,
+          isFinal: false,
+        );
+        final event2 = MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 1, data2: 2),
+          0,
+          isFinal: false,
+        );
 
-      final initialPoolLength = NativeTransportSinkNode.bufferPoolLength;
+        final initialCapacity = NativeTransportSinkNode.sharedBufferCapacity;
 
-      node.execute([event1]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+        node.execute([event1]);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(methodCallCount, 1);
-      final poolLengthAfterFirstFlush =
-          NativeTransportSinkNode.bufferPoolLength;
-      expect(
-        poolLengthAfterFirstFlush,
-        greaterThanOrEqualTo(initialPoolLength),
-      );
+        expect(methodCallCount, 1);
+        final capacityAfterFirstFlush =
+            NativeTransportSinkNode.sharedBufferCapacity;
+        expect(capacityAfterFirstFlush, greaterThanOrEqualTo(initialCapacity));
 
-      methodCallCount = 0;
-      capturedEvents = Int64List(0);
+        methodCallCount = 0;
+        capturedEvents = Int64List(0);
 
-      node.execute([event2]);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+        node.execute([event2]);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(methodCallCount, 1);
-      expect(
-        NativeTransportSinkNode.bufferPoolLength,
-        poolLengthAfterFirstFlush,
-        reason:
-            'The buffer pool should not grow when flushing the same capacity again',
-      );
-      expect(capturedEvents.length, 2);
-      expect(capturedEvents[0], event2.ump);
-      expect(capturedEvents[1], 0);
+        expect(methodCallCount, 1);
+        expect(
+          NativeTransportSinkNode.sharedBufferCapacity,
+          capacityAfterFirstFlush,
+          reason:
+              'The shared buffer should not grow when flushing the same capacity again',
+        );
+        expect(capturedEvents.length, 2);
+        expect(capturedEvents[0], event2.ump);
+        expect(capturedEvents[1], 0);
 
-      node.dispose();
-    });
+        node.dispose();
+      },
+    );
 
     test(
       'repeated execute calls before timer flush still produce one batch',
