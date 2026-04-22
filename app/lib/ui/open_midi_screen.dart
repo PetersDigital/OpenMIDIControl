@@ -750,20 +750,13 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
 // SHARED WIDGETS
 // ===========================================================================
 
-class _ConnectionStatusButton extends ConsumerStatefulWidget {
+class _ConnectionStatusButton extends ConsumerWidget {
   final VoidCallback onTap;
 
   const _ConnectionStatusButton({required this.onTap});
 
   @override
-  ConsumerState<_ConnectionStatusButton> createState() =>
-      _ConnectionStatusButtonState();
-}
-
-class _ConnectionStatusButtonState
-    extends ConsumerState<_ConnectionStatusButton> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final midiStatus = ref.watch(midiStatusProvider);
 
     String statusText;
@@ -836,7 +829,7 @@ class _ConnectionStatusButtonState
     return Tooltip(
       message: 'MIDI Settings',
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Stack(
           alignment: Alignment.center,
