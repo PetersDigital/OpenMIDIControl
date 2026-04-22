@@ -15,10 +15,10 @@ class NativeTransportSinkNode extends SinkNode {
   static const int _maxBufferSize = 10;
   static const Duration _flushInterval = Duration(milliseconds: 16);
 
-  static final List<Int64List> _bufferPool = [Int64List(0)];
+  static Int64List _sharedBuffer = Int64List(0);
 
   @visibleForTesting
-  static int get bufferPoolLength => _bufferPool.length;
+  static int get sharedBufferCapacity => _sharedBuffer.length;
 
   final List<MidiEvent> _eventBuffer = [];
   Timer? _flushTimer;
@@ -76,16 +76,18 @@ class NativeTransportSinkNode extends SinkNode {
     }
 
     final int count = _eventBuffer.length;
-    while (_bufferPool.length <= count) {
-      _bufferPool.add(Int64List(_bufferPool.length * 2));
-    }
+    final int requiredCapacity = count * 2;
 
-    final batch = _bufferPool[count];
+    if (_sharedBuffer.length < requiredCapacity) {
+      _sharedBuffer = Int64List(requiredCapacity);
+    }
 
     for (int i = 0; i < count; i++) {
-      batch[i * 2] = _eventBuffer[i].ump;
-      batch[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
+      _sharedBuffer[i * 2] = _eventBuffer[i].ump;
+      _sharedBuffer[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
     }
+
+    final batch = Int64List.sublistView(_sharedBuffer, 0, requiredCapacity);
 
     channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((e) {
       debugPrint('Failed to send MIDI CC batch: $e');
