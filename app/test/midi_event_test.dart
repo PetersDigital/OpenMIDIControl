@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:app/core/models/control_state.dart';
 import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/midi_service.dart';
 
@@ -61,6 +62,40 @@ void main() {
 
         // Verify reference equality is maintained (preventing widget rebuilds)
         expect(identical(firstState, secondState), isTrue);
+      },
+    );
+
+    test(
+      'incoming updates emit hot CC immediately while coalescing global state publish',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(ccValuesProvider.notifier);
+        int globalPublishCount = 0;
+
+        final hotValueFuture = notifier
+            .watchHotCc(10)
+            .firstWhere((value) => value == 65);
+        final globalSub = container.listen<ControlState>(
+          ccValuesProvider,
+          (previous, next) => globalPublishCount++,
+          fireImmediately: false,
+        );
+        addTearDown(globalSub.close);
+
+        notifier.ingestIncomingUpdates({10: 64});
+        notifier.ingestIncomingUpdates({10: 65});
+
+        expect(await hotValueFuture.timeout(const Duration(seconds: 1)), 65);
+        // Global state updates are coalesced to bounded cadence.
+        expect(globalPublishCount, 0);
+
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+
+        expect(globalPublishCount, 1);
+        final finalState = container.read(ccValuesProvider);
+        expect(finalState.ccValues[10], 65);
       },
     );
   });
