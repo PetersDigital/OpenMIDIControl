@@ -31,6 +31,7 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import java.util.concurrent.ConcurrentHashMap
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -60,12 +61,19 @@ class MainActivity : FlutterActivity() {
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
-    // Thread Separation: Primitive ring buffer for incoming MIDI events.
-    // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
-    // Eliminates boxed Long allocation churn in the hot ingest path.
-    private val incomingEventNotifier = Channel<Unit>(capacity = Channel.CONFLATED)
-    private val incomingEventsBuffer = MidiParser.IncomingEventsBuffer(1000, incomingEventNotifier)
+    // Thread Separation: Multiplexer channel for incoming MIDI event batches.
+    private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
     private val emptyBuffers = Channel<LongArray>(capacity = 4)
+
+    // Per-port sharded processing session state
+    private class ActivePortSession(
+        val backendId: String,
+        val buffer: MidiParser.IncomingEventsBuffer,
+        val job: Job
+    )
+
+    // Manage active sessions for hardware, virtual, and peripheral backends.
+    private val activeSessions = ConcurrentHashMap<String, ActivePortSession>()
  
     init {
         emptyBuffers.trySend(LongArray(2000))
@@ -76,13 +84,8 @@ class MainActivity : FlutterActivity() {
 
     private var batchDispatchJob: Job? = null
     private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
-        // Wait for a buffer notification instead of a boxed event object.
-        for (notification in incomingEventNotifier) {
-
-            val payload = emptyBuffers.receive()
-
-            incomingEventsBuffer.drainToBatch(payload)
-
+        // Consumer coroutine: processes batches produced by sharded parsing coroutines
+        for (payload in eventMultiplexer) {
             if (payload[0] > 0) {
                 val length = 1 + payload[0].toInt()
                 val trimmedPayload = payload.copyOf(length)
@@ -97,9 +100,6 @@ class MainActivity : FlutterActivity() {
             } else {
                 emptyBuffers.trySend(payload)
             }
-
-            // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
-            delay(8)
         }
     }
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -592,20 +592,87 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun disconnectDevice() {
+        val backendId = hostMidiBackend?.portId
+        backendId?.let { id ->
+            activeSessions[id]?.job?.cancel()
+            activeSessions.remove(id)
+        }
         hostMidiBackend?.close()
         hostMidiBackend = null
     }
 
     private fun setupMidiReceiver() {
-        hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsBuffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+        val backend = hostMidiBackend ?: return
+        val backendId = backend.portId
+
+        val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
+        val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+
+        val portJob = coroutineScope.launch {
+            for (notification in notifier) {
+                while (!portBuffer.isEmpty()) {
+                    val batch = emptyBuffers.receive()
+                    portBuffer.drainToBatch(batch)
+                    eventMultiplexer.send(batch)
+
+                    // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
+                    delay(8)
+                }
+            }
         }
+
+        activeSessions[backendId] = ActivePortSession(backendId, portBuffer, portJob)
+
+        backend.startReceiving { msg, offset, count, timestamp ->
+            MidiParser.processMidiPayload(
+                msg = msg,
+                offset = offset,
+                count = count,
+                timestamp = timestamp,
+                isVirtual = false,
+                incomingEventsSink = portBuffer,
+                suppressionWindowNs = suppressionWindowNs,
+                lastSentTime = lastSentTime,
+                isDebug = BuildConfig.DEBUG
+            )
+        }
+    }
+
+    private fun getOrCreateVirtualSession(isVirtual: Boolean): MidiParser.IncomingEventsBuffer {
+        val sessionId = if (isVirtual) "virtual_daw" else "peripheral_host"
+
+        val session = activeSessions.computeIfAbsent(sessionId) { id ->
+            val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
+            val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+
+            val portJob = coroutineScope.launch {
+                for (notification in notifier) {
+                    while (!portBuffer.isEmpty()) {
+                        val batch = emptyBuffers.receive()
+                        portBuffer.drainToBatch(batch)
+                        eventMultiplexer.send(batch)
+
+                        delay(8)
+                    }
+                }
+            }
+            ActivePortSession(id, portBuffer, portJob)
+        }
+        return session.buffer
     }
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
         val nowNs = timestamp ?: System.nanoTime()
-        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsBuffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+        val buffer = getOrCreateVirtualSession(true)
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, buffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+    }
+
+    fun handleIncomingPeripheralMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
+        if (count == 0) return
+        val nowNs = timestamp ?: System.nanoTime()
+        val buffer = getOrCreateVirtualSession(false)
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, buffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
     private fun setupMidiDeviceCallback() {

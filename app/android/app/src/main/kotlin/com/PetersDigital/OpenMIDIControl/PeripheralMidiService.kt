@@ -20,7 +20,7 @@ class PeripheralMidiService : MidiDeviceService() {
     private val inputReceiver = object : MidiReceiver() {
         override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
             if (msg == null || count == 0) return
-            MainActivity.activeInstance?.handleIncomingVirtualMidi(msg, offset, count, timestamp)
+            MainActivity.activeInstance?.handleIncomingPeripheralMidi(msg, offset, count, timestamp)
         }
     }
 
