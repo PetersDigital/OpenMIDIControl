@@ -10,6 +10,8 @@ import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/midi_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('MidiEvent Bitwise Extraction', () {
     test('Extracts properties from 32-bit UMP integer accurately', () {
       // 32-bit UMP: MT=2, Group=1, Status=0xB0, Channel=16 (Status=0xBF), CC=10, Value=127

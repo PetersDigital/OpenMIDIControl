@@ -171,7 +171,6 @@ class MidiService {
   static const EventChannel _eventsChannel = EventChannel(
     'com.petersdigital.openmidicontrol/midi_events',
   );
-
   static const EventChannel _systemEventsChannel = EventChannel(
     'com.petersdigital.openmidicontrol/system_events',
   );
@@ -186,6 +185,13 @@ class MidiService {
   late final StreamController<Map<int, int>> _uiStateController;
   Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
 
+  late final Stream<List<MidiEvent>> midiEventsStream;
+
+  late final StreamController<bool> _hostConnectionController;
+  Stream<bool> get hostConnectionStream => _hostConnectionController.stream;
+
+  bool _hostLinkConfirmed = false;
+
   final Map<int, int> _cachedCcState = {};
 
   MidiService() {
@@ -196,12 +202,42 @@ class MidiService {
         }
       },
     );
+    _hostConnectionController = StreamController<bool>.broadcast();
     _setupRouters();
+    _initStreams();
     _initWorker();
   }
   Map<int, int> get currentCcState => Map.unmodifiable(_cachedCcState);
 
   final Stopwatch _stopwatch = Stopwatch()..start();
+
+  late final Stream<dynamic> _rawStream;
+
+  void _initStreams() {
+    _rawStream = _eventsChannel.receiveBroadcastStream();
+
+    midiEventsStream = _rawStream.where((e) => e is Int64List).map((event) {
+      final data = event as Int64List;
+      return _LazyMidiEventList(data, data.isNotEmpty ? data[0] : 0);
+    }).asBroadcastStream();
+
+    _rawStream.listen((event) {
+      if (event is Int64List) {
+        final int usedLongCount = event.isNotEmpty ? event[0] : 0;
+
+        if (usedLongCount > 0 && !_hostLinkConfirmed) {
+          _hostLinkConfirmed = true;
+          _hostConnectionController.add(true);
+        }
+
+        if (_workerSendPort != null) {
+          _workerSendPort!.send(event);
+        } else {
+          _queuedEvents.add(event);
+        }
+      }
+    });
+  }
 
   Future<void> _initWorker() async {
     _workerReceivePort = ReceivePort();
@@ -214,10 +250,16 @@ class MidiService {
           }
           _queuedEvents.clear();
         }
-      } else if (message is Map<int, int>) {
-        if (message.isNotEmpty) {
-          _cachedCcState.addAll(message);
-          _uiStateController.add(message);
+      } else if (message is (String, dynamic)) {
+        final type = message.$1;
+        final payload = message.$2;
+
+        if (type == 'cc_update') {
+          final updates = payload as Map<int, int>;
+          if (updates.isNotEmpty) {
+            _cachedCcState.addAll(updates);
+            _uiStateController.add(updates);
+          }
         }
       }
     });
@@ -245,26 +287,10 @@ class MidiService {
 
   void dispose() {
     _uiStateController.close();
+    _hostConnectionController.close();
     _workerReceivePort.close();
     _workerIsolate?.kill();
   }
-
-  late final Stream<dynamic> _rawStream = _eventsChannel
-      .receiveBroadcastStream();
-
-  /// High-performance stream of parsed MIDI events.
-  late final Stream<List<MidiEvent>> midiEventsStream = _rawStream
-      .where((e) {
-        return e is Int64List;
-      })
-      .map((event) {
-        final data = event as Int64List;
-        final int usedLongCount = data.isNotEmpty ? data[0] : 0;
-
-        // Phase 3: Defer MidiEvent instantiation using a lazy list.
-        return _LazyMidiEventList(data, usedLongCount);
-      })
-      .asBroadcastStream();
 
   /// System-level events (USB state, device additions, removals).
   late final Stream<Map<dynamic, dynamic>> systemEventsStream =
@@ -691,19 +717,9 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       usbHostConnectedStateProvider.notifier,
     );
 
-    final rawSub = service._rawStream.listen((event) {
-      if (event is Int64List) {
-        final int usedLongCount = event.isNotEmpty ? event[0] : 0;
-        // First real MIDI payload from host confirms host-side link is active.
-        if (usedLongCount > 0) {
-          usbHostConnectedNotifier.setConnected();
-        }
-        // Send directly to the worker isolate
-        if (service._workerSendPort != null) {
-          service._workerSendPort!.send(event);
-        } else {
-          service._queuedEvents.add(event);
-        }
+    final hostSub = service.hostConnectionStream.listen((isConnected) {
+      if (isConnected) {
+        usbHostConnectedNotifier.setConnected();
       }
     });
 
@@ -712,7 +728,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       _pendingRefreshCallbacks.clear();
       _autoReconnectPending = false;
       systemSub.cancel();
-      rawSub.cancel();
+      hostSub.cancel();
     });
 
     return const MidiConnectionState();
@@ -1000,7 +1016,7 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
     UiStateSinkNode(
       onUpdateCCs: (batchUpdates) {
         if (batchUpdates.isNotEmpty) {
-          mainSendPort.send(batchUpdates);
+          mainSendPort.send(('cc_update', batchUpdates));
         }
       },
     ),
