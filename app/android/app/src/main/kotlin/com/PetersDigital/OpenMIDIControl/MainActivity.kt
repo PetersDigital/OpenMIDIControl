@@ -30,7 +30,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 
 class MainActivity : FlutterActivity() {
@@ -64,7 +63,7 @@ class MainActivity : FlutterActivity() {
     // Thread Separation: Primitive ring buffer for incoming MIDI events.
     // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
     // Eliminates boxed Long allocation churn in the hot ingest path.
-    private val incomingEventNotifier = Channel<Unit>(capacity = Channel.CONFLATED, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val incomingEventNotifier = Channel<Unit>(capacity = Channel.CONFLATED)
     private val incomingEventsBuffer = MidiParser.IncomingEventsBuffer(1000, incomingEventNotifier)
     private val emptyBuffers = Channel<LongArray>(capacity = 4)
  
