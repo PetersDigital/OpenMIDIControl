@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'dart:collection';
+
 class ControlState {
   final Map<int, int> ccValues;
   // Ready for v0.3.0:
@@ -17,8 +19,9 @@ class ControlState {
   }
 
   ControlState copyWithCC(int cc, int val) {
-    final newValues = Map<int, int>.from(ccValues);
+    if (ccValues[cc] == val) return this;
+    final newValues = Map<int, int>.of(ccValues);
     newValues[cc] = val;
-    return ControlState(ccValues: newValues);
+    return ControlState.raw(ccValues: UnmodifiableMapView(newValues));
   }
 }
