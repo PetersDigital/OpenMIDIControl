@@ -736,6 +736,36 @@ enum MidiStatus {
   usbHostConnected,
 }
 
+class _CcStateSnapshot extends MapBase<int, int> {
+  final Int32List _values;
+  final List<int> _keys;
+
+  _CcStateSnapshot(Int32List hotState, List<int> activeCcs)
+      : _values = Int32List.fromList(hotState),
+        _keys = List<int>.of(activeCcs, growable: false);
+
+  @override
+  int? operator [](Object? key) {
+    if (key is int && key >= 0 && key < 128) {
+      final val = _values[key];
+      if (val != -1) return val;
+    }
+    return null;
+  }
+
+  @override
+  void operator []=(int key, int value) => throw UnsupportedError('unmodifiable');
+
+  @override
+  void clear() => throw UnsupportedError('unmodifiable');
+
+  @override
+  Iterable<int> get keys => _keys;
+
+  @override
+  int? remove(Object? key) => throw UnsupportedError('unmodifiable');
+}
+
 class CcNotifier extends Notifier<ControlState> {
   late final Int32List _hotCcState;
   final List<int> _activeCcs = [];
@@ -842,11 +872,7 @@ class CcNotifier extends Notifier<ControlState> {
   }
 
   void _publishState() {
-    final newValues = <int, int>{};
-    for (final cc in _activeCcs) {
-      newValues[cc] = _hotCcState[cc];
-    }
-    state = ControlState(ccValues: newValues);
+    state = ControlState.raw(ccValues: _CcStateSnapshot(_hotCcState, _activeCcs));
   }
 }
 

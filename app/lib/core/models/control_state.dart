@@ -8,8 +8,12 @@ class ControlState {
   ControlState({required Map<int, int> ccValues})
     : ccValues = Map.unmodifiable(ccValues);
 
+  /// Fast-path constructor that skips defensive copying.
+  const ControlState.raw({required this.ccValues});
+
   ControlState copyWith({Map<int, int>? ccValues}) {
-    return ControlState(ccValues: ccValues ?? this.ccValues);
+    if (ccValues == null) return ControlState.raw(ccValues: this.ccValues);
+    return ControlState(ccValues: ccValues);
   }
 
   ControlState copyWithCC(int cc, int val) {
