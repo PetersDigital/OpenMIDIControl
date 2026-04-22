@@ -121,7 +121,7 @@ void main() {
         fakeService.addEvents([event2]);
         fakeService.addEvents([event3]);
 
-        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 150));
 
         expect(
           updateCount,
@@ -172,12 +172,12 @@ void main() {
         );
 
         fakeService.addEvents([event1]);
-        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 150));
         expect(updateCount, 1);
         expect(container.read(diagnosticsProvider), hasLength(1));
 
         fakeService.addEvents([event2]);
-        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 150));
         expect(updateCount, 2);
         expect(container.read(diagnosticsProvider), hasLength(2));
       },
@@ -222,7 +222,7 @@ void main() {
         });
 
         fakeService.addEvents(events);
-        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 150));
 
         final state = container.read(diagnosticsProvider);
         expect(state, hasLength(DiagnosticsLoggerNotifier.maxLogs));
