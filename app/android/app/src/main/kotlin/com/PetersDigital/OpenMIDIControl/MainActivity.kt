@@ -84,9 +84,12 @@ class MainActivity : FlutterActivity() {
             incomingEventsBuffer.drainToBatch(payload)
 
             if (payload[0] > 0) {
+                val length = 1 + payload[0].toInt()
+                val trimmedPayload = payload.copyOf(length)
+
                 mainThreadHandler.post {
                     try {
-                        eventSink?.success(payload)
+                        eventSink?.success(trimmedPayload)
                     } finally {
                         emptyBuffers.trySend(payload)
                     }
