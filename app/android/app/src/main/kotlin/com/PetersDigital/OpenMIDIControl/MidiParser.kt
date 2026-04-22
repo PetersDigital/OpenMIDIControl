@@ -2,14 +2,62 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 package com.petersdigital.openmidicontrol
 
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 
 object MidiParser {
+
+    interface IncomingEventsSink {
+        fun trySend(packedEvent: Long): Boolean
+    }
+
+    class IncomingEventsBuffer(
+        capacity: Int = 1000,
+        private val notifier: SendChannel<Unit>? = null
+    ) : IncomingEventsSink {
+        private val bufferSize = capacity + 1
+        private val buffer = LongArray(bufferSize)
+        private var head = 0
+        private var tail = 0
+
+        private fun next(index: Int): Int = if (index + 1 == bufferSize) 0 else index + 1
+
+        @Synchronized
+        override fun trySend(packedEvent: Long): Boolean {
+            val nextTail = next(tail)
+            if (nextTail == head) {
+                // Buffer full: drop oldest element and retain newest.
+                head = next(head)
+            }
+            buffer[tail] = packedEvent
+            tail = nextTail
+            notifier?.trySend(Unit)
+            return true
+        }
+
+        @Synchronized
+        fun drainToBatch(batch: LongArray) {
+            var writeIndex = 1
+            var usedDataLongs = 0
+
+            while (head != tail && writeIndex + 1 < batch.size) {
+                val packed = buffer[head]
+                batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
+                batch[writeIndex++] = packed and 0xFFFFFFFFL
+                head = next(head)
+                usedDataLongs += 2
+            }
+
+            batch[0] = usedDataLongs.toLong()
+        }
+
+        @Synchronized
+        fun isEmpty(): Boolean = head == tail
+    }
 
     /**
      * Reconstructs 32-bit UMP integers or handles legacy byte streams,
      * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
-     * and queues packed UMP+timestamp values to the given channel.
+     * and queues packed UMP+timestamp values to the given sink.
      * Packing: upper 32 bits = UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
      * This eliminates Pair<Long, Long> allocation churn (~5,760 bytes/sec at 50-120 events/sec).
      */
@@ -19,7 +67,7 @@ object MidiParser {
         count: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Long>,
+        incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
         lastSentTime: LongArray,
         isDebug: Boolean = false
@@ -68,7 +116,7 @@ object MidiParser {
                         val ccNumber = (umpInt ushr 8) and 0xFF
                         val ccValue = umpInt and 0xFF
 
-                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
+                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     }
                 }
                 // Silently drop other MTs.
@@ -90,7 +138,7 @@ object MidiParser {
                 if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
                     val ccNumber = msg[i + 1].toInt() and 0xFF
                     val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
+                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     i += 3
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
@@ -107,7 +155,7 @@ object MidiParser {
         ccValue: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Long>,
+        incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
         lastSentTime: LongArray
     ) {
@@ -133,40 +181,6 @@ object MidiParser {
         // Eliminates Pair<Long, Long> allocation (~48 bytes) per event (~5,760 bytes/sec at 120 events/sec)
         // Store lower 32 bits of timestamp to preserve precision within 4-second window
         val packed = (umpInt shl 32) or (timestamp and 0xFFFFFFFFL)
-        incomingEventsChannel.trySend(packed)
-    }
-
-    /**
-     * Drains the atomic channel into a 1D primitive LongArray for JNI dispatch.
-     * Prevents object allocations on the main thread and respects array bounds.
-     *
-     * Uses a pre-allocated batch buffer reused across drain cycles to eliminate
-     * the ~2MB/sec allocation churn that would otherwise occur at 120Hz dispatch rate.
-     * Unpacks received Long values (packed UMP + timestamp) back into alternating
-     * batch array format [ump, ts, ump, ts, ...].
-     *
-     */
-    fun drainChannelToBatch(
-        firstEvent: Long,
-        channel: Channel<Long>,
-        batch: LongArray
-    ) {
-        var writeIndex = 1
-        var usedDataLongs = 0
-
-        // Unpack first event: upper 32 = UMP, lower 32 = timestamp
-        batch[writeIndex++] = (firstEvent shr 32) and 0xFFFFFFFFL
-        batch[writeIndex++] = firstEvent and 0xFFFFFFFFL
-        usedDataLongs += 2
-
-        // Drain any other events currently in the channel buffer without exceeding capacity
-        while (writeIndex + 1 < batch.size) {
-            val packed = channel.tryReceive().getOrNull() ?: break
-            batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
-            batch[writeIndex++] = packed and 0xFFFFFFFFL
-            usedDataLongs += 2
-        }
-
-        batch[0] = usedDataLongs.toLong()
+        incomingEventsSink.trySend(packed)
     }
 }

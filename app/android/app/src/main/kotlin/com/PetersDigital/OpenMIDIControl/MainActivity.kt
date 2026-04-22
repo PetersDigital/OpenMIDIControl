@@ -59,10 +59,11 @@ class MainActivity : FlutterActivity() {
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
-    // Thread Separation: Coroutine Channel for incoming MIDI events (packed as Long)
-    // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time)
-    // Eliminates Pair<Long, Long> heap allocation (~48 bytes per event, ~5,760 bytes/sec at 120 events/sec)
-    private val incomingEventsChannel = Channel<Long>(capacity = 1000, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // Thread Separation: Primitive ring buffer for incoming MIDI events.
+    // Upper 32 bits = 32-bit UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
+    // Eliminates boxed Long allocation churn in the hot ingest path.
+    private val incomingEventNotifier = Channel<Unit>(capacity = Channel.CONFLATED, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val incomingEventsBuffer = MidiParser.IncomingEventsBuffer(1000, incomingEventNotifier)
     private val emptyBuffers = Channel<LongArray>(capacity = 2)
 
     init {
@@ -72,14 +73,12 @@ class MainActivity : FlutterActivity() {
 
     private var batchDispatchJob: Job? = null
     private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
-        // Using a for-loop on the channel ensures proper coroutine suspension when it's empty,
-        // avoiding busy-wait loops and pinning the CPU.
-        for (firstEvent in incomingEventsChannel) {
+        // Wait for a buffer notification instead of a boxed event object.
+        for (notification in incomingEventNotifier) {
 
             val payload = emptyBuffers.receive()
 
-            // Use the static parser to safely drain the channel into a bounded batch.
-            MidiParser.drainChannelToBatch(firstEvent, incomingEventsChannel, payload)
+            incomingEventsBuffer.drainToBatch(payload)
 
             if (payload[0] > 0) {
                 mainThreadHandler.post {
@@ -588,14 +587,14 @@ class MainActivity : FlutterActivity() {
 
     private fun setupMidiReceiver() {
         hostMidiBackend?.startReceiving { msg, offset, count, timestamp ->
-            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+            MidiParser.processMidiPayload(msg, offset, count, timestamp, false, incomingEventsBuffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
         }
     }
 
     fun handleIncomingVirtualMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
         val nowNs = timestamp ?: System.nanoTime()
-        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsChannel, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+        MidiParser.processMidiPayload(msg, offset, count, nowNs, true, incomingEventsBuffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
     private fun setupMidiDeviceCallback() {
