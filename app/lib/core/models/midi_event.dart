@@ -37,8 +37,7 @@ class MidiEvent {
   }
 
   @override
-  int get hashCode =>
-      ump.hashCode ^ timestamp.hashCode ^ sourceId.hashCode ^ isFinal.hashCode;
+  int get hashCode => Object.hash(ump, timestamp, sourceId, isFinal);
 
   @override
   String toString() {
