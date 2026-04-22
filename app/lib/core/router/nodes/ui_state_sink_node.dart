@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:collection';
+import 'dart:typed_data';
 import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
@@ -55,6 +56,8 @@ class _CcBatchContainer extends MapBase<int, int> {
 
 class _CcSnapshotBuffer {
   final List<int> _values = List<int>.filled(128, -1);
+  // Bitmap tracks which slots are active — avoids List.of copy on every publish()
+  final Uint8List _activeBitmap = Uint8List(128);
   final List<int> _keys = [];
   _CcBatchSnapshot? _activeSnapshot;
   int _generation = 0;
@@ -66,22 +69,21 @@ class _CcSnapshotBuffer {
   void loadFrom(_CcBatchContainer source) {
     for (final key in _keys) {
       _values[key] = -1;
+      _activeBitmap[key] = 0;
     }
     _keys.clear();
 
     for (final key in source._keys) {
       _keys.add(key);
       _values[key] = source._values[key];
+      _activeBitmap[key] = 1;
     }
   }
 
   _CcBatchSnapshot publish(int generation) {
     _generation = generation;
-    final snapshot = _CcBatchSnapshot._(
-      this,
-      generation,
-      List<int>.of(_keys, growable: false),
-    );
+    // No List.of copy — snapshot reads keys lazily from bitmap via buffer reference
+    final snapshot = _CcBatchSnapshot._(buffer: this, generation: generation);
     _activeSnapshot = snapshot;
     return snapshot;
   }
@@ -90,16 +92,19 @@ class _CcSnapshotBuffer {
 class _CcBatchSnapshot extends MapBase<int, int> {
   final _CcSnapshotBuffer _buffer;
   final int _generation;
-  final List<int> _keys;
   Map<int, int>? _frozenEntries;
 
-  _CcBatchSnapshot._(this._buffer, this._generation, this._keys);
+  _CcBatchSnapshot._({
+    required _CcSnapshotBuffer buffer,
+    required int generation,
+  }) : _buffer = buffer,
+       _generation = generation;
 
   void _freezeFromBuffer() {
     if (_frozenEntries != null) return;
 
     final frozen = <int, int>{};
-    for (final key in _keys) {
+    for (final key in _buffer._keys) {
       frozen[key] = _buffer._values[key];
     }
     _frozenEntries = Map.unmodifiable(frozen);
@@ -139,7 +144,13 @@ class _CcBatchSnapshot extends MapBase<int, int> {
   }
 
   @override
-  Iterable<int> get keys => _frozenEntries?.keys ?? _keys;
+  Iterable<int> get keys {
+    final frozen = _frozenEntries;
+    if (frozen != null) return frozen.keys;
+    // Read keys lazily from bitmap — no list allocation
+    if (_buffer._generation != _generation) return const [];
+    return _buffer._keys;
+  }
 
   @override
   int? remove(Object? key) {
