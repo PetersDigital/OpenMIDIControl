@@ -741,8 +741,8 @@ class _CcStateSnapshot extends MapBase<int, int> {
   final List<int> _keys;
 
   _CcStateSnapshot(Int32List hotState, List<int> activeCcs)
-      : _values = Int32List.fromList(hotState),
-        _keys = List<int>.of(activeCcs, growable: false);
+    : _values = Int32List.fromList(hotState),
+      _keys = List<int>.of(activeCcs, growable: false);
 
   @override
   int? operator [](Object? key) {
@@ -754,7 +754,8 @@ class _CcStateSnapshot extends MapBase<int, int> {
   }
 
   @override
-  void operator []=(int key, int value) => throw UnsupportedError('unmodifiable');
+  void operator []=(int key, int value) =>
+      throw UnsupportedError('unmodifiable');
 
   @override
   void clear() => throw UnsupportedError('unmodifiable');
@@ -872,7 +873,9 @@ class CcNotifier extends Notifier<ControlState> {
   }
 
   void _publishState() {
-    state = ControlState.raw(ccValues: _CcStateSnapshot(_hotCcState, _activeCcs));
+    state = ControlState.raw(
+      ccValues: _CcStateSnapshot(_hotCcState, _activeCcs),
+    );
   }
 }
 
@@ -894,7 +897,11 @@ final hotCcValueProvider = Provider.family<int?, int>((ref, cc) {
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
   final connectionState = ref.watch(connectedMidiDeviceProvider);
-  final devicesAsync = ref.watch(midiDevicesProvider);
+  final devices = ref.watch(
+    midiDevicesProvider.select(
+      (asyncVal) => asyncVal.value ?? const <MidiDevice>[],
+    ),
+  );
   final usbState = ref.watch(usbConnectionStateProvider);
   final usbMode = ref.watch(usbModeProvider);
   final usbHostConnected = ref.watch(usbHostConnectedStateProvider);
@@ -902,7 +909,7 @@ final midiStatusProvider = Provider<MidiStatus>((ref) {
 
   return resolveMidiStatus(
     connectionState: connectionState,
-    devices: devicesAsync.value ?? const <MidiDevice>[],
+    devices: devices,
     usbState: usbState,
     usbMode: usbMode,
     usbHostConnected: usbHostConnected,
