@@ -87,13 +87,12 @@ class MidiRouter {
       return;
     }
 
-    children.add(to);
-
-    if (_detectCycle()) {
-      // Revert the edge addition if it causes a cycle
-      children.removeLast();
+    // A cycle is created if 'to' can already reach 'from'
+    if (_canReach(to, from)) {
       throw StateError('Adding edge from $from to $to creates a cycle.');
     }
+
+    children.add(to);
   }
 
   /// Removes a node and all associated edges from the graph.
@@ -195,34 +194,26 @@ class MidiRouter {
     }
   }
 
-  /// Returns true if the graph contains a cycle.
-  bool _detectCycle() {
-    final visited = <String>{};
-    final recStack = <String>{};
+  /// Returns true if [start] node can reach [target] node.
+  bool _canReach(String start, String target) {
+    if (start == target) return true;
 
-    for (final node in _nodes.keys) {
-      if (_isCyclic(node, visited, recStack)) {
-        return true;
-      }
-    }
-    return false;
+    // Use a simple DFS to check reachability.
+    // This is faster than a full graph DFS because it only visits nodes reachable from 'start'.
+    final visited = <String>{};
+    return _dfsReach(start, target, visited);
   }
 
-  bool _isCyclic(String node, Set<String> visited, Set<String> recStack) {
-    if (recStack.contains(node)) return true;
-    if (visited.contains(node)) return false;
+  bool _dfsReach(String current, String target, Set<String> visited) {
+    if (current == target) return true;
+    visited.add(current);
 
-    visited.add(node);
-    recStack.add(node);
-
-    final children = _edges[node] ?? const [];
+    final children = _edges[current] ?? const [];
     for (final child in children) {
-      if (_isCyclic(child, visited, recStack)) {
-        return true;
+      if (!visited.contains(child)) {
+        if (_dfsReach(child, target, visited)) return true;
       }
     }
-
-    recStack.remove(node);
     return false;
   }
 }
