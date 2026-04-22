@@ -100,6 +100,54 @@ void main() {
     );
   });
 
+  group('hotCcValueProvider (collapsed StreamProvider)', () {
+    test(
+      'delivers initial current value on subscribe then subsequent updates',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(ccValuesProvider.notifier);
+
+        // Seed a known value before subscribing
+        notifier.updateCC(7, 64);
+
+        final received = <int>[];
+        final sub = container.listen<AsyncValue<int>>(
+          hotCcValueProvider(7),
+          (_, next) => next.whenData(received.add),
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        // Allow stream to emit buffered initial value
+        await Future<void>.delayed(Duration.zero);
+        expect(received, contains(64));
+
+        // Subsequent update arrives through the same single provider
+        notifier.updateCC(7, 100);
+        await Future<void>.delayed(Duration.zero);
+        expect(received.last, 100);
+      },
+    );
+
+    test('emits no initial value for CC that has never been set', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final received = <int>[];
+      final sub = container.listen<AsyncValue<int>>(
+        hotCcValueProvider(99),
+        (_, next) => next.whenData(received.add),
+        fireImmediately: true,
+      );
+      addTearDown(sub.close);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(received, isEmpty);
+    });
+  });
+
   group('Malformed JNI Payloads', () {
     test(
       'Dart stream safely ignores odd-length arrays without throwing RangeError',
