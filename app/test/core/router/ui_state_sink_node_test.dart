@@ -69,6 +69,33 @@ void main() {
       expect(received, equals({7: 64, 10: 127}));
     });
 
+    test('keeps last value for repeated CC keys within one batch', () {
+      Map<int, int>? received;
+      final node = UiStateSinkNode(
+        onUpdateCCs: (updates) {
+          received = updates;
+        },
+      );
+
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 10),
+          0,
+        ),
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 99),
+          0,
+        ),
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+          0,
+        ),
+      ]);
+
+      expect(received, isNotNull);
+      expect(received, equals({7: 99, 10: 127}));
+    });
+
     test('emits isolated snapshots for executeSingle calls', () {
       final received = <Map<int, int>>[];
       final node = UiStateSinkNode(
@@ -122,5 +149,41 @@ void main() {
       expect(received[1], equals({10: 127}));
       expect(received[0], isNot(same(received[1])));
     });
+
+    test(
+      'published snapshots remain immutable after buffer reuse across generations',
+      () {
+        final received = <Map<int, int>>[];
+        final node = UiStateSinkNode(
+          onUpdateCCs: (updates) {
+            received.add(updates);
+          },
+        );
+
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+            0,
+          ),
+        ]);
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+            0,
+          ),
+        ]);
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 11, data2: 32),
+            0,
+          ),
+        ]);
+
+        expect(received, hasLength(3));
+        expect(received[0], equals({7: 64}));
+        expect(received[1], equals({10: 127}));
+        expect(received[2], equals({11: 32}));
+      },
+    );
   });
 }
