@@ -71,7 +71,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _isIncomingUpdateScheduled = false;
 
   SpringSimulation? _springSimulation;
-  ProviderSubscription<int?>? _ccSubscription;
+  ProviderSubscription<AsyncValue<int>>? _ccSubscription;
 
   @override
   void initState() {
@@ -92,9 +92,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   void _setupListener() {
     _ccSubscription?.close();
-    _ccSubscription = ref.listenManual<int?>(
+    _ccSubscription = ref.listenManual<AsyncValue<int>>(
       hotCcValueProvider(_ccNumber),
-      _handleCcUpdate,
+      (previous, next) =>
+          next.whenData((val) => _handleCcUpdate(previous?.asData?.value, val)),
     );
   }
 

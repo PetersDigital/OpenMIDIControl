@@ -883,16 +883,14 @@ final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(
   CcNotifier.new,
 );
 
-final hotCcValueStreamProvider = StreamProvider.autoDispose.family<int, int>((
+/// Single-layer StreamProvider for per-CC hot values.
+/// Eliminates the previous intermediate StreamProvider wrapper.
+final hotCcValueProvider = StreamProvider.autoDispose.family<int, int>((
   ref,
   cc,
 ) {
   final notifier = ref.watch(ccValuesProvider.notifier);
   return notifier.watchHotCc(cc);
-});
-
-final hotCcValueProvider = Provider.family<int?, int>((ref, cc) {
-  return ref.watch(hotCcValueStreamProvider(cc)).asData?.value;
 });
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
