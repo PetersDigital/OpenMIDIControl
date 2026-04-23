@@ -178,10 +178,10 @@ object MidiParser {
         // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
         val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
 
-        // Pack UMP (upper 32 bits) + timestamp (lower 32 bits) into a single Long
+        // Pack UMP (upper 32 bits) + timestamp in ms (lower 32 bits) into a single Long
         // Eliminates Pair<Long, Long> allocation (~48 bytes) per event (~5,760 bytes/sec at 120 events/sec)
-        // Store lower 32 bits of timestamp to preserve precision within 4-second window
-        val packed = (umpInt shl 32) or (timestamp and 0xFFFFFFFFL)
+        // Store lower 32 bits of timestamp in milliseconds to extend wrap-around to ~49 days
+        val packed = (umpInt shl 32) or ((timestamp / 1_000_000L) and 0xFFFFFFFFL)
         incomingEventsSink.trySend(packed)
     }
 }
