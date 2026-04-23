@@ -539,7 +539,6 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       final target = devices.cast<MidiDevice?>().firstWhere(
         (d) =>
             d != null &&
-            d.id == previousDevice.id &&
             d.name == previousDevice.name &&
             d.manufacturer == previousDevice.manufacturer,
         orElse: () => null,
