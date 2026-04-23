@@ -40,15 +40,16 @@ class _RingBufferList<T> extends ListBase<T> {
   }
 
   _RingBufferList<T> addFront(Iterable<T> elements) {
+    final newBuffer = List<T?>.of(_buffer, growable: false);
     var newHead = _head;
     var newLength = _length;
     for (final e in elements) {
-      newHead = (newHead - 1) % _buffer.length;
-      if (newHead < 0) newHead += _buffer.length;
-      _buffer[newHead] = e;
-      if (newLength < _buffer.length) newLength++;
+      newHead = (newHead - 1) % newBuffer.length;
+      if (newHead < 0) newHead += newBuffer.length;
+      newBuffer[newHead] = e;
+      if (newLength < newBuffer.length) newLength++;
     }
-    return _RingBufferList<T>._(_buffer, newHead, newLength);
+    return _RingBufferList<T>._(newBuffer, newHead, newLength);
   }
 }
 
