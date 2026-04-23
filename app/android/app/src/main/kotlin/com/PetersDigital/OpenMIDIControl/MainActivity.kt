@@ -63,7 +63,7 @@ class MainActivity : FlutterActivity() {
 
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
-    private val emptyBuffers = Channel<LongArray>(capacity = 4)
+    private val emptyBuffers = Channel<LongArray>(capacity = 8)
 
     // Per-port sharded processing session state
     private class ActivePortSession(
@@ -76,6 +76,10 @@ class MainActivity : FlutterActivity() {
     private val activeSessions = ConcurrentHashMap<String, ActivePortSession>()
  
     init {
+        emptyBuffers.trySend(LongArray(2000))
+        emptyBuffers.trySend(LongArray(2000))
+        emptyBuffers.trySend(LongArray(2000))
+        emptyBuffers.trySend(LongArray(2000))
         emptyBuffers.trySend(LongArray(2000))
         emptyBuffers.trySend(LongArray(2000))
         emptyBuffers.trySend(LongArray(2000))
