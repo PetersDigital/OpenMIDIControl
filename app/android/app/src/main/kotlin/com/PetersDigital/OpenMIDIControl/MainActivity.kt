@@ -377,8 +377,24 @@ class MainActivity : FlutterActivity() {
                                 if (i + 1 >= events.size) break
 
                                 val umpInt = events[i].toInt()
-                                val isFinal = events[i + 1] != 0L
-                                processMidiCcEvent(umpInt, isFinal, nowNs)
+                                val index = (((umpInt ushr 16) and 0x0F) shl 7) or ((umpInt ushr 8) and 0x7F)
+
+                                // Zero-allocation "latest wins": check if this CC is updated again later in the batch
+                                var isLatest = true
+                                for (j in i + 2 until events.size step 2) {
+                                    if (j + 1 >= events.size) break
+                                    val laterUmpInt = events[j].toInt()
+                                    val laterIndex = (((laterUmpInt ushr 16) and 0x0F) shl 7) or ((laterUmpInt ushr 8) and 0x7F)
+                                    if (index == laterIndex) {
+                                        isLatest = false
+                                        break
+                                    }
+                                }
+
+                                if (isLatest) {
+                                    val isFinal = events[i + 1] != 0L
+                                    processMidiCcEvent(umpInt, isFinal, nowNs)
+                                }
                             }
                             result.success(true)
                         } catch (e: Exception) {
