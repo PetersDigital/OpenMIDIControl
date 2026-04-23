@@ -56,8 +56,8 @@ class MainActivity : FlutterActivity() {
     private var cachedDevicesList: List<Map<String, Any>>? = null
 
     // Rate-limiting and Deduplication state
-    private val lastSentValue = IntArray(128) { -1 }
-    private val lastSentTime = LongArray(128)
+    private val lastSentValue = IntArray(2048) { -1 }
+    private val lastSentTime = LongArray(2048)
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
@@ -423,14 +423,15 @@ class MainActivity : FlutterActivity() {
 
         if (cc !in 0..127) return
 
-        val lastTime = lastSentTime[cc]
+        val index = ((status and 0x0F) shl 7) or cc
+        val lastTime = lastSentTime[index]
         val timeDiff = nowNs - lastTime
 
         // Rate-limiting and Deduplication checks unless it's the final message
         var shouldSend = true
         if (!isFinal) {
             // Deduplication: if value hasn't changed and within suppression window, drop it
-            if (lastSentValue[cc] == value && timeDiff < suppressionWindowNs) {
+            if (lastSentValue[index] == value && timeDiff < suppressionWindowNs) {
                 shouldSend = false
             }
             // Rate Limiting: ensure we don't send faster than ~120Hz
@@ -440,8 +441,8 @@ class MainActivity : FlutterActivity() {
         }
 
         if (shouldSend) {
-            lastSentValue[cc] = value
-            lastSentTime[cc] = nowNs
+            lastSentValue[index] = value
+            lastSentTime[index] = nowNs
 
             legacyMsgBuffer[0] = status.toByte()
             legacyMsgBuffer[1] = cc.toByte()

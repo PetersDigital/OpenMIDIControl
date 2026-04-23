@@ -162,7 +162,8 @@ object MidiParser {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
             if (ccNumber in 0..127) {
-                val lastTime = lastSentTime[ccNumber]
+                val index = ((status and 0x0F) shl 7) or ccNumber
+                val lastTime = lastSentTime[index]
                 val timeDiff = timestamp - lastTime
 
                 if (timeDiff < suppressionWindowNs) {
