@@ -64,8 +64,8 @@ class DiagnosticLogEntry {
   }
 
   static String _formatMidiEvent(MidiEvent event) {
-    // utilizes actual event.timestamp (nanoseconds) provided by native layer
-    final totalMs = event.timestamp ~/ 1000000;
+    // utilizes actual event.timestamp (milliseconds) provided by native layer
+    final totalMs = event.timestamp;
     final h = (totalMs ~/ 3600000);
     final m = (totalMs ~/ 60000) % 60;
     final s = (totalMs ~/ 1000) % 60;
