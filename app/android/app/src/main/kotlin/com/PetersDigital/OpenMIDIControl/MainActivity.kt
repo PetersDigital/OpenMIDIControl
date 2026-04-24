@@ -92,12 +92,9 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             if (payload[0] > 0) {
-                val length = 1 + payload[0].toInt()
-                val trimmedPayload = payload.copyOf(length)
-
                 mainThreadHandler.post {
                     try {
-                        eventSink?.success(trimmedPayload)
+                        eventSink?.success(payload)
                     } finally {
                         val result = emptyBuffers.trySend(payload)
                         if (result.isFailure) {
