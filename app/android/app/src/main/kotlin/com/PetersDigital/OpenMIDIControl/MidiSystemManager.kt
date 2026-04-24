@@ -28,7 +28,7 @@ object MidiSystemManager {
     val usbHostConnected = _usbHostConnected.asStateFlow()
 
     // Shared flow for incoming MIDI events to be consumed by the UI (when active)
-    private val _incomingEvents = MutableSharedFlow<Triple<ByteArray, Int, Long>>(extraBufferCapacity = 1024)
+    private val _incomingEvents = MutableSharedFlow<Pair<ByteArray, Long>>(extraBufferCapacity = 1024)
     val incomingEvents = _incomingEvents.asSharedFlow()
 
     /**
@@ -45,7 +45,7 @@ object MidiSystemManager {
         val copy = msg.copyOfRange(offset, offset + count)
 
         // Dispatch to observers (like MainActivity/Flutter)
-        _incomingEvents.tryEmit(Triple(copy, copy.size, timestamp))
+        _incomingEvents.tryEmit(Pair(copy, timestamp))
     }
 
     /**
