@@ -308,7 +308,7 @@ void main() {
                   {
                     'id': 'periph-1',
                     'name': 'Android USB Peripheral Port',
-                    'manufacturer': 'PetersDigital',
+                    'manufacturer': 'Android',
                     'inputPorts': [
                       {'number': 0, 'name': 'In 0'},
                     ],
@@ -387,7 +387,7 @@ void main() {
                     {
                       'id': 'periph-1',
                       'name': 'Android USB Peripheral Port',
-                      'manufacturer': 'PetersDigital',
+                      'manufacturer': 'Android',
                       'inputPorts': [
                         {'number': 0, 'name': 'In 0'},
                       ],
@@ -406,7 +406,7 @@ void main() {
         final device = MidiDevice(
           id: 'periph-1',
           name: 'Android USB Peripheral Port',
-          manufacturer: 'PetersDigital',
+          manufacturer: 'Android',
           inputPorts: [MidiPort(number: 0, name: 'In 0')],
           outputPorts: [MidiPort(number: 1, name: 'Out 1')],
         );
