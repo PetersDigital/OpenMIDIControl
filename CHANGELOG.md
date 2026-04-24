@@ -22,12 +22,13 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
   - **32-bit Millisecond Packing**: Formalized the native-to-Dart transport to use millisecond precision, extending 32-bit wrap-around to ~49 days while maintaining low-latency jitter correction.
 - **Reliability & Bug Fixes**:
   - **UMP Word Alignment**: Fixed a critical bug in `MidiParser` where multi-word packets (MT 3, 4, 5) caused stream desynchronization during skipping.
-  - **Native Loop Prevention**: Implemented explicit `UsbMode` tracking to disable `VirtualMidiService` dispatch in Peripheral mode.
   - **Primitive Backing**: Migrated `CcNotifier` and native CC limiters to primitive arrays and `Int64List`, reducing object overhead in the hot path.
   - **Packed Transport**: Implemented `Int64List` packed transport for MIDI CC batches over platform channels.
   - **Native Loop Prevention**: Implemented explicit `UsbMode` tracking in `MainActivity.kt` to disable virtual port dispatch in Peripheral mode, eliminating redundant routing and feedback loops.
   - **Service Decoupling**: Refactored the native layer into a persistent `MidiSystemManager` and decoupled `PeripheralMidiService` from `MainActivity` focus, ensuring MIDI transport remains active even when the app is in the background or loses focus.
-  - **Thermal Priority**: Added `appCategory="game"` and `isGame="true"` manifest flags to signal high-performance priority to the Android thermal throttler, reducing aggressive CPU down-clocking during long sessions.
+  - **Thermal Priority Alignment**: Synchronized `AndroidManifest.xml` with `android:appCategory="audio"` and `android:isGame="false"` to signal to the OS scheduler that the application requires high-priority processing threads, effectively exempting MIDI transport from aggressive background throttling.
+  - **O(N) Batch Deduplication**: Optimized UI-to-Native CC batching from $O(N^2)$ to $O(N)$ using backward iteration and `BitSet` tracking, reducing processing latency.
+  - **Buffer Pool Hardening**: Implemented failure handling for native buffer reuse to prevent resource leaks and pipeline stalls during high-load scenarios.
   - **Optimization Pass**: Removed diagnostic heartbeats and increased internal event throttles to further reduce idle CPU load.
 - **Connectivity & UI Refinement**:
   - **Two-Stage USB Status**: Added discrete "READY" (peripheral active) and "HOST-CONNECTED" (DAW traffic detected) status indicators.
