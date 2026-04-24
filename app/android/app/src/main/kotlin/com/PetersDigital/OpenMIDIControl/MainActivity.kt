@@ -52,6 +52,7 @@ class MainActivity : FlutterActivity() {
     private var deviceCallback: MidiManager.DeviceCallback? = null
 
     private val mainThreadHandler = Handler(Looper.getMainLooper())
+    private var currentUsbMode = "peripheral" // Default to peripheral as per AGENTS.md priorities
 
     private var cachedDevicesList: List<Map<String, Any>>? = null
 
@@ -325,10 +326,13 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "setUsbMode" -> {
-                    // Mode is retained for future use; the Dart side calls this to signal intent.
-                    // No-op until peripheral/host mode switching logic is re-implemented.
                     val mode = call.argument<String>("mode")
                     if (mode != null) {
+                        currentUsbMode = mode
+                        if (mode == "peripheral") {
+                            // Reset host connection state to force a new heartbeat handshake
+                            MidiSystemManager.setUsbHostConnected(false)
+                        }
                         result.success(true)
                     } else {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
@@ -485,8 +489,13 @@ class MainActivity : FlutterActivity() {
 
             // Send to physically connected hardware (if any)
             hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, nowNs)
-            // Send to virtual DAW out (e.g. FL Studio Mobile)
-            VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
+            
+            // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
+            if (currentUsbMode != "peripheral") {
+                // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
+                VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
+            }
+            
             // Send to Host PC/Mac via USB over UMP transport
             PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, nowNs)
         }

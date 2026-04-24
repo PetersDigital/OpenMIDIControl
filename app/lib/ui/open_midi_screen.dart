@@ -761,39 +761,36 @@ class _ConnectionStatusButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final midiStatus = ref.watch(midiStatusProvider);
 
-    String statusText;
-    Color statusColor;
-
-    switch (midiStatus) {
-      case MidiStatus.usbActive:
-        statusText = "USB PERIPHERAL MODE READY";
-        statusColor = const Color(0xFF4DD0E1); // Cyan
-        break;
-      case MidiStatus.usbHostAwaitingPort:
-        statusText = "USB HOST CONNECTED";
-        statusColor = const Color(0xFF9575CD); // Purple/Lavender
-        break;
-      case MidiStatus.usbHostConnected:
-        statusText = "USB HOST CONNECTED";
-        statusColor = const Color(0xFF66BB6A); // Green
-        break;
-      case MidiStatus.connected:
-        statusText = "CONNECTED";
-        statusColor = const Color(0xFF42A5F5); // Blue
-        break;
-      case MidiStatus.available:
-        statusText = "AVAILABLE";
-        statusColor = const Color(0xFFFFCA28); // Amber
-        break;
-      case MidiStatus.connectionLost:
-        statusText = "CONNECTION LOST";
-        statusColor = const Color(0xFFE57373); // Red
-        break;
-      case MidiStatus.disconnected:
-        statusText = "DISCONNECTED";
-        statusColor = const Color(0xFFBDBDBD); // Grey
-        break;
-    }
+    final (statusText, statusColor) = switch (midiStatus) {
+      MidiStatus.usbActive => (
+        "USB PERIPHERAL READY",
+        const Color(0xFF4DD0E1), // Cyan
+      ),
+      MidiStatus.usbHostAwaitingPort => (
+        "USB HOST DETECTED",
+        const Color(0xFF9575CD), // Purple
+      ),
+      MidiStatus.usbHostConnected => (
+        "USB HOST ACTIVE",
+        const Color(0xFF66BB6A), // Green
+      ),
+      MidiStatus.connected => (
+        "DEVICE CONNECTED",
+        const Color(0xFF42A5F5), // Blue
+      ),
+      MidiStatus.available => (
+        "MIDI READY",
+        const Color(0xFFFFCA28), // Amber
+      ),
+      MidiStatus.connectionLost => (
+        "CONNECTION LOST",
+        const Color(0xFFE57373), // Red
+      ),
+      MidiStatus.disconnected => (
+        "DISCONNECTED",
+        const Color(0xFFBDBDBD), // Grey
+      ),
+    };
 
     final buttonContent = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

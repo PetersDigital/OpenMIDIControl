@@ -171,12 +171,19 @@ bool isPeripheralPort(MidiDevice device) {
   final manufacturer = device.manufacturer.toLowerCase();
 
   // Explicitly exclude internal virtual ports created by this app.
-  if (manufacturer.contains('petersdigital')) return false;
+  if (manufacturer.contains('petersdigital') || name.contains('virtual')) {
+    return false;
+  }
 
+  // Peripheral ports often contain these strings depending on OEM/Manufacturer.
+  // Google (Pixel), Samsung (Galaxy), Android (Generic), etc.
   return name.contains('peripheral') ||
       name.contains('android usb') ||
+      name.contains('usb client') ||
       manufacturer.contains('android') ||
-      manufacturer.contains('samsung');
+      manufacturer.contains('google') ||
+      manufacturer.contains('samsung') ||
+      (name.contains('usb') && name.contains('midi'));
 }
 
 class MidiService {
@@ -432,7 +439,11 @@ final midiDevicesProvider = FutureProvider<List<MidiDevice>>((ref) async {
     // Hide internal virtual ports to prevent auto-routing loops and premature
     // connections when the app is acting as a hardware peripheral for a host PC.
     return devices
-        .where((d) => !d.manufacturer.toLowerCase().contains('petersdigital'))
+        .where(
+          (d) =>
+              !d.manufacturer.toLowerCase().contains('petersdigital') &&
+              !d.name.toLowerCase().contains('virtual'),
+        )
         .toList();
   }
   return devices;
@@ -997,8 +1008,8 @@ MidiStatus resolveMidiStatus({
     if (usbMode == UsbMode.peripheral) {
       // If we are in peripheral mode and connected to the host port,
       // or if the native layer has confirmed an active data link.
-      if (isPeripheralPort(connectionState.connectedDevice!) ||
-          usbHostConnected) {
+      if (usbHostConnected ||
+          isPeripheralPort(connectionState.connectedDevice!)) {
         return MidiStatus.usbHostConnected;
       }
     }
