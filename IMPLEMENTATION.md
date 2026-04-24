@@ -46,9 +46,15 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Thermal Stabilization**: Fixed stream leaks, infinite update loops, MIDI flooding, and monotonic clock throttling. Optimized Riverpod batching and diagnostics disposal.
 - **Automated Test Suite**: 10+ test files covering native UMP parsing, Dart layer integration, widget tests, and stress testing.
 
-### ✅ v0.2.3 – Core Routing Engine (DAG)
-- **MidiRouter Graph**: Centralized DAG for N-to-N routing with cycle detection, queue-based traversal, and object pooling for low-GC performance.
-- **Transformer Nodes**: Abstract base class for filtering, remapping, and splitting MIDI streams. Includes comprehensive unit tests covering DAG construction, cycle prevention, batch processing, and error handling.
+### ✅ v0.2.3 – Core Routing Engine & Thermal Hardening
+- **MidiRouter Graph**: Centralized DAG for N-to-N routing with reachability-based cycle prevention (`_canReach`), queue-based traversal, and object pooling.
+- **Transformer Nodes**: Implemented abstract base class and concrete nodes (Filter, Remap) with exception-safe processing and batch reuse.
+- **Extreme Thermal Optimization**: 
+  - **Primitive Packing**: Eliminated `Pair` boxing by packing UMP and timestamps into `Long` primitives.
+  - **Buffer Re-use**: Reimplemented `MidiParser` and JNI bridge to reuse buffers and coroutines, reducing allocation churn by ~2MB/sec.
+  - **Packed Transport**: Implemented `Int64List` packed transport for MIDI CC batches over platform channels.
+- **UI & Connectivity Polish**: Two-stage USB status (Ready/Connected), composited status glows, and auto-connect peripheral logic.
+- **State Reliability**: CC state replay for late listeners and lazy-init map allocations for high-frequency bursts.
 
 ### ⏳ Current Focus: v0.3.0 – Control Expansion & Basic State
 - **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.

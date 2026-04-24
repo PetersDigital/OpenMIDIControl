@@ -12,10 +12,21 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ### Added
 - **MidiRouter Graph (Core Routing Engine)**: Implemented a centralized Directed Acyclic Graph (DAG) for deterministic N-to-N MIDI message routing and transformation.
-  - Cycle detection via depth-first search (`_detectCycle()`) prevents routing loops at add-time.
+  - **Cycle Detection**: `addEdge()` triggers `_canReach()` / `_dfsReach()` to perform depth-first search for reachability validation, preventing routing loops at add-time.
   - Queue-based work dispatch avoids deep recursion and ensures reproducible processing order.
   - Object pooling for work items reduces garbage collection pressure during high-frequency routing.
   - Batch processing of `List<MidiEvent>` amortizes routing overhead across multiple events.
+- **Thermal & Performance Hardening (Post-v0.2.3)**:
+  - **Memory Churn Elimination**: Replaced `Pair<Long, Long>` boxing with packed `Long` primitives (32-bit UMP + 32-bit timestamp) in the native ingress pipeline, reducing 2MB/sec allocation churn.
+  - **Buffer Reuse**: Reimplemented `MidiParser` and JNI bridge to reuse message buffers and dispatch coroutines, eliminating per-batch allocations.
+  - **Primitive Backing**: Migrated `CcNotifier` and native CC limiters to primitive arrays and `Int64List`, reducing object overhead in the hot path.
+  - **Packed Transport**: Implemented packed MIDI CC batches for `EventChannel` and `MethodChannel` transport, significantly reducing platform channel overhead.
+  - **Coalesced Diagnostics**: Defer string formatting and UI updates in the diagnostics logger until visible, using ring-buffer storage for O(1) ingestion.
+- **Connectivity & UI Refinement**:
+  - **Two-Stage USB Status**: Added discrete "READY" (peripheral active) and "HOST-CONNECTED" (DAW traffic detected) status indicators.
+  - **Unified Discovery**: Merged UMP and byte-stream MIDI discovery logic for consistent device enumeration across all Android versions.
+  - **Edge-Triggered USB Handling**: Implemented debouncing and edge-triggering for USB state broadcasts to prevent thermal spikes during hotplugging.
+  - **Composited Status Glow**: Refactored connection status animations to use composited fade glows, reducing per-frame render costs.
 - **TransformerNode Abstraction**: Introduced abstract base class for custom MIDI transformation logic.
   - Supports filtering (velocity/channel-based), remapping (CC value scaling, message type conversion), and stream splitting (multi-path routing).
   - Clean interface enables future protocol adapters and device-specific routers.
@@ -45,7 +56,9 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Update technical identifiers**: Updated AGENTS.md and README.md to reference the new lowercase package name.
 - **Hardware Monitoring**: Updated documentation in `AGENTS.md` with enhanced logging tags and platform-specific commands (PowerShell).
 - **Build Configuration**: Added a version sync tracking warning comment to `pubspec.yaml` to ensure `.version` and `pubspec.yaml` remain synchronized.
-- **Fire-and-Forget MIDI Dispatch**: `MidiService.sendCC()` now uses fire-and-forget pattern with `.catchError()` instead of `await`, reducing platform channel overhead and improving outbound MIDI latency.
+- **Centralized Event Parsing:** The `MidiService` handles `EventChannel` decoding exactly once per native polling cycle, distributing a typed `List<MidiEvent>` (unpacked from packed primitives) to all observers to ensure atomic state transitions and 0% redundant parsing.
+- **Primitive Packing & Buffer Reuse:** Native-to-Dart transport packs 32-bit UMP and 32-bit timestamps into single `Long` primitives and reuses pre-allocated `ByteArray` buffers to eliminate object allocation churn (2MB/sec reduction).
+- **Lazy-Init & Snapshotting:** `UiStateSinkNode` and `CcNotifier` use lazy-init `Map` allocation and reusable snapshots for batch updates, minimizing garbage collection during automation bursts.
 - **Broadcast Stream Simplification**: Removed redundant `.asBroadcastStream()` calls from `_rawStream`, `midiEventsStream`, and `systemEventsStream` — `receiveBroadcastStream()` already provides broadcast semantics, eliminating duplicate subscription overhead.
 - **Logging Overhead Removal**: Stripped `isDebug` parameter from hot-path MIDI parsing, removing conditional branch overhead from the critical processing pipeline.
 - **Unused State Cleanup**: Removed unused `currentUsbMode` variable from `setUsbMode` handler.

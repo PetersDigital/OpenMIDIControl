@@ -25,7 +25,9 @@ Expected baseline:
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Ensure Android USB mode is set to **"MIDI"** or **"File Transfer"** (Device will automatically handshake as a Peripheral).
 3. Start OpenMIDIControl.
-4. Confirm **"USB PERIPHERAL MODE ACTIVE"** green banner appears in the status row.
+4. Confirm **"USB PERIPHERAL READY"** (Orange/Yellow) or **"USB HOST CONNECTED"** (Green) banner appears in the status row.
+   - **READY**: The phone is in MIDI mode and visible to the PC, but no traffic has been detected yet.
+   - **CONNECTED**: The DAW is actively communicating with the app.
 5. In your DAW (Cubase/Ableton), select **"OpenMIDIControl"** as the MIDI Input/Output device.
 6. Move a fader and confirm MIDI data is received.
 
@@ -53,7 +55,7 @@ Expected baseline:
 - Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
 - The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
 - A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.2.1` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- The version + build metadata at the top helps confirm you are on the `v0.2.3` UI, and this screen will later house pick-up, smoothing, and transport preferences.
 - **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 
@@ -111,10 +113,10 @@ Notes:
 
 ## 7. Cubase Mapping Appendix (Initial)
 - Purpose: document how core controls map when using Cubase host adapters.
-### Current Mappings (v0.2.1):
-- Fader A: CC11/CC43 (14-bit pair), Channel 1, pickup mode.
-- Fader B: CC1/CC33 (14-bit pair), Channel 1, pickup mode.
-- Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup.
+### Current Mappings (v0.2.3):
+- Fader A: CC11/CC43 (14-bit pair), Channel 1.
+- Fader B: CC1/CC33 (14-bit pair), Channel 1.
+- Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup via reconstructed UMP.
 
 ### Target Architecture (v0.2.2+):
 - Native UMP High-Res CC without legacy byte-stitching.

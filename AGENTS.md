@@ -116,7 +116,7 @@ See [TESTING.md](TESTING.md) for complete documentation and commands for all dar
 
 ### Manual Testing
 1. Connect Android device to Windows 11 PC via USB-C.
-2. Confirm "USB PERIPHERAL MODE ACTIVE" green banner.
+2. Confirm **"USB PERIPHERAL READY"** or **"USB HOST CONNECTED"** banner.
 3. Select "OpenMIDIControl" as MIDI Input/Output in DAW.
 4. Move faders and verify MIDI data reception.
 5. Test bi-directional feedback with DAW automation.
