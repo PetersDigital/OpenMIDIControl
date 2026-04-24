@@ -281,6 +281,15 @@ class MidiSettingsScreen extends ConsumerWidget {
         subText =
             'USB MIDI peripheral is ready. Connect host PC to start MIDI data flow.';
         break;
+      case MidiStatus.usbHostAwaitingPort:
+        borderColor = const Color(0xFF42A5F5).withValues(alpha: 0.5); // Blue
+        icon = Icons.usb;
+        iconColor = const Color(0xFF42A5F5);
+        titleText = 'USB HOST CONNECTED';
+        titleColor = const Color(0xFF42A5F5);
+        subText =
+            'Host connection confirmed. Select a local MIDI port below to start data flow.';
+        break;
       case MidiStatus.usbHostConnected:
         borderColor = Colors.green.shade900.withValues(alpha: 0.5);
         icon = Icons.usb;

@@ -769,6 +769,10 @@ class _ConnectionStatusButton extends ConsumerWidget {
         statusText = "USB PERIPHERAL MODE READY";
         statusColor = const Color(0xFF42A5F5); // Blue
         break;
+      case MidiStatus.usbHostAwaitingPort:
+        statusText = "USB HOST CONNECTED";
+        statusColor = const Color(0xFF42A5F5); // Blue
+        break;
       case MidiStatus.usbHostConnected:
         statusText = "USB HOST CONNECTED";
         statusColor = Colors.green.shade400;

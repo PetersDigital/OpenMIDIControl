@@ -778,6 +778,7 @@ enum MidiStatus {
   connected,
   connectionLost,
   usbActive,
+  usbHostAwaitingPort,
   usbHostConnected,
 }
 
@@ -973,7 +974,11 @@ MidiStatus resolveMidiStatus({
   }
 
   if (usbMode == UsbMode.peripheral && usbHostConnected) {
-    return MidiStatus.usbHostConnected;
+    if (connectionState.connectedDevice != null) {
+      return MidiStatus.usbHostConnected;
+    } else {
+      return MidiStatus.usbHostAwaitingPort;
+    }
   }
 
   if (connectionState.connectedDevice != null) {
