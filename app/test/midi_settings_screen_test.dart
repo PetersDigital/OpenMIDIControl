@@ -37,9 +37,19 @@ void main() {
     testWidgets('shows USB active banner for usbActive status', (tester) async {
       await _pumpMidiSettings(tester, status: MidiStatus.usbActive);
 
-      expect(find.text('USB PERIPHERAL MODE ACTIVE'), findsOneWidget);
-      expect(find.textContaining('USB MIDI peripheral'), findsOneWidget);
+      expect(find.text('USB PERIPHERAL MODE READY'), findsOneWidget);
+      expect(find.textContaining('ready. Connect host PC'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsNWidgets(1));
+    });
+
+    testWidgets('shows USB host connected banner for usbHostConnected status', (
+      tester,
+    ) async {
+      await _pumpMidiSettings(tester, status: MidiStatus.usbHostConnected);
+
+      expect(find.text('USB HOST CONNECTED'), findsOneWidget);
+      expect(find.textContaining('MIDI data is flowing'), findsOneWidget);
+      expect(find.byIcon(Icons.usb), findsOneWidget);
     });
 
     testWidgets('shows connected banner for connected status', (tester) async {
@@ -75,6 +85,28 @@ void main() {
       expect(find.textContaining('plug in a USB MIDI device'), findsOneWidget);
       expect(find.byIcon(Icons.usb_off), findsOneWidget);
     });
+
+    test(
+      'resolveMidiStatus prefers connected device over peripheral ready',
+      () {
+        final status = resolveMidiStatus(
+          connectionState: MidiConnectionState(
+            connectedDevice: MidiDevice(
+              id: 'host-1',
+              name: 'USB Host Bridge',
+              manufacturer: 'PetersDigital',
+            ),
+          ),
+          devices: const <MidiDevice>[],
+          usbState: 'AVAILABLE',
+          usbMode: UsbMode.peripheral,
+          usbHostConnected: false,
+          manualSelection: false,
+        );
+
+        expect(status, MidiStatus.connected);
+      },
+    );
   });
 
   group('MidiSettingsScreen - Controls', () {

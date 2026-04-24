@@ -59,6 +59,12 @@ android {
         release {
             // 3. Apply the release signing config defined above
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
@@ -68,6 +74,7 @@ flutter {
 }
 
 dependencies {
+    implementation("com.google.android.play:core:1.10.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

@@ -5,10 +5,13 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:app/core/models/control_state.dart';
 import 'package:app/core/models/midi_event.dart';
 import 'package:app/ui/midi_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('MidiEvent Bitwise Extraction', () {
     test('Extracts properties from 32-bit UMP integer accurately', () {
       // 32-bit UMP: MT=2, Group=1, Status=0xB0, Channel=16 (Status=0xBF), CC=10, Value=127
@@ -63,6 +66,88 @@ void main() {
         expect(identical(firstState, secondState), isTrue);
       },
     );
+
+    test(
+      'incoming updates emit hot CC immediately while coalescing global state publish',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(ccValuesProvider.notifier);
+        int globalPublishCount = 0;
+
+        final hotValueFuture = notifier
+            .watchHotCc(10)
+            .firstWhere((value) => value == 65);
+        final globalSub = container.listen<ControlState>(
+          ccValuesProvider,
+          (previous, next) => globalPublishCount++,
+          fireImmediately: false,
+        );
+        addTearDown(globalSub.close);
+
+        notifier.ingestIncomingUpdates({10: 64});
+        notifier.ingestIncomingUpdates({10: 65});
+
+        expect(await hotValueFuture.timeout(const Duration(seconds: 1)), 65);
+        // Global state updates are coalesced to bounded cadence.
+        expect(globalPublishCount, 0);
+
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+
+        expect(globalPublishCount, 1);
+        final finalState = container.read(ccValuesProvider);
+        expect(finalState.ccValues[10], 65);
+      },
+    );
+  });
+
+  group('hotCcValueProvider (collapsed StreamProvider)', () {
+    test(
+      'delivers initial current value on subscribe then subsequent updates',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(ccValuesProvider.notifier);
+
+        // Seed a known value before subscribing
+        notifier.updateCC(7, 64);
+
+        final received = <int>[];
+        final sub = container.listen<AsyncValue<int>>(
+          hotCcValueProvider(7),
+          (_, next) => next.whenData(received.add),
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        // Allow stream to emit buffered initial value
+        await Future<void>.delayed(Duration.zero);
+        expect(received, contains(64));
+
+        // Subsequent update arrives through the same single provider
+        notifier.updateCC(7, 100);
+        await Future<void>.delayed(Duration.zero);
+        expect(received.last, 100);
+      },
+    );
+
+    test('emits no initial value for CC that has never been set', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final received = <int>[];
+      final sub = container.listen<AsyncValue<int>>(
+        hotCcValueProvider(99),
+        (_, next) => next.whenData(received.add),
+        fireImmediately: true,
+      );
+      addTearDown(sub.close);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(received, isEmpty);
+    });
   });
 
   group('Malformed JNI Payloads', () {

@@ -1,41 +1,72 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
-import 'dart:collection';
 
-import 'package:flutter/scheduler.dart';
+import 'dart:async';
+import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
 
-class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
-  static const int maxLogs = 200;
-  final Queue<String> _logs = Queue<String>();
-  bool _pendingUpdate = false;
-  bool _disposed = false;
+class _RingBufferList<T> extends ListBase<T> {
+  final List<T?> _buffer;
+  final int _head;
+  final int _length;
+
+  _RingBufferList(int capacity)
+    : _buffer = List<T?>.filled(capacity, null, growable: false),
+      _head = 0,
+      _length = 0;
+
+  _RingBufferList._(this._buffer, this._head, this._length);
 
   @override
-  List<String> build() {
-    final service = ref.watch(midiServiceProvider);
+  int get length => _length;
 
-    final sub = service.midiEventsStream.listen((midiEvents) {
-      for (var midiEvent in midiEvents) {
-        _addLog(_formatMidiEvent(midiEvent));
-      }
-    });
+  @override
+  set length(int newLength) =>
+      throw UnsupportedError('Cannot resize _RingBufferList directly');
 
-    ref.onDispose(() {
-      _disposed = true;
-      _pendingUpdate = false;
-      sub.cancel();
-    });
-
-    return [];
+  @override
+  T operator [](int index) {
+    if (index < 0 || index >= _length) throw RangeError.index(index, this);
+    return _buffer[(_head + index) % _buffer.length] as T;
   }
 
-  String _formatMidiEvent(MidiEvent event) {
-    // utilizes actual event.timestamp (nanoseconds) provided by native layer
-    final totalMs = event.timestamp ~/ 1000000;
+  @override
+  void operator []=(int index, T value) {
+    if (index < 0 || index >= _length) throw RangeError.index(index, this);
+    _buffer[(_head + index) % _buffer.length] = value;
+  }
+
+  _RingBufferList<T> addFront(Iterable<T> elements) {
+    final newBuffer = List<T?>.of(_buffer, growable: false);
+    var newHead = _head;
+    var newLength = _length;
+    for (final e in elements) {
+      newHead = (newHead - 1) % newBuffer.length;
+      if (newHead < 0) newHead += newBuffer.length;
+      newBuffer[newHead] = e;
+      if (newLength < newBuffer.length) newLength++;
+    }
+    return _RingBufferList<T>._(newBuffer, newHead, newLength);
+  }
+}
+
+class DiagnosticLogEntry {
+  final MidiEvent rawEvent;
+  String? formatted; // Lazy-computed
+
+  DiagnosticLogEntry({required this.rawEvent, this.formatted});
+
+  String getFormatted() {
+    formatted ??= _formatMidiEvent(rawEvent);
+    return formatted!;
+  }
+
+  static String _formatMidiEvent(MidiEvent event) {
+    // utilizes actual event.timestamp (milliseconds) provided by native layer
+    final totalMs = event.timestamp;
     final h = (totalMs ~/ 3600000);
     final m = (totalMs ~/ 60000) % 60;
     final s = (totalMs ~/ 1000) % 60;
@@ -55,32 +86,78 @@ class DiagnosticsLoggerNotifier extends Notifier<List<String>> {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
     }
   }
+}
 
-  void _addLog(String logMessage) {
-    _logs.addFirst(logMessage);
-    if (_logs.length > maxLogs) {
-      _logs.removeLast();
-    }
-    // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events
-    if (!_pendingUpdate) {
-      _pendingUpdate = true;
-      // Schedule state update for next frame (~16ms at 60Hz)
-      SchedulerBinding.instance.scheduleFrameCallback((_) {
-        if (_disposed) return;
-        _pendingUpdate = false;
-        // Update state to trigger rebuilds only for listeners of this provider
-        state = _logs.toList();
-      });
-    }
+class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
+  static const int maxLogs = 200;
+  static const Duration _publishCadence = Duration(milliseconds: 100);
+
+  final Queue<DiagnosticLogEntry> _pendingEvents =
+      ListQueue<DiagnosticLogEntry>();
+  bool _pendingUpdate = false;
+  bool _disposed = false;
+  Timer? _publishTimer;
+
+  @override
+  List<DiagnosticLogEntry> build() {
+    final service = ref.watch(midiServiceProvider);
+
+    final sub = service.midiEventsStream.listen((midiEvents) {
+      if (midiEvents.isEmpty) return;
+
+      // Prevent excessive instantiation by limiting the batch to maxLogs
+      int startIndex = 0;
+      if (midiEvents.length > DiagnosticsLoggerNotifier.maxLogs) {
+        startIndex = midiEvents.length - DiagnosticsLoggerNotifier.maxLogs;
+      }
+
+      for (int i = startIndex; i < midiEvents.length; i++) {
+        if (_pendingEvents.length >= DiagnosticsLoggerNotifier.maxLogs) {
+          _pendingEvents.removeFirst();
+        }
+        _pendingEvents.add(DiagnosticLogEntry(rawEvent: midiEvents[i]));
+      }
+
+      // Batch state updates to prevent excessive rebuilds from high-frequency MIDI events.
+      // Throttling to a fixed cadence instead of frame cadence reduces CPU load
+      // significantly under sustained input.
+      if (!_pendingUpdate) {
+        _pendingUpdate = true;
+        _publishTimer = Timer(_publishCadence, () {
+          if (_disposed) return;
+          _pendingUpdate = false;
+          if (_pendingEvents.isEmpty) return;
+
+          // Publish minimal delta by sharing the underlying ring buffer array
+          // and emitting a new wrapper. The sequential addition of events naturally
+          // prepends them in reverse chronological order since we advance the head backwards.
+          state = (state as _RingBufferList<DiagnosticLogEntry>).addFront(
+            _pendingEvents,
+          );
+          _pendingEvents.clear();
+        });
+      }
+    });
+
+    ref.onDispose(() {
+      _disposed = true;
+      _pendingUpdate = false;
+      _publishTimer?.cancel();
+      sub.cancel();
+      _pendingEvents.clear();
+    });
+
+    return _RingBufferList<DiagnosticLogEntry>(maxLogs);
   }
 
   void clear() {
-    _logs.clear();
-    state = [];
+    _pendingEvents.clear();
+    state = _RingBufferList<DiagnosticLogEntry>(maxLogs);
   }
 }
 
 final diagnosticsProvider =
-    NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, List<String>>(
-      DiagnosticsLoggerNotifier.new,
-    );
+    NotifierProvider.autoDispose<
+      DiagnosticsLoggerNotifier,
+      List<DiagnosticLogEntry>
+    >(DiagnosticsLoggerNotifier.new);

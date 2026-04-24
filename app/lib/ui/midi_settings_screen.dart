@@ -273,19 +273,37 @@ class MidiSettingsScreen extends ConsumerWidget {
 
     switch (status) {
       case MidiStatus.usbActive:
-        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        borderColor = const Color(0xFF4DD0E1).withValues(alpha: 0.5); // Cyan
         icon = Icons.check_circle_outline;
-        iconColor = Colors.green.shade400;
-        titleText = 'USB PERIPHERAL MODE ACTIVE';
-        titleColor = Colors.green.shade400;
-        subText = 'Device is acting as a USB MIDI peripheral to host PC.';
+        iconColor = const Color(0xFF4DD0E1);
+        titleText = 'USB PERIPHERAL MODE READY';
+        titleColor = const Color(0xFF4DD0E1);
+        subText =
+            'USB MIDI peripheral is ready. Connect host PC to start MIDI data flow.';
+        break;
+      case MidiStatus.usbHostAwaitingPort:
+        borderColor = const Color(0xFF9575CD).withValues(alpha: 0.5); // Purple
+        icon = Icons.usb;
+        iconColor = const Color(0xFF9575CD);
+        titleText = 'USB HOST CONNECTED';
+        titleColor = const Color(0xFF9575CD);
+        subText =
+            'Host connection confirmed. Select a local MIDI port below to start data flow.';
+        break;
+      case MidiStatus.usbHostConnected:
+        borderColor = const Color(0xFF66BB6A).withValues(alpha: 0.5); // Green
+        icon = Icons.usb;
+        iconColor = const Color(0xFF66BB6A);
+        titleText = 'USB HOST CONNECTED';
+        titleColor = const Color(0xFF66BB6A);
+        subText = 'Host connection confirmed. MIDI data is flowing.';
         break;
       case MidiStatus.connected:
-        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        borderColor = const Color(0xFF42A5F5).withValues(alpha: 0.5); // Blue
         icon = Icons.check_circle_outline;
-        iconColor = Colors.green.shade400;
+        iconColor = const Color(0xFF42A5F5);
         titleText = 'CONNECTED';
-        titleColor = Colors.green.shade400;
+        titleColor = const Color(0xFF42A5F5);
         subText = connectedDevice != null
             ? 'Connected to ${connectedDevice.name} (${connectedDevice.manufacturer})'
             : 'Connected to a MIDI device';
@@ -299,19 +317,19 @@ class MidiSettingsScreen extends ConsumerWidget {
         subText = 'Tap a device below to initialize connection.';
         break;
       case MidiStatus.connectionLost:
-        borderColor = Colors.red.shade900.withValues(alpha: 0.5);
+        borderColor = const Color(0xFFE57373).withValues(alpha: 0.5); // Red
         icon = Icons.warning_amber_rounded;
-        iconColor = Colors.red.shade400;
+        iconColor = const Color(0xFFE57373);
         titleText = 'CONNECTION LOST';
-        titleColor = Colors.red.shade400;
+        titleColor = const Color(0xFFE57373);
         subText = 'Device was physically disconnected. Please reconnect.';
         break;
       case MidiStatus.disconnected:
-        borderColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+        borderColor = const Color(0xFFBDBDBD).withValues(alpha: 0.5); // Grey
         icon = Icons.usb_off;
-        iconColor = Colors.grey.shade500;
+        iconColor = const Color(0xFFBDBDBD);
         titleText = 'NO MIDI DEVICES DETECTED';
-        titleColor = Colors.grey.shade500;
+        titleColor = const Color(0xFFBDBDBD);
         subText = 'Please plug in a USB MIDI device.';
         break;
     }

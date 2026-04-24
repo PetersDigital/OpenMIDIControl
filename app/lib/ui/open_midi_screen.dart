@@ -70,9 +70,11 @@ class OpenMIDIMainScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mq = MediaQuery.of(context);
-    final isLandscape = mq.orientation == Orientation.landscape;
-    final isTablet = mq.size.shortestSide >= 600;
+    final orientation = MediaQuery.orientationOf(context);
+    final size = MediaQuery.sizeOf(context);
+
+    final isLandscape = orientation == Orientation.landscape;
+    final isTablet = size.shortestSide >= 600;
 
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
@@ -750,147 +752,76 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
 // SHARED WIDGETS
 // ===========================================================================
 
-class _ConnectionStatusButton extends ConsumerStatefulWidget {
+class _ConnectionStatusButton extends ConsumerWidget {
   final VoidCallback onTap;
 
   const _ConnectionStatusButton({required this.onTap});
 
   @override
-  ConsumerState<_ConnectionStatusButton> createState() =>
-      _ConnectionStatusButtonState();
-}
-
-class _ConnectionStatusButtonState
-    extends ConsumerState<_ConnectionStatusButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _glowAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-    _glowAnimation = Tween<double>(begin: 6.0, end: 12.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final midiStatus = ref.watch(midiStatusProvider);
 
-    String statusText;
-    Color statusColor;
-    bool showGlow = false;
+    final (statusText, statusColor) = switch (midiStatus) {
+      MidiStatus.usbActive => (
+        "USB PERIPHERAL READY",
+        const Color(0xFF4DD0E1), // Cyan
+      ),
+      MidiStatus.usbHostAwaitingPort => (
+        "USB HOST DETECTED",
+        const Color(0xFF9575CD), // Purple
+      ),
+      MidiStatus.usbHostConnected => (
+        "USB HOST ACTIVE",
+        const Color(0xFF66BB6A), // Green
+      ),
+      MidiStatus.connected => (
+        "DEVICE CONNECTED",
+        const Color(0xFF42A5F5), // Blue
+      ),
+      MidiStatus.available => (
+        "MIDI READY",
+        const Color(0xFFFFCA28), // Amber
+      ),
+      MidiStatus.connectionLost => (
+        "CONNECTION LOST",
+        const Color(0xFFE57373), // Red
+      ),
+      MidiStatus.disconnected => (
+        "DISCONNECTED",
+        const Color(0xFFBDBDBD), // Grey
+      ),
+    };
 
-    switch (midiStatus) {
-      case MidiStatus.usbActive:
-        statusText = "USB PERIPHERAL MODE ACTIVE";
-        statusColor = Colors.green.shade400;
-        _animationController.stop();
-        break;
-      case MidiStatus.connected:
-        statusText = "CONNECTED";
-        statusColor = Colors.green.shade400;
-        _animationController.stop();
-        break;
-      case MidiStatus.available:
-        statusText = "AVAILABLE";
-        statusColor = const Color(0xFFFFCA28); // Amber
-        showGlow = true;
-        if (!_animationController.isAnimating) {
-          _animationController.repeat(reverse: true);
-        }
-        break;
-      case MidiStatus.connectionLost:
-        statusText = "CONNECTION LOST";
-        statusColor = const Color(0xFFE57373); // Red
-        _animationController.stop();
-        break;
-      case MidiStatus.disconnected:
-        statusText = "DISCONNECTED";
-        statusColor = const Color(0xFFE57373); // Red
-        _animationController.stop();
-        break;
-    }
+    final buttonContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: statusColor.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            statusText,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: statusColor,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Tooltip(
       message: 'MIDI Settings',
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedBuilder(
-          animation: _glowAnimation,
-          builder: (context, child) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: statusColor.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-                boxShadow: showGlow
-                    ? [
-                        BoxShadow(
-                          color: statusColor.withValues(alpha: 0.4),
-                          blurRadius: _glowAnimation.value,
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: statusColor.withValues(alpha: 0.1),
-                          blurRadius: _glowAnimation.value * 2,
-                          spreadRadius: 4,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showGlow) ...[
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: statusColor,
-                            blurRadius: _glowAnimation.value / 2,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    statusText,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: statusColor,
-                      fontSize: 12, // Same size for both contexts
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        child: buttonContent,
       ),
     );
   }

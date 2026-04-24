@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
@@ -65,6 +67,12 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _hardwareMustCrossMovingUp = false;
   double? _lastHardwareValue;
 
+  double? _pendingIncomingNormalized;
+  bool _isIncomingUpdateScheduled = false;
+
+  SpringSimulation? _springSimulation;
+  ProviderSubscription<AsyncValue<int>>? _ccSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -78,10 +86,22 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     // Dynamic elements now use AnimatedBuilder directly.
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.label;
+
+    _setupListener();
+  }
+
+  void _setupListener() {
+    _ccSubscription?.close();
+    _ccSubscription = ref.listenManual<AsyncValue<int>>(
+      hotCcValueProvider(_ccNumber),
+      (previous, next) =>
+          next.whenData((val) => _handleCcUpdate(previous?.asData?.value, val)),
+    );
   }
 
   @override
   void dispose() {
+    _ccSubscription?.close();
     _animationController.dispose();
     super.dispose();
   }
@@ -205,87 +225,127 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         _ccLabel =
             'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
       });
+      _setupListener();
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Listen to external MIDI CC updates for this specific fader's CC only.
-    // .select() ensures this listener only fires when our CC value changes.
-    ref.listen<
-      int?
-    >(ccValuesProvider.select((state) => state.ccValues[_ccNumber]), (
-      previous,
-      next,
-    ) {
-      if (next == null || next == previous) return;
+  void _handleCcUpdate(int? previous, int? next) {
+    if (next == null || next == previous) return;
 
-      if (_isDragging) {
-        // If we are touching it, the hardware is now out of sync with our finger.
-        // So the next time we let go, the hardware will need to catch up again.
-        _hardwareIsCatchingUp = true;
-        _lastHardwareValue = null;
-        return; // Prevent echo feedback loop
-      }
+    if (_isDragging) {
+      // If we are touching it, the hardware is now out of sync with our finger.
+      // So the next time we let go, the hardware will need to catch up again.
+      _hardwareIsCatchingUp = true;
+      _lastHardwareValue = null;
+      _pendingIncomingNormalized = null; // discard pending
+      return; // Prevent echo feedback loop
+    }
 
-      final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
+    _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
-      if (widget.behavior == FaderBehavior.jump) {
-        // Smoothly interpolate the value using _kFaderSmoothingDuration fallback
-        // to avoid 120Hz animation cancellation churn.
-        _animationController.animateTo(
-          incomingNormalized,
-          duration: _kFaderSmoothingDuration,
-          curve: Curves.linear,
-        );
-        return;
-      }
+    if (!_isIncomingUpdateScheduled) {
+      _isIncomingUpdateScheduled = true;
+      SchedulerBinding.instance.scheduleFrameCallback((_) {
+        if (!mounted) return;
+        _isIncomingUpdateScheduled = false;
 
-      if (widget.behavior == FaderBehavior.catchUp ||
-          widget.behavior == FaderBehavior.hybrid) {
-        // If the hardware was just moved after the user let go of the screen, determine direction
-        if (_hardwareIsCatchingUp) {
-          if (_lastHardwareValue == null) {
-            // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
-            _hardwareMustCrossMovingUp =
-                incomingNormalized < _animationController.value;
+        final incomingNormalized = _pendingIncomingNormalized;
+        if (incomingNormalized == null) return;
+
+        if (widget.behavior == FaderBehavior.jump) {
+          _animateToIncomingValue(incomingNormalized);
+          return;
+        }
+
+        if (widget.behavior == FaderBehavior.catchUp ||
+            widget.behavior == FaderBehavior.hybrid) {
+          // If the hardware was just moved after the user let go of the screen, determine direction
+          if (_hardwareIsCatchingUp) {
+            if (_lastHardwareValue == null) {
+              // First movement of hardware detected. Determine which way it needs to go to cross the app's value.
+              _hardwareMustCrossMovingUp =
+                  incomingNormalized < _animationController.value;
+              _lastHardwareValue = incomingNormalized;
+              return;
+            }
+
+            // Check if it has crossed the threshold
+            bool crossed = false;
+            if (_hardwareMustCrossMovingUp &&
+                incomingNormalized >= _animationController.value) {
+              crossed = true;
+            }
+            if (!_hardwareMustCrossMovingUp &&
+                incomingNormalized <= _animationController.value) {
+              crossed = true;
+            }
+
+            if (crossed) {
+              _hardwareIsCatchingUp = false;
+              _animationController.animateTo(
+                incomingNormalized,
+                duration: _kFaderSmoothingDuration,
+                curve: Curves.linear,
+              );
+            }
             _lastHardwareValue = incomingNormalized;
-            return;
-          }
-
-          // Check if it has crossed the threshold
-          bool crossed = false;
-          if (_hardwareMustCrossMovingUp &&
-              incomingNormalized >= _animationController.value) {
-            crossed = true;
-          }
-          if (!_hardwareMustCrossMovingUp &&
-              incomingNormalized <= _animationController.value) {
-            crossed = true;
-          }
-
-          if (crossed) {
-            _hardwareIsCatchingUp = false;
+          } else {
+            // Already caught up, track normally
             _animationController.animateTo(
               incomingNormalized,
               duration: _kFaderSmoothingDuration,
               curve: Curves.linear,
             );
           }
-          _lastHardwareValue = incomingNormalized;
-        } else {
-          // Already caught up, track normally
-          _animationController.animateTo(
-            incomingNormalized,
-            duration: _kFaderSmoothingDuration,
-            curve: Curves.linear,
-          );
         }
-      }
-    });
+      });
+    }
+  }
 
+  static final _springDesc = SpringDescription.withDampingRatio(
+    mass: 1.0,
+    stiffness: 100.0,
+    ratio: 0.9,
+  );
+
+  void _animateToIncomingValue(double incomingNormalized) {
+    if (_springSimulation == null) {
+      _springSimulation = SpringSimulation(
+        _springDesc,
+        _animationController.value,
+        incomingNormalized,
+        0.0,
+      );
+      _animationController.animateWith(_springSimulation!);
+    } else {
+      // Retarget the existing simulation
+      _springSimulation = SpringSimulation(
+        _springDesc,
+        _animationController.value,
+        incomingNormalized,
+        _animationController.velocity,
+      );
+      _animationController.animateWith(_springSimulation!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
+    final TextStyle displayTextStyle = TextStyle(
+      fontFamily: 'DSEG7Modern',
+      fontSize: displayFontSize,
+      color: Colors.red,
+      height: 1.0,
+    );
+    final TextStyle ghostDisplayTextStyle = TextStyle(
+      fontFamily: 'DSEG7Modern',
+      fontSize: displayFontSize,
+      color: Colors.red.withValues(alpha: 0.06),
+      height: 1.0,
+    );
+    final Widget activeTrack = Container(color: widget.activeColor);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -312,12 +372,13 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                 // Filled active track
                 AnimatedBuilder(
                   animation: _animationController,
+                  child: activeTrack,
                   builder: (context, child) {
                     return FractionallySizedBox(
                       heightFactor: _animationController.value,
                       widthFactor: 1.0,
                       alignment: Alignment.bottomCenter,
-                      child: Container(color: widget.activeColor),
+                      child: child,
                     );
                   },
                 ),
@@ -343,12 +404,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                               Text(
                                 "888",
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'DSEG7Modern',
-                                  fontSize: displayFontSize,
-                                  color: Colors.red.withValues(alpha: 0.06),
-                                  height: 1.0,
-                                ),
+                                style: ghostDisplayTextStyle,
                               ),
                               // Active value
                               AnimatedBuilder(
@@ -360,12 +416,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                                   return Text(
                                     ccValue.toString().padLeft(3, ' '),
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'DSEG7Modern',
-                                      fontSize: displayFontSize,
-                                      color: Colors.red,
-                                      height: 1.0,
-                                    ),
+                                    style: displayTextStyle,
                                   );
                                 },
                               ),

@@ -2,14 +2,64 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 package com.petersdigital.openmidicontrol
 
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 
 object MidiParser {
+
+    interface IncomingEventsSink {
+        fun trySend(packedEvent: Long): Boolean
+    }
+
+    class IncomingEventsBuffer(
+        capacity: Int = 1000,
+        private val notifier: SendChannel<Unit>? = null
+    ) : IncomingEventsSink {
+        private val bufferSize = capacity + 1
+        private val buffer = LongArray(bufferSize)
+        private var head = 0
+        private var tail = 0
+
+        private fun next(index: Int): Int = if (index + 1 == bufferSize) 0 else index + 1
+
+        @Synchronized
+        override fun trySend(packedEvent: Long): Boolean {
+            val nextTail = next(tail)
+            if (nextTail == head) {
+                // Buffer full: drop oldest element and retain newest.
+                head = next(head)
+            }
+            buffer[tail] = packedEvent
+            tail = nextTail
+            notifier?.trySend(Unit)
+            return true
+        }
+
+        @Synchronized
+        fun drainToBatch(batch: LongArray) {
+            var writeIndex = 1
+            var usedDataLongs = 0
+
+            while (head != tail && writeIndex + 1 < batch.size) {
+                val packed = buffer[head]
+                batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
+                batch[writeIndex++] = packed and 0xFFFFFFFFL
+                head = next(head)
+                usedDataLongs += 2
+            }
+
+            batch[0] = usedDataLongs.toLong()
+        }
+
+        @Synchronized
+        fun isEmpty(): Boolean = head == tail
+    }
 
     /**
      * Reconstructs 32-bit UMP integers or handles legacy byte streams,
      * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
-     * and queues the valid output pairs (UMP, Timestamp) to the given channel.
+     * and queues packed UMP+timestamp values to the given sink.
+     * Packing: upper 32 bits = UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
+     * This eliminates Pair<Long, Long> allocation churn (~5,760 bytes/sec at 50-120 events/sec).
      */
     fun processMidiPayload(
         msg: ByteArray,
@@ -17,9 +67,9 @@ object MidiParser {
         count: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Pair<Long, Long>>,
+        incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
-        lastSentTime: Map<Int, Long>,
+        lastSentTime: LongArray,
         isDebug: Boolean = false
     ) {
         // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
@@ -36,11 +86,9 @@ object MidiParser {
         } else false
 
         if (isUmp) {
-            // Process UMP (32-bit Integers), respecting packet word lengths.
+            // Process each 32-bit UMP word independently to avoid misalignment churn.
             var i = offset
-            while (i < offset + count) {
-                if (i + 4 > offset + count) break
-
+            while (i + 3 < offset + count) {
                 val byte1 = msg[i].toInt() and 0xFF
                 val byte2 = msg[i + 1].toInt() and 0xFF
                 val byte3 = msg[i + 2].toInt() and 0xFF
@@ -48,25 +96,27 @@ object MidiParser {
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
                 val messageType = (umpInt ushr 28) and 0xF
-                val words = when (messageType) {
+                val wordCount = when (messageType) {
                     0x0, 0x1, 0x2 -> 1
                     0x3, 0x4 -> 2
                     0x5 -> 4
+                    0x6, 0x7 -> 1
+                    0x8, 0x9 -> 2
+                    0xA, 0xB -> 3
+                    0xC, 0xD, 0xE, 0xF -> 4
                     else -> 1
                 }
-
-                if (i + (words * 4) > offset + count) break
 
                 if (messageType == 0x1) {
                     // MT 0x1: System Real-Time / System Common
                     val status = (umpInt ushr 16) and 0xFF
 
+                    // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
                     if (status == 0xF8 || status == 0xFE) {
-                        // Drop Timing Clock (0xF8) and Active Sensing (0xFE)
-                        i += words * 4
-                        continue
+                        // Continue to next packet
+                    } else {
+                        // Drop other MT 1 messages for now.
                     }
-                    // Drop other MT 1 messages for now
                 } else if (messageType == 0x2) {
                     // MT 0x2: MIDI 1.0 Channel Voice
                     val group = (umpInt ushr 24) and 0xF
@@ -76,11 +126,11 @@ object MidiParser {
                         val ccNumber = (umpInt ushr 8) and 0xFF
                         val ccValue = umpInt and 0xFF
 
-                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
+                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     }
                 }
-                // Silently drop other MTs
-                i += words * 4
+                // Silently drop other MTs or unrecognized words.
+                i += wordCount * 4
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
@@ -98,7 +148,7 @@ object MidiParser {
                 if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
                     val ccNumber = msg[i + 1].toInt() and 0xFF
                     val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsChannel, suppressionWindowNs, lastSentTime)
+                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     i += 3
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
@@ -115,50 +165,33 @@ object MidiParser {
         ccValue: Int,
         timestamp: Long,
         isVirtual: Boolean,
-        incomingEventsChannel: Channel<Pair<Long, Long>>,
+        incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
-        lastSentTime: Map<Int, Long>
+        lastSentTime: LongArray
     ) {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
-            val lastTime = lastSentTime[ccNumber] ?: 0L
-            val timeDiff = timestamp - lastTime
+            if (ccNumber in 0..127) {
+                val index = ((status and 0x0F) shl 7) or ccNumber
+                val lastTime = lastSentTime[index]
+                val timeDiff = timestamp - lastTime
 
-            if (timeDiff < suppressionWindowNs) {
-                // Ignore message from host if we recently sent *any* value for this CC.
-                // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                return
+                if (timeDiff < suppressionWindowNs) {
+                    // Ignore message from host if we recently sent *any* value for this CC.
+                    // This prevents delayed echoes from older values causing oscillation during rapid movement.
+                    return
+                }
             }
         }
+
 
         // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
         val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
 
-        incomingEventsChannel.trySend(Pair(umpInt, timestamp))
-    }
-
-    /**
-     * Drains the atomic channel into a 1D primitive LongArray for JNI dispatch.
-     * Prevents object allocations on the main thread and respects array bounds.
-     */
-    suspend fun drainChannelToBatch(
-        firstEvent: Pair<Long, Long>,
-        channel: Channel<Pair<Long, Long>>,
-        maxBatchSize: Int = 2000
-    ): LongArray {
-        val batch = LongArray(maxBatchSize)
-        batch[0] = firstEvent.first
-        batch[1] = firstEvent.second
-        var count = 2
-
-        // Drain any other events currently in the channel buffer without exceeding capacity
-        while (count + 1 < batch.size) {
-            val nextEvent = channel.tryReceive().getOrNull() ?: break
-            batch[count++] = nextEvent.first
-            batch[count++] = nextEvent.second
-        }
-
-        // Return exact-sized copy
-        return batch.copyOfRange(0, count)
+        // Pack UMP (upper 32 bits) + timestamp in ms (lower 32 bits) into a single Long
+        // Eliminates Pair<Long, Long> allocation (~48 bytes) per event (~5,760 bytes/sec at 120 events/sec)
+        // Store lower 32 bits of timestamp in milliseconds to extend wrap-around to ~49 days
+        val packed = (umpInt shl 32) or ((timestamp / 1_000_000L) and 0xFFFFFFFFL)
+        incomingEventsSink.trySend(packed)
     }
 }

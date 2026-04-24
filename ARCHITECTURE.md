@@ -46,6 +46,11 @@ The post-v0.2.0 trajectory prioritizes architectural purity and deterministic ro
 - **API 33+ Baseline (Post-v0.2.1):** Enforced `minSdkVersion = 33` to provide a native foundation for MIDI 2.0 and Universal MIDI Packets (UMP).
 - **Native UMP Backend Migration (v0.2.2):** Implementing the core UMP transport layer. The native code inherits from `MidiDeviceService` (API 33+) with UMP transport enforced via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag. It uses legacy `MidiDevice` and `MidiPort` classes for client connections to satisfy Android SDK visibility constraints, with manual 32-bit packet reconstruction from `byte[]` buffers.
 - **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
+- **Performance & Thermal Hardening (v0.2.3):** Eliminating object allocation churn in the MIDI hot-path through primitive packing, buffer reuse, and coalesced state updates.
+- **Native Loop Prevention (v0.2.3):** Implemented explicit `UsbMode` tracking in the native layer to disable `VirtualMidiService` dispatch when in Peripheral mode, eliminating internal feedback loops.
+- **Service Decoupling (v0.2.3):** Refactored native logic into a persistent `MidiSystemManager` singleton to decouple MIDI lifecycle from `MainActivity`. This ensures that `PeripheralMidiService` remains active during background transitions and focus changes.
+- **Unique Status Identity (v0.2.3):** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity.
+- **Thermal Priority Flags (v0.2.3):** Integrated `android:appCategory="audio"` and `android:isGame="false"` flags in `AndroidManifest.xml` to grant the application higher priority in the Android OS scheduler and thermal management system.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
 
@@ -120,6 +125,51 @@ To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
 - **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
+## 4.2 MidiRouter Graph (v0.2.3)
+
+The MidiRouter is a centralized **Directed Acyclic Graph (DAG)** for deterministic N-to-N message routing and transformation:
+
+**Core Components:**
+- **Nodes:** `TransformerNode` implementations that process batches of `MidiEvent` payloads. Each node applies a specific transformation (filtering, remapping, splitting streams).
+- **Edges:** Directed connections between nodes, validated to prevent cycles (enforced at add-time in `addEdge` via `_canReach()`/`_dfsReach()`).
+- **Queue-Based Traversal:** Uses a pre-allocated work queue to avoid deep recursion and maintain consistent processing order.
+- **Object Pooling:** Work items are recycled from a pool to reduce garbage collection pressure during high-frequency routing cycles.
+
+**Processing Model:**
+```
+process(sourceNodeId, eventBatch)
+  → Queue.add(WorkItem(sourceNodeId, eventBatch))
+  → while Queue.isNotEmpty:
+      → node.process(batch) → processedBatch
+      → for each child in edges[node]:
+           Queue.add(WorkItem(child, processedBatch))
+```
+
+**Key Features:**
+- **Cycle Detection:** `_canReach()` / `_dfsReach()` uses depth-first search to check reachability at add-time, preventing infinite routing loops.
+- **Batch Processing:** All nodes operate on `List<MidiEvent>` to amortize routing overhead across multiple events.
+- **Error Isolation:** Exceptions during processing clear the queue to prevent stale work items from lingering.
+- **Deterministic Order:** Queue-based dispatch ensures reproducible routing order regardless of node count.
+
+**TransformerNode Interface:**
+```dart
+abstract class TransformerNode {
+  List<MidiEvent> process(List<MidiEvent> events);
+}
+```
+
+Implementers can:
+- **Filter:** Remove events matching criteria (e.g., velocity < 64).
+- **Remap:** Transform CC values, channels, or message types.
+- **Split:** Send different events to different child nodes via multiple routing paths.
+- **Drop:** Return empty list to suppress downstream processing.
+
+**Example Use Cases (Future):**
+- Channel mapper: Remaps all CC messages to a target MIDI channel.
+- Velocity transformer: Applies dynamics curves or scaling.
+- Protocol adapter: Converts MIDI 1.0 to MIDI 2.0 format (or vice versa).
+- Device router: Routes specific CCs to hardware USB ports vs. virtual DAW ports.
+
 ## 5. Feedback Loop Prevention
 
 Use value-first suppression, not timing-only suppression.
@@ -178,9 +228,13 @@ State machine must be explicit and testable.
 - **Reactive UI Throttling:** UI components (like faders) use Riverpod's `.select()` modifier to filter global state updates, ensuring that only the relevant control rebuilds during multi-channel MIDI traffic.
 - **Riverpod Batch Update:** State transitions are batched precisely once per native polling cycle to minimize map churn and UI thread occupancy.
 - **Animation Churn Bypass:** External MIDI updates use direct `AnimationController.value` assignment to bypass expensive animation interpolation and cancellation math, relying on the source DAW for temporal smoothing.
-- **Centralized Event Parsing:** The `MidiService` handles `EventChannel` decoding exactly once per native polling cycle, distributing a typed `List<MidiEvent>` to all observers to ensure atomic state transitions and 0% redundant parsing.
-- **High-Precision Diagnostics:** The diagnostics console uses native platform timestamps (nanoseconds) provided by the Android MIDI stack, ensuring the event log order is independent of Dart VM scheduling jitter.
+- **Centralized Event Parsing:** The `MidiService` handles `EventChannel` decoding exactly once per native polling cycle, distributing a typed `List<MidiEvent>` (unpacked from packed primitives) to all observers to ensure atomic state transitions and 0% redundant parsing.
+- **Primitive Packing & Buffer Reuse**: Native-to-Dart transport packs 32-bit UMP and 32-bit millisecond timestamps into single `Long` primitives and reuses pre-allocated `ByteArray` buffers to eliminate object allocation churn (2MB/sec reduction). Millisecond precision is used to extend the 32-bit timestamp wrap-around to ~49 days.
+- **Lazy-Init & Snapshotting:** `UiStateSinkNode` and `CcNotifier` use lazy-init `Map` allocation and reusable snapshots for batch updates, minimizing garbage collection during automation bursts.
+- **High-Precision Diagnostics:** The diagnostics console uses native platform timestamps (milliseconds) provided by the Android MIDI stack, ensuring the event log order is independent of Dart VM scheduling jitter.
 - **Monotonic Clock Throttling:** `HybridTouchFader` uses `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for MIDI rate limiting. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle logic. `Stopwatch` provides reliable monotonic clock for ~120Hz MIDI rate limiting.
+- **Lifecycle Flow Collection:** Native MIDI events are collected into a `StateFlow` within the persistent `MidiSystemManager`, allowing the transport to survive `Activity` destruction during rotation or low-memory pressure.
+- **Thermal Priority Scheduling:** By flagging the app as an `audio` category, we minimize OS-level background task interference and prevent the Android thermal manager from aggressively down-clocking the CPU during high-frequency MIDI bursts.
 - **Lazy-Init Map Allocation:** `CcNotifier.updateMultipleCCs()` uses single-pass iteration with lazy `Map` initialization — only allocates new state when actual changes are detected, avoiding double-pass and full-map copy overhead during MIDI bursts.
 - **Diagnostics Disposal Guard:** `DiagnosticsLoggerNotifier` uses `_disposed` flag to prevent state-write errors when `scheduleFrameCallback` fires after auto-dispose. Also resets `_pendingUpdate` in `onDispose` to prevent stale state on re-mount.
 - **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.

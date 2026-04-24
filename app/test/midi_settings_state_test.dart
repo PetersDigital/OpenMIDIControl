@@ -1,11 +1,30 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app/ui/midi_settings_state.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
+
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'setUsbMode') {
+            return null;
+          }
+          return null;
+        });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
   group('UsbModeNotifier', () {
     test('defaults to peripheral mode', () {
       final container = ProviderContainer();
