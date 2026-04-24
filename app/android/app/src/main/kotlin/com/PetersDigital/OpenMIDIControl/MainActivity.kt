@@ -112,10 +112,10 @@ class MainActivity : FlutterActivity() {
     private var lastUsbHostConnectedState = false
     private var lastUsbBroadcastKey: String? = null
     private var lastUsbBroadcastMs = 0L
-    private val duplicateUsbBroadcastWindowMs = 500L
+    private val duplicateUsbBroadcastWindowMs = 1000L
     private var lastDeviceEventKey: String? = null
     private var lastDeviceEventMs = 0L
-    private val duplicateDeviceEventWindowMs = 500L
+    private val duplicateDeviceEventWindowMs = 1000L
     private val legacyMsgBuffer = ByteArray(3)
     private val umpMsgBuffer = ByteArray(4)
 
@@ -129,22 +129,13 @@ class MainActivity : FlutterActivity() {
         return suppress
     }
 
-    fun notifyUsbHostConnected() {
-        if (lastUsbHostConnectedState) return
-
-        lastUsbHostConnectedState = true
-        val event = mapOf(
-            "type" to "usb_state",
-            "state" to "HOST_CONNECTED"
-        )
-        mainThreadHandler.post {
-            systemEventSink?.success(event)
+    fun teardownMidiDeviceCallback() {
+        if (deviceCallback != null) {
+            midiManager?.unregisterDeviceCallback(deviceCallback!!)
+            deviceCallback = null
         }
     }
 
-    fun notifyUsbHostDisconnected() {
-        lastUsbHostConnectedState = false
-    }
 
     private fun shouldSuppressDuplicateUsbBroadcast(
         connected: Boolean,
@@ -166,6 +157,11 @@ class MainActivity : FlutterActivity() {
                 val connected = intent.extras?.getBoolean("connected") ?: false
                 val configured = intent.extras?.getBoolean("configured") ?: false
                 val midi = intent.extras?.getBoolean("midi") ?: false
+                val isMidiActive = intent.getBooleanExtra("midi_active", false)
+
+                if (!connected || !isMidiActive) {
+                    MidiSystemManager.setUsbHostConnected(false)
+                }
 
                 if (shouldSuppressDuplicateUsbBroadcast(connected, configured, midi)) {
                     return
@@ -189,7 +185,6 @@ class MainActivity : FlutterActivity() {
                     cachedDevicesList = null // Invalidate cache on USB state transition
                     if (lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = false
-                        notifyUsbHostDisconnected()
                         val event = mapOf(
                             "type" to "usb_state",
                             "state" to "DISCONNECTED"
@@ -248,6 +243,25 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         activeInstance = this
+        
+        // Ensure we don't leak instances or keep stale callbacks on engine re-attachment
+        teardownMidiDeviceCallback()
+
+        // Subscribe to persistent MIDI events from the system manager.
+        // This ensures events are captured even when the Activity is in the background or between focus shifts.
+        coroutineScope.launch {
+            MidiSystemManager.incomingEvents.collect { (msg, count, timestamp) ->
+                handleIncomingPeripheralMidi(msg, 0, count, timestamp)
+            }
+        }
+
+        coroutineScope.launch {
+            MidiSystemManager.usbHostConnected.collect { connected ->
+                if (connected) {
+                    sendSystemEvent("usb_state", mapOf("state" to "CONNECTED"))
+                }
+            }
+        }
 
         midiManager = getSystemService(Context.MIDI_SERVICE) as MidiManager?
 
@@ -689,7 +703,11 @@ class MainActivity : FlutterActivity() {
         MidiParser.processMidiPayload(msg, offset, count, nowNs, true, buffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
-    fun handleIncomingPeripheralMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
+    /**
+     * Entry point for MIDI messages from the USB Peripheral service (acting as a controller).
+     * Now called via the persistent MidiSystemManager flow.
+     */
+    internal fun handleIncomingPeripheralMidi(msg: ByteArray, offset: Int, count: Int, timestamp: Long? = null) {
         if (count == 0) return
         val nowNs = timestamp ?: System.nanoTime()
         val buffer = getOrCreateVirtualSession(false)
@@ -763,6 +781,19 @@ class MainActivity : FlutterActivity() {
     private fun stopBatchDispatchTimer() {
         batchDispatchJob?.cancel()
         batchDispatchJob = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Signal readiness to services that may have been throttled during pause
+        activeInstance = this
+    }
+
+    override fun onPause() {
+        // We do NOT teardown MIDI here to ensure persistent background connectivity,
+        // but we invalidate the instance to prevent UI-bound callbacks from firing.
+        // The core MIDI transport (Isolates/Coroutines) remains active.
+        super.onPause()
     }
 
     override fun onDestroy() {
