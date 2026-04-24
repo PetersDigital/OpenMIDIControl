@@ -410,7 +410,17 @@ final midiServiceProvider = Provider<MidiService>((ref) {
 
 final midiDevicesProvider = FutureProvider<List<MidiDevice>>((ref) async {
   final service = ref.watch(midiServiceProvider);
-  return await service.getAvailableDevices();
+  final devices = await service.getAvailableDevices();
+  final usbMode = ref.watch(usbModeProvider);
+
+  if (usbMode == UsbMode.peripheral) {
+    // Hide internal virtual ports to prevent auto-routing loops and premature
+    // connections when the app is acting as a hardware peripheral for a host PC.
+    return devices
+        .where((d) => !d.manufacturer.toLowerCase().contains('petersdigital'))
+        .toList();
+  }
+  return devices;
 });
 
 class MidiConnectionState {
@@ -503,10 +513,14 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   bool _isPeripheralFingerprint(MidiDevice device) {
     final name = device.name.toLowerCase();
     final manufacturer = device.manufacturer.toLowerCase();
+
+    // Exclude internal virtual ports from peripheral auto-connect logic to
+    // prevent the app from connecting to itself instead of the host PC.
+    if (manufacturer.contains('petersdigital')) return false;
+
     return name.contains('usb peripheral port') ||
         name.contains('android usb peripheral') ||
-        manufacturer.contains('android usb peripheral') ||
-        name.contains('openmidicontrol');
+        manufacturer.contains('android usb peripheral');
   }
 
   void _tryAutoReconnectPreviousDevice(
@@ -973,16 +987,25 @@ MidiStatus resolveMidiStatus({
     return MidiStatus.connectionLost;
   }
 
-  if (usbMode == UsbMode.peripheral && usbHostConnected) {
-    if (connectionState.connectedDevice != null) {
-      return MidiStatus.usbHostConnected;
-    } else {
-      return MidiStatus.usbHostAwaitingPort;
+  if (connectionState.connectedDevice != null) {
+    if (usbMode == UsbMode.peripheral) {
+      final name = connectionState.connectedDevice!.name.toLowerCase();
+      final manufacturer =
+          connectionState.connectedDevice!.manufacturer.toLowerCase();
+      final isHostPort = name.contains('usb peripheral') ||
+          manufacturer.contains('android usb peripheral');
+
+      // If we are in peripheral mode and connected to the host port,
+      // or if the native layer has confirmed an active data link.
+      if (isHostPort || usbHostConnected) {
+        return MidiStatus.usbHostConnected;
+      }
     }
+    return MidiStatus.connected;
   }
 
-  if (connectionState.connectedDevice != null) {
-    return MidiStatus.connected;
+  if (usbMode == UsbMode.peripheral && usbHostConnected) {
+    return MidiStatus.usbHostAwaitingPort;
   }
 
   // USB mode remains the top-level readiness state while the host link is
