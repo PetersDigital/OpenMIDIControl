@@ -164,6 +164,21 @@ class MidiDevice {
   }
 }
 
+/// Helper to identify if a device is the native Android USB peripheral port.
+/// Broadened to handle manufacturer-specific naming (Samsung, etc.) and localization.
+bool isPeripheralPort(MidiDevice device) {
+  final name = device.name.toLowerCase();
+  final manufacturer = device.manufacturer.toLowerCase();
+
+  // Explicitly exclude internal virtual ports created by this app.
+  if (manufacturer.contains('petersdigital')) return false;
+
+  return name.contains('peripheral') ||
+      name.contains('android usb') ||
+      manufacturer.contains('android') ||
+      manufacturer.contains('samsung');
+}
+
 class MidiService {
   static const MethodChannel _channel = MethodChannel(
     'com.petersdigital.openmidicontrol/midi',
@@ -511,16 +526,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   }
 
   bool _isPeripheralFingerprint(MidiDevice device) {
-    final name = device.name.toLowerCase();
-    final manufacturer = device.manufacturer.toLowerCase();
-
-    // Exclude internal virtual ports from peripheral auto-connect logic to
-    // prevent the app from connecting to itself instead of the host PC.
-    if (manufacturer.contains('petersdigital')) return false;
-
-    return name.contains('usb peripheral port') ||
-        name.contains('android usb peripheral') ||
-        manufacturer.contains('android usb peripheral');
+    return isPeripheralPort(device);
   }
 
   void _tryAutoReconnectPreviousDevice(
@@ -989,15 +995,10 @@ MidiStatus resolveMidiStatus({
 
   if (connectionState.connectedDevice != null) {
     if (usbMode == UsbMode.peripheral) {
-      final name = connectionState.connectedDevice!.name.toLowerCase();
-      final manufacturer =
-          connectionState.connectedDevice!.manufacturer.toLowerCase();
-      final isHostPort = name.contains('usb peripheral') ||
-          manufacturer.contains('android usb peripheral');
-
       // If we are in peripheral mode and connected to the host port,
       // or if the native layer has confirmed an active data link.
-      if (isHostPort || usbHostConnected) {
+      if (isPeripheralPort(connectionState.connectedDevice!) ||
+          usbHostConnected) {
         return MidiStatus.usbHostConnected;
       }
     }
