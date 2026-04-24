@@ -99,11 +99,17 @@ class MainActivity : FlutterActivity() {
                     try {
                         eventSink?.success(trimmedPayload)
                     } finally {
-                        emptyBuffers.trySend(payload)
+                        val result = emptyBuffers.trySend(payload)
+                        if (result.isFailure) {
+                            android.util.Log.e("MainActivity", "Failed to return buffer to pool: ${result.exceptionOrNull()}")
+                        }
                     }
                 }
             } else {
-                emptyBuffers.trySend(payload)
+                val result = emptyBuffers.trySend(payload)
+                if (result.isFailure) {
+                    android.util.Log.e("MainActivity", "Failed to return empty buffer to pool: ${result.exceptionOrNull()}")
+                }
             }
         }
     }
@@ -387,25 +393,17 @@ class MainActivity : FlutterActivity() {
                     if (events != null) {
                         try {
                             val nowNs = System.nanoTime()
-                            for (i in 0 until events.size step 2) {
-                                if (i + 1 >= events.size) break
-
+                            val seen = java.util.BitSet(2048)
+                            
+                            // Optimization: iterate backwards to implement "latest wins" in O(N)
+                            for (i in events.size - 2 downTo 0 step 2) {
                                 val umpInt = events[i].toInt()
-                                val index = (((umpInt ushr 16) and 0x0F) shl 7) or ((umpInt ushr 8) and 0x7F)
-
-                                // Zero-allocation "latest wins": check if this CC is updated again later in the batch
-                                var isLatest = true
-                                for (j in i + 2 until events.size step 2) {
-                                    if (j + 1 >= events.size) break
-                                    val laterUmpInt = events[j].toInt()
-                                    val laterIndex = (((laterUmpInt ushr 16) and 0x0F) shl 7) or ((laterUmpInt ushr 8) and 0x7F)
-                                    if (index == laterIndex) {
-                                        isLatest = false
-                                        break
-                                    }
-                                }
-
-                                if (isLatest) {
+                                val status = (umpInt ushr 16) and 0xFF
+                                val cc = (umpInt ushr 8) and 0xFF
+                                val index = ((status and 0x0F) shl 7) or cc
+                                
+                                if (!seen.get(index)) {
+                                    seen.set(index)
                                     val isFinal = events[i + 1] != 0L
                                     processMidiCcEvent(umpInt, isFinal, nowNs)
                                 }
