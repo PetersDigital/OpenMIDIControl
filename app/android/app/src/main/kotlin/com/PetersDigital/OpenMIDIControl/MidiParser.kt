@@ -96,6 +96,16 @@ object MidiParser {
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
                 val messageType = (umpInt ushr 28) and 0xF
+                val wordCount = when (messageType) {
+                    0x0, 0x1, 0x2 -> 1
+                    0x3, 0x4 -> 2
+                    0x5 -> 4
+                    0x6, 0x7 -> 1
+                    0x8, 0x9 -> 2
+                    0xA, 0xB -> 3
+                    0xC, 0xD, 0xE, 0xF -> 4
+                    else -> 1
+                }
 
                 if (messageType == 0x1) {
                     // MT 0x1: System Real-Time / System Common
@@ -103,10 +113,10 @@ object MidiParser {
 
                     // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
                     if (status == 0xF8 || status == 0xFE) {
-                        i += 4
-                        continue
+                        // Continue to next packet
+                    } else {
+                        // Drop other MT 1 messages for now.
                     }
-                    // Drop other MT 1 messages for now.
                 } else if (messageType == 0x2) {
                     // MT 0x2: MIDI 1.0 Channel Voice
                     val group = (umpInt ushr 24) and 0xF
@@ -119,8 +129,8 @@ object MidiParser {
                         forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     }
                 }
-                // Silently drop other MTs.
-                i += 4
+                // Silently drop other MTs or unrecognized words.
+                i += wordCount * 4
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
