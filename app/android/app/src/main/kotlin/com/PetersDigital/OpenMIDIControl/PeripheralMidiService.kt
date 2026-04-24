@@ -18,9 +18,8 @@ class PeripheralMidiService : MidiDeviceService() {
     // Cached receiver — allocated once to avoid a new anonymous object on every
     // onGetInputPortReceivers() call (which Android may invoke multiple times per USB session).
     private val inputReceiver = object : MidiReceiver() {
-        override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
-            if (msg == null || count == 0) return
-            MainActivity.activeInstance?.handleIncomingPeripheralMidi(msg, offset, count, timestamp)
+        override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+            MidiSystemManager.handlePeripheralMidi(msg, offset, count, timestamp)
         }
     }
 
@@ -36,7 +35,7 @@ class PeripheralMidiService : MidiDeviceService() {
     }
 
     override fun onGetInputPortReceivers(): Array<MidiReceiver> {
-        MainActivity.activeInstance?.notifyUsbHostConnected()
+        MidiSystemManager.setUsbHostConnected(true)
         return arrayOf(inputReceiver)
     }
 
