@@ -53,8 +53,12 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - **Primitive Packing**: Eliminated `Pair` boxing by packing UMP and timestamps into `Long` primitives.
   - **Buffer Re-use**: Reimplemented `MidiParser` and JNI bridge to reuse buffers and coroutines, reducing allocation churn by ~2MB/sec.
   - **Packed Transport**: Implemented `Int64List` packed transport for MIDI CC batches over platform channels.
-- **UI & Connectivity Polish**: Two-stage USB status (Ready/Connected), composited status glows, and auto-connect peripheral logic.
-- **State Reliability**: CC state replay for late listeners and lazy-init map allocations for high-frequency bursts.
+- **UI & Connectivity Polish**: Two-stage USB status (Ready/Connected), unique status color tokens, and manufacturer-agnostic peripheral logic.
+- **Architecture & Thermal Reliability**: 
+  - **MidiSystemManager**: Persistent singleton for lifecycle decoupling.
+  - **Thermal Priority**: `appCategory="game"` for OS-level scheduler prioritization.
+  - **State Reliability**: CC state replay, lazy-init map allocations, and fixed UMP word alignment for multi-word packets.
+  - **Packed Transport**: Formalized 32-bit millisecond-packed timestamps for ~49-day wrap-around.
 
 ### ⏳ Current Focus: v0.3.0 – Control Expansion & Basic State
 - **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
