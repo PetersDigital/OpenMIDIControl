@@ -273,11 +273,11 @@ class MidiSettingsScreen extends ConsumerWidget {
 
     switch (status) {
       case MidiStatus.usbActive:
-        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        borderColor = const Color(0xFF42A5F5).withValues(alpha: 0.5); // Blue
         icon = Icons.check_circle_outline;
-        iconColor = Colors.green.shade400;
+        iconColor = const Color(0xFF42A5F5);
         titleText = 'USB PERIPHERAL MODE READY';
-        titleColor = Colors.green.shade400;
+        titleColor = const Color(0xFF42A5F5);
         subText =
             'USB MIDI peripheral is ready. Connect host PC to start MIDI data flow.';
         break;
@@ -290,11 +290,11 @@ class MidiSettingsScreen extends ConsumerWidget {
         subText = 'Host connection confirmed. MIDI data is flowing.';
         break;
       case MidiStatus.connected:
-        borderColor = Colors.green.shade900.withValues(alpha: 0.5);
+        borderColor = const Color(0xFF42A5F5).withValues(alpha: 0.5); // Blue
         icon = Icons.check_circle_outline;
-        iconColor = Colors.green.shade400;
+        iconColor = const Color(0xFF42A5F5);
         titleText = 'CONNECTED';
-        titleColor = Colors.green.shade400;
+        titleColor = const Color(0xFF42A5F5);
         subText = connectedDevice != null
             ? 'Connected to ${connectedDevice.name} (${connectedDevice.manufacturer})'
             : 'Connected to a MIDI device';
