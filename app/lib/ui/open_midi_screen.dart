@@ -767,15 +767,15 @@ class _ConnectionStatusButton extends ConsumerWidget {
     switch (midiStatus) {
       case MidiStatus.usbActive:
         statusText = "USB PERIPHERAL MODE READY";
-        statusColor = const Color(0xFF42A5F5); // Blue
+        statusColor = const Color(0xFF4DD0E1); // Cyan
         break;
       case MidiStatus.usbHostAwaitingPort:
         statusText = "USB HOST CONNECTED";
-        statusColor = const Color(0xFF42A5F5); // Blue
+        statusColor = const Color(0xFF9575CD); // Purple/Lavender
         break;
       case MidiStatus.usbHostConnected:
         statusText = "USB HOST CONNECTED";
-        statusColor = Colors.green.shade400;
+        statusColor = const Color(0xFF66BB6A); // Green
         break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
@@ -791,7 +791,7 @@ class _ConnectionStatusButton extends ConsumerWidget {
         break;
       case MidiStatus.disconnected:
         statusText = "DISCONNECTED";
-        statusColor = const Color(0xFFE57373); // Red
+        statusColor = const Color(0xFFBDBDBD); // Grey
         break;
     }
 
