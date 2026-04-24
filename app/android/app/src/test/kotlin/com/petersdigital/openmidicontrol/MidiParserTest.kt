@@ -28,7 +28,8 @@ class MidiParserTest {
         // Process it. The heuristic inside processMidiPayload checks MT=1 or MT=2.
         // The first byte 0xB0 means MT=0xB. This should not be parsed as UMP.
         // It should fallback to legacy byte stream parsing.
-        MidiParser.processMidiPayload(payload, 0, 8, 12345L, false, sink, 0L, LongArray(128), false)
+        // Input: 12345ms in nanos
+        MidiParser.processMidiPayload(payload, 0, 8, 12345_000_000L, false, sink, 0L, LongArray(128), false)
 
         val packed = sink.events.single()
 
@@ -49,7 +50,7 @@ class MidiParserTest {
         // 3 bytes: Standard CC
         val payload = byteArrayOf(0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
-        MidiParser.processMidiPayload(payload, 0, 3, 1111L, false, sink, 0L, LongArray(128), false)
+        MidiParser.processMidiPayload(payload, 0, 3, 1111_000_000L, false, sink, 0L, LongArray(128), false)
 
         val packed = sink.events.single()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -65,7 +66,7 @@ class MidiParserTest {
         // 4 bytes: Valid UMP MT=2, Group=3, Status=0xB1, CC=10, Val=127
         val payload = byteArrayOf(0x23.toByte(), 0xB1.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
-        MidiParser.processMidiPayload(payload, 0, 4, 2222L, false, sink, 0L, LongArray(128), false)
+        MidiParser.processMidiPayload(payload, 0, 4, 2222_000_000L, false, sink, 0L, LongArray(128), false)
 
         val packed = sink.events.single()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -86,7 +87,7 @@ class MidiParserTest {
             0x20.toByte(), 0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte()
         )
 
-        MidiParser.processMidiPayload(payload, 0, payload.size, 3333L, false, sink, 0L, LongArray(128), false)
+        MidiParser.processMidiPayload(payload, 0, payload.size, 3333_000_000L, false, sink, 0L, LongArray(128), false)
 
         val packed = sink.events.single()
         val parsedUmp = (packed shr 32) and 0xFFFFFFFFL
@@ -126,7 +127,8 @@ class MidiParserTest {
         assertTrue("Sink should be empty due to bidirectional echo suppression", sink.events.isEmpty())
 
         // Attempt to receive Virtual MIDI at time 1600 (outside suppression window)
-        MidiParser.processMidiPayload(payload, 0, 4, 1600L, true, sink, suppressionWindowNs, lastSentTime, false)
+        // Input: 1600ms in nanos
+        MidiParser.processMidiPayload(payload, 0, 4, 1600_000_000L, true, sink, suppressionWindowNs, lastSentTime, false)
         val packed = sink.events.single()
         val parsedTimestamp = packed and 0xFFFFFFFFL
         assertEquals(1600L, parsedTimestamp)
