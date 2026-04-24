@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 /**
  * A persistent, activity-independent manager for MIDI state and transport.
@@ -44,9 +43,8 @@ object MidiSystemManager {
 
         // Create a copy of the buffer to avoid data corruption if the service reuses it
         val copy = msg.copyOfRange(offset, offset + count)
-        
+
         // Dispatch to observers (like MainActivity/Flutter)
-        // This is non-blocking and persistent.
         _incomingEvents.tryEmit(Triple(copy, copy.size, timestamp))
     }
 

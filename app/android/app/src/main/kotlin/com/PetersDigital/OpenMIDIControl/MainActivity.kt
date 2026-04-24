@@ -129,12 +129,6 @@ class MainActivity : FlutterActivity() {
         return suppress
     }
 
-    fun teardownMidiDeviceCallback() {
-        if (deviceCallback != null) {
-            midiManager?.unregisterDeviceCallback(deviceCallback!!)
-            deviceCallback = null
-        }
-    }
 
 
     private fun shouldSuppressDuplicateUsbBroadcast(
@@ -309,7 +303,9 @@ class MainActivity : FlutterActivity() {
                             systemEventSink?.success(initEvent)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
-                            notifyUsbHostDisconnected()
+                            cachedDevicesList = null
+                            sendSystemEvent("usb_state", mapOf("state" to "DISCONNECTED"))
+
                             val initEvent = mapOf(
                                 "type" to "usb_state",
                                 "state" to "DISCONNECTED"
@@ -770,6 +766,14 @@ class MainActivity : FlutterActivity() {
             // Single call removes callback from all transports (UMP + byte-stream).
             midiManager?.unregisterDeviceCallback(it)
             deviceCallback = null
+        }
+    }
+
+    private fun sendSystemEvent(type: String, data: Map<String, Any>) {
+        val event = data.toMutableMap()
+        event["type"] = type
+        mainThreadHandler.post {
+            systemEventSink?.success(event)
         }
     }
 
