@@ -763,12 +763,11 @@ class _ConnectionStatusButton extends ConsumerWidget {
 
     String statusText;
     Color statusColor;
-    bool showGlow = false;
 
     switch (midiStatus) {
       case MidiStatus.usbActive:
         statusText = "USB PERIPHERAL MODE READY";
-        statusColor = Colors.green.shade400;
+        statusColor = const Color(0xFF42A5F5); // Blue
         break;
       case MidiStatus.usbHostConnected:
         statusText = "USB HOST CONNECTED";
@@ -776,12 +775,11 @@ class _ConnectionStatusButton extends ConsumerWidget {
         break;
       case MidiStatus.connected:
         statusText = "CONNECTED";
-        statusColor = Colors.green.shade400;
+        statusColor = const Color(0xFF42A5F5); // Blue
         break;
       case MidiStatus.available:
         statusText = "AVAILABLE";
         statusColor = const Color(0xFFFFCA28); // Amber
-        showGlow = true;
         break;
       case MidiStatus.connectionLost:
         statusText = "CONNECTION LOST";
@@ -803,17 +801,6 @@ class _ConnectionStatusButton extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (showGlow) ...[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
           Text(
             statusText,
             style: TextStyle(
@@ -833,31 +820,7 @@ class _ConnectionStatusButton extends ConsumerWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (showGlow)
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withValues(alpha: 0.45),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: statusColor.withValues(alpha: 0.2),
-                      blurRadius: 18,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const SizedBox(height: 34, width: 100),
-              ),
-            buttonContent,
-          ],
-        ),
+        child: buttonContent,
       ),
     );
   }
