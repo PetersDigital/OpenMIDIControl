@@ -14,3 +14,31 @@ runs:
       uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
       with:
         subject-path: "${{ inputs.subject_path }}"
+
+    - name: Export attestation to JSONL
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        shopt -s nullglob
+        # Wait a few seconds for attestation to propagate in GitHub's backend
+        sleep 5
+        for file in ${{ inputs.subject_path }}; do
+          if [ -f "$file" ]; then
+            echo "Downloading attestation for $file..."
+            BASENAME=$(basename "$file")
+            
+            # Download the bundle
+            gh attestation download "$file" --repo "${{ github.repository }}"
+            
+            # The downloaded file is named 'sha256:<hash>.jsonl'. 
+            # We MUST remove the colon before upload-artifact runs.
+            # Match files specifically containing a colon to rename them.
+            for jsonl in *\:*.jsonl; do
+              if [ -f "$jsonl" ]; then
+                echo "Renaming invalid filename '$jsonl' to clean filename '${BASENAME}.jsonl'"
+                mv "$jsonl" "${BASENAME}.jsonl"
+              fi
+            done
+          fi
+        done
