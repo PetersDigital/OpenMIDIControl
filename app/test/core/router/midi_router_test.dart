@@ -122,7 +122,7 @@ void main() {
     test('UiStateSinkNode skips allocation for non-CC events', () {
       bool called = false;
       final node = UiStateSinkNode(
-        onUpdateCCs: (_) {
+        onStateUpdate: (_) {
           called = true;
         },
       );
@@ -138,8 +138,8 @@ void main() {
     });
 
     test('UiStateSinkNode forwards CC updates only for CC events', () {
-      final received = <Map<int, int>>[];
-      final node = UiStateSinkNode(onUpdateCCs: received.add);
+      final received = <Map<String, dynamic>>[];
+      final node = UiStateSinkNode(onStateUpdate: received.add);
 
       final events = [
         MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0),
@@ -149,7 +149,7 @@ void main() {
       node.execute(events);
 
       expect(received, hasLength(1));
-      expect(received.single, equals({10: 64}));
+      expect(received.single["ccs"], equals({"0:10": 64}));
     });
 
     test('Cycle Detection prevents infinite loops on configuration', () {

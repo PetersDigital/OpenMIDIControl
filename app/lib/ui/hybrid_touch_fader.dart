@@ -93,7 +93,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   void _setupListener() {
     _ccSubscription?.close();
     _ccSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider(_ccNumber),
+      hotCcValueProvider("0:$_ccNumber"),
       (previous, next) =>
           next.whenData((val) => _handleCcUpdate(previous?.asData?.value, val)),
     );
@@ -108,7 +108,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   void _sendMidiUpdate({bool isFinal = false}) {
     final int ccValue = (_animationController.value * 127).round();
-    ref.read(midiServiceProvider).sendCC(_ccNumber, ccValue, isFinal: isFinal);
+    ref
+        .read(midiServiceProvider)
+        .sendCC(_ccNumber, ccValue, channel: 0, isFinal: isFinal);
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {

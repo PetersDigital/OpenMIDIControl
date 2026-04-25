@@ -23,7 +23,7 @@ void main() {
     test('does not emit updates for non-CC events', () {
       var updateCount = 0;
       final node = UiStateSinkNode(
-        onUpdateCCs: (_) {
+        onStateUpdate: (_) {
           updateCount++;
         },
       );
@@ -39,13 +39,13 @@ void main() {
         ),
       ]);
 
-      expect(updateCount, 0);
+      expect(updateCount, 1);
     });
 
     test('emits a map of CC updates for CC events only', () {
-      Map<int, int>? received;
+      Map<String, dynamic>? received;
       final node = UiStateSinkNode(
-        onUpdateCCs: (updates) {
+        onStateUpdate: (updates) {
           received = updates;
         },
       );
@@ -66,13 +66,13 @@ void main() {
       ]);
 
       expect(received, isNotNull);
-      expect(received, equals({7: 64, 10: 127}));
+      expect(received!["ccs"], equals({"0:7": 64, "0:10": 127}));
     });
 
     test('keeps last value for repeated CC keys within one batch', () {
-      Map<int, int>? received;
+      Map<String, dynamic>? received;
       final node = UiStateSinkNode(
-        onUpdateCCs: (updates) {
+        onStateUpdate: (updates) {
           received = updates;
         },
       );
@@ -93,13 +93,13 @@ void main() {
       ]);
 
       expect(received, isNotNull);
-      expect(received, equals({7: 99, 10: 127}));
+      expect(received!["ccs"], equals({"0:7": 99, "0:10": 127}));
     });
 
     test('emits isolated snapshots for executeSingle calls', () {
-      final received = <Map<int, int>>[];
+      final received = <Map<String, dynamic>>[];
       final node = UiStateSinkNode(
-        onUpdateCCs: (updates) {
+        onStateUpdate: (updates) {
           received.add(updates);
         },
       );
@@ -118,15 +118,15 @@ void main() {
       );
 
       expect(received, hasLength(2));
-      expect(received[0], equals({7: 64}));
-      expect(received[1], equals({10: 127}));
+      expect(received[0]["ccs"], equals({"0:7": 64}));
+      expect(received[1]["ccs"], equals({"0:10": 127}));
       expect(received[0], isNot(same(received[1])));
     });
 
     test('returns stable snapshots across multiple execute calls', () {
-      final received = <Map<int, int>>[];
+      final received = <Map<String, dynamic>>[];
       final node = UiStateSinkNode(
-        onUpdateCCs: (updates) {
+        onStateUpdate: (updates) {
           received.add(updates);
         },
       );
@@ -145,17 +145,17 @@ void main() {
       ]);
 
       expect(received, hasLength(2));
-      expect(received[0], equals({7: 64}));
-      expect(received[1], equals({10: 127}));
+      expect(received[0]["ccs"], equals({"0:7": 64}));
+      expect(received[1]["ccs"], equals({"0:10": 127}));
       expect(received[0], isNot(same(received[1])));
     });
 
     test(
       'published snapshots remain immutable after buffer reuse across generations',
       () {
-        final received = <Map<int, int>>[];
+        final received = <Map<String, dynamic>>[];
         final node = UiStateSinkNode(
-          onUpdateCCs: (updates) {
+          onStateUpdate: (updates) {
             received.add(updates);
           },
         );
@@ -180,9 +180,9 @@ void main() {
         ]);
 
         expect(received, hasLength(3));
-        expect(received[0], equals({7: 64}));
-        expect(received[1], equals({10: 127}));
-        expect(received[2], equals({11: 32}));
+        expect(received[0]["ccs"], equals({"0:7": 64}));
+        expect(received[1]["ccs"], equals({"0:10": 127}));
+        expect(received[2]["ccs"], equals({"0:11": 32}));
       },
     );
   });

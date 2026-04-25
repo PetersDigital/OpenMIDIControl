@@ -204,8 +204,8 @@ class MidiService {
 
   final MidiRouter outgoingRouter = MidiRouter();
 
-  late final StreamController<Map<int, int>> _uiStateController;
-  Stream<Map<int, int>> get uiStateUpdates => _uiStateController.stream;
+  late final StreamController<Map<String, dynamic>> _uiStateController;
+  Stream<Map<String, dynamic>> get uiStateUpdates => _uiStateController.stream;
 
   late final Stream<List<MidiEvent>> midiEventsStream;
 
@@ -214,13 +214,13 @@ class MidiService {
 
   bool _hostLinkConfirmed = false;
 
-  final Map<int, int> _cachedCcState = {};
+  final Map<String, dynamic> _cachedState = {};
 
   MidiService() {
-    _uiStateController = StreamController<Map<int, int>>.broadcast(
+    _uiStateController = StreamController<Map<String, dynamic>>.broadcast(
       onListen: () {
-        if (_cachedCcState.isNotEmpty) {
-          _uiStateController.add(Map.unmodifiable(_cachedCcState));
+        if (_cachedState.isNotEmpty) {
+          _uiStateController.add(Map.unmodifiable(_cachedState));
         }
       },
     );
@@ -229,7 +229,7 @@ class MidiService {
     _initStreams();
     _initWorker();
   }
-  Map<int, int> get currentCcState => Map.unmodifiable(_cachedCcState);
+  Map<String, dynamic> get currentState => Map.unmodifiable(_cachedState);
 
   final Stopwatch _stopwatch = Stopwatch()..start();
 
@@ -276,10 +276,31 @@ class MidiService {
         final type = message.$1;
         final payload = message.$2;
 
-        if (type == 'cc_update') {
-          final updates = payload as Map<int, int>;
+        if (type == 'state_update') {
+          final updates = payload as Map<String, dynamic>;
           if (updates.isNotEmpty) {
-            _cachedCcState.addAll(updates);
+            final ccs = updates['ccs'] as Map<String, int>?;
+            if (ccs != null && ccs.isNotEmpty) {
+              final cachedCcs =
+                  _cachedState['ccs'] as Map<String, int>? ?? <String, int>{};
+              cachedCcs.addAll(ccs);
+              _cachedState['ccs'] = cachedCcs;
+            }
+
+            final notes = updates['notes'] as Map<int, List<int>>?;
+            if (notes != null) {
+              _cachedState['notes'] = notes; // Notes replace completely
+            }
+
+            final buttons = updates['buttons'] as Map<String, bool>?;
+            if (buttons != null && buttons.isNotEmpty) {
+              final cachedButtons =
+                  _cachedState['buttons'] as Map<String, bool>? ??
+                  <String, bool>{};
+              cachedButtons.addAll(buttons);
+              _cachedState['buttons'] = cachedButtons;
+            }
+
             _uiStateController.add(updates);
           }
         }
@@ -363,23 +384,28 @@ class MidiService {
     }
   }
 
-  Future<void> sendCC(int cc, int value, {bool isFinal = false}) async {
-    if (cc < 0 || cc > 127 || value < 0 || value > 127) {
-      debugPrint('Invalid MIDI CC send request: cc=$cc value=$value');
+  Future<void> sendCC(
+    int cc,
+    int value, {
+    int channel = 0,
+    bool isFinal = false,
+  }) async {
+    if (cc < 0 ||
+        cc > 127 ||
+        value < 0 ||
+        value > 127 ||
+        channel < 0 ||
+        channel > 15) {
+      debugPrint(
+        'Invalid MIDI CC send request: cc=$cc value=$value channel=$channel',
+      );
       return;
     }
 
-    // Construct a UMP for the CC event.
-    // [4 bits Message Type][4 bits Group][8 bits Status][8 bits Data1][8 bits Data2]
-    // Message Type = 0x2 (MIDI 1.0 Voice)
-    // Group = 0 (default)
-    // Status = 0xB0 (CC on channel 0) -> let's assume channel 0 for now as previous logic didn't specify
-    // Data1 = cc
-    // Data2 = value
     int ump =
         (0x2 << 28) |
         (0x0 << 24) |
-        (0xB0 << 16) |
+        ((0xB0 | channel) << 16) |
         ((cc & 0xFF) << 8) |
         (value & 0xFF);
     final event = MidiEvent(
@@ -388,7 +414,65 @@ class MidiService {
       isFinal: isFinal,
     );
 
-    // Process through the outgoing router starting from the root 'source' node.
+    outgoingRouter.processSingle('source', event);
+  }
+
+  Future<void> sendNoteOn(
+    int note,
+    int velocity, {
+    int channel = 9,
+    bool isFinal = false,
+  }) async {
+    if (note < 0 ||
+        note > 127 ||
+        velocity < 0 ||
+        velocity > 127 ||
+        channel < 0 ||
+        channel > 15) {
+      debugPrint(
+        'Invalid MIDI NoteOn send request: note=$note velocity=$velocity channel=$channel',
+      );
+      return;
+    }
+
+    int ump =
+        (0x2 << 28) |
+        (0x0 << 24) |
+        ((0x90 | channel) << 16) |
+        ((note & 0xFF) << 8) |
+        (velocity & 0xFF);
+    final event = MidiEvent(
+      ump,
+      _stopwatch.elapsedMilliseconds,
+      isFinal: isFinal,
+    );
+    outgoingRouter.processSingle('source', event);
+  }
+
+  Future<void> sendNoteOff(
+    int note, {
+    int channel = 9,
+    bool isFinal = false,
+  }) async {
+    if (note < 0 || note > 127 || channel < 0 || channel > 15) {
+      debugPrint(
+        'Invalid MIDI NoteOff send request: note=$note channel=$channel',
+      );
+      return;
+    }
+
+    // Note off uses 0x80 status, velocity 0
+    int ump =
+        (0x2 << 28) |
+        (0x0 << 24) |
+        ((0x80 | channel) << 16) |
+        ((note & 0xFF) << 8) |
+        0x00;
+    final event = MidiEvent(
+      ump,
+      _stopwatch.elapsedMilliseconds,
+      isFinal: isFinal,
+    );
     outgoingRouter.processSingle('source', event);
   }
 
@@ -813,41 +897,12 @@ enum MidiStatus {
   usbHostConnected,
 }
 
-class _CcStateSnapshot extends MapBase<int, int> {
-  final Int32List _values;
-  final List<int> _keys;
+class ControlStateNotifier extends Notifier<ControlState> {
+  final Map<String, int> _hotCcState = {};
+  final Map<int, Set<int>> _hotNoteStates = {};
+  final Map<String, bool> _hotButtonStates = {};
 
-  _CcStateSnapshot(Int32List hotState, List<int> activeCcs)
-    : _values = Int32List.fromList(hotState),
-      _keys = List<int>.of(activeCcs, growable: false);
-
-  @override
-  int? operator [](Object? key) {
-    if (key is int && key >= 0 && key < 128) {
-      final val = _values[key];
-      if (val != -1) return val;
-    }
-    return null;
-  }
-
-  @override
-  void operator []=(int key, int value) =>
-      throw UnsupportedError('unmodifiable');
-
-  @override
-  void clear() => throw UnsupportedError('unmodifiable');
-
-  @override
-  Iterable<int> get keys => _keys;
-
-  @override
-  int? remove(Object? key) => throw UnsupportedError('unmodifiable');
-}
-
-class CcNotifier extends Notifier<ControlState> {
-  late final Int32List _hotCcState;
-  final List<int> _activeCcs = [];
-  late final List<StreamController<int>> _hotCcControllers;
+  final Map<String, StreamController<int>> _hotCcControllers = {};
   Timer? _pendingIncomingPublishTimer;
   bool _hasPendingIncomingState = false;
   static const Duration _incomingStatePublishInterval = Duration(
@@ -856,12 +911,6 @@ class CcNotifier extends Notifier<ControlState> {
 
   @override
   ControlState build() {
-    _hotCcState = Int32List(128)..fillRange(0, 128, -1);
-    _hotCcControllers = List<StreamController<int>>.generate(
-      128,
-      (_) => StreamController<int>.broadcast(),
-      growable: false,
-    );
     final service = ref.watch(midiServiceProvider);
 
     final sub = service.uiStateUpdates.listen((updates) {
@@ -871,39 +920,77 @@ class CcNotifier extends Notifier<ControlState> {
     ref.onDispose(() {
       sub.cancel();
       _pendingIncomingPublishTimer?.cancel();
-      for (final controller in _hotCcControllers) {
+      for (final controller in _hotCcControllers.values) {
         controller.close();
       }
     });
 
-    final current = service.currentCcState;
+    final current = service.currentState;
     if (current.isNotEmpty) {
-      for (final entry in current.entries) {
-        if (entry.key >= 0 && entry.key < 128) {
-          _hotCcState[entry.key] = entry.value;
-          _activeCcs.add(entry.key);
-        }
+      final ccs = current['ccs'] as Map<String, int>? ?? {};
+      _hotCcState.addAll(ccs);
+
+      final notes = current['notes'] as Map<int, List<int>>? ?? {};
+      for (final entry in notes.entries) {
+        _hotNoteStates[entry.key] = entry.value.toSet();
       }
-      return ControlState(ccValues: current);
+
+      final buttons = current['buttons'] as Map<String, bool>? ?? {};
+      _hotButtonStates.addAll(buttons);
+
+      return ControlState(
+        ccValues: _hotCcState,
+        noteStates: _hotNoteStates,
+        buttonStates: _hotButtonStates,
+      );
     }
 
-    return ControlState(ccValues: const <int, int>{});
+    return ControlState(
+      ccValues: const <String, int>{},
+      noteStates: const <int, Set<int>>{},
+      buttonStates: const <String, bool>{},
+    );
   }
 
-  Stream<int> watchHotCc(int cc) async* {
-    if (cc < 0 || cc >= 128) return;
-
-    final current = _hotCcState[cc];
-    if (current >= 0) {
+  Stream<int> watchHotCc(String address) async* {
+    final current = _hotCcState[address];
+    if (current != null) {
       yield current;
     }
 
-    yield* _hotCcControllers[cc].stream;
+    final controller = _hotCcControllers.putIfAbsent(
+      address,
+      () => StreamController<int>.broadcast(),
+    );
+    yield* controller.stream;
   }
 
-  void ingestIncomingUpdates(Map<int, int> updates) {
+  void ingestIncomingUpdates(Map<String, dynamic> updates) {
     if (updates.isEmpty) return;
-    if (!_applyUpdates(updates)) return;
+
+    bool hasChanges = false;
+
+    final ccs = updates['ccs'] as Map<String, int>?;
+    if (ccs != null && ccs.isNotEmpty) {
+      if (_applyCcUpdates(ccs)) hasChanges = true;
+    }
+
+    final notes = updates['notes'] as Map<int, List<int>>?;
+    if (notes != null) {
+      _hotNoteStates.clear();
+      for (final entry in notes.entries) {
+        _hotNoteStates[entry.key] = entry.value.toSet();
+      }
+      hasChanges = true;
+    }
+
+    final buttons = updates['buttons'] as Map<String, bool>?;
+    if (buttons != null && buttons.isNotEmpty) {
+      _hotButtonStates.addAll(buttons);
+      hasChanges = true;
+    }
+
+    if (!hasChanges) return;
 
     _hasPendingIncomingState = true;
     _pendingIncomingPublishTimer ??= Timer(_incomingStatePublishInterval, () {
@@ -914,60 +1001,58 @@ class CcNotifier extends Notifier<ControlState> {
     });
   }
 
-  void updateCC(int cc, int value) {
-    if (cc < 0 || cc >= 128) return;
-    if (!_applySingleUpdate(cc, value)) return;
+  void updateCC(String address, int value) {
+    if (!_applySingleCcUpdate(address, value)) return;
     _publishState();
   }
 
-  void updateMultipleCCs(Map<int, int> updates) {
+  void updateMultipleCCs(Map<String, int> updates) {
     if (updates.isEmpty) return;
-    if (_applyUpdates(updates)) {
+    if (_applyCcUpdates(updates)) {
       _publishState();
     }
   }
 
-  bool _applyUpdates(Map<int, int> updates) {
+  bool _applyCcUpdates(Map<String, int> updates) {
     bool hasChanges = false;
     for (final entry in updates.entries) {
-      if (_applySingleUpdate(entry.key, entry.value)) {
+      if (_applySingleCcUpdate(entry.key, entry.value)) {
         hasChanges = true;
       }
     }
     return hasChanges;
   }
 
-  bool _applySingleUpdate(int cc, int value) {
-    if (cc < 0 || cc >= 128) return false;
-    if (_hotCcState[cc] == value) return false;
+  bool _applySingleCcUpdate(String address, int value) {
+    if (_hotCcState[address] == value) return false;
 
-    if (_hotCcState[cc] == -1) {
-      _activeCcs.add(cc);
-    }
-    _hotCcState[cc] = value;
-    _hotCcControllers[cc].add(value);
+    _hotCcState[address] = value;
+    _hotCcControllers[address]?.add(value);
     return true;
   }
 
   void _publishState() {
     state = ControlState.raw(
-      ccValues: _CcStateSnapshot(_hotCcState, _activeCcs),
+      ccValues: Map<String, int>.of(_hotCcState),
+      noteStates: Map<int, Set<int>>.of(_hotNoteStates),
+      buttonStates: Map<String, bool>.of(_hotButtonStates),
     );
   }
 }
 
-final ccValuesProvider = NotifierProvider<CcNotifier, ControlState>(
-  CcNotifier.new,
-);
+final controlStateProvider =
+    NotifierProvider<ControlStateNotifier, ControlState>(
+      ControlStateNotifier.new,
+    );
 
 /// Single-layer StreamProvider for per-CC hot values.
 /// Eliminates the previous intermediate StreamProvider wrapper.
-final hotCcValueProvider = StreamProvider.autoDispose.family<int, int>((
+final hotCcValueProvider = StreamProvider.autoDispose.family<int, String>((
   ref,
-  cc,
+  address,
 ) {
-  final notifier = ref.watch(ccValuesProvider.notifier);
-  return notifier.watchHotCc(cc);
+  final notifier = ref.watch(controlStateProvider.notifier);
+  return notifier.watchHotCc(address);
 });
 
 final midiStatusProvider = Provider<MidiStatus>((ref) {
@@ -1053,9 +1138,9 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
   incomingRouter.addNode(
     'uiStateSink',
     UiStateSinkNode(
-      onUpdateCCs: (batchUpdates) {
+      onStateUpdate: (batchUpdates) {
         if (batchUpdates.isNotEmpty) {
-          mainSendPort.send(('cc_update', batchUpdates));
+          mainSendPort.send(('state_update', batchUpdates));
         }
       },
     ),

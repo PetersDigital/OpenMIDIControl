@@ -107,7 +107,7 @@ void main() {
 
         expect(find.text('  0'), findsOneWidget);
 
-        container.read(ccValuesProvider.notifier).updateCC(1, 127);
+        container.read(controlStateProvider.notifier).updateCC("0:1", 127);
 
         await tester.pumpAndSettle(const Duration(seconds: 1));
 
@@ -146,9 +146,9 @@ void main() {
 
         expect(find.text('  0'), findsOneWidget);
 
-        final notifier = container.read(ccValuesProvider.notifier);
-        notifier.updateCC(1, 127);
-        notifier.updateCC(1, 64);
+        final notifier = container.read(controlStateProvider.notifier);
+        notifier.updateCC("0:1", 127);
+        notifier.updateCC("0:1", 64);
 
         await tester.pumpAndSettle(const Duration(seconds: 1));
 
@@ -210,8 +210,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final notifier = container.read(ccValuesProvider.notifier);
-      notifier.updateCC(1, 127);
+      final notifier = container.read(controlStateProvider.notifier);
+      notifier.updateCC("0:1", 127);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       expect(find.text('127'), findsOneWidget);
 
@@ -221,11 +221,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // After switching to CC2, updates to CC1 should no longer affect the fader.
-      notifier.updateCC(1, 10);
+      notifier.updateCC("0:1", 10);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       expect(find.text('127'), findsOneWidget);
 
-      notifier.updateCC(2, 64);
+      notifier.updateCC("0:2", 64);
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       expect(find.text(' 64'), findsOneWidget);
     });
