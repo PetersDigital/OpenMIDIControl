@@ -273,6 +273,13 @@ jobs:
         with:
           subject_path: openmidicontrol-*-windows.zip
 
+      - name: Upload Provenance Attestations
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: provenance-attestations
+          retention-days: 1
+          path: "*.jsonl"
+
   publish-release:
     needs: [validate-tag, build-android, build-windows, provenance]
     timeout-minutes: 15
@@ -377,7 +384,7 @@ jobs:
         with:
           tag: ${{ needs.validate-tag.outputs.tag }}
           has-windows: ${{ needs.validate-tag.outputs.has_windows }}
-          include-provenance: 'false'
+          include-provenance: 'true'
           fail-on-missing: 'true'
 
       - name: Update GitHub Release
