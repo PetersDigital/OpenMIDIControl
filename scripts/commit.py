@@ -115,22 +115,22 @@ def print_header(text: str) -> None:
 
 def print_success(text: str) -> None:
     """Print a success message."""
-    print(f"  {Colors.GREEN}✓{Colors.RESET} {text}")
+    print(f"  {Colors.GREEN}[v]{Colors.RESET} {text}")
 
 
 def print_error(text: str) -> None:
     """Print an error message."""
-    print(f"  {Colors.RED}✗{Colors.RESET} {text}")
+    print(f"  {Colors.RED}[x]{Colors.RESET} {text}")
 
 
 def print_warn(text: str) -> None:
     """Print a warning message."""
-    print(f"  {Colors.YELLOW}⚠{Colors.RESET} {text}")
+    print(f"  {Colors.YELLOW}[!]{Colors.RESET} {text}")
 
 
 def print_info(text: str) -> None:
     """Print an info message."""
-    print(f"  {Colors.CYAN}ℹ{Colors.RESET} {text}")
+    print(f"  {Colors.CYAN}[i]{Colors.RESET} {text}")
 
 
 def run_command(cmd: List[str]) -> Tuple[bool, str]:
