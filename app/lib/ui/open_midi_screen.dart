@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'widgets/hybrid_xy_pad.dart';
+import 'panels/drum_grid_panel.dart';
 
 import 'hybrid_touch_fader.dart';
 import 'midi_service.dart';
@@ -65,11 +67,16 @@ void _showAppSettings(BuildContext context) {
 // ---------------------------------------------------------------------------
 // Root screen
 // ---------------------------------------------------------------------------
-class OpenMIDIMainScreen extends ConsumerWidget {
+class OpenMIDIMainScreen extends ConsumerStatefulWidget {
   const OpenMIDIMainScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OpenMIDIMainScreen> createState() => _OpenMIDIMainScreenState();
+}
+
+class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
+  @override
+  Widget build(BuildContext context) {
     final orientation = MediaQuery.orientationOf(context);
     final size = MediaQuery.sizeOf(context);
 
@@ -548,7 +555,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       flex: 40,
       child: _buildCommandCenter(context, ref),
     );
-    final faderPanel = Expanded(flex: 60, child: _buildPerformanceZone(ref));
+    final faderPanel = Expanded(flex: 60, child: const PerformanceZone());
 
     return Row(
       children: faderOnRight
@@ -707,39 +714,6 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerformanceZone(WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: HybridTouchFader(
-              ccNumber: 1,
-              label: "CC1 Dynamics",
-              activeColor: const Color(0xFFA6C9F8),
-              labelColor: const Color(0xFF033258),
-              initialValue: 1.0,
-              isMobile: false,
-              behavior: ref.watch(faderBehaviorProvider),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: HybridTouchFader(
-              ccNumber: 11,
-              label: "CC11 Expression",
-              activeColor: const Color(0xFFA1CFCE),
-              labelColor: const Color(0xFF013737),
-              initialValue: 0.98,
-              isMobile: false,
-              behavior: ref.watch(faderBehaviorProvider),
             ),
           ),
         ],
@@ -909,6 +883,120 @@ class _GridButton extends StatelessWidget {
       child: Center(
         child: Icon(icon, color: iconColor, size: isSolid ? 36 : 24),
       ),
+    );
+  }
+}
+
+class PerformanceZone extends ConsumerStatefulWidget {
+  const PerformanceZone({super.key});
+
+  @override
+  ConsumerState<PerformanceZone> createState() => _PerformanceZoneState();
+}
+
+class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Page Indicator
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(3, (index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                width: 8.0,
+                height: 8.0,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _currentPage == index
+                      ? const Color(0xFFA6C9F8)
+                      : Colors.white24,
+                ),
+              );
+            }),
+          ),
+        ),
+        // Page View
+        Expanded(
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            children: [
+              // Page 0: Dual Faders
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: HybridTouchFader(
+                        ccNumber: 1,
+                        label: "CC1 Dynamics",
+                        activeColor: const Color(0xFFA6C9F8),
+                        labelColor: const Color(0xFF033258),
+                        initialValue: 1.0,
+                        isMobile: false,
+                        behavior: ref.watch(faderBehaviorProvider),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: HybridTouchFader(
+                        ccNumber: 11,
+                        label: "CC11 Expression",
+                        activeColor: const Color(0xFFA1CFCE),
+                        labelColor: const Color(0xFF013737),
+                        initialValue: 0.98,
+                        isMobile: false,
+                        behavior: ref.watch(faderBehaviorProvider),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Page 1: Hybrid XY Pads
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: const [
+                    Expanded(child: HybridXYPad(ccX: 16, ccY: 17)),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: HybridXYPad(
+                        ccX: 18,
+                        ccY: 19,
+                        padColor: Color(0xFF1E2024),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Page 2: Drum Grid Panel
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: DrumGridPanel(),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
