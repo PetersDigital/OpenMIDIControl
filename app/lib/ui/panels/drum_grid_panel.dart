@@ -76,6 +76,7 @@ class DrumGridPanel extends StatelessWidget {
             final label = noteLabels[currentNote] ?? 'PAD $currentNote';
 
             return VelocityDrumPad(
+              id: 'drum_pad_$index',
               note: currentNote,
               channel: channel,
               label: label,

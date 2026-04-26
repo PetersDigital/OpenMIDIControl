@@ -7,7 +7,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_service.dart';
 
+class XYPadConfig {
+  final int ccX;
+  final int ccY;
+  final int channel;
+  final bool invertX;
+  final bool invertY;
+
+  const XYPadConfig({
+    required this.ccX,
+    required this.ccY,
+    required this.channel,
+    required this.invertX,
+    required this.invertY,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'ccX': ccX,
+    'ccY': ccY,
+    'channel': channel,
+    'invertX': invertX,
+    'invertY': invertY,
+  };
+
+  factory XYPadConfig.fromJson(Map<String, dynamic> json) {
+    return XYPadConfig(
+      ccX: json['ccX'] as int,
+      ccY: json['ccY'] as int,
+      channel: json['channel'] as int,
+      invertX: json['invertX'] as bool,
+      invertY: json['invertY'] as bool,
+    );
+  }
+
+  XYPadConfig copyWith({
+    int? ccX,
+    int? ccY,
+    int? channel,
+    bool? invertX,
+    bool? invertY,
+  }) {
+    return XYPadConfig(
+      ccX: ccX ?? this.ccX,
+      ccY: ccY ?? this.ccY,
+      channel: channel ?? this.channel,
+      invertX: invertX ?? this.invertX,
+      invertY: invertY ?? this.invertY,
+    );
+  }
+}
+
+class XYPadConfigManager extends Notifier<Map<String, XYPadConfig>> {
+  @override
+  Map<String, XYPadConfig> build() => const {};
+
+  void setConfig(String id, XYPadConfig config) {
+    state = {...state, id: config};
+  }
+}
+
+final xyPadConfigProvider =
+    NotifierProvider<XYPadConfigManager, Map<String, XYPadConfig>>(
+      XYPadConfigManager.new,
+    );
+
 class HybridXYPad extends ConsumerStatefulWidget {
+  final String id;
   final int ccX;
   final int ccY;
   final int channel;
@@ -17,6 +82,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
 
   const HybridXYPad({
     super.key,
+    required this.id,
     required this.ccX,
     required this.ccY,
     this.channel = 0,

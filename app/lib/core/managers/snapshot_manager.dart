@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../models/control_state.dart';
+import '../models/preset_snapshot.dart';
 
 final snapshotManagerProvider = Provider<SnapshotManager>((ref) {
   return SnapshotManager();
@@ -23,14 +23,14 @@ class SnapshotManager {
     return presetsDir;
   }
 
-  Future<void> savePreset(String name, ControlState state) async {
+  Future<void> savePreset(String name, PresetSnapshot preset) async {
     final dir = await _presetsDir;
     final file = File('${dir.path}/$name.json');
-    final jsonStr = jsonEncode(state.toJson());
+    final jsonStr = jsonEncode(preset.toJson());
     await file.writeAsString(jsonStr);
   }
 
-  Future<ControlState?> loadPreset(String name) async {
+  Future<PresetSnapshot?> loadPreset(String name) async {
     try {
       final dir = await _presetsDir;
       final file = File('${dir.path}/$name.json');
@@ -39,7 +39,7 @@ class SnapshotManager {
       }
       final jsonStr = await file.readAsString();
       final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
-      return ControlState.fromJson(jsonMap);
+      return PresetSnapshot.fromJson(jsonMap);
     } catch (e) {
       return null;
     }

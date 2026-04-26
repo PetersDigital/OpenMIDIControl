@@ -1001,6 +1001,24 @@ class ControlStateNotifier extends Notifier<ControlState> {
     });
   }
 
+  void injectState(ControlState presetState) {
+    _hotNoteStates.clear();
+    _hotButtonStates.clear();
+
+    for (final entry in presetState.noteStates.entries) {
+      _hotNoteStates[entry.key] = Set.from(entry.value);
+    }
+    _hotButtonStates.addAll(presetState.buttonStates);
+
+    _hotCcState.clear();
+    for (final entry in presetState.ccValues.entries) {
+      _hotCcState[entry.key] = entry.value;
+      _hotCcControllers[entry.key]?.add(entry.value);
+    }
+
+    _publishState();
+  }
+
   void updateCC(String address, int value) {
     if (!_applySingleCcUpdate(address, value)) return;
     _publishState();

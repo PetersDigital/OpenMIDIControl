@@ -975,10 +975,11 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: const [
-                    Expanded(child: HybridXYPad(ccX: 16, ccY: 17)),
+                    Expanded(child: HybridXYPad(id: "xy_1", ccX: 16, ccY: 17)),
                     SizedBox(width: 16),
                     Expanded(
                       child: HybridXYPad(
+                        id: "xy_2",
                         ccX: 18,
                         ccY: 19,
                         padColor: Color(0xFF1E2024),

@@ -54,6 +54,7 @@ void main() {
                 width: 200,
                 height: 200,
                 child: HybridXYPad(
+                  id: "test_xy",
                   ccX: 1,
                   ccY: 2,
                   channel: 0,

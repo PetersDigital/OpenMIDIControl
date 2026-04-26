@@ -8,7 +8,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_service.dart';
 
+class DrumPadConfig {
+  final int note;
+  final int channel;
+
+  const DrumPadConfig({required this.note, required this.channel});
+
+  Map<String, dynamic> toJson() => {'note': note, 'channel': channel};
+
+  factory DrumPadConfig.fromJson(Map<String, dynamic> json) {
+    return DrumPadConfig(
+      note: json['note'] as int,
+      channel: json['channel'] as int,
+    );
+  }
+
+  DrumPadConfig copyWith({int? note, int? channel}) {
+    return DrumPadConfig(
+      note: note ?? this.note,
+      channel: channel ?? this.channel,
+    );
+  }
+}
+
+class DrumPadConfigManager extends Notifier<Map<String, DrumPadConfig>> {
+  @override
+  Map<String, DrumPadConfig> build() => const {};
+
+  void setConfig(String id, DrumPadConfig config) {
+    state = {...state, id: config};
+  }
+}
+
+final drumPadConfigProvider =
+    NotifierProvider<DrumPadConfigManager, Map<String, DrumPadConfig>>(
+      DrumPadConfigManager.new,
+    );
+
 class VelocityDrumPad extends ConsumerStatefulWidget {
+  final String id;
   final int note;
   final int channel;
   final String label;
@@ -19,6 +57,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 
   const VelocityDrumPad({
     super.key,
+    required this.id,
     required this.note,
     this.channel = 9, // Default drum channel
     this.label = '',

@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'open_midi_screen.dart';
+import '../core/managers/snapshot_manager.dart';
+import '../core/models/preset_snapshot.dart';
+import 'midi_service.dart';
+import 'widgets/velocity_drum_pad.dart';
+import 'widgets/hybrid_xy_pad.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -33,6 +38,18 @@ class SettingsScreen extends ConsumerWidget {
         iconTheme: IconThemeData(
           color: Theme.of(context).colorScheme.primaryContainer,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            tooltip: 'Save Preset',
+            onPressed: () => _handleSavePreset(context, ref),
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Load Preset',
+            onPressed: () => _handleLoadPreset(context, ref),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -208,6 +225,143 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _handleSavePreset(BuildContext context, WidgetRef ref) async {
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text('Save Preset', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: nameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Preset Name',
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white60),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, nameController.text.trim()),
+            child: const Text(
+              'SAVE',
+              style: TextStyle(color: Color(0xFFA6C9F8)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (name == null || name.isEmpty) return;
+
+    final controlState = ref.read(controlStateProvider);
+    final drumPads = ref.read(drumPadConfigProvider);
+    final xyPads = ref.read(xyPadConfigProvider);
+
+    final snapshot = PresetSnapshot(
+      controlState: controlState,
+      drumPadConfigs: drumPads,
+      xyPadConfigs: xyPads,
+    );
+
+    await ref.read(snapshotManagerProvider).savePreset(name, snapshot);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Saved preset "$name"')));
+    }
+  }
+
+  Future<void> _handleLoadPreset(BuildContext context, WidgetRef ref) async {
+    final manager = ref.read(snapshotManagerProvider);
+    final presets = await manager.listPresets();
+
+    if (!context.mounted) return;
+
+    if (presets.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No presets found.')));
+      return;
+    }
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text('Load Preset', style: TextStyle(color: Colors.white)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: presets.length,
+            itemBuilder: (context, index) {
+              final name = presets[index];
+              return ListTile(
+                title: Text(name, style: const TextStyle(color: Colors.white)),
+                onTap: () => Navigator.pop(context, name),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.white38),
+                  onPressed: () async {
+                    await manager.deletePreset(name);
+                    if (context.mounted) {
+                      Navigator.pop(context); // Close dialog to refresh
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white60),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (selected == null) return;
+
+    final snapshot = await manager.loadPreset(selected);
+    if (snapshot == null) return;
+
+    // Inject state into providers
+    ref.read(controlStateProvider.notifier).injectState(snapshot.controlState);
+
+    final drumPadNotifier = ref.read(drumPadConfigProvider.notifier);
+    for (final entry in snapshot.drumPadConfigs.entries) {
+      drumPadNotifier.setConfig(entry.key, entry.value);
+    }
+
+    final xyPadNotifier = ref.read(xyPadConfigProvider.notifier);
+    for (final entry in snapshot.xyPadConfigs.entries) {
+      xyPadNotifier.setConfig(entry.key, entry.value);
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Loaded preset "$selected"')));
+    }
   }
 
   String _getBehaviorDescription(FaderBehavior behavior) {

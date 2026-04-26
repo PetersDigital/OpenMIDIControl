@@ -61,6 +61,7 @@ void main() {
                 width: 200,
                 height: 200,
                 child: VelocityDrumPad(
+                  id: "test_pad",
                   note: 36,
                   channel: 9,
                   label: 'KICK',
