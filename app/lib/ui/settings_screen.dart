@@ -299,44 +299,75 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
+    final currentPresets = List<String>.of(presets);
+
     final selected = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2024),
-        title: const Text('Load Preset', style: TextStyle(color: Colors.white)),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: presets.length,
-            itemBuilder: (context, index) {
-              final name = presets[index];
-              return ListTile(
-                title: Text(name, style: const TextStyle(color: Colors.white)),
-                onTap: () => Navigator.pop(context, name),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.white38),
-                  onPressed: () async {
-                    await manager.deletePreset(name);
-                    if (context.mounted) {
-                      Navigator.pop(context); // Close dialog to refresh
-                    }
-                  },
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2024),
+              title: const Text(
+                'Load Preset',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: currentPresets.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No presets available.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: currentPresets.length,
+                        itemBuilder: (context, index) {
+                          final name = currentPresets[index];
+                          return ListTile(
+                            title: Text(
+                              name,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            onTap: () => Navigator.pop(context, name),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.white38,
+                              ),
+                              onPressed: () async {
+                                await manager.deletePreset(name);
+                                setState(() {
+                                  currentPresets.removeAt(index);
+                                });
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Deleted preset "$name"'),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'CANCEL',
+                    style: TextStyle(color: Colors.white60),
+                  ),
                 ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white60),
-            ),
-          ),
-        ],
-      ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     if (selected == null) return;
