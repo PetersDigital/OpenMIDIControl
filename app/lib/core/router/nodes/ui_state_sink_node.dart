@@ -73,19 +73,23 @@ class UiStateSinkNode extends SinkNode {
       final velocity = event.data2;
 
       if (velocity > 0) {
-        _noteStates.putIfAbsent(channel, () => {}).add(note);
+        if (_noteStates.putIfAbsent(channel, () => {}).add(note)) {
+          _hasNoteUpdates = true;
+        }
       } else {
         // Note On with 0 velocity acts as Note Off
-        _noteStates[channel]?.remove(note);
+        if (_noteStates[channel]?.remove(note) ?? false) {
+          _hasNoteUpdates = true;
+        }
       }
-      _hasNoteUpdates = true;
     } else if (event.legacyStatusByte >= 0x80 &&
         event.legacyStatusByte <= 0x8F) {
       // Note Off Event
       final channel = event.channel;
       final note = event.data1;
-      _noteStates[channel]?.remove(note);
-      _hasNoteUpdates = true;
+      if (_noteStates[channel]?.remove(note) ?? false) {
+        _hasNoteUpdates = true;
+      }
     }
   }
 

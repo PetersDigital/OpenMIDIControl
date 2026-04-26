@@ -107,6 +107,25 @@ void main() {
       expect(received, isNot(contains('buttons')));
     });
 
+    test('does not emit redundant updates for duplicate Note On events', () {
+      var updateCount = 0;
+      final node = UiStateSinkNode(
+        onStateUpdate: (_) {
+          updateCount++;
+        },
+      );
+
+      final event = MidiEvent(
+        buildUmp(messageType: 0x2, status: 0x90, data1: 60, data2: 127),
+        0,
+      );
+
+      node.executeSingle(event);
+      node.executeSingle(event);
+
+      expect(updateCount, 1);
+    });
+
     test('keeps last value for repeated CC keys within one batch', () {
       Map<String, dynamic>? received;
       final node = UiStateSinkNode(
