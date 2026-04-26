@@ -279,29 +279,49 @@ class MidiService {
         if (type == 'state_update') {
           final updates = payload as Map<String, dynamic>;
           if (updates.isNotEmpty) {
+            final unmodifiableUpdates = <String, dynamic>{};
+
             final ccs = updates['ccs'] as Map<String, int>?;
             if (ccs != null && ccs.isNotEmpty) {
-              final cachedCcs =
+              final currentCcs =
                   _cachedState['ccs'] as Map<String, int>? ?? <String, int>{};
-              cachedCcs.addAll(ccs);
-              _cachedState['ccs'] = cachedCcs;
+              final nextCcs = Map<String, int>.unmodifiable({
+                ...currentCcs,
+                ...ccs,
+              });
+              _cachedState['ccs'] = nextCcs;
+              // ccs from worker is already Map<String, int>, but we wrap it to be safe
+              unmodifiableUpdates['ccs'] = Map<String, int>.unmodifiable(ccs);
             }
 
             final notes = updates['notes'] as Map<int, List<int>>?;
             if (notes != null) {
-              _cachedState['notes'] = notes; // Notes replace completely
+              // Notes replace completely, but we ensure lists are unmodifiable
+              final nextNotes = Map<int, List<int>>.unmodifiable(
+                notes.map((k, v) => MapEntry(k, List<int>.unmodifiable(v))),
+              );
+              _cachedState['notes'] = nextNotes;
+              unmodifiableUpdates['notes'] = nextNotes;
             }
 
             final buttons = updates['buttons'] as Map<String, bool>?;
             if (buttons != null && buttons.isNotEmpty) {
-              final cachedButtons =
+              final currentButtons =
                   _cachedState['buttons'] as Map<String, bool>? ??
                   <String, bool>{};
-              cachedButtons.addAll(buttons);
-              _cachedState['buttons'] = cachedButtons;
+              final nextButtons = Map<String, bool>.unmodifiable({
+                ...currentButtons,
+                ...buttons,
+              });
+              _cachedState['buttons'] = nextButtons;
+              unmodifiableUpdates['buttons'] = Map<String, bool>.unmodifiable(
+                buttons,
+              );
             }
 
-            _uiStateController.add(updates);
+            _uiStateController.add(
+              Map<String, dynamic>.unmodifiable(unmodifiableUpdates),
+            );
           }
         }
       }
