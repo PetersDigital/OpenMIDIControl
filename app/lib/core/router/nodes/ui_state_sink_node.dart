@@ -39,15 +39,11 @@ class UiStateSinkNode extends SinkNode {
       }
       payload['notes'] = noteBatch;
       _hasNoteUpdates = false;
-    } else {
-      payload['notes'] = <int, List<int>>{};
     }
 
     if (_hasButtonUpdates) {
       payload['buttons'] = Map<String, bool>.from(_buttonStates);
       _hasButtonUpdates = false;
-    } else {
-      payload['buttons'] = <String, bool>{};
     }
 
     onStateUpdate(payload);

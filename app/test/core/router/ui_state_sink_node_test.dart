@@ -59,14 +59,52 @@ void main() {
           buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
           0,
         ),
+      ]);
+
+      expect(received, isNotNull);
+      expect(received!["ccs"], equals({"0:7": 64, "0:10": 127}));
+      expect(received, isNot(contains('notes')));
+    });
+
+    test('does not include notes when no note state has changed', () {
+      Map<String, dynamic>? received;
+      final node = UiStateSinkNode(
+        onStateUpdate: (updates) {
+          received = updates;
+        },
+      );
+
+      node.execute([
         MidiEvent(
-          buildUmp(messageType: 0x2, status: 0x90, data1: 1, data2: 127),
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
           0,
         ),
       ]);
 
       expect(received, isNotNull);
-      expect(received!["ccs"], equals({"0:7": 64, "0:10": 127}));
+      expect(received!['ccs'], equals({'0:7': 64}));
+      expect(received, isNot(contains('notes')));
+      expect(received, isNot(contains('buttons')));
+    });
+
+    test('does not include buttons when no button state has changed', () {
+      Map<String, dynamic>? received;
+      final node = UiStateSinkNode(
+        onStateUpdate: (updates) {
+          received = updates;
+        },
+      );
+
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0x90, data1: 10, data2: 127),
+          0,
+        ),
+      ]);
+
+      expect(received, isNotNull);
+      expect(received!['notes'], isNotNull);
+      expect(received, isNot(contains('buttons')));
     });
 
     test('keeps last value for repeated CC keys within one batch', () {
