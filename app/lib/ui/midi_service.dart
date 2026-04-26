@@ -1050,7 +1050,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
   }
 
   void _publishState() {
-    state = ControlState.raw(
+    state = ControlState(
       ccValues: Map<String, int>.of(_hotCcState),
       noteStates: Map<int, Set<int>>.of(_hotNoteStates),
       buttonStates: Map<String, bool>.of(_hotButtonStates),
