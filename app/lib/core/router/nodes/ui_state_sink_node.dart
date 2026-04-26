@@ -53,7 +53,7 @@ class UiStateSinkNode extends SinkNode {
     onStateUpdate(payload);
   }
 
-  void _processEvent(MidiEvent event, bool isBatch) {
+  void _processEvent(MidiEvent event) {
     if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
       // CC Event
       final channel = event.channel;
@@ -95,7 +95,7 @@ class UiStateSinkNode extends SinkNode {
 
   @override
   void executeSingle(MidiEvent event) {
-    _processEvent(event, false);
+    _processEvent(event);
     if (_dirtyCcIndices.isNotEmpty || _hasNoteUpdates || _hasButtonUpdates) {
       _emitSnapshot();
     }
@@ -104,7 +104,7 @@ class UiStateSinkNode extends SinkNode {
   @override
   void execute(List<MidiEvent> events) {
     for (final event in events) {
-      _processEvent(event, true);
+      _processEvent(event);
     }
 
     if (_dirtyCcIndices.isNotEmpty || _hasNoteUpdates || _hasButtonUpdates) {

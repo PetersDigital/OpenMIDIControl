@@ -20,27 +20,30 @@ void main() {
   }
 
   group('UiStateSinkNode', () {
-    test('does not emit updates for non-CC events', () {
-      var updateCount = 0;
-      final node = UiStateSinkNode(
-        onStateUpdate: (_) {
-          updateCount++;
-        },
-      );
+    test(
+      'emits updates for state-changing events (CC, Note) but ignores system real-time',
+      () {
+        var updateCount = 0;
+        final node = UiStateSinkNode(
+          onStateUpdate: (_) {
+            updateCount++;
+          },
+        );
 
-      node.execute([
-        MidiEvent(
-          buildUmp(messageType: 0x1, status: 0xF8, data1: 0, data2: 0),
-          0,
-        ),
-        MidiEvent(
-          buildUmp(messageType: 0x2, status: 0x90, data1: 1, data2: 127),
-          0,
-        ),
-      ]);
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x1, status: 0xF8, data1: 0, data2: 0),
+            0,
+          ),
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0x90, data1: 1, data2: 127),
+            0,
+          ),
+        ]);
 
-      expect(updateCount, 1);
-    });
+        expect(updateCount, 1);
+      },
+    );
 
     test('emits a map of CC updates for CC events only', () {
       Map<String, dynamic>? received;
