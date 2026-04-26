@@ -38,6 +38,10 @@ class DrumPadConfigManager extends Notifier<Map<String, DrumPadConfig>> {
   void setConfig(String id, DrumPadConfig config) {
     state = {...state, id: config};
   }
+
+  void setAllConfigs(Map<String, DrumPadConfig> configs) {
+    state = Map.unmodifiable(configs);
+  }
 }
 
 final drumPadConfigProvider =

@@ -377,16 +377,10 @@ class SettingsScreen extends ConsumerWidget {
 
     // Inject state into providers
     ref.read(controlStateProvider.notifier).injectState(snapshot.controlState);
-
-    final drumPadNotifier = ref.read(drumPadConfigProvider.notifier);
-    for (final entry in snapshot.drumPadConfigs.entries) {
-      drumPadNotifier.setConfig(entry.key, entry.value);
-    }
-
-    final xyPadNotifier = ref.read(xyPadConfigProvider.notifier);
-    for (final entry in snapshot.xyPadConfigs.entries) {
-      xyPadNotifier.setConfig(entry.key, entry.value);
-    }
+    ref
+        .read(drumPadConfigProvider.notifier)
+        .setAllConfigs(snapshot.drumPadConfigs);
+    ref.read(xyPadConfigProvider.notifier).setAllConfigs(snapshot.xyPadConfigs);
 
     if (context.mounted) {
       ScaffoldMessenger.of(
