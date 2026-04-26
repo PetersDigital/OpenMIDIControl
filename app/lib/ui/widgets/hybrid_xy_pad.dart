@@ -64,6 +64,10 @@ class XYPadConfigManager extends Notifier<Map<String, XYPadConfig>> {
   void setConfig(String id, XYPadConfig config) {
     state = {...state, id: config};
   }
+
+  void setAllConfigs(Map<String, XYPadConfig> configs) {
+    state = Map.unmodifiable(configs);
+  }
 }
 
 final xyPadConfigProvider =
@@ -137,8 +141,15 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
       }
     });
 
-    final effectiveX = widget.invertX ? 1.0 - _normalizedX : _normalizedX;
-    final effectiveY = widget.invertY ? 1.0 - _normalizedY : _normalizedY;
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final effectiveCcX = config?.ccX ?? widget.ccX;
+    final effectiveCcY = config?.ccY ?? widget.ccY;
+    final effectiveChannel = config?.channel ?? widget.channel;
+    final effectiveInvertX = config?.invertX ?? widget.invertX;
+    final effectiveInvertY = config?.invertY ?? widget.invertY;
+
+    final effectiveX = effectiveInvertX ? 1.0 - _normalizedX : _normalizedX;
+    final effectiveY = effectiveInvertY ? 1.0 - _normalizedY : _normalizedY;
 
     final valX = (effectiveX * 127).round().clamp(0, 127);
     final valY = (effectiveY * 127).round().clamp(0, 127);
@@ -146,8 +157,18 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     final service = ref.read(midiServiceProvider);
 
     // Batch these closely together
-    service.sendCC(widget.ccX, valX, channel: widget.channel, isFinal: isFinal);
-    service.sendCC(widget.ccY, valY, channel: widget.channel, isFinal: isFinal);
+    service.sendCC(
+      effectiveCcX,
+      valX,
+      channel: effectiveChannel,
+      isFinal: isFinal,
+    );
+    service.sendCC(
+      effectiveCcY,
+      valY,
+      channel: effectiveChannel,
+      isFinal: isFinal,
+    );
   }
 
   @override
@@ -158,6 +179,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(xyPadConfigProvider)[widget.id];
+    final ccX = config?.ccX ?? widget.ccX;
+    final ccY = config?.ccY ?? widget.ccY;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -257,7 +282,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                     bottom: 8,
                     right: 8,
                     child: Text(
-                      'X: CC${widget.ccX}',
+                      'X: CC$ccX',
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         color: Colors.white54,
@@ -270,7 +295,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                     top: 8,
                     left: 8,
                     child: Text(
-                      'Y: CC${widget.ccY}',
+                      'Y: CC$ccY',
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         color: Colors.white54,
