@@ -98,7 +98,12 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     super.dispose();
   }
 
-  void _handlePointerDown(PointerDownEvent event, Size size) {
+  void _handlePointerDown(
+    PointerDownEvent event,
+    Size size,
+    int note,
+    int channel,
+  ) {
     if (_isPressed) return;
 
     final center = Offset(size.width / 2, size.height / 2);
@@ -132,15 +137,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
     ref
         .read(midiServiceProvider)
-        .sendNoteOn(
-          widget.note,
-          velocity,
-          channel: widget.channel,
-          isFinal: false,
-        );
+        .sendNoteOn(note, velocity, channel: channel, isFinal: false);
   }
 
-  void _handlePointerUpOrCancel(PointerEvent event) {
+  void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
     if (!_isPressed) return;
 
     setState(() {
@@ -153,19 +153,26 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
     ref
         .read(midiServiceProvider)
-        .sendNoteOff(widget.note, channel: widget.channel, isFinal: true);
+        .sendNoteOff(note, channel: channel, isFinal: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(drumPadConfigProvider)[widget.id];
+    final note = config?.note ?? widget.note;
+    final channel = config?.channel ?? widget.channel;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
         return Listener(
-          onPointerDown: (event) => _handlePointerDown(event, size),
-          onPointerUp: _handlePointerUpOrCancel,
-          onPointerCancel: _handlePointerUpOrCancel,
+          onPointerDown: (event) =>
+              _handlePointerDown(event, size, note, channel),
+          onPointerUp: (event) =>
+              _handlePointerUpOrCancel(event, note, channel),
+          onPointerCancel: (event) =>
+              _handlePointerUpOrCancel(event, note, channel),
           behavior: HitTestBehavior.opaque,
           child: ScaleTransition(
             scale: _scaleController,
@@ -222,9 +229,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          widget.label.isNotEmpty
-                              ? widget.label
-                              : 'PAD ${widget.note}',
+                          widget.label.isNotEmpty ? widget.label : 'PAD $note',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             color: _isPressed
