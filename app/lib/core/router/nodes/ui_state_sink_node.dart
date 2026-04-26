@@ -6,6 +6,12 @@ import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
 class UiStateSinkNode extends SinkNode {
+  static final List<String> _addressKeys = List<String>.generate(2048, (index) {
+    final channel = index ~/ 128;
+    final cc = index % 128;
+    return '$channel:$cc';
+  }, growable: false);
+
   final void Function(Map<String, dynamic>) onStateUpdate;
 
   // 16 channels * 128 CCs = 2048
@@ -24,9 +30,7 @@ class UiStateSinkNode extends SinkNode {
   void _emitSnapshot() {
     final ccBatch = <String, int>{};
     for (final index in _dirtyCcIndices) {
-      final channel = index ~/ 128;
-      final cc = index % 128;
-      ccBatch['$channel:$cc'] = _ccBuffer[index];
+      ccBatch[_addressKeys[index]] = _ccBuffer[index];
     }
     _dirtyCcIndices.clear();
 
