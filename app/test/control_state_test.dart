@@ -14,7 +14,6 @@ void main() {
       );
 
       expect(state.ccValues["0:1"], 64);
-      // expect(state.ccValues["0:\1"], 127);
       expect(() => state.ccValues["0:1"] = 0, throwsUnsupportedError);
     });
 
@@ -45,7 +44,6 @@ void main() {
       expect(copied.ccValues["0:1"], 100);
       expect(copied.ccValues["0:2"], 32);
       expect(copied.ccValues["0:3"], 64);
-      expect(copied.ccValues["0:3"], 64);
       expect(copied, isNot(same(original)));
     });
 
@@ -73,7 +71,7 @@ void main() {
       expect(() => copied.ccValues["0:2"] = 0, throwsUnsupportedError);
     });
 
-    test('copyWithCC updates a single CC number correctly', () {
+    test('copyWith updates a single CC address correctly', () {
       final state = ControlState(
         ccValues: {"0:1": 64},
         noteStates: {},
@@ -89,7 +87,7 @@ void main() {
       expect(updated, isNot(same(state)));
     });
 
-    test('copyWithCC adds new CC when key does not exist', () {
+    test('copyWith adds new CC address when key does not exist', () {
       final state = ControlState(
         ccValues: {"0:1": 64},
         noteStates: {},
@@ -104,7 +102,7 @@ void main() {
       expect(updated.ccValues["0:1"], 64);
     });
 
-    test('copyWithCC produces immutable result', () {
+    test('copyWith produced results are immutable', () {
       final state = ControlState(
         ccValues: {"0:1": 64},
         noteStates: {},
@@ -117,7 +115,7 @@ void main() {
       expect(() => updated.ccValues["0:2"] = 0, throwsUnsupportedError);
     });
 
-    test('copyWithCC preserves existing CCs unchanged', () {
+    test('copyWith preserves existing CCs unchanged', () {
       final state = ControlState(
         ccValues: {"0:1": 64},
         noteStates: {},
