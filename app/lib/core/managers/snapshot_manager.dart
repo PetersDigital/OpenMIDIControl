@@ -23,9 +23,18 @@ class SnapshotManager {
     return presetsDir;
   }
 
+  /// Sanitizes the preset name to prevent path traversal and illegal characters.
+  String _sanitizeName(String name) {
+    // Only allow alphanumeric, spaces, underscores, and hyphens.
+    // This explicitly prevents '/', '\', '..', and other problematic characters.
+    final sanitized = name.trim().replaceAll(RegExp(r'[^a-zA-Z0-9 _\-]'), '_');
+    return sanitized.isEmpty ? 'unnamed_preset' : sanitized;
+  }
+
   Future<void> savePreset(String name, PresetSnapshot preset) async {
     final dir = await _presetsDir;
-    final file = File('${dir.path}/$name.json');
+    final sanitizedName = _sanitizeName(name);
+    final file = File('${dir.path}/$sanitizedName.json');
     final jsonStr = jsonEncode(preset.toJson());
     await file.writeAsString(jsonStr);
   }
@@ -33,7 +42,8 @@ class SnapshotManager {
   Future<PresetSnapshot?> loadPreset(String name) async {
     try {
       final dir = await _presetsDir;
-      final file = File('${dir.path}/$name.json');
+      final sanitizedName = _sanitizeName(name);
+      final file = File('${dir.path}/$sanitizedName.json');
       if (!await file.exists()) {
         return null;
       }
@@ -59,7 +69,8 @@ class SnapshotManager {
 
   Future<void> deletePreset(String name) async {
     final dir = await _presetsDir;
-    final file = File('${dir.path}/$name.json');
+    final sanitizedName = _sanitizeName(name);
+    final file = File('${dir.path}/$sanitizedName.json');
     if (await file.exists()) {
       await file.delete();
     }
