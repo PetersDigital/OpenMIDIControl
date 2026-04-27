@@ -185,6 +185,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   Tooltip(
                     message: 'Toggle Transport',
                     child: GestureDetector(
+                      key: const ValueKey('transport_toggle_button'),
                       onTap: () =>
                           ref.read(transportVisibleProvider.notifier).toggle(),
                       behavior: HitTestBehavior.opaque,
@@ -416,26 +417,84 @@ class _MobileLandscapeLayout extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
-
     final isVisible = ref.watch(transportVisibleProvider);
+    final size = MediaQuery.sizeOf(context);
+    final panelWidth = size.width * 0.38;
 
-    // We cannot use AnimatedSize with Expanded flex values directly inside a Row,
-    // so we handle the animation gracefully by setting flex to 0 when hidden,
-    // or by letting it disappear if flex cannot animate. Flex is not animatable
-    // out-of-the-box in Flutter without TweenAnimationBuilder, but we can do a simple conditional.
+    return Stack(
+      children: [
+        // Always 100% fader zone
+        _buildPerformanceZone(ref),
 
-    final commandPanel = isVisible
-        ? Expanded(flex: 38, child: _buildCommandCenter(context, ref))
-        : const SizedBox.shrink();
-    final faderPanel = Expanded(
-      flex: isVisible ? 62 : 100,
-      child: _buildPerformanceZone(ref),
+        // Sliding Command Center
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          top: 0,
+          bottom: 0,
+          left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+          right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+          width: panelWidth,
+          child: Visibility(
+            visible: isVisible,
+            maintainState: true,
+            child: _buildCommandCenter(context, ref),
+          ),
+        ),
+
+        // Floating Toggle (only visible when panel is hidden)
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          top: 12,
+          left: faderOnRight ? (isVisible ? -60 : 12) : null,
+          right: !faderOnRight ? (isVisible ? -60 : 12) : null,
+          child: _buildFloatingControls(context, ref),
+        ),
+      ],
     );
+  }
 
-    return Row(
-      children: faderOnRight
-          ? [commandPanel, faderPanel]
-          : [faderPanel, commandPanel],
+  Widget _buildFloatingControls(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2024).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+          Tooltip(
+            message: 'Toggle Transport',
+            child: IconButton(
+              key: const ValueKey('transport_toggle_button_floating'),
+              icon: const Icon(
+                Icons.keyboard_double_arrow_left,
+                color: Color(0xFFA6C9F8),
+                size: 20,
+              ),
+              onPressed: () {
+                ref.read(transportVisibleProvider.notifier).toggle();
+              },
+            ),
+          ),
+          Tooltip(
+            message: 'App Settings',
+            child: IconButton(
+              key: const ValueKey('floating_app_settings'),
+              icon: const Icon(
+                Icons.more_vert,
+                color: Color(0xFFC3C7CA),
+                size: 20,
+              ),
+              onPressed: () => _showAppSettings(context),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -465,6 +524,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     Tooltip(
                       message: 'Toggle Transport',
                       child: IconButton(
+                        key: const ValueKey('transport_toggle_button'),
                         icon: const Icon(
                           Icons.play_circle_outline,
                           color: Color(0xFFC3C7CA),
@@ -644,20 +704,85 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
-
     final isVisible = ref.watch(transportVisibleProvider);
-    final commandPanel = isVisible
-        ? Expanded(flex: 40, child: _buildCommandCenter(context, ref))
-        : const SizedBox.shrink();
-    final faderPanel = Expanded(
-      flex: isVisible ? 60 : 100,
-      child: const PerformanceZone(),
-    );
+    final size = MediaQuery.sizeOf(context);
+    final panelWidth = size.width * 0.40;
 
-    return Row(
-      children: faderOnRight
-          ? [commandPanel, faderPanel]
-          : [faderPanel, commandPanel],
+    return Stack(
+      children: [
+        // Always 100% performance zone
+        const PerformanceZone(),
+
+        // Sliding Command Center
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          top: 0,
+          bottom: 0,
+          left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+          right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+          width: panelWidth,
+          child: Visibility(
+            visible: isVisible,
+            maintainState: true,
+            child: _buildCommandCenter(context, ref),
+          ),
+        ),
+
+        // Floating Toggle (only visible when panel is hidden)
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          top: 24,
+          left: faderOnRight ? (isVisible ? -100 : 24) : null,
+          right: !faderOnRight ? (isVisible ? -100 : 24) : null,
+          child: _buildFloatingControls(context, ref),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFloatingControls(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2024).withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'Toggle Transport',
+            child: IconButton(
+              key: const ValueKey('transport_toggle_button_floating'),
+              icon: const Icon(
+                Icons.keyboard_double_arrow_left,
+                color: Color(0xFFA6C9F8),
+                size: 28,
+              ),
+              onPressed: () =>
+                  ref.read(transportVisibleProvider.notifier).toggle(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'App Settings',
+            child: IconButton(
+              key: const ValueKey('desktop_floating_app_settings'),
+              icon: const Icon(
+                Icons.more_vert,
+                color: Color(0xFFC3C7CA),
+                size: 28,
+              ),
+              onPressed: () => _showAppSettings(context),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -668,54 +793,80 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Header row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "OPENMIDI",
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFFA6C9F8),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 24,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: 400,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _ConnectionStatusButton(
-                    onTap: () => _showMidiSettings(context),
+                  _buildTransportButton(Icons.skip_previous, () {}),
+                  _buildTransportButton(Icons.stop, () {}),
+                  _buildTransportButton(
+                    Icons.play_arrow,
+                    () {},
+                    isPrimary: true,
                   ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Toggle Transport',
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.play_circle_outline,
-                        color: Color(0xFFC3C7CA),
-                        size: 28,
-                      ),
-                      onPressed: () =>
-                          ref.read(transportVisibleProvider.notifier).toggle(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'App Settings',
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.more_vert,
-                        color: Color(0xFFC3C7CA),
-                        size: 28,
-                      ),
-                      onPressed: () => _showAppSettings(context),
-                    ),
-                  ),
+                  _buildTransportButton(Icons.pause, () {}),
+                  _buildTransportButton(Icons.skip_next, () {}),
                 ],
               ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "OPENMIDI",
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Color(0xFFA6C9F8),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 24,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ConnectionStatusButton(
+                      onTap: () => _showMidiSettings(context),
+                    ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Toggle Transport',
+                      child: IconButton(
+                        key: const ValueKey('transport_toggle_button_panel'),
+                        icon: const Icon(
+                          Icons.keyboard_double_arrow_left,
+                          color: Color(0xFFA6C9F8),
+                        ),
+                        onPressed: () {
+                          ref.read(transportVisibleProvider.notifier).toggle();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'App Settings',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 28,
+                        ),
+                        onPressed: () => _showAppSettings(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -829,6 +980,21 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTransportButton(
+    IconData icon,
+    VoidCallback onPressed, {
+    bool isPrimary = false,
+  }) {
+    return IconButton(
+      icon: Icon(
+        icon,
+        color: isPrimary ? const Color(0xFFA6C9F8) : const Color(0xFFC3C7CA),
+        size: isPrimary ? 48 : 32,
+      ),
+      onPressed: onPressed,
     );
   }
 }
