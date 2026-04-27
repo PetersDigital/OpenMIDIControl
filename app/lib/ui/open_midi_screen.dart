@@ -1224,16 +1224,10 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
               ),
 
               // Page 2: Drum Grid Panel
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: DrumGridPanel(),
-              ),
+              const DrumGridPanel(),
 
               // Page 3: Utility Grid Panel
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: UtilityGridPanel(),
-              ),
+              const UtilityGridPanel(),
             ],
           ),
         ),
