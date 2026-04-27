@@ -1169,24 +1169,9 @@ class PerformanceZone extends ConsumerStatefulWidget {
 }
 
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
-  final PageController _pageController = PageController();
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentPage = ref.watch(performancePageIndexProvider);
-
-    // Sync PageController when provider changes externally
-    ref.listen<int>(performancePageIndexProvider, (previous, next) {
-      if (_pageController.hasClients && _pageController.page?.round() != next) {
-        _pageController.jumpToPage(next);
-      }
-    });
 
     return Column(
       children: [
@@ -1199,14 +1184,10 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
             _buildTabButton(3, "UTILITY", currentPage),
           ],
         ),
-        // Page View
+        // Performance Panels
         Expanded(
-          child: PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (index) {
-              ref.read(performancePageIndexProvider.notifier).setPage(index);
-            },
+          child: IndexedStack(
+            index: currentPage,
             children: [
               // Page 0: Dual Faders
               Row(
