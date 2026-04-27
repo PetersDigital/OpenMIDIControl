@@ -18,43 +18,25 @@ class DrumGridPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isLandscape = constraints.maxWidth > constraints.maxHeight;
-
-        int crossAxisCount;
-        int totalPads;
-
-        if (isLandscape) {
-          // In landscape, we want 2 rows.
-          // Since we want square pads, the pad height should be max constraints.maxHeight / 2.
-          // So the pad width is also constraints.maxHeight / 2.
-          // How many fit in maxWidth?
-          final padSize = constraints.maxHeight / 2.0;
-          crossAxisCount = (constraints.maxWidth / padSize).floor();
-
-          // Ensure we have at least a 2x4 grid to match requirements if space allows
-          if (crossAxisCount < 4) {
-            crossAxisCount = 4;
-          }
-
-          totalPads = crossAxisCount * 2;
-        } else {
-          // Portrait: Classic MPC 3x3 layout
-          crossAxisCount = 3;
-          totalPads = 9;
-        }
+        // Calculate the aspect ratio to fit 2 columns and 4 rows exactly
+        // Pad width = totalWidth / 2
+        // Pad height = totalHeight / 4
+        // AspectRatio = width / height
+        final padWidth = constraints.maxWidth / 2;
+        final padHeight = constraints.maxHeight / 4;
+        final aspectRatio = padWidth / padHeight;
 
         return GridView.builder(
-          physics:
-              const NeverScrollableScrollPhysics(), // Usually pads are fixed
+          physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: 1.0, // Square pads
-            crossAxisSpacing: 8.0,
-            mainAxisSpacing: 8.0,
+            crossAxisCount: 2,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: 2.0, // Tighter spacing for industrial look
+            mainAxisSpacing: 2.0,
           ),
-          itemCount: totalPads,
+          itemCount: 8,
           itemBuilder: (context, index) {
-            // General MIDI drum labels mapping (simplified for typical 3x3 / 2x4)
+            // General MIDI drum labels mapping (simplified for typical 2x4)
             final noteLabels = {
               36: 'KICK 1',
               37: 'SNARE 1',
