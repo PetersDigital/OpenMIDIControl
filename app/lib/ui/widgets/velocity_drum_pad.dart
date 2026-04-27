@@ -185,7 +185,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                 color: _isPressed
                     ? widget.padColor.withValues(alpha: 0.8)
                     : widget.padColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _isPressed
                       ? widget.padColor.withValues(alpha: 0.8)
@@ -200,13 +200,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                           blurStyle: BlurStyle.inner,
                         ),
                       ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                    : [],
               ),
               child: Stack(
                 children: [
