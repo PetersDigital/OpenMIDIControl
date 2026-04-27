@@ -285,7 +285,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${(_normalizedX * 127).round().toString().padLeft(3, '0')}',
+                          '${(((config?.invertX ?? widget.invertX) ? (1.0 - _normalizedX) : _normalizedX) * 127).round().toString().padLeft(3, '0')}',
                           style: const TextStyle(
                             fontFamily: 'DSEG7Modern',
                             color: Color(0xFFA6C9F8),
@@ -320,7 +320,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                           ),
                         ),
                         Text(
-                          '${(_normalizedY * 127).round().toString().padLeft(3, '0')}',
+                          '${(((config?.invertY ?? widget.invertY) ? (1.0 - _normalizedY) : _normalizedY) * 127).round().toString().padLeft(3, '0')}',
                           style: const TextStyle(
                             fontFamily: 'DSEG7Modern',
                             color: Color(0xFFA6C9F8),
