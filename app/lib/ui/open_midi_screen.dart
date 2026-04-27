@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/hybrid_xy_pad.dart';
 import 'panels/drum_grid_panel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'hybrid_touch_fader.dart';
 import 'midi_service.dart';
@@ -27,6 +28,28 @@ final faderBehaviorProvider =
     NotifierProvider<FaderBehaviorNotifier, FaderBehavior>(
       FaderBehaviorNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// State: Transport Visibility
+// ---------------------------------------------------------------------------
+class TransportVisibleNotifier extends Notifier<bool> {
+  @override
+  bool build() => false; // Default is hidden, initialized later
+
+  void toggle() => state = !state;
+  void setVisible(bool visible) => state = visible;
+}
+
+final transportVisibleProvider =
+    NotifierProvider<TransportVisibleNotifier, bool>(
+      TransportVisibleNotifier.new,
+    );
+
+final firstLaunchCheckProvider = FutureProvider<bool>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  final hasLaunched = prefs.getBool('hasLaunched') ?? false;
+  return !hasLaunched;
+});
 
 // ---------------------------------------------------------------------------
 // State: Layout hand (faders left vs. right)
@@ -76,6 +99,29 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
 }
 
 class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstLaunch();
+  }
+
+  Future<void> _checkFirstLaunch() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final isFirstLaunch = await ref.read(firstLaunchCheckProvider.future);
+      if (isFirstLaunch) {
+        ref.read(transportVisibleProvider.notifier).setVisible(true);
+
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (mounted) {
+          ref.read(transportVisibleProvider.notifier).setVisible(false);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('hasLaunched', true);
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.orientationOf(context);
@@ -137,6 +183,23 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Tooltip(
+                    message: 'Toggle Transport',
+                    child: GestureDetector(
+                      onTap: () =>
+                          ref.read(transportVisibleProvider.notifier).toggle(),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          color: Color(0xFFC3C7CA),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
                     message: 'App Settings',
                     child: GestureDetector(
                       onTap: () => _showAppSettings(context),
@@ -158,152 +221,156 @@ class _MobilePortraitLayout extends ConsumerWidget {
         ),
 
         // COMMAND CENTER (30%)
-        Expanded(
-          flex: 30,
-          child: Container(
-            color: const Color(0xFF1E2024),
-            child: Column(
-              children: [
-                // Status row
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              "TRACK",
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: Colors.white60,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2.0,
-                              ),
-                            ),
-                            const Text(
-                              "01 - Cinematic Violins",
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: Color(0xFFA6C9F8),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: _StatusDisplay(
-                          label: "TIMECODE",
-                          value: "001:01:000",
-                          alignRight: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 3×3 control grid
-                Expanded(
-                  child: Container(
-                    color: const Color(0xFF111318),
-                    child: Column(
+        if (ref.watch(transportVisibleProvider))
+          Expanded(
+            flex: 30,
+            child: Container(
+              color: const Color(0xFF1E2024),
+              child: Column(
+                children: [
+                  // Status row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    child: Row(
                       children: [
                         Expanded(
-                          child: Row(
-                            children: const [
-                              Expanded(
-                                child: _GridButton(icon: Icons.fast_rewind),
-                              ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.keyboard_arrow_up,
-                                  bgColor: Color(0xFF282A2E),
+                          child: _StatusDisplay(
+                            label: "TEMPO",
+                            value: "120 BPM",
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            children: [
+                              const Text(
+                                "TRACK",
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.white60,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2.0,
                                 ),
                               ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.fiber_manual_record,
-                                  bgColor: Color(0xFFFFB59E),
-                                  iconColor: Color(0xFF690005),
-                                  isSolid: true,
-                                  shadowColor: Color(0xFFFFB59E),
+                              const Text(
+                                "01 - Cinematic Violins",
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Color(0xFFA6C9F8),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
                                 ),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
                         ),
                         Expanded(
-                          child: Row(
-                            children: const [
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.keyboard_arrow_left,
-                                  bgColor: Color(0xFF282A2E),
-                                ),
-                              ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.stop,
-                                  bgColor: Color(0xFF33353A),
-                                  iconColor: Colors.white,
-                                ),
-                              ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.keyboard_arrow_right,
-                                  bgColor: Color(0xFF282A2E),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: const [
-                              Expanded(
-                                child: _GridButton(icon: Icons.fast_forward),
-                              ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.keyboard_arrow_down,
-                                  bgColor: Color(0xFF282A2E),
-                                ),
-                              ),
-                              Expanded(
-                                child: _GridButton(
-                                  icon: Icons.play_arrow,
-                                  bgColor: Color(0xFFA6C9F8),
-                                  iconColor: Color(0xFF033258),
-                                  isSolid: true,
-                                  shadowColor: Color(0xFFA6C9F8),
-                                ),
-                              ),
-                            ],
+                          child: _StatusDisplay(
+                            label: "TIMECODE",
+                            value: "001:01:000",
+                            alignRight: true,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+
+                  // 3×3 control grid
+                  Expanded(
+                    child: Container(
+                      color: const Color(0xFF111318),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: const [
+                                Expanded(
+                                  child: _GridButton(icon: Icons.fast_rewind),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.keyboard_arrow_up,
+                                    bgColor: Color(0xFF282A2E),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.fiber_manual_record,
+                                    bgColor: Color(0xFFFFB59E),
+                                    iconColor: Color(0xFF690005),
+                                    isSolid: true,
+                                    shadowColor: Color(0xFFFFB59E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: const [
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.keyboard_arrow_left,
+                                    bgColor: Color(0xFF282A2E),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.stop,
+                                    bgColor: Color(0xFF33353A),
+                                    iconColor: Colors.white,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.keyboard_arrow_right,
+                                    bgColor: Color(0xFF282A2E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: const [
+                                Expanded(
+                                  child: _GridButton(icon: Icons.fast_forward),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.keyboard_arrow_down,
+                                    bgColor: Color(0xFF282A2E),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _GridButton(
+                                    icon: Icons.play_arrow,
+                                    bgColor: Color(0xFFA6C9F8),
+                                    iconColor: Color(0xFF033258),
+                                    isSolid: true,
+                                    shadowColor: Color(0xFFA6C9F8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
 
         // PERFORMANCE ZONE (70%)
         Expanded(
-          flex: 70,
+          flex: ref.watch(transportVisibleProvider) ? 70 : 100,
           child: Container(
             color: const Color(0xFF111318),
             child: Row(
@@ -350,11 +417,20 @@ class _MobileLandscapeLayout extends ConsumerWidget {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
 
-    final commandPanel = Expanded(
-      flex: 38,
-      child: _buildCommandCenter(context, ref),
+    final isVisible = ref.watch(transportVisibleProvider);
+
+    // We cannot use AnimatedSize with Expanded flex values directly inside a Row,
+    // so we handle the animation gracefully by setting flex to 0 when hidden,
+    // or by letting it disappear if flex cannot animate. Flex is not animatable
+    // out-of-the-box in Flutter without TweenAnimationBuilder, but we can do a simple conditional.
+
+    final commandPanel = isVisible
+        ? Expanded(flex: 38, child: _buildCommandCenter(context, ref))
+        : const SizedBox.shrink();
+    final faderPanel = Expanded(
+      flex: isVisible ? 62 : 100,
+      child: _buildPerformanceZone(ref),
     );
-    final faderPanel = Expanded(flex: 62, child: _buildPerformanceZone(ref));
 
     return Row(
       children: faderOnRight
@@ -385,6 +461,23 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     _ConnectionStatusButton(
                       onTap: () => _showMidiSettings(context),
                     ),
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Toggle Transport',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.play_circle_outline,
+                          color: Color(0xFFC3C7CA),
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => ref
+                            .read(transportVisibleProvider.notifier)
+                            .toggle(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Tooltip(
                       message: 'App Settings',
                       child: IconButton(
@@ -552,11 +645,14 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
 
-    final commandPanel = Expanded(
-      flex: 40,
-      child: _buildCommandCenter(context, ref),
+    final isVisible = ref.watch(transportVisibleProvider);
+    final commandPanel = isVisible
+        ? Expanded(flex: 40, child: _buildCommandCenter(context, ref))
+        : const SizedBox.shrink();
+    final faderPanel = Expanded(
+      flex: isVisible ? 60 : 100,
+      child: const PerformanceZone(),
     );
-    final faderPanel = Expanded(flex: 60, child: const PerformanceZone());
 
     return Row(
       children: faderOnRight
@@ -592,6 +688,20 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   _ConnectionStatusButton(
                     onTap: () => _showMidiSettings(context),
                   ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Toggle Transport',
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.play_circle_outline,
+                        color: Color(0xFFC3C7CA),
+                        size: 28,
+                      ),
+                      onPressed: () =>
+                          ref.read(transportVisibleProvider.notifier).toggle(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Tooltip(
                     message: 'App Settings',
                     child: IconButton(
