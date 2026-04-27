@@ -206,29 +206,101 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       ),
       color: const Color(0xFF1E2024),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      items: _kCCOptions.map((option) {
-        final isSelected = option['cc'] == _ccNumber;
-        return PopupMenuItem<Map<String, dynamic>>(
-          value: option,
+      items: [
+        ..._kCCOptions.map((option) {
+          final isSelected = option['cc'] == _ccNumber;
+          return PopupMenuItem<Map<String, dynamic>>(
+            value: option,
+            child: Text(
+              'CC${option['cc']} – ${option['name']}',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: isSelected ? const Color(0xFFA6C9F8) : Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          );
+        }),
+        const PopupMenuDivider(),
+        const PopupMenuItem<Map<String, dynamic>>(
+          value: {'cc': -1, 'name': 'Custom...'},
           child: Text(
-            'CC${option['cc']} – ${option['name']}',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: isSelected ? const Color(0xFFA6C9F8) : Colors.white,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            'Custom CC...',
+            style: TextStyle(fontFamily: 'Inter', color: Colors.white70),
+          ),
+        ),
+      ],
+    );
+
+    if (selected != null) {
+      if (selected['cc'] == -1) {
+        // Show custom CC dialog
+        if (!context.mounted) return;
+        final customCC = await _showCustomCCDialog(context);
+        if (customCC != null) {
+          setState(() {
+            _ccNumber = customCC;
+            _ccLabel = 'CC$customCC\nCUSTOM';
+          });
+          _setupListener();
+        }
+      } else {
+        setState(() {
+          _ccNumber = selected['cc'] as int;
+          _ccLabel =
+              'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
+        });
+        _setupListener();
+      }
+    }
+  }
+
+  Future<int?> _showCustomCCDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text(
+          'Set Custom CC',
+          style: TextStyle(color: Colors.white, fontFamily: 'Space Grotesk'),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'CC Number (0-127)',
+            labelStyle: TextStyle(color: Colors.white70),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white12),
             ),
           ),
-        );
-      }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text);
+              if (val != null && val >= 0 && val <= 127) {
+                Navigator.pop(context, val);
+              }
+            },
+            child: const Text(
+              'SET',
+              style: TextStyle(color: Color(0xFFA6C9F8)),
+            ),
+          ),
+        ],
+      ),
     );
-    if (selected != null) {
-      setState(() {
-        _ccNumber = selected['cc'] as int;
-        _ccLabel =
-            'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
-      });
-      _setupListener();
-    }
   }
 
   void _handleCcUpdate(int? previous, int? next) {
