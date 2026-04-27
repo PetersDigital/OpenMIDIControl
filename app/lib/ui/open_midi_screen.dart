@@ -72,6 +72,20 @@ final layoutHandProvider = NotifierProvider<LayoutHandNotifier, LayoutHand>(
 );
 
 // ---------------------------------------------------------------------------
+// State: Performance Page (Fader, XY, Pads, Utility)
+// ---------------------------------------------------------------------------
+class PerformancePageIndexNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void setPage(int index) => state = index;
+}
+
+final performancePageIndexProvider =
+    NotifierProvider<PerformancePageIndexNotifier, int>(
+      PerformancePageIndexNotifier.new,
+    );
+
+// ---------------------------------------------------------------------------
 // Navigation helpers
 // ---------------------------------------------------------------------------
 void _showMidiSettings(BuildContext context) {
@@ -372,35 +386,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
         // PERFORMANCE ZONE (70%)
         Expanded(
           flex: ref.watch(transportVisibleProvider) ? 70 : 100,
-          child: Container(
-            color: const Color(0xFF111318),
-            child: Row(
-              children: [
-                Expanded(
-                  child: HybridTouchFader(
-                    ccNumber: 1,
-                    label: "CC1\nDYNAMICS",
-                    activeColor: const Color(0xFFA6C9F8),
-                    labelColor: const Color(0xFF033258),
-                    initialValue: 1.0,
-                    isMobile: true,
-                    behavior: ref.watch(faderBehaviorProvider),
-                  ),
-                ),
-                Expanded(
-                  child: HybridTouchFader(
-                    ccNumber: 11,
-                    label: "CC11\nEXPRESSION",
-                    activeColor: const Color(0xFFA1CFCE),
-                    labelColor: const Color(0xFF013737),
-                    initialValue: 0.5,
-                    isMobile: true,
-                    behavior: ref.watch(faderBehaviorProvider),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: const PerformanceZone(isMobile: true),
         ),
       ],
     );
@@ -681,35 +667,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
   }
 
   Widget _buildPerformanceZone(WidgetRef ref) {
-    return Container(
-      color: const Color(0xFF111318),
-      child: Row(
-        children: [
-          Expanded(
-            child: HybridTouchFader(
-              ccNumber: 1,
-              label: "CC1\nDYNAMICS",
-              activeColor: const Color(0xFFA6C9F8),
-              labelColor: const Color(0xFF033258),
-              initialValue: 1.0,
-              isMobile: true,
-              behavior: ref.watch(faderBehaviorProvider),
-            ),
-          ),
-          Expanded(
-            child: HybridTouchFader(
-              ccNumber: 11,
-              label: "CC11\nEXPRESSION",
-              activeColor: const Color(0xFFA1CFCE),
-              labelColor: const Color(0xFF013737),
-              initialValue: 0.5,
-              isMobile: true,
-              behavior: ref.watch(faderBehaviorProvider),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const PerformanceZone(isMobile: true);
   }
 }
 
@@ -730,7 +688,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     return Stack(
       children: [
         // Always 100% performance zone
-        const PerformanceZone(),
+        const PerformanceZone(isMobile: false),
 
         // Sliding Command Center
         AnimatedPositioned(
@@ -1203,7 +1161,8 @@ class _GridButton extends StatelessWidget {
 }
 
 class PerformanceZone extends ConsumerStatefulWidget {
-  const PerformanceZone({super.key});
+  final bool isMobile;
+  const PerformanceZone({super.key, this.isMobile = false});
 
   @override
   ConsumerState<PerformanceZone> createState() => _PerformanceZoneState();
@@ -1211,7 +1170,6 @@ class PerformanceZone extends ConsumerStatefulWidget {
 
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
   final PageController _pageController = PageController();
-  int _currentPage = 0;
 
   @override
   void dispose() {
@@ -1221,68 +1179,61 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
 
   @override
   Widget build(BuildContext context) {
+    final currentPage = ref.watch(performancePageIndexProvider);
+
+    // Sync PageController when provider changes externally
+    ref.listen<int>(performancePageIndexProvider, (previous, next) {
+      if (_pageController.hasClients && _pageController.page?.round() != next) {
+        _pageController.jumpToPage(next);
+      }
+    });
+
     return Column(
       children: [
-        // Page Indicator
-        Padding(
-          padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                width: 8.0,
-                height: 8.0,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _currentPage == index
-                      ? const Color(0xFFA6C9F8)
-                      : Colors.white24,
-                ),
-              );
-            }),
-          ),
+        // Page Tab Bar
+        Row(
+          children: [
+            _buildTabButton(0, "FADER", currentPage),
+            _buildTabButton(1, "XY", currentPage),
+            _buildTabButton(2, "PADS", currentPage),
+            _buildTabButton(3, "UTILITY", currentPage),
+          ],
         ),
         // Page View
         Expanded(
           child: PageView(
             controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
             onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
+              ref.read(performancePageIndexProvider.notifier).setPage(index);
             },
             children: [
               // Page 0: Dual Faders
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: HybridTouchFader(
-                        ccNumber: 1,
-                        label: "CC1 Dynamics",
-                        activeColor: const Color(0xFFA6C9F8),
-                        labelColor: const Color(0xFF033258),
-                        initialValue: 1.0,
-                        isMobile: false,
-                        behavior: ref.watch(faderBehaviorProvider),
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: HybridTouchFader(
+                      ccNumber: 1,
+                      label: "CC1\nDYNAMICS",
+                      activeColor: const Color(0xFFA6C9F8),
+                      labelColor: const Color(0xFF033258),
+                      initialValue: 1.0,
+                      isMobile: widget.isMobile,
+                      behavior: ref.watch(faderBehaviorProvider),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: HybridTouchFader(
-                        ccNumber: 11,
-                        label: "CC11 Expression",
-                        activeColor: const Color(0xFFA1CFCE),
-                        labelColor: const Color(0xFF013737),
-                        initialValue: 0.98,
-                        isMobile: false,
-                        behavior: ref.watch(faderBehaviorProvider),
-                      ),
+                  ),
+                  Expanded(
+                    child: HybridTouchFader(
+                      ccNumber: 11,
+                      label: "CC11\nEXPRESSION",
+                      activeColor: const Color(0xFFA1CFCE),
+                      labelColor: const Color(0xFF013737),
+                      initialValue: 0.98,
+                      isMobile: widget.isMobile,
+                      behavior: ref.watch(faderBehaviorProvider),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
 
               // Page 1: Hybrid XY Pads
@@ -1319,6 +1270,36 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTabButton(int index, String label, int currentPage) {
+    final isActive = currentPage == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          ref.read(performancePageIndexProvider.notifier).setPage(index);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFEBC351) : const Color(0xFF212327),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            style: TextStyle(
+              fontFamily: 'Space Grotesk',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: isActive ? const Color(0xFF212327) : Colors.white54,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
