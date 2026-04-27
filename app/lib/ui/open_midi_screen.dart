@@ -1,3 +1,4 @@
+import 'panels/utility_grid_panel.dart';
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
@@ -913,7 +914,7 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
           padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) {
+            children: List.generate(4, (index) {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4.0),
                 width: 8.0,
@@ -993,6 +994,12 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
               const Padding(
                 padding: EdgeInsets.all(16),
                 child: DrumGridPanel(),
+              ),
+
+              // Page 3: Utility Grid Panel
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: UtilityGridPanel(),
               ),
             ],
           ),
