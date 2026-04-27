@@ -214,7 +214,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
           child: Container(
             decoration: BoxDecoration(
               color: widget.padColor,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               border: Border.all(
                 color: _isDragging
                     ? const Color(0xFFA6C9F8)
@@ -230,7 +230,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               child: Stack(
                 children: [
                   // Center guide lines
@@ -277,31 +277,57 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                       ),
                     ),
                   ),
-                  // Labels
+                  // Live Readouts
                   Positioned(
-                    bottom: 8,
+                    top: 8,
                     right: 8,
-                    child: Text(
-                      'X: CC$ccX',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        color: Colors.white54,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${(_normalizedX * 127).round().toString().padLeft(3, '0')}',
+                          style: const TextStyle(
+                            fontFamily: 'DSEG7Modern',
+                            color: Color(0xFFA6C9F8),
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          'X: CC$ccX',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            color: Colors.white24,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Positioned(
-                    top: 8,
+                    bottom: 8,
                     left: 8,
-                    child: Text(
-                      'Y: CC$ccY',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        color: Colors.white54,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Y: CC$ccY',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            color: Colors.white24,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${(_normalizedY * 127).round().toString().padLeft(3, '0')}',
+                          style: const TextStyle(
+                            fontFamily: 'DSEG7Modern',
+                            color: Color(0xFFA6C9F8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
