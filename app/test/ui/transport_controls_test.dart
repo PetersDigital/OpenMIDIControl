@@ -88,5 +88,54 @@ void main() {
       // Verify hasLaunched is set to true
       expect(prefs.getBool('hasLaunched'), isTrue);
     });
+
+    testWidgets('toggling transport visibility in landscape layout', (
+      WidgetTester tester,
+    ) async {
+      await prefs.setBool('hasLaunched', true);
+
+      // Set to landscape size
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: OpenMIDIMainScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially hidden, should see the floating toggle button
+      expect(
+        find.byKey(const ValueKey('transport_toggle_button_floating')),
+        findsOneWidget,
+      );
+      expect(find.text('TEMPO'), findsNothing);
+
+      // Tap floating button to show panel
+      await tester.tap(
+        find.byKey(const ValueKey('transport_toggle_button_floating')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('TEMPO'), findsWidgets);
+      // Floating button should be off-screen/hidden (key still exists in tree due to AnimatedPositioned)
+      // but the panel toggle should now be accessible
+      expect(
+        find.byKey(const ValueKey('transport_toggle_button_panel')),
+        findsOneWidget,
+      );
+
+      // Tap panel button to hide
+      await tester.tap(
+        find.byKey(const ValueKey('transport_toggle_button_panel')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('TEMPO'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('transport_toggle_button_floating')),
+        findsOneWidget,
+      );
+    });
   });
 }
