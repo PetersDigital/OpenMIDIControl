@@ -1217,23 +1217,10 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                 ],
               ),
 
-              // Page 1: Hybrid XY Pads
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: const [
-                    Expanded(child: HybridXYPad(id: "xy_1", ccX: 16, ccY: 17)),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: HybridXYPad(
-                        id: "xy_2",
-                        ccX: 18,
-                        ccY: 19,
-                        padColor: Color(0xFF1E2024),
-                      ),
-                    ),
-                  ],
-                ),
+              // Page 1: Single High-Precision XY Pad
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: HybridXYPad(id: "xy_main", ccX: 1, ccY: 11),
               ),
 
               // Page 2: Drum Grid Panel
