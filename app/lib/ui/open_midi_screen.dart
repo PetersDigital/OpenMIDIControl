@@ -438,7 +438,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
           child: Visibility(
             visible: isVisible,
             maintainState: true,
-            child: _buildCommandCenter(context, ref),
+            child: _buildCommandCenter(context, ref, faderOnRight),
           ),
         ),
 
@@ -447,15 +447,26 @@ class _MobileLandscapeLayout extends ConsumerWidget {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
           top: 12,
-          left: faderOnRight ? (isVisible ? -60 : 12) : null,
-          right: !faderOnRight ? (isVisible ? -60 : 12) : null,
-          child: _buildFloatingControls(context, ref),
+          left: faderOnRight ? (isVisible ? -300 : 12) : null,
+          right: !faderOnRight ? (isVisible ? -300 : 12) : null,
+          child: AnimatedOpacity(
+            opacity: isVisible ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: isVisible,
+              child: _buildFloatingControls(context, ref, faderOnRight),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFloatingControls(BuildContext context, WidgetRef ref) {
+  Widget _buildFloatingControls(
+    BuildContext context,
+    WidgetRef ref,
+    bool faderOnRight,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E2024).withValues(alpha: 0.8),
@@ -471,9 +482,11 @@ class _MobileLandscapeLayout extends ConsumerWidget {
             message: 'Toggle Transport',
             child: IconButton(
               key: const ValueKey('transport_toggle_button_floating'),
-              icon: const Icon(
-                Icons.keyboard_double_arrow_left,
-                color: Color(0xFFA6C9F8),
+              icon: Icon(
+                faderOnRight
+                    ? Icons.keyboard_double_arrow_right
+                    : Icons.keyboard_double_arrow_left,
+                color: const Color(0xFFA6C9F8),
                 size: 20,
               ),
               onPressed: () {
@@ -498,7 +511,11 @@ class _MobileLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildCommandCenter(BuildContext context, WidgetRef ref) {
+  Widget _buildCommandCenter(
+    BuildContext context,
+    WidgetRef ref,
+    bool faderOnRight,
+  ) {
     return Container(
       color: const Color(0xFF1E2024),
       child: Column(
@@ -525,9 +542,11 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                       message: 'Toggle Transport',
                       child: IconButton(
                         key: const ValueKey('transport_toggle_button'),
-                        icon: const Icon(
-                          Icons.play_circle_outline,
-                          color: Color(0xFFC3C7CA),
+                        icon: Icon(
+                          faderOnRight
+                              ? Icons.keyboard_double_arrow_left
+                              : Icons.keyboard_double_arrow_right,
+                          color: const Color(0xFFC3C7CA),
                           size: 20,
                         ),
                         padding: EdgeInsets.zero,
@@ -725,7 +744,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           child: Visibility(
             visible: isVisible,
             maintainState: true,
-            child: _buildCommandCenter(context, ref),
+            child: _buildCommandCenter(context, ref, faderOnRight),
           ),
         ),
 
@@ -734,15 +753,26 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
           top: 24,
-          left: faderOnRight ? (isVisible ? -100 : 24) : null,
-          right: !faderOnRight ? (isVisible ? -100 : 24) : null,
-          child: _buildFloatingControls(context, ref),
+          left: faderOnRight ? (isVisible ? -300 : 24) : null,
+          right: !faderOnRight ? (isVisible ? -300 : 24) : null,
+          child: AnimatedOpacity(
+            opacity: isVisible ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: isVisible,
+              child: _buildFloatingControls(context, ref, faderOnRight),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFloatingControls(BuildContext context, WidgetRef ref) {
+  Widget _buildFloatingControls(
+    BuildContext context,
+    WidgetRef ref,
+    bool faderOnRight,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E2024).withValues(alpha: 0.8),
@@ -759,9 +789,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             message: 'Toggle Transport',
             child: IconButton(
               key: const ValueKey('transport_toggle_button_floating'),
-              icon: const Icon(
-                Icons.keyboard_double_arrow_left,
-                color: Color(0xFFA6C9F8),
+              icon: Icon(
+                faderOnRight
+                    ? Icons.keyboard_double_arrow_right
+                    : Icons.keyboard_double_arrow_left,
+                color: const Color(0xFFA6C9F8),
                 size: 28,
               ),
               onPressed: () =>
@@ -786,7 +818,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildCommandCenter(BuildContext context, WidgetRef ref) {
+  Widget _buildCommandCenter(
+    BuildContext context,
+    WidgetRef ref,
+    bool faderOnRight,
+  ) {
     return Container(
       color: const Color(0xFF1A1C20),
       padding: const EdgeInsets.all(32),
@@ -842,9 +878,11 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                       message: 'Toggle Transport',
                       child: IconButton(
                         key: const ValueKey('transport_toggle_button_panel'),
-                        icon: const Icon(
-                          Icons.keyboard_double_arrow_left,
-                          color: Color(0xFFA6C9F8),
+                        icon: Icon(
+                          faderOnRight
+                              ? Icons.keyboard_double_arrow_left
+                              : Icons.keyboard_double_arrow_right,
+                          color: const Color(0xFFA6C9F8),
                         ),
                         onPressed: () {
                           ref.read(transportVisibleProvider.notifier).toggle();
