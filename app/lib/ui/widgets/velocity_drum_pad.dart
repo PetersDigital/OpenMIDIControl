@@ -183,7 +183,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
             child: Container(
               decoration: BoxDecoration(
                 color: _isPressed
-                    ? widget.padColor.withValues(alpha: 0.8)
+                    ? const Color(0xFFE9C46A) // Active Amber
                     : widget.padColor,
                 borderRadius: BorderRadius.zero,
                 border: Border.all(
@@ -231,7 +231,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                           style: TextStyle(
                             fontFamily: 'Inter',
                             color: _isPressed
-                                ? Colors.white
+                                ? const Color(0xFF1E2024) // Dark Charcoal for contrast on Amber
                                 : const Color(0xFFC3C7CA),
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -242,9 +242,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(
                               'V: $_lastVelocity',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'DSEG7Modern',
-                                color: Colors.white70,
+                                color: const Color(0xFF1E2024)
+                                    .withValues(alpha: 0.8),
                                 fontSize: 12,
                               ),
                             ),
