@@ -177,6 +177,128 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     super.dispose();
   }
 
+  void _showConfigDialog(BuildContext context, XYPadConfig currentConfig) {
+    final ccXController = TextEditingController(
+      text: currentConfig.ccX.toString(),
+    );
+    final ccYController = TextEditingController(
+      text: currentConfig.ccY.toString(),
+    );
+    final channelController = TextEditingController(
+      text: currentConfig.channel.toString(),
+    );
+    bool invertX = currentConfig.invertX;
+    bool invertY = currentConfig.invertY;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E2024),
+          title: Text(
+            'XY Pad Config (${widget.id})',
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'Space Grotesk',
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: ccXController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'X Axis CC',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white12),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: ccYController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Y Axis CC',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white12),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: channelController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'MIDI Channel (0-15)',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white12),
+                  ),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                title: const Text(
+                  'Invert X',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: invertX,
+                onChanged: (v) => setDialogState(() => invertX = v ?? false),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                title: const Text(
+                  'Invert Y',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: invertY,
+                onChanged: (v) => setDialogState(() => invertY = v ?? false),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'CANCEL',
+                style: TextStyle(color: Colors.white54),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final newConfig = XYPadConfig(
+                  ccX: int.tryParse(ccXController.text) ?? currentConfig.ccX,
+                  ccY: int.tryParse(ccYController.text) ?? currentConfig.ccY,
+                  channel:
+                      int.tryParse(channelController.text) ??
+                      currentConfig.channel,
+                  invertX: invertX,
+                  invertY: invertY,
+                );
+                ref
+                    .read(xyPadConfigProvider.notifier)
+                    .setConfig(widget.id, newConfig);
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'SAVE',
+                style: TextStyle(color: Color(0xFFA6C9F8)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(xyPadConfigProvider)[widget.id];
@@ -188,6 +310,18 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
         return GestureDetector(
+          onLongPress: () {
+            final currentConfig =
+                ref.read(xyPadConfigProvider)[widget.id] ??
+                XYPadConfig(
+                  ccX: widget.ccX,
+                  ccY: widget.ccY,
+                  channel: widget.channel,
+                  invertX: widget.invertX,
+                  invertY: widget.invertY,
+                );
+            _showConfigDialog(context, currentConfig);
+          },
           onPanStart: (details) {
             setState(() {
               _isDragging = true;
