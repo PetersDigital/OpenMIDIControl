@@ -15,6 +15,7 @@ class MomentaryButton extends ConsumerStatefulWidget {
   final String label;
   final Color activeColor;
   final Color inactiveColor;
+  final VoidCallback? onLongPress;
 
   const MomentaryButton({
     super.key,
@@ -24,6 +25,7 @@ class MomentaryButton extends ConsumerStatefulWidget {
     this.label = '',
     this.activeColor = const Color(0xFFA6C9F8),
     this.inactiveColor = const Color(0xFF282A2E),
+    this.onLongPress,
   });
 
   @override
@@ -83,42 +85,46 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
       onPointerUp: _handlePointerUp,
       onPointerCancel: _handlePointerUp,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 50),
-        decoration: BoxDecoration(
-          color: _isPressed ? widget.activeColor : widget.inactiveColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: _isPressed ? widget.activeColor : const Color(0xFF111318),
-            width: 2.0,
+      child: GestureDetector(
+        onLongPress: widget.onLongPress,
+        behavior: HitTestBehavior.translucent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 50),
+          decoration: BoxDecoration(
+            color: _isPressed ? widget.activeColor : widget.inactiveColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: _isPressed ? widget.activeColor : const Color(0xFF111318),
+              width: 2.0,
+            ),
+            boxShadow: _isPressed
+                ? [
+                    BoxShadow(
+                      color: widget.activeColor.withValues(alpha: 0.4),
+                      blurRadius: 15,
+                      blurStyle: BlurStyle.inner,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
           ),
-          boxShadow: _isPressed
-              ? [
-                  BoxShadow(
-                    color: widget.activeColor.withValues(alpha: 0.4),
-                    blurRadius: 15,
-                    blurStyle: BlurStyle.inner,
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-        ),
-        child: Center(
-          child: Text(
-            widget.label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: _isPressed
-                  ? const Color(0xFF033258)
-                  : const Color(0xFFC3C7CA),
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          child: Center(
+            child: Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: _isPressed
+                    ? const Color(0xFF033258)
+                    : const Color(0xFFC3C7CA),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
         ),
@@ -134,6 +140,7 @@ class ToggleButton extends ConsumerStatefulWidget {
   final String label;
   final Color activeColor;
   final Color inactiveColor;
+  final VoidCallback? onLongPress;
 
   const ToggleButton({
     super.key,
@@ -143,6 +150,7 @@ class ToggleButton extends ConsumerStatefulWidget {
     this.label = '',
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
     this.inactiveColor = const Color(0xFF282A2E),
+    this.onLongPress,
   });
 
   @override
@@ -195,6 +203,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _toggleState,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
