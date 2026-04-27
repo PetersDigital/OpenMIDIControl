@@ -7,7 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/ui/open_midi_screen.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({'hasLaunched': true});
+  });
+
   testWidgets('Main UI renders without overflow', (WidgetTester tester) async {
     // 1. Set the test environment to a standard mobile portrait size (e.g., 1080x2400 at 3.0 pixel ratio)
     tester.view.physicalSize = const Size(1080, 2400);

@@ -10,7 +10,13 @@ import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
 import 'package:app/ui/panels/drum_grid_panel.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({'hasLaunched': true});
+  });
+
   group('OpenMIDIMainScreen Pagination', () {
     Widget buildWidget() {
       return const ProviderScope(
