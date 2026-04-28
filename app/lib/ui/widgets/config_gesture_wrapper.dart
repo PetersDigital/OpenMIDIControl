@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_settings_state.dart';
+import '../providers/config_ui_provider.dart';
 
 class ConfigGestureWrapper extends ConsumerStatefulWidget {
   final String id;
@@ -34,7 +35,6 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
   DateTime? _lastTapTime;
   int _tapCount = 0;
   bool _isTapHoldCandidate = false;
-  bool _isLongHold = false;
   Timer? _configTimer;
   Timer? _tapResetTimer;
   bool _isDown = false;
@@ -43,6 +43,18 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
   void initState() {
     super.initState();
     _progressController = AnimationController(vsync: this);
+    _progressController.addListener(() {
+      if (!mounted) return;
+      // Use microtask to avoid "modifying during build" errors if listener
+      // is triggered during a lifecycle transition
+      Future.microtask(() {
+        if (mounted) {
+          ref
+              .read(configProgressProvider.notifier)
+              .update(_progressController.value);
+        }
+      });
+    });
   }
 
   @override
@@ -56,6 +68,8 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
         _progressController.reset();
         _configTimer?.cancel();
       });
+      // Defer provider modification to avoid errors during didUpdateWidget
+      Future.microtask(() => ref.read(configProgressProvider.notifier).reset());
     }
   }
 
@@ -64,6 +78,8 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     _progressController.dispose();
     _configTimer?.cancel();
     _tapResetTimer?.cancel();
+    // Ensure we don't leave a ghost progress bar if disposed during hold
+    Future.microtask(() => ref.read(configProgressProvider.notifier).reset());
     super.dispose();
   }
 
@@ -87,7 +103,6 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
 
     setState(() {
       _isDown = true;
-      _isLongHold = false;
     });
 
     if (_isTapHoldCandidate) {
@@ -101,11 +116,13 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
         if (!_isDown || widget.isDragging) return;
 
         setState(() {
-          _isLongHold = true;
           _isDown = false;
           _isTapHoldCandidate = false;
           _progressController.reset();
         });
+        Future.microtask(
+          () => ref.read(configProgressProvider.notifier).reset(),
+        );
         _tapCount = 0;
         widget.onConfigRequested();
       });
@@ -126,6 +143,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       _progressController.reset();
       _configTimer?.cancel();
     });
+    Future.microtask(() => ref.read(configProgressProvider.notifier).reset());
   }
 
   @override
@@ -145,40 +163,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
         onPointerUp: (_) => _handlePointerUpCancel(),
         onPointerCancel: (_) => _handlePointerUpCancel(),
         behavior: widget.behavior,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            widget.child,
-            if (_isDown &&
-                !_isLongHold &&
-                !widget.isDragging &&
-                _isTapHoldCandidate)
-              Positioned.fill(
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: AnimatedBuilder(
-                      animation: _progressController,
-                      builder: (context, child) {
-                        return SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: CircularProgressIndicator(
-                            value: _progressController.value,
-                            strokeWidth: 3,
-                            color: Colors.white.withValues(alpha: 0.6),
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.1,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: Stack(alignment: Alignment.center, children: [widget.child]),
       ),
     );
   }

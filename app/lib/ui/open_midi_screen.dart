@@ -11,6 +11,7 @@ import 'hybrid_touch_fader.dart';
 import 'midi_service.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
+import 'providers/config_ui_provider.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -1179,13 +1180,19 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
 
     return Column(
       children: [
-        // Page Tab Bar
-        Row(
+        // Page Tab Bar with integrated progress
+        Stack(
+          alignment: Alignment.bottomCenter,
           children: [
-            _buildTabButton(0, "FADER", currentPage),
-            _buildTabButton(1, "XY", currentPage),
-            _buildTabButton(2, "PADS", currentPage),
-            _buildTabButton(3, "UTILITY", currentPage),
+            Row(
+              children: [
+                _buildTabButton(0, "FADER", currentPage),
+                _buildTabButton(1, "XY", currentPage),
+                _buildTabButton(2, "PADS", currentPage),
+                _buildTabButton(3, "UTILITY", currentPage),
+              ],
+            ),
+            const GlobalConfigProgressBar(),
           ],
         ),
         // Performance Panels
@@ -1266,6 +1273,43 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
               color: isActive ? const Color(0xFF212327) : Colors.white54,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// GLOBAL CONFIG PROGRESS BAR
+// ===========================================================================
+
+class GlobalConfigProgressBar extends ConsumerWidget {
+  const GlobalConfigProgressBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress = ref.watch(configProgressProvider);
+
+    if (progress <= 0) return const SizedBox.shrink();
+
+    return Container(
+      height: 3,
+      width: double.infinity,
+      color: Colors.transparent,
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: progress,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF9575CD), // Purple
+                Color(0xFFEBC351), // Gold
+              ],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
             ),
           ),
         ),
