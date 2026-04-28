@@ -114,6 +114,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   Timer? _configTimer;
   Timer? _tapResetTimer;
   bool _isLongHold = false;
+  bool _isDown = false;
 
   // Gesture state
   DateTime? _lastTapTime;
@@ -176,34 +177,45 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   }
 
   void _startHold() {
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+    if (_isTapHoldCandidate) {
+      final durationSecs = ref.read(safetyHoldDurationProvider);
+      final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
 
-    setState(() => _isLongHold = true);
-    _progressController.duration = duration;
-    _progressController.forward(from: 0);
-    _configTimer = Timer(duration, () {
-      if (_isLongHold) {
-        final currentConfig =
-            ref.read(xyPadConfigProvider)[widget.id] ??
-            XYPadConfig(
-              ccX: widget.ccX,
-              ccY: widget.ccY,
-              channel: widget.channel,
-              invertX: widget.invertX,
-              invertY: widget.invertY,
-            );
-        _showConfigDialog(context, currentConfig);
-        _stopHold();
-      }
-    });
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isDown && _isTapHoldCandidate && !_isDragging) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          _showConfigMenu();
+        }
+      });
+    }
+  }
+
+  void _showConfigMenu() {
+    final currentConfig =
+        ref.read(xyPadConfigProvider)[widget.id] ??
+        XYPadConfig(
+          ccX: widget.ccX,
+          ccY: widget.ccY,
+          channel: widget.channel,
+          invertX: widget.invertX,
+          invertY: widget.invertY,
+        );
+    _showConfigDialog(context, currentConfig);
   }
 
   void _stopHold() {
     _configTimer?.cancel();
     _configTimer = null;
     if (mounted) {
-      setState(() => _isLongHold = false);
+      setState(() {
+        _isLongHold = false;
+        _isTapHoldCandidate = false;
+        _isDown = false;
+      });
       _progressController.reset();
     }
   }
@@ -252,6 +264,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
   void _sendMidi({required bool isFinal}) {
     if (!_canSend && !isFinal) {
+      setState(() => _isDragging = true);
       _hasPendingSend = true;
       return;
     }
@@ -434,16 +447,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        return GestureDetector(
-          onTap: () {
-            _lastTapTime = DateTime.now();
-            _tapCount++;
-            _tapResetTimer?.cancel();
-            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-              _tapCount = 0;
-            });
-          },
-          onPanDown: (details) {
+        return Listener(
+          onPointerDown: (e) {
             final now = DateTime.now();
             final timeSinceLastTap = _lastTapTime != null
                 ? now.difference(_lastTapTime!)
@@ -453,194 +458,225 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
             if (mode == ConfigGestureMode.doubleTapHold) {
               _isTapHoldCandidate =
-                  _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+                  _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
             } else {
-              _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+              // Single tap-hold mode: Trigger on first touch (Long Press behavior)
+              _isTapHoldCandidate = true;
             }
+
+            setState(() {
+              _isDown = true;
+              _isLongHold = false;
+            });
 
             if (_isTapHoldCandidate) {
               _startHold();
             }
           },
-          onPanStart: (details) {
-            setState(() {
-              _isDragging = true;
+          onPointerUp: (_) {
+            _lastTapTime = DateTime.now();
+            _tapCount++;
+            _tapResetTimer?.cancel();
+            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+              _tapCount = 0;
             });
-            _updatePosition(details.localPosition, size, isFinal: false);
-          },
-          onPanUpdate: (details) {
-            _updatePosition(details.localPosition, size, isFinal: false);
-          },
-          onPanEnd: (details) {
-            _stopHold();
+
             setState(() {
-              _isDragging = false;
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _progressController.reset();
+              _configTimer?.cancel();
             });
-            // Send final definitive update
-            _sendMidi(isFinal: true);
           },
-          onPanCancel: () {
-            _stopHold();
+          onPointerCancel: (_) {
             setState(() {
-              _isDragging = false;
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _progressController.reset();
+              _configTimer?.cancel();
             });
-            _sendMidi(isFinal: true);
           },
           behavior: HitTestBehavior.opaque,
-          child: Container(
-            decoration: BoxDecoration(
-              color: widget.padColor,
-              borderRadius: BorderRadius.zero,
-              border: Border.all(
-                color: _isDragging
-                    ? const Color(0xFFA6C9F8)
-                    : const Color(0xFF111318).withValues(alpha: 0.5),
-                width: _isDragging ? 2.0 : 1.0,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 10,
-                  offset: Offset(0, 5),
+          child: GestureDetector(
+            onPanStart: (details) {
+              setState(() {
+                _isDragging = true;
+              });
+              _updatePosition(details.localPosition, size, isFinal: false);
+            },
+            onPanUpdate: (details) {
+              _updatePosition(details.localPosition, size, isFinal: false);
+            },
+            onPanEnd: (details) {
+              _stopHold();
+              setState(() {
+                _isDragging = false;
+              });
+              // Send final definitive update
+              _sendMidi(isFinal: true);
+            },
+            onPanCancel: () {
+              _stopHold();
+              setState(() {
+                _isDragging = false;
+              });
+              _sendMidi(isFinal: true);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              decoration: BoxDecoration(
+                color: widget.padColor,
+                borderRadius: BorderRadius.zero,
+                border: Border.all(
+                  color: _isDragging
+                      ? const Color(0xFFA6C9F8)
+                      : const Color(0xFF111318).withValues(alpha: 0.5),
+                  width: _isDragging ? 2.0 : 1.0,
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.zero,
-              child: Stack(
-                children: [
-                  // Center guide lines
-                  CustomPaint(size: Size.infinite, painter: _XYGridPainter()),
-                  // Active crosshairs
-                  Positioned(
-                    left: _normalizedX * size.width - 0.5,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 1,
-                      color: _isDragging
-                          ? const Color(0xFFA6C9F8)
-                          : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  Positioned(
-                    top: _normalizedY * size.height - 0.5,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      height: 1,
-                      color: _isDragging
-                          ? const Color(0xFFA6C9F8)
-                          : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  // Progress ring for config - Gated by candidate sequence
-                  if (_isLongHold ||
-                      (_isDragging == false && _isTapHoldCandidate))
-                    Center(
-                      child: AnimatedBuilder(
-                        animation: _progressController,
-                        builder: (context, child) {
-                          return SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: CircularProgressIndicator(
-                              value: _progressController.value,
-                              strokeWidth: 4,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  // Touch Point Marker
-                  Positioned(
-                    left: (_normalizedX * size.width) - 15,
-                    top: (_normalizedY * size.height) - 15,
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _isDragging
-                            ? const Color(0xFFA6C9F8).withValues(alpha: 0.8)
-                            : const Color(0xFFA6C9F8).withValues(alpha: 0.4),
-                        border: Border.all(
-                          color: const Color(0xFFA6C9F8),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Live Readouts
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          (((config?.invertX ?? widget.invertX)
-                                      ? (1.0 - _normalizedX)
-                                      : _normalizedX) *
-                                  127)
-                              .round()
-                              .toString()
-                              .padLeft(3, '0'),
-                          style: const TextStyle(
-                            fontFamily: 'DSEG7Modern',
-                            color: Color(0xFFA6C9F8),
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          'X: CC$ccX',
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            color: Colors.white24,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Y: CC$ccY',
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            color: Colors.white24,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          (((config?.invertY ?? widget.invertY)
-                                      ? (1.0 - _normalizedY)
-                                      : _normalizedY) *
-                                  127)
-                              .round()
-                              .toString()
-                              .padLeft(3, '0'),
-                          style: const TextStyle(
-                            fontFamily: 'DSEG7Modern',
-                            color: Color(0xFFA6C9F8),
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
                   ),
                 ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.zero,
+                child: Stack(
+                  children: [
+                    // Center guide lines
+                    CustomPaint(size: Size.infinite, painter: _XYGridPainter()),
+                    // Active crosshairs
+                    Positioned(
+                      left: _normalizedX * size.width - 0.5,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 1,
+                        color: _isDragging
+                            ? const Color(0xFFA6C9F8)
+                            : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    Positioned(
+                      top: _normalizedY * size.height - 0.5,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 1,
+                        color: _isDragging
+                            ? const Color(0xFFA6C9F8)
+                            : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    // Progress ring for config - Gated by candidate sequence
+                    if (_isDown && _isTapHoldCandidate && !_isLongHold)
+                      Center(
+                        child: AnimatedBuilder(
+                          animation: _progressController,
+                          builder: (context, child) {
+                            return SizedBox(
+                              width: 80,
+                              height: 80,
+                              child: CircularProgressIndicator(
+                                value: _progressController.value,
+                                strokeWidth: 4,
+                                color: Colors.white.withValues(alpha: 0.6),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.1,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    // Touch Point Marker
+                    Positioned(
+                      left: (_normalizedX * size.width) - 15,
+                      top: (_normalizedY * size.height) - 15,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isDragging
+                              ? const Color(0xFFA6C9F8).withValues(alpha: 0.8)
+                              : const Color(0xFFA6C9F8).withValues(alpha: 0.4),
+                          border: Border.all(
+                            color: const Color(0xFFA6C9F8),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Live Readouts
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            (((config?.invertX ?? widget.invertX)
+                                        ? (1.0 - _normalizedX)
+                                        : _normalizedX) *
+                                    127)
+                                .round()
+                                .toString()
+                                .padLeft(3, '0'),
+                            style: const TextStyle(
+                              fontFamily: 'DSEG7Modern',
+                              color: Color(0xFFA6C9F8),
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            'X: CC$ccX',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white24,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Y: CC$ccY',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white24,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            (((config?.invertY ?? widget.invertY)
+                                        ? (1.0 - _normalizedY)
+                                        : _normalizedY) *
+                                    127)
+                                .round()
+                                .toString()
+                                .padLeft(3, '0'),
+                            style: const TextStyle(
+                              fontFamily: 'DSEG7Modern',
+                              color: Color(0xFFA6C9F8),
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
