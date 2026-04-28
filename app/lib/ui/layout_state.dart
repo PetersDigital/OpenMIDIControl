@@ -1,0 +1,323 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/core/models/layout_models.dart';
+
+/// State object for the layout engine.
+/// Tracks pages, active page index, and performance lock state.
+class LayoutState {
+  final List<LayoutPage> pages;
+  final int activePageIndex;
+  final bool isPerformanceLocked;
+
+  LayoutState({
+    required this.pages,
+    required this.activePageIndex,
+    required this.isPerformanceLocked,
+  }) : assert(activePageIndex >= 0, 'Page index cannot be negative'),
+       assert(activePageIndex < pages.length, 'Page index out of bounds');
+
+  /// Create a copy with optional field overrides.
+  LayoutState copyWith({
+    List<LayoutPage>? pages,
+    int? activePageIndex,
+    bool? isPerformanceLocked,
+  }) {
+    return LayoutState(
+      pages: pages ?? this.pages,
+      activePageIndex: activePageIndex ?? this.activePageIndex,
+      isPerformanceLocked: isPerformanceLocked ?? this.isPerformanceLocked,
+    );
+  }
+
+  /// Get the currently active page.
+  LayoutPage get activePage => pages[activePageIndex];
+
+  @override
+  String toString() =>
+      'LayoutState(pages: ${pages.length}, activePage: $activePageIndex, locked: $isPerformanceLocked)';
+}
+
+/// Notifier for the layout state.
+/// Provides mutations and initialization of layout pages.
+class LayoutStateNotifier extends Notifier<LayoutState> {
+  @override
+  LayoutState build() {
+    return LayoutState(
+      pages: _buildDefaultPages(),
+      activePageIndex: 0,
+      isPerformanceLocked: false,
+    );
+  }
+
+  /// Build the 4 default pages matching legacy tabs.
+  static List<LayoutPage> _buildDefaultPages() {
+    return [
+      _buildFaderPage(),
+      _buildXyPage(),
+      _buildPadsPage(),
+      _buildUtilityPage(),
+    ];
+  }
+
+  /// Page 0: FADER (8 faders)
+  static LayoutPage _buildFaderPage() {
+    return LayoutPage(
+      id: 'page_0',
+      name: 'FADER',
+      controls: [
+        LayoutControl(
+          id: 'fader_0',
+          type: ControlType.fader,
+          defaultCc: 1,
+          channel: 0,
+          customName: 'CC1\nDYNAMICS',
+        ),
+        LayoutControl(
+          id: 'fader_1',
+          type: ControlType.fader,
+          defaultCc: 11,
+          channel: 0,
+          customName: 'CC11\nEXPRESSION',
+        ),
+        LayoutControl(
+          id: 'fader_2',
+          type: ControlType.fader,
+          defaultCc: 7,
+          channel: 0,
+          customName: 'CC7\nVOLUME',
+        ),
+        LayoutControl(
+          id: 'fader_3',
+          type: ControlType.fader,
+          defaultCc: 10,
+          channel: 0,
+          customName: 'CC10\nPAN',
+        ),
+        LayoutControl(
+          id: 'fader_4',
+          type: ControlType.fader,
+          defaultCc: 12,
+          channel: 0,
+          customName: 'CC12\nCUSTOM1',
+        ),
+        LayoutControl(
+          id: 'fader_5',
+          type: ControlType.fader,
+          defaultCc: 13,
+          channel: 0,
+          customName: 'CC13\nCUSTOM2',
+        ),
+        LayoutControl(
+          id: 'fader_6',
+          type: ControlType.fader,
+          defaultCc: 14,
+          channel: 0,
+          customName: 'CC14\nCUSTOM3',
+        ),
+        LayoutControl(
+          id: 'fader_7',
+          type: ControlType.fader,
+          defaultCc: 15,
+          channel: 0,
+          customName: 'CC15\nCUSTOM4',
+        ),
+      ],
+    );
+  }
+
+  /// Page 1: XY (1 XY pad with dual-axis control)
+  static LayoutPage _buildXyPage() {
+    return LayoutPage(
+      id: 'page_1',
+      name: 'XY',
+      controls: [
+        LayoutControl(
+          id: 'xy_main',
+          type: ControlType.xyPad,
+          defaultCc: 1, // X-axis
+          channel: 0,
+          customName: 'XY PAD',
+        ),
+        // Note: The Y-axis is typically CC 11, but represented as a single control
+      ],
+    );
+  }
+
+  /// Page 2: PADS (8 drum pads, channel 9, notes 36-43)
+  static LayoutPage _buildPadsPage() {
+    return LayoutPage(
+      id: 'page_2',
+      name: 'PADS',
+      controls: [
+        LayoutControl(
+          id: 'drum_pad_0',
+          type: ControlType.drumPad,
+          defaultCc: 36, // Kick
+          channel: 9,
+          customName: 'KICK 1',
+        ),
+        LayoutControl(
+          id: 'drum_pad_1',
+          type: ControlType.drumPad,
+          defaultCc: 37, // Snare 1
+          channel: 9,
+          customName: 'SNARE 1',
+        ),
+        LayoutControl(
+          id: 'drum_pad_2',
+          type: ControlType.drumPad,
+          defaultCc: 38, // Snare 2
+          channel: 9,
+          customName: 'SNARE 2',
+        ),
+        LayoutControl(
+          id: 'drum_pad_3',
+          type: ControlType.drumPad,
+          defaultCc: 39, // Clap
+          channel: 9,
+          customName: 'CLAP',
+        ),
+        LayoutControl(
+          id: 'drum_pad_4',
+          type: ControlType.drumPad,
+          defaultCc: 40, // Snare 3
+          channel: 9,
+          customName: 'SNARE 3',
+        ),
+        LayoutControl(
+          id: 'drum_pad_5',
+          type: ControlType.drumPad,
+          defaultCc: 41, // Tom 1
+          channel: 9,
+          customName: 'TOM 1',
+        ),
+        LayoutControl(
+          id: 'drum_pad_6',
+          type: ControlType.drumPad,
+          defaultCc: 42, // Hat Closed
+          channel: 9,
+          customName: 'HAT C',
+        ),
+        LayoutControl(
+          id: 'drum_pad_7',
+          type: ControlType.drumPad,
+          defaultCc: 43, // Tom 2
+          channel: 9,
+          customName: 'TOM 2',
+        ),
+      ],
+    );
+  }
+
+  /// Page 3: UTILITY (4 encoders + 4 buttons)
+  static LayoutPage _buildUtilityPage() {
+    return LayoutPage(
+      id: 'page_3',
+      name: 'UTILITY',
+      controls: [
+        // Encoders
+        LayoutControl(
+          id: 'encoder_0',
+          type: ControlType.encoder,
+          defaultCc: 20,
+          channel: 0,
+          customName: 'ENC 1',
+        ),
+        LayoutControl(
+          id: 'encoder_1',
+          type: ControlType.encoder,
+          defaultCc: 21,
+          channel: 0,
+          customName: 'ENC 2',
+        ),
+        LayoutControl(
+          id: 'encoder_2',
+          type: ControlType.encoder,
+          defaultCc: 22,
+          channel: 0,
+          customName: 'ENC 3',
+        ),
+        LayoutControl(
+          id: 'encoder_3',
+          type: ControlType.encoder,
+          defaultCc: 23,
+          channel: 0,
+          customName: 'ENC 4',
+        ),
+        // Buttons
+        LayoutControl(
+          id: 'button_0',
+          type: ControlType.button,
+          defaultCc: 24,
+          channel: 0,
+          customName: 'BTN 1',
+        ),
+        LayoutControl(
+          id: 'button_1',
+          type: ControlType.button,
+          defaultCc: 25,
+          channel: 0,
+          customName: 'BTN 2',
+        ),
+        LayoutControl(
+          id: 'button_2',
+          type: ControlType.button,
+          defaultCc: 26,
+          channel: 0,
+          customName: 'BTN 3',
+        ),
+        LayoutControl(
+          id: 'button_3',
+          type: ControlType.button,
+          defaultCc: 27,
+          channel: 0,
+          customName: 'BTN 4',
+        ),
+      ],
+    );
+  }
+
+  /// Set the active page by index.
+  void setPageIndex(int index) {
+    if (index >= 0 && index < state.pages.length) {
+      state = state.copyWith(activePageIndex: index);
+    }
+  }
+
+  /// Update the custom name of a control by ID.
+  /// Searches through all pages to find the control.
+  void updateControlLabel(String controlId, String label) {
+    final updatedPages = state.pages.map((page) {
+      final controlIndex = page.controls.indexWhere(
+        (control) => control.id == controlId,
+      );
+      if (controlIndex != -1) {
+        final updatedControls = [...page.controls];
+        updatedControls[controlIndex] = updatedControls[controlIndex].copyWith(
+          customName: label,
+        );
+        return page.copyWith(controls: updatedControls);
+      }
+      return page;
+    }).toList();
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  /// Toggle the performance lock state.
+  void togglePerformanceLock() {
+    state = state.copyWith(isPerformanceLocked: !state.isPerformanceLocked);
+  }
+
+  /// Set performance lock to a specific state.
+  void setPerformanceLock(bool locked) {
+    state = state.copyWith(isPerformanceLocked: locked);
+  }
+}
+
+/// Global Riverpod provider for layout state.
+final layoutStateProvider = NotifierProvider<LayoutStateNotifier, LayoutState>(
+  LayoutStateNotifier.new,
+);
