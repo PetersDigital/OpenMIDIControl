@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
+import '../midi_settings_state.dart';
 
 class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
@@ -41,9 +42,10 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   @override
   void initState() {
     super.initState();
+    final durationSecs = ref.read(safetyHoldDurationProvider);
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
     );
   }
 
@@ -78,9 +80,14 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       _isDown = true;
       _isLongHold = false;
     });
+
+    final durationSecs = ref.read(safetyHoldDurationProvider);
+    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+
+    _progressController.duration = duration;
     _progressController.forward(from: 0);
     _configTimer?.cancel();
-    _configTimer = Timer(const Duration(seconds: 3), () {
+    _configTimer = Timer(duration, () {
       if (_isDown) {
         setState(() => _isLongHold = true);
         _progressController.reset();
@@ -214,7 +221,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                   ],
                 ),
 
-                // 4-second Config Hold Progress
+                // Config Hold Progress
                 if (_isDown && !_isLongHold)
                   Center(
                     child: AnimatedBuilder(

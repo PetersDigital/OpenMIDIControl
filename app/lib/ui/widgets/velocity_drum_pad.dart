@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_service.dart';
+import '../midi_settings_state.dart';
 
 class DrumPadConfig {
   final int note;
@@ -99,9 +100,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       value: 1.0,
     );
 
+    final durationSecs = ref.read(safetyHoldDurationProvider);
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
     );
   }
 
@@ -149,12 +151,16 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       _isLongHold = false;
     });
 
+    final durationSecs = ref.read(safetyHoldDurationProvider);
+    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+
     _scaleController.reverse();
+    _progressController.duration = duration;
     _progressController.forward(from: 0);
 
-    // Start 4-second config timer
+    // Start config timer
     _configTimer?.cancel();
-    _configTimer = Timer(const Duration(seconds: 3), () {
+    _configTimer = Timer(duration, () {
       if (_isPressed) {
         setState(() => _isLongHold = true);
         _progressController.reset();

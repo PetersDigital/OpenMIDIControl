@@ -3,26 +3,26 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../midi_settings_state.dart';
 
-class DelayedMenuTrigger extends StatefulWidget {
+class DelayedMenuTrigger extends ConsumerStatefulWidget {
   final Widget child;
   final VoidCallback onTrigger;
-  final Duration delay;
   final Color? feedbackColor;
 
   const DelayedMenuTrigger({
     super.key,
     required this.child,
     required this.onTrigger,
-    this.delay = const Duration(seconds: 3),
     this.feedbackColor = Colors.white,
   });
 
   @override
-  State<DelayedMenuTrigger> createState() => _DelayedMenuTriggerState();
+  ConsumerState<DelayedMenuTrigger> createState() => _DelayedMenuTriggerState();
 }
 
-class _DelayedMenuTriggerState extends State<DelayedMenuTrigger>
+class _DelayedMenuTriggerState extends ConsumerState<DelayedMenuTrigger>
     with SingleTickerProviderStateMixin {
   Timer? _timer;
   bool _isHolding = false;
@@ -31,9 +31,10 @@ class _DelayedMenuTriggerState extends State<DelayedMenuTrigger>
   @override
   void initState() {
     super.initState();
+    final durationSecs = ref.read(safetyHoldDurationProvider);
     _progressController = AnimationController(
       vsync: this,
-      duration: widget.delay,
+      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
     );
   }
 
@@ -45,9 +46,13 @@ class _DelayedMenuTriggerState extends State<DelayedMenuTrigger>
   }
 
   void _startHold() {
+    final durationSecs = ref.read(safetyHoldDurationProvider);
+    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+
     setState(() => _isHolding = true);
+    _progressController.duration = duration;
     _progressController.forward(from: 0);
-    _timer = Timer(widget.delay, () {
+    _timer = Timer(duration, () {
       if (_isHolding) {
         widget.onTrigger();
         _stopHold();
