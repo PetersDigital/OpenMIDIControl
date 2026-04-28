@@ -12,14 +12,14 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
   final int cc;
   final double sensitivity;
-  final VoidCallback? onLongPress;
+  final VoidCallback? onConfigRequested;
 
   const EndlessEncoderWidget({
     super.key,
     this.channel = 0,
     required this.cc,
     this.sensitivity = 1.5,
-    this.onLongPress,
+    this.onConfigRequested,
   });
 
   @override
@@ -82,44 +82,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
     _totalDragDistance = 0.0;
   }
 
-  void _handlePanDown(DragDownDetails details) {
-    final now = DateTime.now();
-    final timeSinceLastTap = _lastTapTime != null
-        ? now.difference(_lastTapTime!)
-        : const Duration(seconds: 1);
-
-    final mode = ref.read(configGestureModeProvider);
-
-    if (mode == ConfigGestureMode.doubleTapHold) {
-      _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
-    } else {
-      // Single Tap Hold
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
-    }
-
-    setState(() {
-      _isDown = true;
-      _isLongHold = false;
-    });
-
-    if (_isTapHoldCandidate) {
-      final durationSecs = ref.read(safetyHoldDurationProvider);
-      final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
-
-      _progressController.duration = duration;
-      _progressController.forward(from: 0);
-      _configTimer?.cancel();
-      _configTimer = Timer(duration, () {
-        if (_isDown && _isTapHoldCandidate) {
-          setState(() => _isLongHold = true);
-          _progressController.reset();
-          widget.onLongPress?.call();
-        }
-      });
-    }
-  }
-
   void _handleDragUpdate(DragUpdateDetails details) {
     if (!_isDragging) {
       _totalDragDistance += details.delta.dy.abs();
@@ -150,20 +112,8 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    _lastTapTime = DateTime.now();
-    _tapCount++;
-    _tapResetTimer?.cancel();
-    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-      _tapCount = 0;
-    });
-
     _isDragging = false;
-    _isDown = false;
     _accumulatedDelta = 0.0;
-    _configTimer?.cancel();
-    _configTimer = null;
-    _progressController.reset();
-    setState(() => _isLongHold = false);
   }
 
   @override
@@ -196,102 +146,164 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
         // If size is not restricted, give it a default reasonable size
         final double effectiveSize = size.isInfinite ? 100.0 : size;
 
-        return GestureDetector(
-          onPanDown: _handlePanDown,
-          onPanStart: _handleDragStart,
-          onPanUpdate: _handleDragUpdate,
-          onPanEnd: _handleDragEnd,
-          onPanCancel: () =>
-              _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
+        return Listener(
+          onPointerDown: (e) {
+            final now = DateTime.now();
+            final timeSinceLastTap = _lastTapTime != null
+                ? now.difference(_lastTapTime!)
+                : const Duration(seconds: 1);
+
+            final mode = ref.read(configGestureModeProvider);
+            if (mode == ConfigGestureMode.doubleTapHold) {
+              _isTapHoldCandidate =
+                  _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
+            } else {
+              // Single tap-hold mode: Trigger on first touch (Long Press behavior)
+              _isTapHoldCandidate = true;
+            }
+
+            setState(() {
+              _isDown = true;
+              _isLongHold = false;
+            });
+
+            if (_isTapHoldCandidate) {
+              final durationSecs = ref.read(safetyHoldDurationProvider);
+              final duration = Duration(
+                milliseconds: (durationSecs * 1000).toInt(),
+              );
+
+              _progressController.duration = duration;
+              _progressController.forward(from: 0);
+              _configTimer?.cancel();
+              _configTimer = Timer(duration, () {
+                if (_isDown && _isTapHoldCandidate) {
+                  setState(() => _isLongHold = true);
+                  _progressController.reset();
+                  widget.onConfigRequested?.call();
+                }
+              });
+            }
+          },
+          onPointerUp: (_) {
+            _lastTapTime = DateTime.now();
+            _tapCount++;
+            _tapResetTimer?.cancel();
+            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+              _tapCount = 0;
+            });
+
+            setState(() {
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _isLongHold = false;
+              _progressController.reset();
+              _configTimer?.cancel();
+            });
+          },
+          onPointerCancel: (_) {
+            setState(() {
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _isLongHold = false;
+              _progressController.reset();
+              _configTimer?.cancel();
+            });
+          },
           behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: effectiveSize,
-            height: effectiveSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Knob base
-                Container(
-                  width: effectiveSize * 0.8,
-                  height: effectiveSize * 0.8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1E2024),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
+          child: GestureDetector(
+            onPanStart: _handleDragStart,
+            onPanUpdate: _handleDragUpdate,
+            onPanEnd: _handleDragEnd,
+            onPanCancel: () =>
+                _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              width: effectiveSize,
+              height: effectiveSize,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Knob base
+                  Container(
+                    width: effectiveSize * 0.8,
+                    height: effectiveSize * 0.8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF1E2024),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // LED Ring
+                  SizedBox(
+                    width: effectiveSize,
+                    height: effectiveSize,
+                    child: CustomPaint(
+                      painter: _LedRingPainter(
+                        value: _currentValue,
+                        activeColor: const Color(
+                          0xFFA6C9F8,
+                        ), // Matches hybrid_touch_fader active text color
+                        inactiveColor: const Color(0xFF0C0E12),
+                      ),
+                    ),
+                  ),
+
+                  // Center Readout
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$_currentValue',
+                        style: const TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'CH${widget.channel + 1}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
-                ),
 
-                // LED Ring
-                SizedBox(
-                  width: effectiveSize,
-                  height: effectiveSize,
-                  child: CustomPaint(
-                    painter: _LedRingPainter(
-                      value: _currentValue,
-                      activeColor: const Color(
-                        0xFFA6C9F8,
-                      ), // Matches hybrid_touch_fader active text color
-                      inactiveColor: const Color(0xFF0C0E12),
-                    ),
-                  ),
-                ),
-
-                // Center Readout
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$_currentValue',
-                      style: const TextStyle(
-                        fontFamily: 'Space Grotesk',
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'CH${widget.channel + 1}',
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Config Hold Progress - Only visible during an active Tap-Hold sequence
-                if (_isDown &&
-                    !_isLongHold &&
-                    !_isDragging &&
-                    _isTapHoldCandidate)
-                  Center(
-                    child: AnimatedBuilder(
-                      animation: _progressController,
-                      builder: (context, child) {
-                        return SizedBox(
-                          width: effectiveSize * 0.9,
-                          height: effectiveSize * 0.9,
-                          child: CircularProgressIndicator(
-                            value: _progressController.value,
-                            strokeWidth: 4,
-                            color: Colors.white.withValues(alpha: 0.6),
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.1,
+                  // Config Hold Progress - Only visible during an active Tap-Hold sequence
+                  if (_isDown && !_isLongHold && _isTapHoldCandidate)
+                    Center(
+                      child: AnimatedBuilder(
+                        animation: _progressController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: effectiveSize * 0.9,
+                            height: effectiveSize * 0.9,
+                            child: CircularProgressIndicator(
+                              value: _progressController.value,
+                              strokeWidth: 4,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.1,
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );
