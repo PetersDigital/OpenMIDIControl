@@ -169,6 +169,10 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
 // ===========================================================================
 // MOBILE PORTRAIT LAYOUT
 // ===========================================================================
+// Global key to preserve PerformanceZone state across layout/orientation changes
+final GlobalKey<_PerformanceZoneState> _performanceZoneKey =
+    GlobalKey<_PerformanceZoneState>();
+
 class _MobilePortraitLayout extends ConsumerWidget {
   const _MobilePortraitLayout();
 
@@ -386,7 +390,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
         // PERFORMANCE ZONE (70%)
         Expanded(
           flex: ref.watch(transportVisibleProvider) ? 70 : 100,
-          child: const PerformanceZone(isMobile: true),
+          child: PerformanceZone(key: _performanceZoneKey, isMobile: true),
         ),
       ],
     );
@@ -667,7 +671,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
   }
 
   Widget _buildPerformanceZone(WidgetRef ref) {
-    return const PerformanceZone(isMobile: true);
+    return PerformanceZone(key: _performanceZoneKey, isMobile: true);
   }
 }
 
@@ -688,7 +692,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     return Stack(
       children: [
         // Always 100% performance zone
-        const PerformanceZone(isMobile: false),
+        PerformanceZone(key: _performanceZoneKey, isMobile: false),
 
         // Sliding Command Center
         AnimatedPositioned(
@@ -1191,9 +1195,11 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
             children: [
               // Page 0: Dual Faders
               Row(
+                key: const ValueKey('page_faders'),
                 children: [
                   Expanded(
                     child: HybridTouchFader(
+                      key: const ValueKey('fader_cc1'),
                       ccNumber: 1,
                       label: "CC1\nDYNAMICS",
                       activeColor: const Color(0xFFA6C9F8),
@@ -1205,11 +1211,12 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                   ),
                   Expanded(
                     child: HybridTouchFader(
+                      key: const ValueKey('fader_cc11'),
                       ccNumber: 11,
                       label: "CC11\nEXPRESSION",
                       activeColor: const Color(0xFFA1CFCE),
                       labelColor: const Color(0xFF013737),
-                      initialValue: 0.98,
+                      initialValue: 64 / 127.0,
                       isMobile: widget.isMobile,
                       behavior: ref.watch(faderBehaviorProvider),
                     ),
@@ -1219,15 +1226,16 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
 
               // Page 1: Single High-Precision XY Pad
               const Padding(
+                key: ValueKey('page_xy'),
                 padding: EdgeInsets.all(16),
                 child: HybridXYPad(id: "xy_main", ccX: 1, ccY: 11),
               ),
 
               // Page 2: Drum Grid Panel
-              const DrumGridPanel(),
+              const DrumGridPanel(key: ValueKey('page_drums')),
 
               // Page 3: Utility Grid Panel
-              const UtilityGridPanel(),
+              const UtilityGridPanel(key: ValueKey('page_utility')),
             ],
           ),
         ),

@@ -108,6 +108,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
   bool _canSend = true;
   bool _hasPendingSend = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Restore session values if available
+    final hotX = ref.read(hotCcValueProvider("0:${widget.ccX}")).asData?.value;
+    final hotY = ref.read(hotCcValueProvider("0:${widget.ccY}")).asData?.value;
+
+    if (hotX != null) {
+      _normalizedX = hotX / 127.0;
+    }
+    if (hotY != null) {
+      _normalizedY = hotY / 127.0;
+    }
+  }
+
   void _updatePosition(
     Offset localPosition,
     Size size, {

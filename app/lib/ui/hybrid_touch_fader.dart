@@ -77,15 +77,19 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   void initState() {
     super.initState();
     _throttleStopwatch = Stopwatch()..start();
-    _animationController = AnimationController(
-      vsync: this,
-      value: widget.initialValue.clamp(0.0, 1.0),
-    );
-    // ⚡ Bolt: Removed .addListener(() { setState(() {}); })
-    // to prevent full widget tree rebuilds at 120Hz.
-    // Dynamic elements now use AnimatedBuilder directly.
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.label;
+
+    // Restore value from session state if available, otherwise use initialValue
+    final hotValue = ref.read(hotCcValueProvider("0:$_ccNumber")).asData?.value;
+    final startValue = hotValue != null
+        ? hotValue / 127.0
+        : widget.initialValue;
+
+    _animationController = AnimationController(
+      vsync: this,
+      value: startValue.clamp(0.0, 1.0),
+    );
 
     _setupListener();
   }
