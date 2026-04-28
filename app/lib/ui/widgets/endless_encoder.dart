@@ -18,7 +18,7 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
     super.key,
     this.channel = 0,
     required this.cc,
-    this.sensitivity = 5.0,
+    this.sensitivity = 1.5,
     this.onLongPress,
   });
 
