@@ -23,26 +23,49 @@ class DelayedMenuTrigger extends ConsumerStatefulWidget {
 }
 
 class _DelayedMenuTriggerState extends ConsumerState<DelayedMenuTrigger>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   Timer? _timer;
+  Timer? _tapResetTimer;
   bool _isHolding = false;
   late AnimationController _progressController;
+
+  // Gesture state
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
 
   @override
   void initState() {
     super.initState();
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    _progressController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
-    );
+    _progressController = AnimationController(vsync: this);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _tapResetTimer?.cancel();
     _progressController.dispose();
     super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
+    if (_isTapHoldCandidate) {
+      _startHold();
+    }
   }
 
   void _startHold() {
@@ -72,9 +95,17 @@ class _DelayedMenuTriggerState extends ConsumerState<DelayedMenuTrigger>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onPanDown: (_) => _startHold(),
-      onPanEnd: (_) => _stopHold(),
-      onPanCancel: () => _stopHold(),
+      onTap: () {
+        _lastTapTime = DateTime.now();
+        _tapCount++;
+        _tapResetTimer?.cancel();
+        _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+          _tapCount = 0;
+        });
+      },
+      onTapDown: _handleTapDown,
+      onTapUp: (_) => _stopHold(),
+      onTapCancel: () => _stopHold(),
       behavior: HitTestBehavior.opaque,
       child: Stack(
         alignment: Alignment.center,

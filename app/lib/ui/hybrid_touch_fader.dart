@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
@@ -7,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
 import 'midi_service.dart';
+import 'midi_settings_state.dart';
+import 'widgets/control_config_modal.dart';
 
 // Common CC options for the popup menu
 const List<Map<String, dynamic>> _kCCOptions = [
@@ -47,10 +50,20 @@ class HybridTouchFader extends ConsumerStatefulWidget {
 }
 
 class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _progressController;
   late int _ccNumber;
   late String _ccLabel;
+
+  // Gesture state for configuration
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
+  bool _isLongHold = false;
+  Timer? _configTimer;
+  Timer? _tapResetTimer;
+  bool _isDown = false;
 
   // Monotonic clock for reliable MIDI throttling (immune to system clock changes)
   late final Stopwatch _throttleStopwatch;
@@ -91,6 +104,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       value: startValue.clamp(0.0, 1.0),
     );
 
+    _progressController = AnimationController(vsync: this);
+
     _setupListener();
   }
 
@@ -105,8 +120,11 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   void dispose() {
-    _ccSubscription?.close();
     _animationController.dispose();
+    _progressController.dispose();
+    _ccSubscription?.close();
+    _configTimer?.cancel();
+    _tapResetTimer?.cancel();
     super.dispose();
   }
 
@@ -118,20 +136,51 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
-    // Only lock the fader from incoming MIDI, don't change values yet
-    _isDragging = true;
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
+    setState(() {
+      _isDown = true;
+      _isLongHold = false;
+      _isDragging = false; // Will become true once we actually start dragging
+    });
+
+    if (_isTapHoldCandidate) {
+      final durationSecs = ref.read(safetyHoldDurationProvider);
+      final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isDown && _isTapHoldCandidate && !_isDragging) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          _showConfigMenu();
+        }
+      });
+    }
 
     if (widget.behavior == FaderBehavior.catchUp) {
       final handleY =
           (1.0 - _animationController.value) * constraints.maxHeight;
       final touchY = details.localPosition.dy;
 
-      // If we touch almost exactly on the handle line (within 20 pixels), grab immediately
       if ((touchY - handleY).abs() < 20.0) {
         _isCatchingUp = false;
       } else {
         _isCatchingUp = true;
-        // If touch is physically lower on screen (higher Y value), we must drag UP (decreasing Y) to cross
         _mustCrossMovingUp = touchY > handleY;
       }
     }
@@ -432,11 +481,31 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           onVerticalDragStart: (d) => _handleDragStart(d, constraints),
           onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
           onVerticalDragCancel: () {
+            _lastTapTime = DateTime.now();
+            _tapCount++;
+            _tapResetTimer?.cancel();
+            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+              _tapCount = 0;
+            });
+
             _isDragging = false;
+            _isDown = false;
+            _configTimer?.cancel();
+            _progressController.reset();
             _sendMidiUpdate(isFinal: true);
           },
           onVerticalDragEnd: (_) {
+            _lastTapTime = DateTime.now();
+            _tapCount++;
+            _tapResetTimer?.cancel();
+            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+              _tapCount = 0;
+            });
+
             _isDragging = false;
+            _isDown = false;
+            _configTimer?.cancel();
+            _progressController.reset();
             _sendMidiUpdate(isFinal: true);
           },
           behavior: HitTestBehavior.opaque,
@@ -534,11 +603,58 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                     ],
                   ),
                 ),
+
+                // Config Hold Progress
+                if (_isDown &&
+                    !_isLongHold &&
+                    !_isDragging &&
+                    _isTapHoldCandidate)
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: _progressController,
+                      builder: (context, child) {
+                        return SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: CircularProgressIndicator(
+                            value: _progressController.value,
+                            strokeWidth: 4,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _showConfigMenu() async {
+    final result = await showDialog<ControlConfigResult>(
+      context: context,
+      builder: (context) => ControlConfigModal(
+        initialChannel: 0,
+        initialIdentifier: _ccNumber,
+        identifierLabel: 'CC Number',
+      ),
+    );
+
+    if (result != null) {
+      debugPrint("Selected CC: $result");
+      setState(() {
+        _ccNumber = result.identifier;
+        if (_ccLabel.startsWith('CC')) {
+          _ccLabel = 'CC $_ccNumber';
+        }
+      });
+      _setupListener();
+    }
   }
 }

@@ -86,7 +86,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   late AnimationController _scaleController;
   late AnimationController _progressController;
   Timer? _configTimer;
+  Timer? _tapResetTimer;
   bool _isLongHold = false;
+
+  // Gesture state
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
 
   @override
   void initState() {
@@ -112,6 +118,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     _scaleController.dispose();
     _progressController.dispose();
     _configTimer?.cancel();
+    _tapResetTimer?.cancel();
     super.dispose();
   }
 
@@ -144,6 +151,19 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         widget.minVelocity +
         ((widget.maxVelocity - widget.minVelocity) * intensity).round();
 
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
     setState(() {
       _isPressed = true;
       _lastVelocity = velocity;
@@ -158,15 +178,17 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     _progressController.duration = duration;
     _progressController.forward(from: 0);
 
-    // Start config timer
-    _configTimer?.cancel();
-    _configTimer = Timer(duration, () {
-      if (_isPressed) {
-        setState(() => _isLongHold = true);
-        _progressController.reset();
-        _showConfigModal(context, ref, note, channel);
-      }
-    });
+    // Start config timer only if it's a tap-hold candidate
+    if (_isTapHoldCandidate) {
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isPressed && _isTapHoldCandidate) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          _showConfigModal(context, ref, note, channel);
+        }
+      });
+    }
 
     ref
         .read(midiServiceProvider)
@@ -188,6 +210,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     });
 
     _scaleController.forward();
+
+    _lastTapTime = DateTime.now();
+    _tapCount++;
+    _tapResetTimer?.cancel();
+    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+      _tapCount = 0;
+    });
 
     ref
         .read(midiServiceProvider)
@@ -366,8 +395,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                     ),
                   ),
 
-                  // 4-second Config Hold Progress
-                  if (_isPressed && !_isLongHold)
+                  // Config Hold Progress
+                  if (_isPressed && _isTapHoldCandidate && !_isLongHold)
                     Center(
                       child: AnimatedBuilder(
                         animation: _progressController,

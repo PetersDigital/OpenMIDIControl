@@ -39,7 +39,13 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
   bool _isPressed = false;
   late AnimationController _progressController;
   Timer? _configTimer;
+  Timer? _tapResetTimer;
   bool _isLongHold = false;
+
+  // Gesture state
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
 
   @override
   void initState() {
@@ -60,6 +66,19 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
     setState(() {
       _isPressed = true;
       _isLongHold = false;
@@ -98,6 +117,13 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
   }
 
   void _handlePointerUp(PointerEvent event) {
+    _lastTapTime = DateTime.now();
+    _tapCount++;
+    _tapResetTimer?.cancel();
+    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+      _tapCount = 0;
+    });
+
     if (!_isPressed) return;
     _configTimer?.cancel();
     _configTimer = null;
@@ -206,7 +232,7 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
                 ),
               ),
             ),
-            if (_isPressed && !_isLongHold)
+            if (_isPressed && _isTapHoldCandidate && !_isLongHold)
               Center(
                 child: AnimatedBuilder(
                   animation: _progressController,
@@ -261,7 +287,13 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
   bool _isPressed = false;
   late AnimationController _progressController;
   Timer? _configTimer;
+  Timer? _tapResetTimer;
   bool _isLongHold = false;
+
+  // Gesture state
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
 
   @override
   void initState() {
@@ -282,6 +314,20 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
+
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
     setState(() {
       _isPressed = true;
       _isLongHold = false;
@@ -290,19 +336,28 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
     final durationSecs = ref.read(safetyHoldDurationProvider);
     final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
 
-    _progressController.duration = duration;
-    _progressController.forward(from: 0);
-    _configTimer?.cancel();
-    _configTimer = Timer(duration, () {
-      if (_isPressed) {
-        setState(() => _isLongHold = true);
-        _progressController.reset();
-        widget.onLongPress?.call();
-      }
-    });
+    if (_isTapHoldCandidate) {
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isPressed && _isTapHoldCandidate) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          widget.onLongPress?.call();
+        }
+      });
+    }
   }
 
   void _handlePointerUp(PointerEvent event) {
+    _lastTapTime = DateTime.now();
+    _tapCount++;
+    _tapResetTimer?.cancel();
+    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+      _tapCount = 0;
+    });
+
     if (!_isPressed) return;
 
     if (!_isLongHold && _isPressed) {
@@ -439,7 +494,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
                 ),
               ),
             ),
-            if (_isPressed && !_isLongHold)
+            if (_isPressed && _isTapHoldCandidate && !_isLongHold)
               Center(
                 child: AnimatedBuilder(
                   animation: _progressController,

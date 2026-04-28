@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_service.dart';
+import '../midi_settings_state.dart';
 
 class XYPadConfig {
   final int ccX;
@@ -99,7 +100,8 @@ class HybridXYPad extends ConsumerStatefulWidget {
   ConsumerState<HybridXYPad> createState() => _HybridXYPadState();
 }
 
-class _HybridXYPadState extends ConsumerState<HybridXYPad> {
+class _HybridXYPadState extends ConsumerState<HybridXYPad>
+    with TickerProviderStateMixin {
   bool _isDragging = false;
   double _normalizedX = 0.5;
   double _normalizedY = 0.5;
@@ -107,6 +109,16 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
   Timer? _throttleTimer;
   bool _canSend = true;
   bool _hasPendingSend = false;
+
+  late AnimationController _progressController;
+  Timer? _configTimer;
+  Timer? _tapResetTimer;
+  bool _isLongHold = false;
+
+  // Gesture state
+  DateTime? _lastTapTime;
+  int _tapCount = 0;
+  bool _isTapHoldCandidate = false;
 
   ProviderSubscription<AsyncValue<int>>? _ccXSubscription;
   ProviderSubscription<AsyncValue<int>>? _ccYSubscription;
@@ -119,8 +131,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     final ccX = config?.ccX ?? widget.ccX;
     final ccY = config?.ccY ?? widget.ccY;
 
-    final hotX = ref.read(hotCcValueProvider("${channel}:$ccX")).asData?.value;
-    final hotY = ref.read(hotCcValueProvider("${channel}:$ccY")).asData?.value;
+    final hotX = ref.read(hotCcValueProvider("$channel:$ccX")).asData?.value;
+    final hotY = ref.read(hotCcValueProvider("$channel:$ccY")).asData?.value;
 
     if (hotX != null) {
       _normalizedX = hotX / 127.0;
@@ -129,6 +141,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
       _normalizedY = hotY / 127.0;
     }
 
+    _progressController = AnimationController(vsync: this);
     _setupListeners();
   }
 
@@ -142,13 +155,57 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     final ccY = config?.ccY ?? widget.ccY;
 
     _ccXSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("${channel}:$ccX"),
+      hotCcValueProvider("$channel:$ccX"),
       (previous, next) => next.whenData(_handleXUpdate),
     );
     _ccYSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("${channel}:$ccY"),
+      hotCcValueProvider("$channel:$ccY"),
       (previous, next) => next.whenData(_handleYUpdate),
     );
+  }
+
+  @override
+  void dispose() {
+    _ccXSubscription?.close();
+    _ccYSubscription?.close();
+    _throttleTimer?.cancel();
+    _progressController.dispose();
+    _configTimer?.cancel();
+    _tapResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startHold() {
+    final durationSecs = ref.read(safetyHoldDurationProvider);
+    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+
+    setState(() => _isLongHold = true);
+    _progressController.duration = duration;
+    _progressController.forward(from: 0);
+    _configTimer = Timer(duration, () {
+      if (_isLongHold) {
+        final currentConfig =
+            ref.read(xyPadConfigProvider)[widget.id] ??
+            XYPadConfig(
+              ccX: widget.ccX,
+              ccY: widget.ccY,
+              channel: widget.channel,
+              invertX: widget.invertX,
+              invertY: widget.invertY,
+            );
+        _showConfigDialog(context, currentConfig);
+        _stopHold();
+      }
+    });
+  }
+
+  void _stopHold() {
+    _configTimer?.cancel();
+    _configTimer = null;
+    if (mounted) {
+      setState(() => _isLongHold = false);
+      _progressController.reset();
+    }
   }
 
   void _handleXUpdate(int val) {
@@ -238,14 +295,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
       channel: effectiveChannel,
       isFinal: isFinal,
     );
-  }
-
-  @override
-  void dispose() {
-    _ccXSubscription?.close();
-    _ccYSubscription?.close();
-    _throttleTimer?.cancel();
-    super.dispose();
   }
 
   void _showConfigDialog(BuildContext context, XYPadConfig currentConfig) {
@@ -386,17 +435,32 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
         return GestureDetector(
-          onLongPress: () {
-            final currentConfig =
-                ref.read(xyPadConfigProvider)[widget.id] ??
-                XYPadConfig(
-                  ccX: widget.ccX,
-                  ccY: widget.ccY,
-                  channel: widget.channel,
-                  invertX: widget.invertX,
-                  invertY: widget.invertY,
-                );
-            _showConfigDialog(context, currentConfig);
+          onTap: () {
+            _lastTapTime = DateTime.now();
+            _tapCount++;
+            _tapResetTimer?.cancel();
+            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+              _tapCount = 0;
+            });
+          },
+          onPanDown: (details) {
+            final now = DateTime.now();
+            final timeSinceLastTap = _lastTapTime != null
+                ? now.difference(_lastTapTime!)
+                : const Duration(seconds: 1);
+
+            final mode = ref.read(configGestureModeProvider);
+
+            if (mode == ConfigGestureMode.doubleTapHold) {
+              _isTapHoldCandidate =
+                  _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+            } else {
+              _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+            }
+
+            if (_isTapHoldCandidate) {
+              _startHold();
+            }
           },
           onPanStart: (details) {
             setState(() {
@@ -408,6 +472,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
             _updatePosition(details.localPosition, size, isFinal: false);
           },
           onPanEnd: (details) {
+            _stopHold();
             setState(() {
               _isDragging = false;
             });
@@ -415,6 +480,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
             _sendMidi(isFinal: true);
           },
           onPanCancel: () {
+            _stopHold();
             setState(() {
               _isDragging = false;
             });
@@ -468,6 +534,28 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
                           : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
                     ),
                   ),
+                  // Progress ring for config - Gated by candidate sequence
+                  if (_isLongHold ||
+                      (_isDragging == false && _isTapHoldCandidate))
+                    Center(
+                      child: AnimatedBuilder(
+                        animation: _progressController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: CircularProgressIndicator(
+                              value: _progressController.value,
+                              strokeWidth: 4,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   // Touch Point Marker
                   Positioned(
                     left: (_normalizedX * size.width) - 15,

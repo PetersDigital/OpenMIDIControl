@@ -38,6 +38,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   Timer? _configTimer;
   bool _isLongHold = false;
   bool _isDown = false;
+  double _totalDragDistance = 0.0;
+  DateTime? _lastTapTime;
+  bool _isTapHoldCandidate = false;
+  int _tapCount = 0;
+  Timer? _tapResetTimer;
 
   @override
   void initState() {
@@ -54,6 +59,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
     _throttleTimer?.cancel();
     _progressController.dispose();
     _configTimer?.cancel();
+    _tapResetTimer?.cancel();
     super.dispose();
   }
 
@@ -71,32 +77,65 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragStart(DragStartDetails details) {
-    _isDragging = true;
+    _isDragging = false; // Wait for movement threshold
     _accumulatedDelta = 0.0;
+    _totalDragDistance = 0.0;
   }
 
   void _handlePanDown(DragDownDetails details) {
+    final now = DateTime.now();
+    final timeSinceLastTap = _lastTapTime != null
+        ? now.difference(_lastTapTime!)
+        : const Duration(seconds: 1);
+
+    final mode = ref.read(configGestureModeProvider);
+
+    if (mode == ConfigGestureMode.doubleTapHold) {
+      _isTapHoldCandidate =
+          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+    } else {
+      // Single Tap Hold
+      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+    }
+
     setState(() {
       _isDown = true;
       _isLongHold = false;
     });
 
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
+    if (_isTapHoldCandidate) {
+      final durationSecs = ref.read(safetyHoldDurationProvider);
+      final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
 
-    _progressController.duration = duration;
-    _progressController.forward(from: 0);
-    _configTimer?.cancel();
-    _configTimer = Timer(duration, () {
-      if (_isDown) {
-        setState(() => _isLongHold = true);
-        _progressController.reset();
-        widget.onLongPress?.call();
-      }
-    });
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isDown && _isTapHoldCandidate) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          widget.onLongPress?.call();
+        }
+      });
+    }
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
+    if (!_isDragging) {
+      _totalDragDistance += details.delta.dy.abs();
+      if (_totalDragDistance > 10.0) {
+        setState(() {
+          _isDragging = true;
+          // Cancel "Safety Hold" now that we are definitely dragging
+          _configTimer?.cancel();
+          _configTimer = null;
+          _progressController.reset();
+        });
+      } else {
+        return; // Ignore micro-movements to preserve "Hold" timer
+      }
+    }
+
     _accumulatedDelta -= details.delta.dy;
 
     if (_accumulatedDelta.abs() >= widget.sensitivity) {
@@ -111,6 +150,13 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragEnd(DragEndDetails details) {
+    _lastTapTime = DateTime.now();
+    _tapCount++;
+    _tapResetTimer?.cancel();
+    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+      _tapCount = 0;
+    });
+
     _isDragging = false;
     _isDown = false;
     _accumulatedDelta = 0.0;
@@ -221,8 +267,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                   ],
                 ),
 
-                // Config Hold Progress
-                if (_isDown && !_isLongHold)
+                // Config Hold Progress - Only visible during an active Tap-Hold sequence
+                if (_isDown &&
+                    !_isLongHold &&
+                    !_isDragging &&
+                    _isTapHoldCandidate)
                   Center(
                     child: AnimatedBuilder(
                       animation: _progressController,
