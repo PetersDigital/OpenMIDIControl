@@ -108,6 +108,9 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
   bool _canSend = true;
   bool _hasPendingSend = false;
 
+  ProviderSubscription<AsyncValue<int>>? _ccXSubscription;
+  ProviderSubscription<AsyncValue<int>>? _ccYSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +124,52 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     if (hotY != null) {
       _normalizedY = hotY / 127.0;
     }
+
+    _setupListeners();
+  }
+
+  void _setupListeners() {
+    _ccXSubscription?.close();
+    _ccYSubscription?.close();
+
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final ccX = config?.ccX ?? widget.ccX;
+    final ccY = config?.ccY ?? widget.ccY;
+
+    _ccXSubscription = ref.listenManual<AsyncValue<int>>(
+      hotCcValueProvider("0:$ccX"),
+      (previous, next) => next.whenData(_handleXUpdate),
+    );
+    _ccYSubscription = ref.listenManual<AsyncValue<int>>(
+      hotCcValueProvider("0:$ccY"),
+      (previous, next) => next.whenData(_handleYUpdate),
+    );
+  }
+
+  void _handleXUpdate(int val) {
+    if (_isDragging) return;
+    if (!mounted) return;
+
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final invertX = config?.invertX ?? widget.invertX;
+    final norm = val / 127.0;
+
+    setState(() {
+      _normalizedX = invertX ? 1.0 - norm : norm;
+    });
+  }
+
+  void _handleYUpdate(int val) {
+    if (_isDragging) return;
+    if (!mounted) return;
+
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final invertY = config?.invertY ?? widget.invertY;
+    final norm = val / 127.0;
+
+    setState(() {
+      _normalizedY = invertY ? 1.0 - norm : norm;
+    });
   }
 
   void _updatePosition(
@@ -188,6 +237,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
 
   @override
   void dispose() {
+    _ccXSubscription?.close();
+    _ccYSubscription?.close();
     _throttleTimer?.cancel();
     super.dispose();
   }
@@ -316,6 +367,11 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
 
   @override
   Widget build(BuildContext context) {
+    // Re-setup listeners if config changes
+    ref.listen(xyPadConfigProvider, (prev, next) {
+      _setupListeners();
+    });
+
     final config = ref.watch(xyPadConfigProvider)[widget.id];
     final ccX = config?.ccX ?? widget.ccX;
     final ccY = config?.ccY ?? widget.ccY;

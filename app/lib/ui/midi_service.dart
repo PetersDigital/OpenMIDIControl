@@ -277,52 +277,7 @@ class MidiService {
         final payload = message.$2;
 
         if (type == 'state_update') {
-          final updates = payload as Map<String, dynamic>;
-          if (updates.isNotEmpty) {
-            final unmodifiableUpdates = <String, dynamic>{};
-
-            final ccs = updates['ccs'] as Map<String, int>?;
-            if (ccs != null && ccs.isNotEmpty) {
-              final currentCcs =
-                  _cachedState['ccs'] as Map<String, int>? ?? <String, int>{};
-              final nextCcs = Map<String, int>.unmodifiable({
-                ...currentCcs,
-                ...ccs,
-              });
-              _cachedState['ccs'] = nextCcs;
-              // ccs from worker is already Map<String, int>, but we wrap it to be safe
-              unmodifiableUpdates['ccs'] = Map<String, int>.unmodifiable(ccs);
-            }
-
-            final notes = updates['notes'] as Map<int, List<int>>?;
-            if (notes != null) {
-              // Notes replace completely, but we ensure lists are unmodifiable
-              final nextNotes = Map<int, List<int>>.unmodifiable(
-                notes.map((k, v) => MapEntry(k, List<int>.unmodifiable(v))),
-              );
-              _cachedState['notes'] = nextNotes;
-              unmodifiableUpdates['notes'] = nextNotes;
-            }
-
-            final buttons = updates['buttons'] as Map<String, bool>?;
-            if (buttons != null && buttons.isNotEmpty) {
-              final currentButtons =
-                  _cachedState['buttons'] as Map<String, bool>? ??
-                  <String, bool>{};
-              final nextButtons = Map<String, bool>.unmodifiable({
-                ...currentButtons,
-                ...buttons,
-              });
-              _cachedState['buttons'] = nextButtons;
-              unmodifiableUpdates['buttons'] = Map<String, bool>.unmodifiable(
-                buttons,
-              );
-            }
-
-            _uiStateController.add(
-              Map<String, dynamic>.unmodifiable(unmodifiableUpdates),
-            );
-          }
+          _handleStateUpdate(payload as Map<String, dynamic>);
         }
       }
     });
@@ -332,6 +287,48 @@ class MidiService {
       _workerReceivePort.sendPort,
       debugName: 'MidiWorkerIsolate',
     );
+  }
+
+  void _handleStateUpdate(Map<String, dynamic> updates) {
+    if (updates.isEmpty) return;
+
+    final unmodifiableUpdates = <String, dynamic>{};
+
+    final ccs = updates['ccs'] as Map<String, int>?;
+    if (ccs != null && ccs.isNotEmpty) {
+      final currentCcs =
+          _cachedState['ccs'] as Map<String, int>? ?? <String, int>{};
+      final nextCcs = Map<String, int>.unmodifiable({...currentCcs, ...ccs});
+      _cachedState['ccs'] = nextCcs;
+      unmodifiableUpdates['ccs'] = Map<String, int>.unmodifiable(ccs);
+    }
+
+    final notes = updates['notes'] as Map<int, List<int>>?;
+    if (notes != null) {
+      final nextNotes = Map<int, List<int>>.unmodifiable(
+        notes.map((k, v) => MapEntry(k, List<int>.unmodifiable(v))),
+      );
+      _cachedState['notes'] = nextNotes;
+      unmodifiableUpdates['notes'] = nextNotes;
+    }
+
+    final buttons = updates['buttons'] as Map<String, bool>?;
+    if (buttons != null && buttons.isNotEmpty) {
+      final currentButtons =
+          _cachedState['buttons'] as Map<String, bool>? ?? <String, bool>{};
+      final nextButtons = Map<String, bool>.unmodifiable({
+        ...currentButtons,
+        ...buttons,
+      });
+      _cachedState['buttons'] = nextButtons;
+      unmodifiableUpdates['buttons'] = Map<String, bool>.unmodifiable(buttons);
+    }
+
+    if (unmodifiableUpdates.isNotEmpty) {
+      _uiStateController.add(
+        Map<String, dynamic>.unmodifiable(unmodifiableUpdates),
+      );
+    }
   }
 
   void _setupRouters() {
@@ -344,8 +341,20 @@ class MidiService {
       NativeTransportSinkNode(channel: _channel),
     );
 
-    // Connect root to sink by default so events flow out
+    // Loopback for local UI synchronization (e.g. Fader -> XY Pad)
+    outgoingRouter.addNode(
+      'uiSyncSink',
+      UiStateSinkNode(
+        onStateUpdate: (updates) {
+          // Immediately ingest local changes into the UI state
+          _handleStateUpdate(updates);
+        },
+      ),
+    );
+
+    // Connect root to both sinks so events flow out to host AND loop back to UI
     outgoingRouter.addEdge('source', 'nativeSink');
+    outgoingRouter.addEdge('source', 'uiSyncSink');
   }
 
   void dispose() {
