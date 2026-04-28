@@ -13,6 +13,7 @@ import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
 import 'providers/config_ui_provider.dart';
 import 'design_system.dart';
+import 'layout_state.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -1172,7 +1173,8 @@ class PerformanceZone extends ConsumerStatefulWidget {
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
   @override
   Widget build(BuildContext context) {
-    final currentPage = ref.watch(performancePageIndexProvider);
+    final layoutState = ref.watch(layoutStateProvider);
+    final currentPage = layoutState.activePageIndex;
 
     return Column(
       children: [
@@ -1182,10 +1184,9 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
           children: [
             Row(
               children: [
-                _buildTabButton(0, "FADER", currentPage),
-                _buildTabButton(1, "XY", currentPage),
-                _buildTabButton(2, "PADS", currentPage),
-                _buildTabButton(3, "UTILITY", currentPage),
+                // Dynamically render tabs from layout schema
+                for (int i = 0; i < layoutState.pages.length; i++)
+                  _buildTabButton(i, layoutState.pages[i].name, currentPage),
               ],
             ),
             const GlobalConfigProgressBar(),
@@ -1253,7 +1254,7 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          ref.read(performancePageIndexProvider.notifier).setPage(index);
+          ref.read(layoutStateProvider.notifier).setPageIndex(index);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),

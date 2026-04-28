@@ -10,6 +10,8 @@ import '../widgets/midi_buttons.dart';
 import '../widgets/control_config_modal.dart';
 import '../widgets/delayed_menu_trigger.dart';
 import '../widgets/config_gesture_wrapper.dart';
+import '../layout_state.dart';
+import '../../core/models/layout_models.dart';
 
 class UtilityGridConfig {
   final int channel;
@@ -84,7 +86,13 @@ class UtilityGridPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final layoutState = ref.watch(layoutStateProvider);
     final configs = ref.watch(utilityGridConfigProvider);
+
+    // Get UTILITY page (index 3)
+    final utilityControls = layoutState.pages.length > 3
+        ? layoutState.pages[3].controls
+        : <LayoutControl>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -92,12 +100,11 @@ class UtilityGridPanel extends ConsumerWidget {
         final padHeight = constraints.maxHeight / 4;
         final aspectRatio = padWidth / padHeight;
 
-        Widget buildEncoder(int index) {
-          final id = 'encoder_$index';
-          final defaultCc = 20 + index;
+        Widget buildEncoderFromControl(LayoutControl control) {
+          final id = control.id;
           final config = configs[id];
-          final channel = config?.channel ?? 0;
-          final cc = config?.cc ?? defaultCc;
+          final channel = config?.channel ?? control.channel;
+          final cc = config?.cc ?? control.defaultCc;
 
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -128,7 +135,7 @@ class UtilityGridPanel extends ConsumerWidget {
                   ),
                   color: Colors.transparent, // Hit target expansion
                   child: Text(
-                    'ENC | CC $cc',
+                    '${control.displayName} | CC $cc',
                     textAlign: TextAlign.center,
                     style: AppText.performance(
                       color: const Color(0xFFC3C7CA),
@@ -142,35 +149,17 @@ class UtilityGridPanel extends ConsumerWidget {
           );
         }
 
-        Widget buildToggle(int index) {
-          final id = 'toggle_$index';
-          final defaultCc = 24 + index;
+        Widget buildButtonFromControl(LayoutControl control) {
+          final id = control.id;
           final config = configs[id];
-          final channel = config?.channel ?? 0;
-          final cc = config?.cc ?? defaultCc;
-
-          return ToggleButton(
-            identifier: cc,
-            channel: channel,
-            mode: MidiButtonMode.cc,
-            label: 'TOGGLE',
-            onConfigRequested: () =>
-                _showConfigModal(context, ref, id, channel, cc),
-          );
-        }
-
-        Widget buildMomentary(int index) {
-          final id = 'momentary_$index';
-          final defaultCc = 28 + index;
-          final config = configs[id];
-          final channel = config?.channel ?? 0;
-          final cc = config?.cc ?? defaultCc;
+          final channel = config?.channel ?? control.channel;
+          final cc = config?.cc ?? control.defaultCc;
 
           return MomentaryButton(
             identifier: cc,
             channel: channel,
             mode: MidiButtonMode.cc,
-            label: 'MOMENT',
+            label: control.displayName,
             onConfigRequested: () =>
                 _showConfigModal(context, ref, id, channel, cc),
           );
@@ -187,11 +176,14 @@ class UtilityGridPanel extends ConsumerWidget {
                 crossAxisSpacing: 2.0,
                 mainAxisSpacing: 2.0,
               ),
-              itemCount: 8,
+              itemCount: utilityControls.length,
               itemBuilder: (context, index) {
-                if (index < 2) return buildEncoder(index);
-                if (index < 4) return buildToggle(index - 2);
-                return buildMomentary(index - 4);
+                final control = utilityControls[index];
+                if (control.type == ControlType.encoder) {
+                  return buildEncoderFromControl(control);
+                } else {
+                  return buildButtonFromControl(control);
+                }
               },
             ),
 
