@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
 import '../midi_service.dart';
@@ -123,8 +124,7 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
                   alignment: Alignment.topLeft,
                   child: Text(
                     'CC ${widget.identifier}',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
+                    style: AppText.performance(
                       color: _isPressed
                           ? const Color(0xFF033258).withValues(alpha: 0.6)
                           : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
@@ -142,8 +142,7 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
                 child: Text(
                   widget.label,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
+                  style: AppText.performance(
                     color: _isPressed
                         ? const Color(0xFF033258)
                         : const Color(0xFFC3C7CA),
@@ -317,8 +316,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton> {
                   alignment: Alignment.topLeft,
                   child: Text(
                     'CC ${widget.identifier}',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
+                    style: AppText.performance(
                       color: _isActive
                           ? const Color(0xFF690005).withValues(alpha: 0.6)
                           : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
@@ -336,8 +334,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton> {
                 child: Text(
                   widget.label,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
+                  style: AppText.performance(
                     color: _isActive
                         ? const Color(0xFF690005)
                         : const Color(0xFFC3C7CA),

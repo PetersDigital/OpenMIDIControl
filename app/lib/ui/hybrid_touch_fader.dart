@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'open_midi_screen.dart'; // For FaderBehavior type
+import 'design_system.dart';
 import 'midi_service.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
@@ -409,8 +410,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                             child: Text(
                               _ccLabel,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
+                              style: AppText.performance(
                                 color: Colors.white,
                                 fontSize: labelFontSize,
                                 fontWeight: FontWeight.w700,

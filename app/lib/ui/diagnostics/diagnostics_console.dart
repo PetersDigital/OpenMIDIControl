@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'diagnostics_logger.dart';
+import '../design_system.dart';
 
 class DiagnosticsConsole extends ConsumerWidget {
   const DiagnosticsConsole({super.key});
@@ -21,9 +22,9 @@ class DiagnosticsConsole extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'DIAGNOSTICS LOGGER',
-                style: TextStyle(
+                style: AppText.system(
                   color: Colors.greenAccent,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,

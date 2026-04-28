@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../widgets/endless_encoder.dart';
+import '../design_system.dart';
 import '../widgets/midi_buttons.dart';
 import '../widgets/control_config_modal.dart';
 import '../widgets/delayed_menu_trigger.dart';
@@ -129,9 +130,8 @@ class UtilityGridPanel extends ConsumerWidget {
                   child: Text(
                     'ENC | CC $cc',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      color: Color(0xFFC3C7CA),
+                    style: AppText.performance(
+                      color: const Color(0xFFC3C7CA),
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),

@@ -12,6 +12,7 @@ import 'midi_service.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
 import 'providers/config_ui_provider.dart';
+import 'design_system.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -819,11 +820,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   "OPENMIDI",
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: Color(0xFFA6C9F8),
+                  style: AppText.performance(
+                    color: const Color(0xFFA6C9F8),
                     fontWeight: FontWeight.w900,
                     fontSize: 24,
                     letterSpacing: -0.5,
@@ -887,11 +887,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           // Track name
           SizedBox(
             width: double.infinity,
-            child: const Text(
+            child: Text(
               "01 - Cinematic Violins",
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: Color(0xFFA6C9F8),
+              style: AppText.performance(
+                color: const Color(0xFFA6C9F8),
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -1056,8 +1055,7 @@ class _ConnectionStatusButton extends ConsumerWidget {
         children: [
           Text(
             statusText,
-            style: TextStyle(
-              fontFamily: 'Inter',
+            style: AppText.system(
               color: statusColor,
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -1099,8 +1097,7 @@ class _StatusDisplay extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
+          style: AppText.system(
             color: Colors.white60,
             fontSize: 8,
             fontWeight: FontWeight.bold,
@@ -1111,8 +1108,7 @@ class _StatusDisplay extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Inter',
+            style: AppText.performance(
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.bold,

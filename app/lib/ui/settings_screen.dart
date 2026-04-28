@@ -12,6 +12,7 @@ import 'midi_service.dart';
 import 'widgets/velocity_drum_pad.dart';
 import 'widgets/hybrid_xy_pad.dart';
 import 'midi_settings_state.dart';
+import 'design_system.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -28,11 +29,10 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        title: const Text(
+        title: Text(
           'Settings',
-          style: TextStyle(
-            fontFamily: 'Space Grotesk',
-            color: Color(0xFFC3C7CA), // Primary container color from theme seed
+          style: AppText.system(
+            color: const Color(0xFFC3C7CA),
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -65,10 +65,9 @@ class SettingsScreen extends ConsumerWidget {
                   size: 40,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'OpenMIDIControl',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
+                  style: AppText.performance(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -78,8 +77,7 @@ class SettingsScreen extends ConsumerWidget {
                 packageInfoAsync.when(
                   data: (info) => Text(
                     'v${info.version}',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
+                    style: AppText.system(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                     ),
@@ -89,8 +87,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 Text(
                   '© PetersDigital',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
+                  style: AppText.system(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
@@ -104,11 +101,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Fader Behavior Section
-          const Text(
+          Text(
             'FADER CONFIGURATION',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -162,11 +158,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Layout Section
-          const Text(
+          Text(
             'LAYOUT',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -193,8 +188,7 @@ class SettingsScreen extends ConsumerWidget {
                   faderOnRight
                       ? 'Controls on left — slide faders with right hand.'
                       : 'Controls on right — slide faders with left hand.',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
+                  style: AppText.system(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
@@ -214,11 +208,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Safety Hold Section
-          const Text(
+          Text(
             'SAFETY HOLD DURATION',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -236,8 +229,7 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       Text(
                         '${duration.toStringAsFixed(1)} SECONDS',
-                        style: const TextStyle(
-                          fontFamily: 'Space Grotesk',
+                        style: AppText.performance(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -283,8 +275,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   Text(
                     'Adjust the time required to hold a control to enter configuration mode.',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
+                    style: AppText.system(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                     ),
@@ -299,11 +290,10 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Configuration Gesture Section
-          const Text(
+          Text(
             'CONFIGURATION GESTURE',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,

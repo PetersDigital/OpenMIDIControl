@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
+import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
 class DrumPadConfig {
@@ -265,8 +266,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                         alignment: Alignment.topLeft,
                         child: Text(
                           _getNoteName(note),
-                          style: TextStyle(
-                            fontFamily: 'Inter',
+                          style: AppText.performance(
                             color: _isPressed
                                 ? const Color(0xFF1E2024).withValues(alpha: 0.8)
                                 : const Color(
@@ -287,8 +287,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                     right: 8,
                     child: Text(
                       'CH${channel + 1}',
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
+                      style: AppText.system(
                         color: _isPressed
                             ? const Color(0xFF1E2024).withValues(alpha: 0.6)
                             : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
@@ -304,8 +303,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                     left: 8,
                     child: Text(
                       'V:${_lastVelocity ?? 0}',
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
+                      style: AppText.performance(
                         color: _isPressed
                             ? const Color(0xFF1E2024).withValues(alpha: 0.8)
                             : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
@@ -343,8 +341,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       child: Text(
                         widget.label.isNotEmpty ? widget.label : 'PAD $note',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
+                        style: AppText.performance(
                           color: _isPressed
                               ? const Color(0xFF1E2024)
                               : const Color(0xFFC3C7CA),

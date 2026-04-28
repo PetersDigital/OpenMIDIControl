@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../design_system.dart';
 import '../midi_service.dart';
 import 'config_gesture_wrapper.dart';
 
@@ -526,8 +527,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             ),
                             Text(
                               'X: CC$ccX',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
+                              style: AppText.performance(
                                 color: Colors.white24,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
@@ -557,8 +557,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                           children: [
                             Text(
                               'Y: CC$ccY',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
+                              style: AppText.performance(
                                 color: Colors.white24,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter/material.dart';
+import '../design_system.dart';
 import 'package:flutter/services.dart';
 
 class ControlConfigResult {
@@ -158,9 +159,9 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
-          child: const Text(
+          child: Text(
             'Cancel',
-            style: TextStyle(color: Color(0xFFC3C7CA), fontFamily: 'Inter'),
+            style: AppText.system(color: const Color(0xFFC3C7CA)),
           ),
         ),
         ElevatedButton(
@@ -169,9 +170,9 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
             backgroundColor: const Color(0xFFA6C9F8),
             foregroundColor: const Color(0xFF0C0E12),
           ),
-          child: const Text(
+          child: Text(
             'Save',
-            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold),
+            style: AppText.system(fontWeight: FontWeight.bold),
           ),
         ),
       ],
