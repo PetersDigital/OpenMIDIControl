@@ -37,3 +37,18 @@ final manualPortSelectionProvider =
     NotifierProvider<ManualPortSelectionNotifier, bool>(
       ManualPortSelectionNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// State: Safety Hold Duration (seconds)
+// ---------------------------------------------------------------------------
+class SafetyHoldDurationNotifier extends Notifier<double> {
+  @override
+  double build() => 3.0;
+
+  void update(double value) => state = value;
+}
+
+final safetyHoldDurationProvider =
+    NotifierProvider<SafetyHoldDurationNotifier, double>(
+      SafetyHoldDurationNotifier.new,
+    );
