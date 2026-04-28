@@ -130,35 +130,55 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerUp: (_) => _handlePointerUpCancel(),
-      onPointerCancel: (_) => _handlePointerUpCancel(),
-      behavior: widget.behavior,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          widget.child,
-          if (_isDown &&
-              !_isLongHold &&
-              !widget.isDragging &&
-              _isTapHoldCandidate)
-            AnimatedBuilder(
-              animation: _progressController,
-              builder: (context, child) {
-                return SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: CircularProgressIndicator(
-                    value: _progressController.value,
-                    strokeWidth: 4,
-                    color: Colors.white.withValues(alpha: 0.6),
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+    return GestureDetector(
+      // Intercept all major gestures to prevent them from reaching parent performance widgets
+      onTap: () {},
+      onDoubleTap: () {},
+      onVerticalDragStart: (_) {},
+      onVerticalDragUpdate: (_) {},
+      onHorizontalDragStart: (_) {},
+      onHorizontalDragUpdate: (_) {},
+      onLongPress: () {},
+      behavior: HitTestBehavior.opaque,
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerUp: (_) => _handlePointerUpCancel(),
+        onPointerCancel: (_) => _handlePointerUpCancel(),
+        behavior: widget.behavior,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            widget.child,
+            if (_isDown &&
+                !_isLongHold &&
+                !widget.isDragging &&
+                _isTapHoldCandidate)
+              Positioned.fill(
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedBuilder(
+                      animation: _progressController,
+                      builder: (context, child) {
+                        return SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            value: _progressController.value,
+                            strokeWidth: 3,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
-            ),
-        ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
