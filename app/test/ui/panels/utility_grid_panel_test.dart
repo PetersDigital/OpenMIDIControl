@@ -46,7 +46,7 @@ void main() {
       expect(find.byType(MomentaryButton), findsNWidgets(4));
 
       // Verify default labels
-      expect(find.text('ENC 20'), findsOneWidget); // Encoder
+      expect(find.text('ENC | CC 20'), findsOneWidget); // Encoder
       expect(
         find.text('TOGGLE'),
         findsAtLeastNWidgets(1),
@@ -65,9 +65,9 @@ void main() {
     (WidgetTester tester) async {
       await tester.pumpWidget(buildTestSubject());
 
-      // Hold the first encoder for > 1.0s
-      final encoder = find.byType(EndlessEncoderWidget).first;
-      final gesture = await tester.startGesture(tester.getCenter(encoder));
+      // Hold the first label for > 1.0s
+      final label = find.text('ENC | CC 20');
+      final gesture = await tester.startGesture(tester.getCenter(label));
       await tester.pump(const Duration(milliseconds: 1100));
       await gesture.up();
       await tester.pumpAndSettle();
@@ -84,8 +84,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify the label updated
-      expect(find.text('ENC 99'), findsOneWidget);
-      expect(find.text('ENC 20'), findsNothing); // Old one is gone
+      expect(find.text('ENC | CC 99'), findsOneWidget);
+      expect(find.text('ENC | CC 20'), findsNothing); // Old one is gone
     },
   );
 }

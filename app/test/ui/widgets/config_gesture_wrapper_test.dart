@@ -36,7 +36,11 @@ void main() {
                   return ConfigGestureWrapper(
                     id: 'test',
                     onConfigRequested: () => requested = true,
-                    child: const SizedBox(width: 100, height: 100),
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      color: Colors.blue,
+                    ),
                   );
                 },
               ),
@@ -47,7 +51,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.byType(SizedBox));
+      await tester.longPress(find.byType(ConfigGestureWrapper));
       await tester.pump(
         const Duration(milliseconds: 200),
       ); // allow time for timer
