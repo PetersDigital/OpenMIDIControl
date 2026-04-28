@@ -159,9 +159,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     final mode = ref.read(configGestureModeProvider);
     if (mode == ConfigGestureMode.doubleTapHold) {
       _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
     } else {
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+      _isTapHoldCandidate =
+          _tapCount == 0 && timeSinceLastTap.inMilliseconds < 400;
     }
 
     setState(() {
@@ -175,11 +176,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
 
     _scaleController.reverse();
-    _progressController.duration = duration;
-    _progressController.forward(from: 0);
 
-    // Start config timer only if it's a tap-hold candidate
     if (_isTapHoldCandidate) {
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
       _configTimer?.cancel();
       _configTimer = Timer(duration, () {
         if (_isPressed && _isTapHoldCandidate) {
@@ -196,8 +196,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   }
 
   void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
-    if (!_isPressed) return;
-
     _configTimer?.cancel();
     _configTimer = null;
     _progressController.reset();
@@ -207,6 +205,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       _lastVelocity = null;
       _lastTouchPosition = null;
       _isLongHold = false;
+      _isTapHoldCandidate = false;
     });
 
     _scaleController.forward();
