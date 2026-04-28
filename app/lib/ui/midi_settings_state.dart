@@ -43,7 +43,7 @@ final manualPortSelectionProvider =
 // ---------------------------------------------------------------------------
 class SafetyHoldDurationNotifier extends Notifier<double> {
   @override
-  double build() => 3.0;
+  double build() => 1.0;
 
   void update(double value) => state = value;
 }
@@ -51,4 +51,24 @@ class SafetyHoldDurationNotifier extends Notifier<double> {
 final safetyHoldDurationProvider =
     NotifierProvider<SafetyHoldDurationNotifier, double>(
       SafetyHoldDurationNotifier.new,
+    );
+
+// ---------------------------------------------------------------------------
+// State: Config Interaction Mode
+// ---------------------------------------------------------------------------
+enum ConfigGestureMode {
+  tapHold, // Tap then Hold
+  doubleTapHold, // Tap, Tap then Hold
+}
+
+class ConfigGestureModeNotifier extends Notifier<ConfigGestureMode> {
+  @override
+  ConfigGestureMode build() => ConfigGestureMode.doubleTapHold;
+
+  void update(ConfigGestureMode mode) => state = mode;
+}
+
+final configGestureModeProvider =
+    NotifierProvider<ConfigGestureModeNotifier, ConfigGestureMode>(
+      ConfigGestureModeNotifier.new,
     );

@@ -298,6 +298,53 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
 
+          // Configuration Gesture Section
+          const Text(
+            'CONFIGURATION GESTURE',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Consumer(
+            builder: (context, ref, _) {
+              final mode = ref.watch(configGestureModeProvider);
+              return Column(
+                children: [
+                  _buildGestureOption(
+                    context,
+                    ref,
+                    'TAP-THEN-HOLD',
+                    'Hold on the second touch',
+                    mode == ConfigGestureMode.tapHold,
+                    () => ref
+                        .read(configGestureModeProvider.notifier)
+                        .update(ConfigGestureMode.tapHold),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildGestureOption(
+                    context,
+                    ref,
+                    'DOUBLE-TAP-THEN-HOLD',
+                    'Hold on the third touch (Safest)',
+                    mode == ConfigGestureMode.doubleTapHold,
+                    () => ref
+                        .read(configGestureModeProvider.notifier)
+                        .update(ConfigGestureMode.doubleTapHold),
+                  ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+
           Text(
             'ADVANCED (COMING SOON)',
             style: TextStyle(
@@ -484,5 +531,68 @@ class SettingsScreen extends ConsumerWidget {
       case FaderBehavior.catchUp:
         return 'Touch is ignored until you cross the physical ribbon barrier.';
     }
+  }
+
+  Widget _buildGestureOption(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+    String subtitle,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.transparent,
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primaryContainer
+                : Colors.white12,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Space Grotesk',
+                      color: isSelected ? Colors.white : Colors.white60,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: Colors.white38,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.primaryContainer,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
