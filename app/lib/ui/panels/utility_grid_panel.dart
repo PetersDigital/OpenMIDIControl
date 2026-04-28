@@ -8,6 +8,7 @@ import '../widgets/endless_encoder.dart';
 import '../widgets/midi_buttons.dart';
 import '../widgets/control_config_modal.dart';
 import '../widgets/delayed_menu_trigger.dart';
+import '../widgets/config_gesture_wrapper.dart';
 
 class UtilityGridConfig {
   final int channel;
@@ -98,28 +99,45 @@ class UtilityGridPanel extends ConsumerWidget {
           final cc = config?.cc ?? defaultCc;
 
           return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: EndlessEncoderWidget(
-                    channel: channel,
-                    cc: cc,
-                    onConfigRequested: () =>
-                        _showConfigModal(context, ref, id, channel, cc),
+                  padding: const EdgeInsets.only(
+                    left: 4,
+                    right: 4,
+                    top: 4,
+                    bottom: 0,
+                  ),
+                  child: EndlessEncoderWidget(channel: channel, cc: cc),
+                ),
+              ),
+              ConfigGestureWrapper(
+                key: ValueKey('config_wrapper_$id'),
+                id: id,
+                onConfigRequested: () =>
+                    _showConfigModal(context, ref, id, channel, cc),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 80),
+                  padding: const EdgeInsets.only(
+                    top: 2,
+                    bottom: 16,
+                    left: 4,
+                    right: 4,
+                  ),
+                  color: Colors.transparent, // Hit target expansion
+                  child: Text(
+                    'ENC | CC $cc',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: Color(0xFFC3C7CA),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'ENC $cc',
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFFC3C7CA),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 4),
             ],
           );
         }
@@ -162,6 +180,7 @@ class UtilityGridPanel extends ConsumerWidget {
           children: [
             GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 8.0),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: aspectRatio,

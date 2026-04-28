@@ -66,7 +66,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
       title: const Text('Configure Control'),
       backgroundColor: const Color(0xFF1E2024),
       titleTextStyle: const TextStyle(
-        fontFamily: 'Space Grotesk',
+        fontFamily: 'Inter',
         color: Colors.white,
         fontSize: 20,
         fontWeight: FontWeight.bold,
@@ -85,7 +85,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            initialValue: _selectedChannel,
+            value: _selectedChannel,
             dropdownColor: const Color(0xFF282A2E),
             decoration: const InputDecoration(
               filled: true,

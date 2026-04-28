@@ -242,22 +242,31 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                 children: [
                   // Note Name (Top Left)
                   Positioned(
-                    top: 8,
-                    left: 8,
+                    top: 0,
+                    left: 0,
                     child: ConfigGestureWrapper(
+                      key: ValueKey(
+                        'config_wrapper_drum_pad_${widget.id}_note',
+                      ),
                       id: 'drum_pad_${widget.id}',
                       onConfigRequested: () =>
                           _showConfigModal(context, ref, note, channel),
                       child: Container(
+                        padding: const EdgeInsets.only(
+                          top: 8,
+                          left: 10,
+                          bottom: 20,
+                          right: 20,
+                        ),
                         constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 44,
+                          minWidth: 60,
+                          minHeight: 60,
                         ),
                         alignment: Alignment.topLeft,
                         child: Text(
                           _getNoteName(note),
                           style: TextStyle(
-                            fontFamily: 'Space Grotesk',
+                            fontFamily: 'Inter',
                             color: _isPressed
                                 ? const Color(0xFF1E2024).withValues(alpha: 0.8)
                                 : const Color(
@@ -323,29 +332,24 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
                     ),
 
-                  // Central Label
+                  // Central Label (No gesture wrapper here to prevent accidental triggers during play)
                   Center(
-                    child: ConfigGestureWrapper(
-                      id: 'drum_pad_center_${widget.id}',
-                      onConfigRequested: () =>
-                          _showConfigModal(context, ref, note, channel),
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          minHeight: 44,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          widget.label.isNotEmpty ? widget.label : 'PAD $note',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            color: _isPressed
-                                ? const Color(0xFF1E2024)
-                                : const Color(0xFFC3C7CA),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 60,
+                        minHeight: 44,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        widget.label.isNotEmpty ? widget.label : 'PAD $note',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: _isPressed
+                              ? const Color(0xFF1E2024)
+                              : const Color(0xFFC3C7CA),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                         ),
                       ),
                     ),

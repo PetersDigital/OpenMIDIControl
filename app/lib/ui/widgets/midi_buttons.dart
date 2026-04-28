@@ -102,43 +102,53 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
         ),
         child: Stack(
           children: [
-            // Identifier (Top Left)
             Positioned(
-              top: 4,
-              left: 4,
-              child: Text(
-                'CC ${widget.identifier}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              top: 0,
+              left: 0,
+              child: ConfigGestureWrapper(
+                key: ValueKey('config_wrapper_button_${widget.identifier}'),
+                id: 'button_${widget.identifier}',
+                onConfigRequested: () => widget.onConfigRequested?.call(),
+                child: Container(
+                  padding: const EdgeInsets.only(
+                    top: 4,
+                    left: 6,
+                    bottom: 20,
+                    right: 20,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 64,
+                    minHeight: 60,
+                  ),
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    'CC ${widget.identifier}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: _isPressed
+                          ? const Color(0xFF033258).withValues(alpha: 0.6)
+                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
             Center(
-              child: ConfigGestureWrapper(
-                id: 'button_${widget.identifier}',
-                onConfigRequested: () => widget.onConfigRequested?.call(),
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    widget.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: _isPressed
-                          ? const Color(0xFF033258)
-                          : const Color(0xFFC3C7CA),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                alignment: Alignment.center,
+                child: Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: _isPressed
+                        ? const Color(0xFF033258)
+                        : const Color(0xFFC3C7CA),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -286,43 +296,53 @@ class _ToggleButtonState extends ConsumerState<ToggleButton> {
         ),
         child: Stack(
           children: [
-            // Identifier (Top Left)
             Positioned(
-              top: 4,
-              left: 4,
-              child: Text(
-                'CC ${widget.identifier}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              top: 0,
+              left: 0,
+              child: ConfigGestureWrapper(
+                key: ValueKey('config_wrapper_toggle_${widget.identifier}'),
+                id: 'toggle_${widget.identifier}',
+                onConfigRequested: () => widget.onConfigRequested?.call(),
+                child: Container(
+                  padding: const EdgeInsets.only(
+                    top: 4,
+                    left: 6,
+                    bottom: 20,
+                    right: 20,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 64,
+                    minHeight: 60,
+                  ),
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    'CC ${widget.identifier}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: _isActive
+                          ? const Color(0xFF690005).withValues(alpha: 0.6)
+                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
             Center(
-              child: ConfigGestureWrapper(
-                id: 'toggle_${widget.identifier}',
-                onConfigRequested: () => widget.onConfigRequested?.call(),
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    widget.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: _isActive
-                          ? const Color(0xFF690005)
-                          : const Color(0xFFC3C7CA),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                alignment: Alignment.center,
+                child: Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: _isActive
+                        ? const Color(0xFF690005)
+                        : const Color(0xFFC3C7CA),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
               ),

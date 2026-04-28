@@ -6,20 +6,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
-import 'config_gesture_wrapper.dart';
 
 class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
   final int cc;
   final double sensitivity;
-  final VoidCallback? onConfigRequested;
 
   const EndlessEncoderWidget({
     super.key,
     this.channel = 0,
     required this.cc,
     this.sensitivity = 1.5,
-    this.onConfigRequested,
   });
 
   @override
@@ -158,39 +155,34 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                   ),
                 ),
 
-                // Center Readout (Config Locked)
-                ConfigGestureWrapper(
-                  id: 'encoder_config_${widget.cc}',
-                  isDragging: _isDragging,
-                  onConfigRequested: () => widget.onConfigRequested?.call(),
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    alignment: Alignment.center,
-                    color: Colors.transparent, // Ensure it's tappable
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$_currentValue',
-                          style: const TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                // Center Readout
+                Container(
+                  width: effectiveSize * 0.6,
+                  height: effectiveSize * 0.6,
+                  alignment: Alignment.center,
+                  color: Colors.transparent, // Ensure it's tappable
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$_currentValue',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white,
+                          fontSize: effectiveSize * 0.2,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Text(
-                          'CH${widget.channel + 1}',
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      Text(
+                        'CH${widget.channel + 1}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontSize: effectiveSize * 0.1,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -216,18 +208,19 @@ class _LedRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4.0;
+    final strokeWidth = size.width * 0.02;
+    final radius = size.width / 2 - (strokeWidth / 2 + 2.0);
 
     final paintInactive = Paint()
       ..color = inactiveColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     final paintActive = Paint()
       ..color = activeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
     const startAngle = 135 * math.pi / 180;
