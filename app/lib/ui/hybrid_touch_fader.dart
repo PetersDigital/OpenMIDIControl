@@ -11,18 +11,6 @@ import 'midi_service.dart';
 import 'midi_settings_state.dart';
 import 'widgets/control_config_modal.dart';
 
-// Common CC options for the popup menu
-const List<Map<String, dynamic>> _kCCOptions = [
-  {'cc': 1, 'name': 'Modulation'},
-  {'cc': 2, 'name': 'Breath'},
-  {'cc': 7, 'name': 'Volume'},
-  {'cc': 10, 'name': 'Pan'},
-  {'cc': 11, 'name': 'Expression'},
-  {'cc': 64, 'name': 'Sustain'},
-  {'cc': 71, 'name': 'Resonance'},
-  {'cc': 74, 'name': 'Brightness'},
-];
-
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
 
 class HybridTouchFader extends ConsumerStatefulWidget {
@@ -145,9 +133,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
     if (mode == ConfigGestureMode.doubleTapHold) {
       _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
     } else {
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+      // Single tap-hold mode: Trigger on first touch (Long Press behavior)
+      _isTapHoldCandidate = true;
     }
 
     setState(() {
@@ -210,6 +199,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           (_animationController.value -
                   (details.delta.dy / constraints.maxHeight))
               .clamp(0.0, 1.0);
+      setState(() => _isDragging = true);
       _sendMidiUpdateThrottled();
       return;
     }
@@ -235,6 +225,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _applyAbsolutePosition(double localY, double maxHeight) {
+    setState(() => _isDragging = true);
     _animationController.value = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
     _sendMidiUpdateThrottled();
   }
@@ -246,114 +237,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     }
     _lastMidiUpdateTimeMs = nowMs;
     _sendMidiUpdate();
-  }
-
-  void _showCCMenu(BuildContext context, Offset offset) async {
-    final selected = await showMenu<Map<String, dynamic>>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy,
-        offset.dx + 1,
-        offset.dy + 1,
-      ),
-      color: const Color(0xFF1E2024),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      items: [
-        ..._kCCOptions.map((option) {
-          final isSelected = option['cc'] == _ccNumber;
-          return PopupMenuItem<Map<String, dynamic>>(
-            value: option,
-            child: Text(
-              'CC${option['cc']} – ${option['name']}',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: isSelected ? const Color(0xFFA6C9F8) : Colors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          );
-        }),
-        const PopupMenuDivider(),
-        const PopupMenuItem<Map<String, dynamic>>(
-          value: {'cc': -1, 'name': 'Custom...'},
-          child: Text(
-            'Custom CC...',
-            style: TextStyle(fontFamily: 'Inter', color: Colors.white70),
-          ),
-        ),
-      ],
-    );
-
-    if (selected != null) {
-      if (selected['cc'] == -1) {
-        // Show custom CC dialog
-        if (!context.mounted) return;
-        final customCC = await _showCustomCCDialog(context);
-        if (customCC != null) {
-          setState(() {
-            _ccNumber = customCC;
-            _ccLabel = 'CC$customCC\nCUSTOM';
-          });
-          _setupListener();
-        }
-      } else {
-        setState(() {
-          _ccNumber = selected['cc'] as int;
-          _ccLabel =
-              'CC${selected['cc']}\n${(selected['name'] as String).toUpperCase()}';
-        });
-        _setupListener();
-      }
-    }
-  }
-
-  Future<int?> _showCustomCCDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    return showDialog<int>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2024),
-        title: const Text(
-          'Set Custom CC',
-          style: TextStyle(color: Colors.white, fontFamily: 'Space Grotesk'),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'CC Number (0-127)',
-            labelStyle: TextStyle(color: Colors.white70),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final val = int.tryParse(controller.text);
-              if (val != null && val >= 0 && val <= 127) {
-                Navigator.pop(context, val);
-              }
-            },
-            child: const Text(
-              'SET',
-              style: TextStyle(color: Color(0xFFA6C9F8)),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _handleCcUpdate(int? previous, int? next) {
@@ -476,159 +359,174 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return GestureDetector(
-          onPanDown: (d) => _handlePanDown(d, constraints),
-          onVerticalDragStart: (d) => _handleDragStart(d, constraints),
-          onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
-          onVerticalDragCancel: () {
-            _lastTapTime = DateTime.now();
-            _tapCount++;
-            _tapResetTimer?.cancel();
-            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-              _tapCount = 0;
-            });
-
-            _isDragging = false;
-            _isDown = false;
-            _configTimer?.cancel();
-            _progressController.reset();
-            _sendMidiUpdate(isFinal: true);
+        return Listener(
+          onPointerDown: (e) {
+            _handlePanDown(
+              DragDownDetails(localPosition: e.localPosition),
+              constraints,
+            );
           },
-          onVerticalDragEnd: (_) {
-            _lastTapTime = DateTime.now();
-            _tapCount++;
-            _tapResetTimer?.cancel();
-            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-              _tapCount = 0;
+          onPointerUp: (e) {
+            setState(() {
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _progressController.reset();
+              _configTimer?.cancel();
             });
-
-            _isDragging = false;
-            _isDown = false;
-            _configTimer?.cancel();
-            _progressController.reset();
-            _sendMidiUpdate(isFinal: true);
+          },
+          onPointerCancel: (e) {
+            setState(() {
+              _isDown = false;
+              _isTapHoldCandidate = false;
+              _progressController.reset();
+              _configTimer?.cancel();
+            });
           },
           behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: const Color(0xFF111318),
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                // Filled active track
-                AnimatedBuilder(
-                  animation: _animationController,
-                  child: activeTrack,
-                  builder: (context, child) {
-                    return FractionallySizedBox(
-                      heightFactor: _animationController.value,
-                      widthFactor: 1.0,
-                      alignment: Alignment.bottomCenter,
-                      child: child,
-                    );
-                  },
-                ),
-
-                // Full-width TM1637 Display pinned at top with visible gap
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  right: 16,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Black readout box — full width, top-padded
-                      IgnorePointer(
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
-                          color: const Color(0xFF0C0E12),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Ghost segments — very faint
-                              Text(
-                                "888",
-                                textAlign: TextAlign.center,
-                                style: ghostDisplayTextStyle,
-                              ),
-                              // Active value
-                              AnimatedBuilder(
-                                animation: _animationController,
-                                builder: (context, child) {
-                                  final int ccValue =
-                                      (_animationController.value * 127)
-                                          .round();
-                                  return Text(
-                                    ccValue.toString().padLeft(3, ' '),
-                                    textAlign: TextAlign.center,
-                                    style: displayTextStyle,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // CC Name Label (long-press to open CC picker)
-                      const SizedBox(height: 8),
-                      Builder(
-                        builder: (labelContext) => GestureDetector(
-                          onLongPressStart: (details) {
-                            _showCCMenu(context, details.globalPosition);
-                          },
-                          behavior: HitTestBehavior.translucent,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                              vertical: 4.0,
-                            ),
-                            child: Text(
-                              _ccLabel,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: Colors.white,
-                                fontSize: labelFontSize,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.0,
-                                // No text shadow — easier to read as requested
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+          child: GestureDetector(
+            onVerticalDragStart: (d) => _handleDragStart(d, constraints),
+            onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
+            onVerticalDragCancel: () {
+              setState(() {
+                _isDragging = false;
+                _isDown = false;
+                _isTapHoldCandidate = false;
+              });
+              _configTimer?.cancel();
+              _progressController.reset();
+              _sendMidiUpdate(isFinal: true);
+            },
+            onVerticalDragEnd: (_) {
+              setState(() {
+                _isDragging = false;
+                _isDown = false;
+                _isTapHoldCandidate = false;
+              });
+              _configTimer?.cancel();
+              _progressController.reset();
+              _sendMidiUpdate(isFinal: true);
+            },
+            onTap: () {
+              _lastTapTime = DateTime.now();
+              _tapCount++;
+              _tapResetTimer?.cancel();
+              _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+                _tapCount = 0;
+              });
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: const Color(0xFF111318),
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  // Filled active track
+                  AnimatedBuilder(
+                    animation: _animationController,
+                    child: activeTrack,
+                    builder: (context, child) {
+                      return FractionallySizedBox(
+                        heightFactor: _animationController.value,
+                        widthFactor: 1.0,
+                        alignment: Alignment.bottomCenter,
+                        child: child,
+                      );
+                    },
                   ),
-                ),
 
-                // Config Hold Progress
-                if (_isDown &&
-                    !_isLongHold &&
-                    !_isDragging &&
-                    _isTapHoldCandidate)
-                  Center(
-                    child: AnimatedBuilder(
-                      animation: _progressController,
-                      builder: (context, child) {
-                        return SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: CircularProgressIndicator(
-                            value: _progressController.value,
-                            strokeWidth: 4,
-                            color: Colors.white.withValues(alpha: 0.6),
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.1,
+                  // Full-width TM1637 Display pinned at top with visible gap
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Black readout box — full width, top-padded
+                        IgnorePointer(
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
+                            color: const Color(0xFF0C0E12),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // Ghost segments — very faint
+                                Text(
+                                  "888",
+                                  textAlign: TextAlign.center,
+                                  style: ghostDisplayTextStyle,
+                                ),
+                                // Active value
+                                AnimatedBuilder(
+                                  animation: _animationController,
+                                  builder: (context, child) {
+                                    final int ccValue =
+                                        (_animationController.value * 127)
+                                            .round();
+                                    return Text(
+                                      ccValue.toString().padLeft(3, ' '),
+                                      textAlign: TextAlign.center,
+                                      style: displayTextStyle,
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      },
+                        ),
+
+                        // CC Name Label (long-press to open CC picker)
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 4.0,
+                          ),
+                          child: Text(
+                            _ccLabel,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white,
+                              fontSize: labelFontSize,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
+
+                  // Config Hold Progress
+                  if (_isDown &&
+                      !_isLongHold &&
+                      !_isDragging &&
+                      _isTapHoldCandidate)
+                    Center(
+                      child: AnimatedBuilder(
+                        animation: _progressController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: CircularProgressIndicator(
+                              value: _progressController.value,
+                              strokeWidth: 4,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
