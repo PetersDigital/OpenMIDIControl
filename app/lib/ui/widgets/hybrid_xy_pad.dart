@@ -114,9 +114,13 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
   @override
   void initState() {
     super.initState();
-    // Restore session values if available
-    final hotX = ref.read(hotCcValueProvider("0:${widget.ccX}")).asData?.value;
-    final hotY = ref.read(hotCcValueProvider("0:${widget.ccY}")).asData?.value;
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final channel = config?.channel ?? widget.channel;
+    final ccX = config?.ccX ?? widget.ccX;
+    final ccY = config?.ccY ?? widget.ccY;
+
+    final hotX = ref.read(hotCcValueProvider("${channel}:$ccX")).asData?.value;
+    final hotY = ref.read(hotCcValueProvider("${channel}:$ccY")).asData?.value;
 
     if (hotX != null) {
       _normalizedX = hotX / 127.0;
@@ -133,15 +137,16 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad> {
     _ccYSubscription?.close();
 
     final config = ref.read(xyPadConfigProvider)[widget.id];
+    final channel = config?.channel ?? widget.channel;
     final ccX = config?.ccX ?? widget.ccX;
     final ccY = config?.ccY ?? widget.ccY;
 
     _ccXSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("0:$ccX"),
+      hotCcValueProvider("${channel}:$ccX"),
       (previous, next) => next.whenData(_handleXUpdate),
     );
     _ccYSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("0:$ccY"),
+      hotCcValueProvider("${channel}:$ccY"),
       (previous, next) => next.whenData(_handleYUpdate),
     );
   }
