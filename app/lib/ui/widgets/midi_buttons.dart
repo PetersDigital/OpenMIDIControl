@@ -17,7 +17,7 @@ class MomentaryButton extends ConsumerStatefulWidget {
   final String label;
   final Color activeColor;
   final Color inactiveColor;
-  final VoidCallback? onLongPress;
+  final VoidCallback? onConfigRequested;
 
   const MomentaryButton({
     super.key,
@@ -27,7 +27,7 @@ class MomentaryButton extends ConsumerStatefulWidget {
     this.label = '',
     this.activeColor = const Color(0xFFA6C9F8),
     this.inactiveColor = const Color(0xFF282A2E),
-    this.onLongPress,
+    this.onConfigRequested,
   });
 
   @override
@@ -74,9 +74,10 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
     final mode = ref.read(configGestureModeProvider);
     if (mode == ConfigGestureMode.doubleTapHold) {
       _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
     } else {
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+      // Single tap-hold mode: Trigger on first touch (Long Press behavior)
+      _isTapHoldCandidate = true;
     }
 
     setState(() {
@@ -87,16 +88,18 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
     final durationSecs = ref.read(safetyHoldDurationProvider);
     final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
 
-    _progressController.duration = duration;
-    _progressController.forward(from: 0);
-    _configTimer?.cancel();
-    _configTimer = Timer(duration, () {
-      if (_isPressed) {
-        setState(() => _isLongHold = true);
-        _progressController.reset();
-        widget.onLongPress?.call();
-      }
-    });
+    if (_isTapHoldCandidate) {
+      _progressController.duration = duration;
+      _progressController.forward(from: 0);
+      _configTimer?.cancel();
+      _configTimer = Timer(duration, () {
+        if (_isPressed && _isTapHoldCandidate) {
+          setState(() => _isLongHold = true);
+          _progressController.reset();
+          widget.onConfigRequested?.call();
+        }
+      });
+    }
 
     final service = ref.read(midiServiceProvider);
     if (widget.mode == MidiButtonMode.note) {
@@ -124,7 +127,6 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
       _tapCount = 0;
     });
 
-    if (!_isPressed) return;
     _configTimer?.cancel();
     _configTimer = null;
     _progressController.reset();
@@ -132,6 +134,7 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
     setState(() {
       _isPressed = false;
       _isLongHold = false;
+      _isTapHoldCandidate = false;
     });
 
     final service = ref.read(midiServiceProvider);
@@ -264,7 +267,7 @@ class ToggleButton extends ConsumerStatefulWidget {
   final String label;
   final Color activeColor;
   final Color inactiveColor;
-  final VoidCallback? onLongPress;
+  final VoidCallback? onConfigRequested;
 
   const ToggleButton({
     super.key,
@@ -274,7 +277,7 @@ class ToggleButton extends ConsumerStatefulWidget {
     this.label = '',
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
     this.inactiveColor = const Color(0xFF282A2E),
-    this.onLongPress,
+    this.onConfigRequested,
   });
 
   @override
@@ -323,9 +326,10 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
     final mode = ref.read(configGestureModeProvider);
     if (mode == ConfigGestureMode.doubleTapHold) {
       _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
     } else {
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+      _isTapHoldCandidate =
+          _tapCount == 0 && timeSinceLastTap.inMilliseconds < 400;
     }
 
     setState(() {
@@ -344,7 +348,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
         if (_isPressed && _isTapHoldCandidate) {
           setState(() => _isLongHold = true);
           _progressController.reset();
-          widget.onLongPress?.call();
+          widget.onConfigRequested?.call();
         }
       });
     }
@@ -371,6 +375,7 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
     setState(() {
       _isPressed = false;
       _isLongHold = false;
+      _isTapHoldCandidate = false;
     });
   }
 
