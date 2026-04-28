@@ -144,14 +144,14 @@ void main() {
       await gesture.down(center);
       await tester.pumpAndSettle();
 
-      // The label "V: 127" should appear when pressed
-      expect(find.text('V: 127'), findsOneWidget);
+      // The label "V:127" should appear when pressed
+      expect(find.text('V:127'), findsOneWidget);
 
       await gesture.up();
       await tester.pumpAndSettle();
 
       // Label disappears after release
-      expect(find.text('V: 127'), findsNothing);
+      expect(find.text('V:127'), findsNothing);
     });
   });
 }

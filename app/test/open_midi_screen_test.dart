@@ -9,6 +9,7 @@ import 'package:app/ui/open_midi_screen.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
 import 'package:app/ui/panels/drum_grid_panel.dart';
+import 'package:app/ui/panels/utility_grid_panel.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,27 +25,7 @@ void main() {
       );
     }
 
-    testWidgets(
-      'renders PerformanceZone with PageView containing Faders initially',
-      (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(1200, 800);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-
-        await tester.pumpWidget(buildWidget());
-
-        // Should default to page 0 (Faders)
-        expect(find.byType(PageView), findsOneWidget);
-        expect(find.byType(HybridTouchFader), findsWidgets);
-
-        // Other pages should be in tree but maybe offscreen
-        // HybridXYPad should exist in the tree (next page)
-        // Only faders are built immediately if we use PageView (lazy loading)
-        // expect(find.byType(HybridXYPad), findsWidgets);
-      },
-    );
-
-    testWidgets('swiping navigates to XY Pads and Drum Grid', (
+    testWidgets('renders PerformanceZone with IndexedStack initially', (
       WidgetTester tester,
     ) async {
       tester.view.physicalSize = const Size(1200, 800);
@@ -53,20 +34,42 @@ void main() {
 
       await tester.pumpWidget(buildWidget());
 
-      // Swipe left to go to page 1
-      await tester.drag(find.byType(PageView), const Offset(-800, 0));
+      // Should find IndexedStack
+      expect(find.byType(IndexedStack), findsWidgets);
+
+      // Should find Faders initially
+      expect(find.byType(HybridTouchFader), findsNWidgets(2));
+    });
+
+    testWidgets('tab buttons navigate to XY Pads and Drum Grid', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWidget());
+
+      // Tap "XY" tab
+      await tester.tap(find.text('XY'));
       await tester.pumpAndSettle();
 
-      // Page 1 is XY Pads
-      final xyPads = find.byType(HybridXYPad);
-      expect(xyPads, findsWidgets);
+      // Should show XY Pad
+      expect(find.byType(HybridXYPad), findsOneWidget);
 
-      // Swipe left again to go to page 2
-      await tester.drag(find.byType(PageView), const Offset(-800, 0));
+      // Tap "PADS" tab
+      await tester.tap(find.text('PADS'));
       await tester.pumpAndSettle();
 
-      // Page 2 is Drum Grid Panel
+      // Should show Drum Grid
       expect(find.byType(DrumGridPanel), findsOneWidget);
+
+      // Tap "UTILITY" tab
+      await tester.tap(find.text('UTILITY'));
+      await tester.pumpAndSettle();
+
+      // Should show Utility Grid
+      expect(find.byType(UtilityGridPanel), findsOneWidget);
     });
   });
 }

@@ -99,6 +99,9 @@ void main() {
         await tester.pump();
 
         expect(fakeMidiService.lastNoteOff, 36);
+
+        // Clear timers
+        await tester.pump(const Duration(milliseconds: 601));
       });
 
       testWidgets('sends CC correctly', (WidgetTester tester) async {
@@ -126,6 +129,9 @@ void main() {
 
         expect(fakeMidiService.lastCc, 14);
         expect(fakeMidiService.lastCcValue, 0);
+
+        // Clear timers
+        await tester.pump(const Duration(milliseconds: 601));
       });
     });
 
@@ -163,6 +169,9 @@ void main() {
         await tester.pump();
 
         expect(fakeMidiService.lastNoteOff, 64);
+
+        // Clear timers
+        await tester.pump(const Duration(milliseconds: 601));
       });
 
       testWidgets('toggles CC states sequentially', (
@@ -193,6 +202,9 @@ void main() {
 
         expect(fakeMidiService.lastCc, 65);
         expect(fakeMidiService.lastCcValue, 0);
+
+        // Clear timers
+        await tester.pump(const Duration(milliseconds: 601));
       });
     });
   });
