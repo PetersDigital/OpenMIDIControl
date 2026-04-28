@@ -217,119 +217,140 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        return ConfigGestureWrapper(
-          id: 'drum_pad_${widget.id}',
-          onConfigRequested: () =>
-              _showConfigModal(context, ref, note, channel),
-          child: Listener(
-            onPointerDown: (event) =>
-                _handlePointerDown(event, size, note, channel),
-            onPointerUp: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
-            onPointerCancel: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
-            behavior: HitTestBehavior.opaque,
-            child: ScaleTransition(
-              scale: _scaleController,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
-                  borderRadius: BorderRadius.zero,
-                  border: Border.all(
-                    color: _isPressed
-                        ? widget.padColor.withValues(alpha: 0.8)
-                        : const Color(0xFF111318).withValues(alpha: 0.5),
-                    width: _isPressed ? 2.0 : 1.0,
-                  ),
+        return Listener(
+          onPointerDown: (event) =>
+              _handlePointerDown(event, size, note, channel),
+          onPointerUp: (event) =>
+              _handlePointerUpOrCancel(event, note, channel),
+          onPointerCancel: (event) =>
+              _handlePointerUpOrCancel(event, note, channel),
+          behavior: HitTestBehavior.opaque,
+          child: ScaleTransition(
+            scale: _scaleController,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
+                borderRadius: BorderRadius.zero,
+                border: Border.all(
+                  color: _isPressed
+                      ? widget.padColor.withValues(alpha: 0.8)
+                      : const Color(0xFF111318).withValues(alpha: 0.5),
+                  width: _isPressed ? 2.0 : 1.0,
                 ),
-                child: Stack(
-                  children: [
-                    // Note Name (Top Left)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Text(
-                        _getNoteName(note),
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.5),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
+              ),
+              child: Stack(
+                children: [
+                  // Note Name (Top Left)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: ConfigGestureWrapper(
+                      id: 'drum_pad_${widget.id}',
+                      onConfigRequested: () =>
+                          _showConfigModal(context, ref, note, channel),
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
                         ),
-                      ),
-                    ),
-
-                    // MIDI Channel (Bottom Right)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: Text(
-                        'CH${channel + 1}',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.6)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
-                    // Velocity (Bottom Left)
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: Text(
-                        'V:${_lastVelocity ?? 0}',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-
-                    // Ghost hit indicator
-                    if (widget.showVelocityGhost &&
-                        _isPressed &&
-                        _lastTouchPosition != null)
-                      Positioned(
-                        left: _lastTouchPosition!.dx - 20,
-                        top: _lastTouchPosition!.dy - 20,
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.2),
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          _getNoteName(note),
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: _isPressed
+                                ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.5),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
                           ),
                         ),
                       ),
+                    ),
+                  ),
 
-                    // Central Label
-                    Center(
-                      child: Text(
-                        widget.label.isNotEmpty ? widget.label : 'PAD $note',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: _isPressed
-                              ? const Color(0xFF1E2024)
-                              : const Color(0xFFC3C7CA),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                  // MIDI Channel (Bottom Right)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Text(
+                      'CH${channel + 1}',
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024).withValues(alpha: 0.6)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // Velocity (Bottom Left)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: Text(
+                      'V:${_lastVelocity ?? 0}',
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  // Ghost hit indicator
+                  if (widget.showVelocityGhost &&
+                      _isPressed &&
+                      _lastTouchPosition != null)
+                    Positioned(
+                      left: _lastTouchPosition!.dx - 20,
+                      top: _lastTouchPosition!.dy - 20,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.2),
                         ),
                       ),
                     ),
-                  ],
-                ),
+
+                  // Central Label
+                  Center(
+                    child: ConfigGestureWrapper(
+                      id: 'drum_pad_center_${widget.id}',
+                      onConfigRequested: () =>
+                          _showConfigModal(context, ref, note, channel),
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 60,
+                          minHeight: 44,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.label.isNotEmpty ? widget.label : 'PAD $note',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: _isPressed
+                                ? const Color(0xFF1E2024)
+                                : const Color(0xFFC3C7CA),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

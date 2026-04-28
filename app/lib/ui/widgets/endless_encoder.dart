@@ -37,6 +37,14 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   @override
   void initState() {
     super.initState();
+    // Initialize from current state
+    final hotValue = ref
+        .read(hotCcValueProvider("${widget.channel}:${widget.cc}"))
+        .asData
+        ?.value;
+    if (hotValue != null) {
+      _currentValue = hotValue;
+    }
   }
 
   @override
@@ -59,15 +67,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragStart(DragStartDetails details) {
-    _isDragging = false; // Wait for movement threshold
+    _isDragging = true;
     _accumulatedDelta = 0.0;
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
-    if (!_isDragging) {
-      _isDragging = true;
-    }
-
     _accumulatedDelta -= details.delta.dy;
 
     if (_accumulatedDelta.abs() >= widget.sensitivity) {
@@ -84,6 +88,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void _handleDragEnd(DragEndDetails details) {
     _isDragging = false;
     _accumulatedDelta = 0.0;
+    _sendMidiUpdate(); // Final update
   }
 
   @override
@@ -93,12 +98,8 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       hotCcValueProvider("${widget.channel}:${widget.cc}"),
     );
 
-    // AsyncValue.whenData doesn't trigger a rebuild gracefully without side effects during build,
-    // so we handle the update in a post-frame callback if needed,
-    // or just use the value directly if not dragging.
     asyncValue.whenData((val) {
       if (!_isDragging && val != _currentValue) {
-        // Schedule state update to avoid 'setState during build' errors
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_isDragging && val != _currentValue) {
             setState(() {
@@ -112,85 +113,87 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = math.min(constraints.maxWidth, constraints.maxHeight);
-
-        // If size is not restricted, give it a default reasonable size
         final double effectiveSize = size.isInfinite ? 100.0 : size;
 
-        return ConfigGestureWrapper(
-          id: 'encoder_${widget.cc}',
-          isDragging: _isDragging,
-          onConfigRequested: () => widget.onConfigRequested?.call(),
-          child: GestureDetector(
-            onPanStart: _handleDragStart,
-            onPanUpdate: _handleDragUpdate,
-            onPanEnd: _handleDragEnd,
-            onPanCancel: () =>
-                _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox(
-              width: effectiveSize,
-              height: effectiveSize,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Knob base
-                  Container(
-                    width: effectiveSize * 0.8,
-                    height: effectiveSize * 0.8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF1E2024),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+        return GestureDetector(
+          onPanStart: _handleDragStart,
+          onPanUpdate: _handleDragUpdate,
+          onPanEnd: _handleDragEnd,
+          onPanCancel: () =>
+              _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: effectiveSize,
+            height: effectiveSize,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Knob base
+                Container(
+                  width: effectiveSize * 0.8,
+                  height: effectiveSize * 0.8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF1E2024),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // LED Ring
+                SizedBox(
+                  width: effectiveSize,
+                  height: effectiveSize,
+                  child: CustomPaint(
+                    painter: _LedRingPainter(
+                      value: _currentValue,
+                      activeColor: const Color(0xFFA6C9F8),
+                      inactiveColor: const Color(0xFF0C0E12),
+                    ),
+                  ),
+                ),
+
+                // Center Readout (Config Locked)
+                ConfigGestureWrapper(
+                  id: 'encoder_config_${widget.cc}',
+                  isDragging: _isDragging,
+                  onConfigRequested: () => widget.onConfigRequested?.call(),
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    alignment: Alignment.center,
+                    color: Colors.transparent, // Ensure it's tappable
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$_currentValue',
+                          style: const TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'CH${widget.channel + 1}',
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
                   ),
-
-                  // LED Ring
-                  SizedBox(
-                    width: effectiveSize,
-                    height: effectiveSize,
-                    child: CustomPaint(
-                      painter: _LedRingPainter(
-                        value: _currentValue,
-                        activeColor: const Color(
-                          0xFFA6C9F8,
-                        ), // Matches hybrid_touch_fader active text color
-                        inactiveColor: const Color(0xFF0C0E12),
-                      ),
-                    ),
-                  ),
-
-                  // Center Readout
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$_currentValue',
-                        style: const TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'CH${widget.channel + 1}',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -213,7 +216,7 @@ class _LedRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4.0; // slight padding
+    final radius = size.width / 2 - 4.0;
 
     final paintInactive = Paint()
       ..color = inactiveColor
@@ -227,13 +230,9 @@ class _LedRingPainter extends CustomPainter {
       ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.round;
 
-    // Start angle: bottom left (approx 135 degrees)
-    // End angle: bottom right (approx 45 degrees)
-    // Sweep: 270 degrees
     const startAngle = 135 * math.pi / 180;
     const maxSweepAngle = 270 * math.pi / 180;
 
-    // Draw background ring
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       startAngle,
@@ -242,7 +241,6 @@ class _LedRingPainter extends CustomPainter {
       paintInactive,
     );
 
-    // Draw active ring
     final sweepAngle = (value / 127.0) * maxSweepAngle;
     if (sweepAngle > 0) {
       canvas.drawArc(

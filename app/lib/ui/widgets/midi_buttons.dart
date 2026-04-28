@@ -85,90 +85,97 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
 
   @override
   Widget build(BuildContext context) {
-    return ConfigGestureWrapper(
-      id: 'button_${widget.identifier}',
-      onConfigRequested: () => widget.onConfigRequested?.call(),
-      child: Listener(
-        onPointerDown: _handlePointerDown,
-        onPointerUp: _handlePointerUp,
-        onPointerCancel: _handlePointerUp,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 50),
-          decoration: BoxDecoration(
-            color: _isPressed ? widget.activeColor : widget.inactiveColor,
-            borderRadius: BorderRadius.zero,
-            border: Border.all(
-              color: _isPressed ? widget.activeColor : const Color(0xFF111318),
-              width: 2.0,
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerUp,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 50),
+        decoration: BoxDecoration(
+          color: _isPressed ? widget.activeColor : widget.inactiveColor,
+          borderRadius: BorderRadius.zero,
+          border: Border.all(
+            color: _isPressed ? widget.activeColor : const Color(0xFF111318),
+            width: 2.0,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Identifier (Top Left)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: Text(
+                'CC ${widget.identifier}',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isPressed
+                      ? const Color(0xFF033258).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              // Identifier (Top Left)
-              Positioned(
-                top: 4,
-                left: 4,
-                child: Text(
-                  'CC ${widget.identifier}',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isPressed
-                        ? const Color(0xFF033258).withValues(alpha: 0.6)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+            Center(
+              child: ConfigGestureWrapper(
+                id: 'button_${widget.identifier}',
+                onConfigRequested: () => widget.onConfigRequested?.call(),
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: _isPressed
+                          ? const Color(0xFF033258)
+                          : const Color(0xFFC3C7CA),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
-              Center(
-                child: Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: _isPressed
-                        ? const Color(0xFF033258)
-                        : const Color(0xFFC3C7CA),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+            ),
+            // Status (Bottom Left)
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: Text(
+                _isPressed ? 'ON' : 'OFF',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isPressed
+                      ? const Color(0xFF033258)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              // Status (Bottom Left)
-              Positioned(
-                bottom: 4,
-                left: 4,
-                child: Text(
-                  _isPressed ? 'ON' : 'OFF',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isPressed
-                        ? const Color(0xFF033258)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ),
+            // Channel (Bottom Right)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Text(
+                'CH${widget.channel + 1}',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isPressed
+                      ? const Color(0xFF033258).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              // Channel (Bottom Right)
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Text(
-                  'CH${widget.channel + 1}',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isPressed
-                        ? const Color(0xFF033258).withValues(alpha: 0.6)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -262,90 +269,97 @@ class _ToggleButtonState extends ConsumerState<ToggleButton> {
 
   @override
   Widget build(BuildContext context) {
-    return ConfigGestureWrapper(
-      id: 'toggle_${widget.identifier}',
-      onConfigRequested: () => widget.onConfigRequested?.call(),
-      child: Listener(
-        onPointerDown: _handlePointerDown,
-        onPointerUp: _handlePointerUp,
-        onPointerCancel: _handlePointerUp,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: _isActive ? widget.activeColor : widget.inactiveColor,
-            borderRadius: BorderRadius.zero,
-            border: Border.all(
-              color: _isActive ? widget.activeColor : const Color(0xFF111318),
-              width: 2.0,
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerUp,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: _isActive ? widget.activeColor : widget.inactiveColor,
+          borderRadius: BorderRadius.zero,
+          border: Border.all(
+            color: _isActive ? widget.activeColor : const Color(0xFF111318),
+            width: 2.0,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Identifier (Top Left)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: Text(
+                'CC ${widget.identifier}',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isActive
+                      ? const Color(0xFF690005).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              // Identifier (Top Left)
-              Positioned(
-                top: 4,
-                left: 4,
-                child: Text(
-                  'CC ${widget.identifier}',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isActive
-                        ? const Color(0xFF690005).withValues(alpha: 0.6)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+            Center(
+              child: ConfigGestureWrapper(
+                id: 'toggle_${widget.identifier}',
+                onConfigRequested: () => widget.onConfigRequested?.call(),
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: _isActive
+                          ? const Color(0xFF690005)
+                          : const Color(0xFFC3C7CA),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
-              Center(
-                child: Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    color: _isActive
-                        ? const Color(0xFF690005)
-                        : const Color(0xFFC3C7CA),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+            ),
+            // Status (Bottom Left)
+            Positioned(
+              bottom: 4,
+              left: 4,
+              child: Text(
+                _isActive ? 'ON' : 'OFF',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isActive
+                      ? const Color(0xFF690005)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              // Status (Bottom Left)
-              Positioned(
-                bottom: 4,
-                left: 4,
-                child: Text(
-                  _isActive ? 'ON' : 'OFF',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isActive
-                        ? const Color(0xFF690005)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ),
+            // Channel (Bottom Right)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Text(
+                'CH${widget.channel + 1}',
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: _isActive
+                      ? const Color(0xFF690005).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              // Channel (Bottom Right)
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Text(
-                  'CH${widget.channel + 1}',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isActive
-                        ? const Color(0xFF690005).withValues(alpha: 0.6)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
