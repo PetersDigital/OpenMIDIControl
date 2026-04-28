@@ -7,10 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'open_midi_screen.dart';
 import '../core/managers/snapshot_manager.dart';
-import '../core/models/preset_snapshot.dart';
-import 'midi_service.dart';
-import 'widgets/velocity_drum_pad.dart';
-import 'widgets/hybrid_xy_pad.dart';
+import 'layout_state.dart';
 import 'midi_settings_state.dart';
 import 'design_system.dart';
 
@@ -351,164 +348,50 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _handleSavePreset(BuildContext context, WidgetRef ref) async {
-    final nameController = TextEditingController();
-    final name = await showDialog<String>(
+    final activePage = ref.read(layoutStateProvider).activePage;
+    await ref.read(snapshotManagerProvider).exportActiveLayout(activePage);
+  }
+
+  Future<void> _handleLoadPreset(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E2024),
-        title: const Text('Save Preset', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: nameController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Preset Name',
-            hintStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-            ),
-          ),
-          autofocus: true,
+        title: const Text(
+          'Overwrite Layout?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Importing a layout will completely overwrite your current active grid. This cannot be undone.',
+          style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text(
               'CANCEL',
               style: TextStyle(color: Colors.white60),
             ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, nameController.text.trim()),
-            child: const Text(
-              'SAVE',
-              style: TextStyle(color: Color(0xFFA6C9F8)),
-            ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('OVERWRITE'),
           ),
         ],
       ),
     );
 
-    if (name == null || name.isEmpty) return;
-
-    final controlState = ref.read(controlStateProvider);
-    final drumPads = ref.read(drumPadConfigProvider);
-    final xyPads = ref.read(xyPadConfigProvider);
-
-    final snapshot = PresetSnapshot(
-      controlState: controlState,
-      drumPadConfigs: drumPads,
-      xyPadConfigs: xyPads,
-    );
-
-    await ref.read(snapshotManagerProvider).savePreset(name, snapshot);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Saved preset "$name"')));
-    }
-  }
-
-  Future<void> _handleLoadPreset(BuildContext context, WidgetRef ref) async {
-    final manager = ref.read(snapshotManagerProvider);
-    final presets = await manager.listPresets();
-
-    if (!context.mounted) return;
-
-    if (presets.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No presets found.')));
-      return;
-    }
-
-    final currentPresets = List<String>.of(presets);
-
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1E2024),
-              title: const Text(
-                'Load Preset',
-                style: TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: currentPresets.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No presets available.',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: currentPresets.length,
-                        itemBuilder: (context, index) {
-                          final name = currentPresets[index];
-                          return ListTile(
-                            title: Text(
-                              name,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            onTap: () => Navigator.pop(context, name),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.white38,
-                              ),
-                              onPressed: () async {
-                                await manager.deletePreset(name);
-                                setState(() {
-                                  currentPresets.removeAt(index);
-                                });
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Deleted preset "$name"'),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'CANCEL',
-                    style: TextStyle(color: Colors.white60),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (selected == null) return;
-
-    final snapshot = await manager.loadPreset(selected);
-    if (snapshot == null) return;
-
-    // Inject state into providers
-    ref.read(controlStateProvider.notifier).injectState(snapshot.controlState);
-    ref
-        .read(drumPadConfigProvider.notifier)
-        .setAllConfigs(snapshot.drumPadConfigs);
-    ref.read(xyPadConfigProvider.notifier).setAllConfigs(snapshot.xyPadConfigs);
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Loaded preset "$selected"')));
+    if (confirm == true) {
+      final newPage = await ref.read(snapshotManagerProvider).importLayout();
+      if (newPage != null) {
+        ref.read(layoutStateProvider.notifier).overwriteActivePage(newPage);
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Imported ${newPage.name}')));
+        }
+      }
     }
   }
 

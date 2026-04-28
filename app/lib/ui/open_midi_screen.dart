@@ -221,6 +221,21 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  IconButton(
+                    icon: Icon(
+                      ref.watch(layoutStateProvider).isPerformanceLocked
+                          ? Icons.lock
+                          : Icons.lock_open,
+                      color: ref.watch(layoutStateProvider).isPerformanceLocked
+                          ? Colors.redAccent
+                          : Colors.white,
+                    ),
+                    tooltip: 'Lock Performance Interface',
+                    onPressed: () => ref
+                        .read(layoutStateProvider.notifier)
+                        .togglePerformanceLock(),
+                  ),
+                  const SizedBox(width: 8),
                   Tooltip(
                     message: 'App Settings',
                     child: GestureDetector(
@@ -487,6 +502,20 @@ class _MobileLandscapeLayout extends ConsumerWidget {
               },
             ),
           ),
+          IconButton(
+            icon: Icon(
+              ref.watch(layoutStateProvider).isPerformanceLocked
+                  ? Icons.lock
+                  : Icons.lock_open,
+              color: ref.watch(layoutStateProvider).isPerformanceLocked
+                  ? Colors.redAccent
+                  : Colors.white,
+              size: 20,
+            ),
+            tooltip: 'Lock Performance Interface',
+            onPressed: () =>
+                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
+          ),
           Tooltip(
             message: 'App Settings',
             child: IconButton(
@@ -548,6 +577,25 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                             .read(transportVisibleProvider.notifier)
                             .toggle(),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Icons.lock
+                            : Icons.lock_open,
+                        color:
+                            ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Colors.redAccent
+                            : Colors.white,
+                        size: 20,
+                      ),
+                      tooltip: 'Lock Performance Interface',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => ref
+                          .read(layoutStateProvider.notifier)
+                          .togglePerformanceLock(),
                     ),
                     const SizedBox(width: 8),
                     Tooltip(
@@ -766,6 +814,21 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              ref.watch(layoutStateProvider).isPerformanceLocked
+                  ? Icons.lock
+                  : Icons.lock_open,
+              color: ref.watch(layoutStateProvider).isPerformanceLocked
+                  ? Colors.redAccent
+                  : Colors.white,
+              size: 28,
+            ),
+            tooltip: 'Lock Performance Interface',
+            onPressed: () =>
+                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
+          ),
+          const SizedBox(width: 8),
           Tooltip(
             message: 'App Settings',
             child: IconButton(
@@ -852,6 +915,22 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                           ref.read(transportVisibleProvider.notifier).toggle();
                         },
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Icons.lock
+                            : Icons.lock_open,
+                        color:
+                            ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Colors.redAccent
+                            : Colors.white,
+                      ),
+                      tooltip: 'Lock Performance Interface',
+                      onPressed: () => ref
+                          .read(layoutStateProvider.notifier)
+                          .togglePerformanceLock(),
                     ),
                     const SizedBox(width: 8),
                     Tooltip(

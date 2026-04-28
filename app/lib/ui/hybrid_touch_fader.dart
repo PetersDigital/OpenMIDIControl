@@ -296,6 +296,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
+    final isPerformanceLocked = ref
+        .watch(layoutStateProvider)
+        .isPerformanceLocked;
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
     final TextStyle displayTextStyle = TextStyle(
@@ -405,7 +408,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                           id: widget.controlId,
                           isDragging: _isDragging,
                           onConfigRequested: _showConfigMenu,
-                          onRenameRequested: _showRenameDialog,
+                          onRenameRequested: isPerformanceLocked
+                              ? null
+                              : _showRenameDialog,
                           child: Container(
                             constraints: const BoxConstraints(
                               minWidth: 64,

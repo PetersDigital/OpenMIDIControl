@@ -4,9 +4,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../models/layout_models.dart';
 import '../models/preset_snapshot.dart';
 
 final snapshotManagerProvider = Provider<SnapshotManager>((ref) {
@@ -74,5 +78,41 @@ class SnapshotManager {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  Future<void> exportActiveLayout(LayoutPage page) async {
+    try {
+      final String jsonString = jsonEncode(page.toJson());
+      final directory = await getTemporaryDirectory();
+      final sanitizedFileName = page.name.replaceAll(' ', '_').toLowerCase();
+      final file = File('${directory.path}/$sanitizedFileName.omc');
+
+      await file.writeAsString(jsonString);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'OpenMIDIControl Layout: ${page.name}',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error exporting layout: $e');
+    }
+  }
+
+  Future<LayoutPage?> importLayout() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['omc'],
+      );
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final String jsonString = await file.readAsString();
+        return LayoutPage.fromJson(jsonDecode(jsonString));
+      }
+    } catch (e) {
+      debugPrint('Error importing layout: $e');
+    }
+    return null;
   }
 }

@@ -306,6 +306,20 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  /// Replace the active page with an imported page while preserving
+  /// the original page id to avoid routing/index breakage.
+  void overwriteActivePage(LayoutPage importedPage) {
+    final index = state.activePageIndex;
+    if (index < 0 || index >= state.pages.length) return;
+
+    final existingPage = state.pages[index];
+    final mergedPage = importedPage.copyWith(id: existingPage.id);
+    final updatedPages = [...state.pages];
+    updatedPages[index] = mergedPage;
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
   /// Toggle the performance lock state.
   void togglePerformanceLock() {
     state = state.copyWith(isPerformanceLocked: !state.isPerformanceLocked);

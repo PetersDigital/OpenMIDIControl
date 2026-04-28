@@ -214,6 +214,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
   @override
   Widget build(BuildContext context) {
+    final isPerformanceLocked = ref
+        .watch(layoutStateProvider)
+        .isPerformanceLocked;
     final config = ref.watch(drumPadConfigProvider)[widget.id];
     final note = config?.note ?? widget.note;
     final channel = config?.channel ?? widget.channel;
@@ -341,7 +344,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       id: widget.id,
                       onConfigRequested: () =>
                           _showConfigModal(context, ref, note, channel),
-                      onRenameRequested: _showRenameDialog,
+                      onRenameRequested: isPerformanceLocked
+                          ? null
+                          : _showRenameDialog,
                       child: Container(
                         constraints: const BoxConstraints(
                           minWidth: 60,
