@@ -105,7 +105,7 @@ class UtilityGridPanel extends ConsumerWidget {
                   child: EndlessEncoderWidget(
                     channel: channel,
                     cc: cc,
-                    onLongPress: () =>
+                    onConfigRequested: () =>
                         _showConfigModal(context, ref, id, channel, cc),
                   ),
                 ),
@@ -136,7 +136,8 @@ class UtilityGridPanel extends ConsumerWidget {
             channel: channel,
             mode: MidiButtonMode.cc,
             label: 'TOGGLE',
-            onLongPress: () => _showConfigModal(context, ref, id, channel, cc),
+            onConfigRequested: () =>
+                _showConfigModal(context, ref, id, channel, cc),
           );
         }
 
@@ -152,7 +153,8 @@ class UtilityGridPanel extends ConsumerWidget {
             channel: channel,
             mode: MidiButtonMode.cc,
             label: 'MOMENT',
-            onLongPress: () => _showConfigModal(context, ref, id, channel, cc),
+            onConfigRequested: () =>
+                _showConfigModal(context, ref, id, channel, cc),
           );
         }
 
