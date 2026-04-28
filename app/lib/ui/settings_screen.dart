@@ -11,6 +11,7 @@ import '../core/models/preset_snapshot.dart';
 import 'midi_service.dart';
 import 'widgets/velocity_drum_pad.dart';
 import 'widgets/hybrid_xy_pad.dart';
+import 'midi_settings_state.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -204,6 +205,91 @@ class SettingsScreen extends ConsumerWidget {
                 ).colorScheme.primaryContainer,
                 onChanged: (_) =>
                     ref.read(layoutHandProvider.notifier).toggle(),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+
+          // Safety Hold Section
+          const Text(
+            'SAFETY HOLD DURATION',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Consumer(
+            builder: (context, ref, _) {
+              final duration = ref.watch(safetyHoldDurationProvider);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${duration.toStringAsFixed(1)} SECONDS',
+                        style: const TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (duration >= 5.0 || duration <= 1.0)
+                        Text(
+                          duration >= 5.0 ? 'MAX' : 'MIN',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 8,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 16,
+                      ),
+                    ),
+                    child: Slider(
+                      value: duration,
+                      min: 1.0,
+                      max: 5.0,
+                      divisions: 40,
+                      activeColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
+                      inactiveColor: Colors.white10,
+                      onChanged: (val) => ref
+                          .read(safetyHoldDurationProvider.notifier)
+                          .update(val),
+                    ),
+                  ),
+                  Text(
+                    'Adjust the time required to hold a control to enter configuration mode.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               );
             },
           ),
