@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
-import 'rename_control_dialog.dart';
+import 'control_config_modal.dart';
 import '../layout_state.dart';
 
 class DrumPadConfig {
@@ -344,9 +344,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       id: widget.id,
                       onConfigRequested: () =>
                           _showConfigModal(context, ref, note, channel),
-                      onRenameRequested: isPerformanceLocked
-                          ? null
-                          : _showRenameDialog,
+                      onRenameRequested: null,
                       child: Container(
                         constraints: const BoxConstraints(
                           minWidth: 60,
@@ -384,89 +382,36 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     int currentNote,
     int currentChannel,
   ) async {
-    final noteController = TextEditingController(
-      text: _getNoteName(currentNote),
-    );
-    final channelController = TextEditingController(
-      text: (currentChannel + 1).toString(),
-    );
-
-    final result = await showDialog<bool>(
+    final result = await showDialog<ControlConfigResult>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2024),
-        title: Text(
-          'Configure $_displayLabel',
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'Space Grotesk',
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: noteController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'MIDI Note (e.g. C3 or 36)',
-                labelStyle: TextStyle(color: Colors.white70),
-              ),
-            ),
-            TextField(
-              controller: channelController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'MIDI Channel (1-16)',
-                labelStyle: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('SAVE'),
-          ),
-        ],
+      builder: (context) => ControlConfigModal(
+        initialChannel: currentChannel,
+        initialIdentifier: currentNote,
+        identifierLabel: 'MIDI Note (0-127)',
+        initialDisplayName: _displayLabel,
+        displayNameLabel: 'Pad Name',
       ),
     );
 
-    if (result == true) {
-      final newNote = _parseNoteName(noteController.text);
-      final newChannelInput = int.tryParse(channelController.text);
-      if (newNote != null && newChannelInput != null) {
-        // Convert back to 0-indexed channel
-        final newChannel = (newChannelInput - 1).clamp(0, 15);
+    if (result != null) {
+      final trimmedName = (result.displayName ?? '').trim();
+      if (result.identifier >= 0 && result.identifier <= 127) {
+        final newChannel = result.channel.clamp(0, 15);
         ref
             .read(drumPadConfigProvider.notifier)
             .setConfig(
               widget.id,
-              DrumPadConfig(note: newNote, channel: newChannel),
+              DrumPadConfig(note: result.identifier, channel: newChannel),
             );
       }
-    }
-  }
-
-  Future<void> _showRenameDialog() async {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) =>
-          RenameControlDialog(currentName: _displayLabel, controlId: widget.id),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      setState(() {
-        _displayLabel = result;
-      });
-      ref
-          .read(layoutStateProvider.notifier)
-          .updateControlLabel(widget.id, result);
+      if (trimmedName.isNotEmpty) {
+        setState(() {
+          _displayLabel = trimmedName;
+        });
+        ref
+            .read(layoutStateProvider.notifier)
+            .updateControlLabel(widget.id, trimmedName);
+      }
     }
   }
 }

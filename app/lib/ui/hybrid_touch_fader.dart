@@ -11,7 +11,6 @@ import 'design_system.dart';
 import 'midi_service.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
-import 'widgets/rename_control_dialog.dart';
 import 'layout_state.dart';
 
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
@@ -46,6 +45,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late int _ccNumber;
+  int _midiChannel = 0;
   late String _ccLabel;
 
   // Monotonic clock for reliable MIDI throttling (immune to system clock changes)
@@ -110,7 +110,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     final int ccValue = (_animationController.value * 127).round();
     ref
         .read(midiServiceProvider)
-        .sendCC(_ccNumber, ccValue, channel: 0, isFinal: isFinal);
+        .sendCC(_ccNumber, ccValue, channel: _midiChannel, isFinal: isFinal);
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
@@ -296,9 +296,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
-    final isPerformanceLocked = ref
-        .watch(layoutStateProvider)
-        .isPerformanceLocked;
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
     final TextStyle displayTextStyle = TextStyle(
@@ -408,9 +405,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                           id: widget.controlId,
                           isDragging: _isDragging,
                           onConfigRequested: _showConfigMenu,
-                          onRenameRequested: isPerformanceLocked
-                              ? null
-                              : _showRenameDialog,
+                          onRenameRequested: null,
                           child: Container(
                             constraints: const BoxConstraints(
                               minWidth: 64,
@@ -445,40 +440,30 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     final result = await showDialog<ControlConfigResult>(
       context: context,
       builder: (context) => ControlConfigModal(
-        initialChannel: 0,
+        initialChannel: _midiChannel,
         initialIdentifier: _ccNumber,
         identifierLabel: 'CC Number',
+        initialDisplayName: _ccLabel,
+        displayNameLabel: 'Fader Name',
       ),
     );
 
     if (result != null) {
       debugPrint("Selected CC: $result");
+      final trimmedName = (result.displayName ?? '').trim();
       setState(() {
         _ccNumber = result.identifier;
-        if (_ccLabel.startsWith('CC')) {
-          _ccLabel = 'CC $_ccNumber';
+        _midiChannel = result.channel;
+        if (trimmedName.isNotEmpty) {
+          _ccLabel = trimmedName;
         }
       });
       _setupListener();
-    }
-  }
-
-  Future<void> _showRenameDialog() async {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => RenameControlDialog(
-        currentName: _ccLabel,
-        controlId: widget.controlId,
-      ),
-    );
-
-    if (result != null && result.isNotEmpty) {
-      setState(() {
-        _ccLabel = result;
-      });
-      ref
-          .read(layoutStateProvider.notifier)
-          .updateControlLabel(widget.controlId, result);
+      if (trimmedName.isNotEmpty) {
+        ref
+            .read(layoutStateProvider.notifier)
+            .updateControlLabel(widget.controlId, trimmedName);
+      }
     }
   }
 }

@@ -64,6 +64,7 @@ class UtilityGridPanel extends ConsumerWidget {
     String id,
     int currentChannel,
     int currentCc,
+    String currentName,
   ) async {
     final result = await showDialog<ControlConfigResult>(
       context: context,
@@ -71,16 +72,25 @@ class UtilityGridPanel extends ConsumerWidget {
         initialChannel: currentChannel,
         initialIdentifier: currentCc,
         identifierLabel: 'CC Number',
+        initialDisplayName: currentName,
+        displayNameLabel: 'Control Name',
       ),
     );
 
     if (result != null) {
+      final trimmedName = (result.displayName ?? '').trim();
       ref
           .read(utilityGridConfigProvider.notifier)
           .setConfig(
             id,
             UtilityGridConfig(channel: result.channel, cc: result.identifier),
           );
+
+      if (trimmedName.isNotEmpty) {
+        ref
+            .read(layoutStateProvider.notifier)
+            .updateControlLabel(id, trimmedName);
+      }
     }
   }
 
@@ -123,8 +133,14 @@ class UtilityGridPanel extends ConsumerWidget {
               ConfigGestureWrapper(
                 key: ValueKey('config_wrapper_$id'),
                 id: id,
-                onConfigRequested: () =>
-                    _showConfigModal(context, ref, id, channel, cc),
+                onConfigRequested: () => _showConfigModal(
+                  context,
+                  ref,
+                  id,
+                  channel,
+                  cc,
+                  control.displayName,
+                ),
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 80),
                   padding: const EdgeInsets.only(
@@ -160,8 +176,14 @@ class UtilityGridPanel extends ConsumerWidget {
             channel: channel,
             mode: MidiButtonMode.cc,
             label: control.displayName,
-            onConfigRequested: () =>
-                _showConfigModal(context, ref, id, channel, cc),
+            onConfigRequested: () => _showConfigModal(
+              context,
+              ref,
+              id,
+              channel,
+              cc,
+              control.displayName,
+            ),
           );
         }
 

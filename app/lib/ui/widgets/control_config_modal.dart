@@ -8,20 +8,29 @@ import 'package:flutter/services.dart';
 class ControlConfigResult {
   final int channel;
   final int identifier;
+  final String? displayName;
 
-  const ControlConfigResult({required this.channel, required this.identifier});
+  const ControlConfigResult({
+    required this.channel,
+    required this.identifier,
+    this.displayName,
+  });
 }
 
 class ControlConfigModal extends StatefulWidget {
   final int initialChannel;
   final int initialIdentifier;
   final String identifierLabel;
+  final String? initialDisplayName;
+  final String displayNameLabel;
 
   const ControlConfigModal({
     super.key,
     this.initialChannel = 0,
     this.initialIdentifier = 0,
     this.identifierLabel = 'CC / Note Number',
+    this.initialDisplayName,
+    this.displayNameLabel = 'Display Name',
   });
 
   @override
@@ -31,6 +40,7 @@ class ControlConfigModal extends StatefulWidget {
 class _ControlConfigModalState extends State<ControlConfigModal> {
   late int _selectedChannel;
   late TextEditingController _identifierController;
+  TextEditingController? _displayNameController;
 
   @override
   void initState() {
@@ -39,11 +49,17 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
     _identifierController = TextEditingController(
       text: widget.initialIdentifier.toString(),
     );
+    if (widget.initialDisplayName != null) {
+      _displayNameController = TextEditingController(
+        text: widget.initialDisplayName,
+      );
+    }
   }
 
   @override
   void dispose() {
     _identifierController.dispose();
+    _displayNameController?.dispose();
     super.dispose();
   }
 
@@ -57,6 +73,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
       ControlConfigResult(
         channel: _selectedChannel,
         identifier: clampedIdentifier,
+        displayName: _displayNameController?.text.trim(),
       ),
     );
   }
@@ -154,6 +171,34 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
             },
             autovalidateMode: AutovalidateMode.onUserInteraction,
           ),
+          if (_displayNameController != null) ...[
+            const SizedBox(height: 24),
+            Text(
+              widget.displayNameLabel,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                color: Color(0xFFC3C7CA),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _displayNameController,
+              textInputAction: TextInputAction.done,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Color(0xFF111318),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF282A2E)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
       actions: [
