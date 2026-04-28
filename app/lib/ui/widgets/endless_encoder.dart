@@ -26,15 +26,32 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
       _EndlessEncoderWidgetState();
 }
 
-class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget> {
+class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
+    with TickerProviderStateMixin {
   int _currentValue = 0;
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
   Timer? _throttleTimer;
 
+  late AnimationController _progressController;
+  Timer? _configTimer;
+  bool _isLongHold = false;
+  bool _isDown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+  }
+
   @override
   void dispose() {
     _throttleTimer?.cancel();
+    _progressController.dispose();
+    _configTimer?.cancel();
     super.dispose();
   }
 
@@ -56,6 +73,22 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget> {
     _accumulatedDelta = 0.0;
   }
 
+  void _handlePanDown(DragDownDetails details) {
+    setState(() {
+      _isDown = true;
+      _isLongHold = false;
+    });
+    _progressController.forward(from: 0);
+    _configTimer?.cancel();
+    _configTimer = Timer(const Duration(seconds: 3), () {
+      if (_isDown) {
+        setState(() => _isLongHold = true);
+        _progressController.reset();
+        widget.onLongPress?.call();
+      }
+    });
+  }
+
   void _handleDragUpdate(DragUpdateDetails details) {
     _accumulatedDelta -= details.delta.dy;
 
@@ -72,7 +105,12 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget> {
 
   void _handleDragEnd(DragEndDetails details) {
     _isDragging = false;
+    _isDown = false;
     _accumulatedDelta = 0.0;
+    _configTimer?.cancel();
+    _configTimer = null;
+    _progressController.reset();
+    setState(() => _isLongHold = false);
   }
 
   @override
@@ -106,12 +144,12 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget> {
         final double effectiveSize = size.isInfinite ? 100.0 : size;
 
         return GestureDetector(
+          onPanDown: _handlePanDown,
           onPanStart: _handleDragStart,
           onPanUpdate: _handleDragUpdate,
           onPanEnd: _handleDragEnd,
           onPanCancel: () =>
               _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
-          onLongPress: widget.onLongPress,
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
             width: effectiveSize,
@@ -150,6 +188,53 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget> {
                     ),
                   ),
                 ),
+
+                // Center Readout
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$_currentValue',
+                      style: const TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'CH${widget.channel + 1}',
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // 4-second Config Hold Progress
+                if (_isDown && !_isLongHold)
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: _progressController,
+                      builder: (context, child) {
+                        return SizedBox(
+                          width: effectiveSize * 0.9,
+                          height: effectiveSize * 0.9,
+                          child: CircularProgressIndicator(
+                            value: _progressController.value,
+                            strokeWidth: 4,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.1,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
               ],
             ),
           ),
