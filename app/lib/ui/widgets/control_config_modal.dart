@@ -86,7 +86,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            value: _selectedChannel,
+            initialValue: _selectedChannel,
             dropdownColor: const Color(0xFF282A2E),
             decoration: const InputDecoration(
               filled: true,
