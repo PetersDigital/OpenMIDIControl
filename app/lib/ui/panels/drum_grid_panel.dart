@@ -60,7 +60,7 @@ class DrumGridPanel extends ConsumerWidget {
                   id: 'drum_pad_$index',
                   note: currentNote,
                   channel: channel,
-                  label: label,
+                  displayName: label,
                 );
               },
             ),

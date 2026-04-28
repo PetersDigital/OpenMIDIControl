@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
+import 'rename_control_dialog.dart';
+import '../layout_state.dart';
 
 class DrumPadConfig {
   final int note;
@@ -53,7 +55,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
   final String id;
   final int note;
   final int channel;
-  final String label;
+  final String displayName;
   final Color padColor;
   final int minVelocity;
   final int maxVelocity;
@@ -64,7 +66,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
     required this.id,
     required this.note,
     this.channel = 9, // Default drum channel
-    this.label = '',
+    this.displayName = '',
     this.padColor = const Color(0xFF282A2E),
     this.minVelocity = 30,
     this.maxVelocity = 127,
@@ -80,12 +82,14 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
+  late String _displayLabel;
 
   late AnimationController _scaleController;
 
   @override
   void initState() {
     super.initState();
+    _displayLabel = widget.displayName;
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 50),
@@ -330,23 +334,32 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
                     ),
 
-                  // Central Label (No gesture wrapper here to prevent accidental triggers during play)
+                  // Central Label with rename gesture
                   Center(
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 60,
-                        minHeight: 44,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        widget.label.isNotEmpty ? widget.label : 'PAD $note',
-                        textAlign: TextAlign.center,
-                        style: AppText.performance(
-                          color: _isPressed
-                              ? const Color(0xFF1E2024)
-                              : const Color(0xFFC3C7CA),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                    child: ConfigGestureWrapper(
+                      key: ValueKey('rename_wrapper_drum_pad_${widget.id}'),
+                      id: widget.id,
+                      onConfigRequested: () =>
+                          _showConfigModal(context, ref, note, channel),
+                      onRenameRequested: _showRenameDialog,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 60,
+                          minHeight: 44,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _displayLabel.isNotEmpty
+                              ? _displayLabel
+                              : 'PAD $note',
+                          textAlign: TextAlign.center,
+                          style: AppText.performance(
+                            color: _isPressed
+                                ? const Color(0xFF1E2024)
+                                : const Color(0xFFC3C7CA),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
@@ -378,7 +391,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E2024),
         title: Text(
-          'Configure ${widget.label}',
+          'Configure $_displayLabel',
           style: const TextStyle(
             color: Colors.white,
             fontFamily: 'Space Grotesk',
@@ -432,6 +445,23 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
               DrumPadConfig(note: newNote, channel: newChannel),
             );
       }
+    }
+  }
+
+  Future<void> _showRenameDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          RenameControlDialog(currentName: _displayLabel, controlId: widget.id),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        _displayLabel = result;
+      });
+      ref
+          .read(layoutStateProvider.notifier)
+          .updateControlLabel(widget.id, result);
     }
   }
 }

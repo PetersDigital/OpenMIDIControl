@@ -11,12 +11,15 @@ import 'design_system.dart';
 import 'midi_service.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
+import 'widgets/rename_control_dialog.dart';
+import 'layout_state.dart';
 
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
 
 class HybridTouchFader extends ConsumerStatefulWidget {
+  final String controlId;
   final int ccNumber;
-  final String label;
+  final String displayName;
   final Color activeColor;
   final Color labelColor;
   final double initialValue;
@@ -25,8 +28,9 @@ class HybridTouchFader extends ConsumerStatefulWidget {
 
   const HybridTouchFader({
     super.key,
+    required this.controlId,
     required this.ccNumber,
-    required this.label,
+    required this.displayName,
     required this.activeColor,
     required this.labelColor,
     this.initialValue = 0.0,
@@ -70,7 +74,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     super.initState();
     _throttleStopwatch = Stopwatch()..start();
     _ccNumber = widget.ccNumber;
-    _ccLabel = widget.label;
+    _ccLabel = widget.displayName;
 
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = ref.read(hotCcValueProvider("0:$_ccNumber")).asData?.value;
@@ -395,12 +399,13 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                           ),
                         ),
 
-                        // CC Name Label (long-press to open CC picker)
+                        // CC Name Label (long-press to open CC picker, double-tap to rename)
                         const SizedBox(height: 8),
                         ConfigGestureWrapper(
-                          id: 'fader_label_${widget.ccNumber}',
+                          id: widget.controlId,
                           isDragging: _isDragging,
                           onConfigRequested: _showConfigMenu,
+                          onRenameRequested: _showRenameDialog,
                           child: Container(
                             constraints: const BoxConstraints(
                               minWidth: 64,
@@ -450,6 +455,25 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         }
       });
       _setupListener();
+    }
+  }
+
+  Future<void> _showRenameDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => RenameControlDialog(
+        currentName: _ccLabel,
+        controlId: widget.controlId,
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() {
+        _ccLabel = result;
+      });
+      ref
+          .read(layoutStateProvider.notifier)
+          .updateControlLabel(widget.controlId, result);
     }
   }
 }

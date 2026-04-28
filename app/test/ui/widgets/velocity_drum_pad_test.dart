@@ -64,7 +64,7 @@ void main() {
                   id: "test_pad",
                   note: 36,
                   channel: 9,
-                  label: 'KICK',
+                  displayName: 'KICK',
                   minVelocity: 30,
                   maxVelocity: 127,
                 ),

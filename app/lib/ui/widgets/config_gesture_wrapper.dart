@@ -11,6 +11,7 @@ class ConfigGestureWrapper extends ConsumerStatefulWidget {
   final String id;
   final Widget child;
   final VoidCallback onConfigRequested;
+  final VoidCallback? onRenameRequested;
   final bool isDragging;
   final HitTestBehavior behavior;
 
@@ -19,6 +20,7 @@ class ConfigGestureWrapper extends ConsumerStatefulWidget {
     required this.id,
     required this.child,
     required this.onConfigRequested,
+    this.onRenameRequested,
     this.isDragging = false,
     this.behavior = HitTestBehavior.translucent,
   });
@@ -117,6 +119,14 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       if (mode == ConfigGestureMode.doubleTapHold) {
         _tapCount = 2;
         _tapResetTimer?.cancel();
+
+        // RENAME GESTURE: Quick double-tap (within 400ms) triggers rename immediately
+        if (widget.onRenameRequested != null) {
+          widget.onRenameRequested!();
+          _tapCount = 0; // Reset after rename action
+          return;
+        }
+
         _startConfigTimer();
       }
     } else {

@@ -1203,8 +1203,9 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                   Expanded(
                     child: HybridTouchFader(
                       key: const ValueKey('fader_cc1'),
+                      controlId: 'fader_0',
                       ccNumber: 1,
-                      label: "CC1\nDYNAMICS",
+                      displayName: "CC1\nDYNAMICS",
                       activeColor: const Color(0xFFA6C9F8),
                       labelColor: const Color(0xFF033258),
                       initialValue: 1.0,
@@ -1215,8 +1216,9 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                   Expanded(
                     child: HybridTouchFader(
                       key: const ValueKey('fader_cc11'),
+                      controlId: 'fader_1',
                       ccNumber: 11,
-                      label: "CC11\nEXPRESSION",
+                      displayName: "CC11\nEXPRESSION",
                       activeColor: const Color(0xFFA1CFCE),
                       labelColor: const Color(0xFF013737),
                       initialValue: 64 / 127.0,
