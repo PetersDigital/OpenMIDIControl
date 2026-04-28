@@ -58,9 +58,10 @@ class _DelayedMenuTriggerState extends ConsumerState<DelayedMenuTrigger>
 
     if (mode == ConfigGestureMode.doubleTapHold) {
       _isTapHoldCandidate =
-          _tapCount >= 2 && timeSinceLastTap.inMilliseconds < 400;
+          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
     } else {
-      _isTapHoldCandidate = timeSinceLastTap.inMilliseconds < 400;
+      // Single tap-hold mode: Trigger on first touch (Long Press behavior)
+      _isTapHoldCandidate = true;
     }
 
     if (_isTapHoldCandidate) {
@@ -87,49 +88,57 @@ class _DelayedMenuTriggerState extends ConsumerState<DelayedMenuTrigger>
     _timer?.cancel();
     _timer = null;
     if (mounted) {
-      setState(() => _isHolding = false);
+      setState(() {
+        _isHolding = false;
+        _isTapHoldCandidate = false;
+      });
       _progressController.reset();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        _lastTapTime = DateTime.now();
-        _tapCount++;
-        _tapResetTimer?.cancel();
-        _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-          _tapCount = 0;
-        });
+    return Listener(
+      onPointerDown: (e) {
+        // Use a slight delay for tap count reset if needed, but here we just pass to handler
+        _handleTapDown(TapDownDetails(localPosition: e.localPosition));
       },
-      onTapDown: _handleTapDown,
-      onTapUp: (_) => _stopHold(),
-      onTapCancel: () => _stopHold(),
+      onPointerUp: (_) => _stopHold(),
+      onPointerCancel: (_) => _stopHold(),
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          widget.child,
-          if (_isHolding)
-            AnimatedBuilder(
-              animation: _progressController,
-              builder: (context, child) {
-                return SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    value: _progressController.value,
-                    strokeWidth: 2,
-                    color: widget.feedbackColor?.withValues(alpha: 0.8),
-                    backgroundColor: widget.feedbackColor?.withValues(
-                      alpha: 0.1,
+      child: GestureDetector(
+        onTap: () {
+          _lastTapTime = DateTime.now();
+          _tapCount++;
+          _tapResetTimer?.cancel();
+          _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
+            _tapCount = 0;
+          });
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            widget.child,
+            if (_isHolding && _isTapHoldCandidate)
+              AnimatedBuilder(
+                animation: _progressController,
+                builder: (context, child) {
+                  return SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      value: _progressController.value,
+                      strokeWidth: 2,
+                      color: widget.feedbackColor?.withValues(alpha: 0.8),
+                      backgroundColor: widget.feedbackColor?.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-        ],
+                  );
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
