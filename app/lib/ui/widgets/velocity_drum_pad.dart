@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,12 +77,15 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 }
 
 class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
 
   late AnimationController _scaleController;
+  late AnimationController _progressController;
+  Timer? _configTimer;
+  bool _isLongHold = false;
 
   @override
   void initState() {
@@ -94,11 +98,18 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       upperBound: 1.0,
       value: 1.0,
     );
+
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
   }
 
   @override
   void dispose() {
     _scaleController.dispose();
+    _progressController.dispose();
+    _configTimer?.cancel();
     super.dispose();
   }
 
@@ -135,9 +146,21 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       _isPressed = true;
       _lastVelocity = velocity;
       _lastTouchPosition = touchOffset;
+      _isLongHold = false;
     });
 
     _scaleController.reverse();
+    _progressController.forward(from: 0);
+
+    // Start 4-second config timer
+    _configTimer?.cancel();
+    _configTimer = Timer(const Duration(seconds: 3), () {
+      if (_isPressed) {
+        setState(() => _isLongHold = true);
+        _progressController.reset();
+        _showConfigModal(context, ref, note, channel);
+      }
+    });
 
     ref
         .read(midiServiceProvider)
@@ -147,10 +170,15 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
     if (!_isPressed) return;
 
+    _configTimer?.cancel();
+    _configTimer = null;
+    _progressController.reset();
+
     setState(() {
       _isPressed = false;
       _lastVelocity = null;
       _lastTouchPosition = null;
+      _isLongHold = false;
     });
 
     _scaleController.forward();
@@ -158,6 +186,56 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     ref
         .read(midiServiceProvider)
         .sendNoteOff(note, channel: channel, isFinal: true);
+  }
+
+  String _getNoteName(int note) {
+    final noteNames = [
+      'C',
+      'C#',
+      'D',
+      'D#',
+      'E',
+      'F',
+      'F#',
+      'G',
+      'G#',
+      'A',
+      'A#',
+      'B',
+    ];
+    final name = noteNames[note % 12];
+    final octave = (note ~/ 12) - 1;
+    return '$name$octave';
+  }
+
+  int? _parseNoteName(String name) {
+    final noteNames = [
+      'C',
+      'C#',
+      'D',
+      'D#',
+      'E',
+      'F',
+      'F#',
+      'G',
+      'G#',
+      'A',
+      'A#',
+      'B',
+    ];
+    final match = RegExp(
+      r'^([A-G]#?)(-?\d+)$',
+      caseSensitive: false,
+    ).firstMatch(name.trim());
+    if (match == null) {
+      // Fallback to numeric if it's just a number
+      return int.tryParse(name.trim());
+    }
+    final notePart = match.group(1)!.toUpperCase();
+    final octavePart = int.parse(match.group(2)!);
+    final noteIndex = noteNames.indexOf(notePart);
+    if (noteIndex == -1) return null;
+    return (octavePart + 1) * 12 + noteIndex;
   }
 
   @override
@@ -183,28 +261,73 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
             child: Container(
               decoration: BoxDecoration(
                 color: _isPressed
-                    ? const Color(0xFFE9C46A) // Active Amber
+                    ? (_isLongHold ? Colors.white : const Color(0xFFE9C46A))
                     : widget.padColor,
                 borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _isPressed
-                      ? widget.padColor.withValues(alpha: 0.8)
+                      ? (_isLongHold
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : widget.padColor.withValues(alpha: 0.8))
                       : const Color(0xFF111318).withValues(alpha: 0.5),
                   width: _isPressed ? 2.0 : 1.0,
                 ),
-                boxShadow: _isPressed
-                    ? [
-                        BoxShadow(
-                          color: widget.padColor.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          blurStyle: BlurStyle.inner,
-                        ),
-                      ]
-                    : [],
               ),
               child: Stack(
                 children: [
-                  // Optional: Ghost hit indicator for visual feedback of hit position
+                  // Note Name (Top Left)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Text(
+                      _getNoteName(note),
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+
+                  // MIDI Channel (Bottom Right)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Text(
+                      'CH${channel + 1}',
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024).withValues(alpha: 0.6)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // Velocity (Bottom Left)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: Text(
+                      'V:${_lastVelocity ?? 0}',
+                      style: TextStyle(
+                        fontFamily: 'Space Grotesk',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  // Ghost hit indicator
                   if (widget.showVelocityGhost &&
                       _isPressed &&
                       _lastTouchPosition != null)
@@ -221,38 +344,43 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
                     ),
 
-                  // Label
+                  // Central Label
                   Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.label.isNotEmpty ? widget.label : 'PAD $note',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            color: _isPressed
-                                ? const Color(0xFF1E2024) // Dark Charcoal for contrast on Amber
-                                : const Color(0xFFC3C7CA),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (_isPressed && _lastVelocity != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              'V: $_lastVelocity',
-                              style: TextStyle(
-                                fontFamily: 'DSEG7Modern',
-                                color: const Color(0xFF1E2024)
-                                    .withValues(alpha: 0.8),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                      ],
+                    child: Text(
+                      widget.label.isNotEmpty ? widget.label : 'PAD $note',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: _isPressed
+                            ? const Color(0xFF1E2024)
+                            : const Color(0xFFC3C7CA),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
+
+                  // 4-second Config Hold Progress
+                  if (_isPressed && !_isLongHold)
+                    Center(
+                      child: AnimatedBuilder(
+                        animation: _progressController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: 60,
+                            height: 60,
+                            child: CircularProgressIndicator(
+                              value: _progressController.value,
+                              strokeWidth: 4,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -260,5 +388,80 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         );
       },
     );
+  }
+
+  Future<void> _showConfigModal(
+    BuildContext context,
+    WidgetRef ref,
+    int currentNote,
+    int currentChannel,
+  ) async {
+    final noteController = TextEditingController(
+      text: _getNoteName(currentNote),
+    );
+    final channelController = TextEditingController(
+      text: (currentChannel + 1).toString(),
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: Text(
+          'Configure ${widget.label}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Space Grotesk',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: noteController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'MIDI Note (e.g. C3 or 36)',
+                labelStyle: TextStyle(color: Colors.white70),
+              ),
+            ),
+            TextField(
+              controller: channelController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'MIDI Channel (1-16)',
+                labelStyle: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final newNote = _parseNoteName(noteController.text);
+      final newChannelInput = int.tryParse(channelController.text);
+      if (newNote != null && newChannelInput != null) {
+        // Convert back to 0-indexed channel
+        final newChannel = (newChannelInput - 1).clamp(0, 15);
+        ref
+            .read(drumPadConfigProvider.notifier)
+            .setConfig(
+              widget.id,
+              DrumPadConfig(note: newNote, channel: newChannel),
+            );
+      }
+    }
   }
 }
