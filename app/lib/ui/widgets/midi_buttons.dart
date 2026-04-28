@@ -1,12 +1,11 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'config_gesture_wrapper.dart';
 
 import '../midi_service.dart';
-import '../midi_settings_state.dart';
 
 enum MidiButtonMode { note, cc }
 
@@ -34,72 +33,15 @@ class MomentaryButton extends ConsumerStatefulWidget {
   ConsumerState<MomentaryButton> createState() => _MomentaryButtonState();
 }
 
-class _MomentaryButtonState extends ConsumerState<MomentaryButton>
-    with TickerProviderStateMixin {
+class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
   bool _isPressed = false;
-  late AnimationController _progressController;
-  Timer? _configTimer;
-  Timer? _tapResetTimer;
-  bool _isLongHold = false;
-
-  // Gesture state
-  DateTime? _lastTapTime;
-  int _tapCount = 0;
-  bool _isTapHoldCandidate = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    _progressController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
-    );
-  }
-
-  @override
-  void dispose() {
-    _progressController.dispose();
-    _configTimer?.cancel();
-    super.dispose();
-  }
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
-    final now = DateTime.now();
-    final timeSinceLastTap = _lastTapTime != null
-        ? now.difference(_lastTapTime!)
-        : const Duration(seconds: 1);
-
-    final mode = ref.read(configGestureModeProvider);
-    if (mode == ConfigGestureMode.doubleTapHold) {
-      _isTapHoldCandidate =
-          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
-    } else {
-      // Single tap-hold mode: Trigger on first touch (Long Press behavior)
-      _isTapHoldCandidate = true;
-    }
 
     setState(() {
       _isPressed = true;
-      _isLongHold = false;
     });
-
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
-
-    if (_isTapHoldCandidate) {
-      _progressController.duration = duration;
-      _progressController.forward(from: 0);
-      _configTimer?.cancel();
-      _configTimer = Timer(duration, () {
-        if (_isPressed && _isTapHoldCandidate) {
-          setState(() => _isLongHold = true);
-          _progressController.reset();
-          widget.onConfigRequested?.call();
-        }
-      });
-    }
 
     final service = ref.read(midiServiceProvider);
     if (widget.mode == MidiButtonMode.note) {
@@ -120,21 +62,8 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
   }
 
   void _handlePointerUp(PointerEvent event) {
-    _lastTapTime = DateTime.now();
-    _tapCount++;
-    _tapResetTimer?.cancel();
-    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-      _tapCount = 0;
-    });
-
-    _configTimer?.cancel();
-    _configTimer = null;
-    _progressController.reset();
-
     setState(() {
       _isPressed = false;
-      _isLongHold = false;
-      _isTapHoldCandidate = false;
     });
 
     final service = ref.read(midiServiceProvider);
@@ -156,104 +85,90 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton>
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerUp,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 50),
-        decoration: BoxDecoration(
-          color: _isPressed ? widget.activeColor : widget.inactiveColor,
-          borderRadius: BorderRadius.zero,
-          border: Border.all(
-            color: _isPressed ? widget.activeColor : const Color(0xFF111318),
-            width: 2.0,
+    return ConfigGestureWrapper(
+      id: 'button_${widget.identifier}',
+      onConfigRequested: () => widget.onConfigRequested?.call(),
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerUp,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 50),
+          decoration: BoxDecoration(
+            color: _isPressed ? widget.activeColor : widget.inactiveColor,
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: _isPressed ? widget.activeColor : const Color(0xFF111318),
+              width: 2.0,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            // Identifier (Top Left)
-            Positioned(
-              top: 4,
-              left: 4,
-              child: Text(
-                'CC ${widget.identifier}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+          child: Stack(
+            children: [
+              // Identifier (Top Left)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Text(
+                  'CC ${widget.identifier}',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isPressed
+                        ? const Color(0xFF033258).withValues(alpha: 0.6)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            Center(
-              child: Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: _isPressed
-                      ? const Color(0xFF033258)
-                      : const Color(0xFFC3C7CA),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            // Status (Bottom Left)
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Text(
-                _isPressed ? 'ON' : 'OFF',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            // Channel (Bottom Right)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Text(
-                'CH${widget.channel + 1}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            if (_isPressed && _isTapHoldCandidate && !_isLongHold)
               Center(
-                child: AnimatedBuilder(
-                  animation: _progressController,
-                  builder: (context, child) {
-                    return SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        value: _progressController.value,
-                        strokeWidth: 3,
-                        color: Colors.white.withValues(alpha: 0.6),
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    );
-                  },
+                child: Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: _isPressed
+                        ? const Color(0xFF033258)
+                        : const Color(0xFFC3C7CA),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-          ],
+              // Status (Bottom Left)
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Text(
+                  _isPressed ? 'ON' : 'OFF',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isPressed
+                        ? const Color(0xFF033258)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              // Channel (Bottom Right)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Text(
+                  'CH${widget.channel + 1}',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isPressed
+                        ? const Color(0xFF033258).withValues(alpha: 0.6)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -284,98 +199,25 @@ class ToggleButton extends ConsumerStatefulWidget {
   ConsumerState<ToggleButton> createState() => _ToggleButtonState();
 }
 
-class _ToggleButtonState extends ConsumerState<ToggleButton>
-    with TickerProviderStateMixin {
+class _ToggleButtonState extends ConsumerState<ToggleButton> {
   bool _isActive = false;
   bool _isPressed = false;
-  late AnimationController _progressController;
-  Timer? _configTimer;
-  Timer? _tapResetTimer;
-  bool _isLongHold = false;
-
-  // Gesture state
-  DateTime? _lastTapTime;
-  int _tapCount = 0;
-  bool _isTapHoldCandidate = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    _progressController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
-    );
-  }
-
-  @override
-  void dispose() {
-    _progressController.dispose();
-    _configTimer?.cancel();
-    super.dispose();
-  }
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
 
-    final now = DateTime.now();
-    final timeSinceLastTap = _lastTapTime != null
-        ? now.difference(_lastTapTime!)
-        : const Duration(seconds: 1);
-
-    final mode = ref.read(configGestureModeProvider);
-    if (mode == ConfigGestureMode.doubleTapHold) {
-      _isTapHoldCandidate =
-          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
-    } else {
-      _isTapHoldCandidate =
-          _tapCount == 0 && timeSinceLastTap.inMilliseconds < 400;
-    }
-
     setState(() {
       _isPressed = true;
-      _isLongHold = false;
     });
-
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
-
-    if (_isTapHoldCandidate) {
-      _progressController.duration = duration;
-      _progressController.forward(from: 0);
-      _configTimer?.cancel();
-      _configTimer = Timer(duration, () {
-        if (_isPressed && _isTapHoldCandidate) {
-          setState(() => _isLongHold = true);
-          _progressController.reset();
-          widget.onConfigRequested?.call();
-        }
-      });
-    }
   }
 
   void _handlePointerUp(PointerEvent event) {
-    _lastTapTime = DateTime.now();
-    _tapCount++;
-    _tapResetTimer?.cancel();
-    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-      _tapCount = 0;
-    });
-
     if (!_isPressed) return;
 
-    if (!_isLongHold && _isPressed) {
-      _toggleState();
-    }
-
-    _configTimer?.cancel();
-    _configTimer = null;
-    _progressController.reset();
+    _toggleState();
 
     setState(() {
       _isPressed = false;
-      _isLongHold = false;
-      _isTapHoldCandidate = false;
     });
   }
 
@@ -420,104 +262,90 @@ class _ToggleButtonState extends ConsumerState<ToggleButton>
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerUp,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: _isActive ? widget.activeColor : widget.inactiveColor,
-          borderRadius: BorderRadius.zero,
-          border: Border.all(
-            color: _isActive ? widget.activeColor : const Color(0xFF111318),
-            width: 2.0,
+    return ConfigGestureWrapper(
+      id: 'toggle_${widget.identifier}',
+      onConfigRequested: () => widget.onConfigRequested?.call(),
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerUp,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isActive ? widget.activeColor : widget.inactiveColor,
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: _isActive ? widget.activeColor : const Color(0xFF111318),
+              width: 2.0,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            // Identifier (Top Left)
-            Positioned(
-              top: 4,
-              left: 4,
-              child: Text(
-                'CC ${widget.identifier}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+          child: Stack(
+            children: [
+              // Identifier (Top Left)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: Text(
+                  'CC ${widget.identifier}',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isActive
+                        ? const Color(0xFF690005).withValues(alpha: 0.6)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            Center(
-              child: Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: _isActive
-                      ? const Color(0xFF690005)
-                      : const Color(0xFFC3C7CA),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            // Status (Bottom Left)
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Text(
-                _isActive ? 'ON' : 'OFF',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            // Channel (Bottom Right)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Text(
-                'CH${widget.channel + 1}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            if (_isPressed && _isTapHoldCandidate && !_isLongHold)
               Center(
-                child: AnimatedBuilder(
-                  animation: _progressController,
-                  builder: (context, child) {
-                    return SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        value: _progressController.value,
-                        strokeWidth: 3,
-                        color: Colors.white.withValues(alpha: 0.6),
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    );
-                  },
+                child: Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: _isActive
+                        ? const Color(0xFF690005)
+                        : const Color(0xFFC3C7CA),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-          ],
+              // Status (Bottom Left)
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Text(
+                  _isActive ? 'ON' : 'OFF',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isActive
+                        ? const Color(0xFF690005)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              // Channel (Bottom Right)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Text(
+                  'CH${widget.channel + 1}',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isActive
+                        ? const Color(0xFF690005).withValues(alpha: 0.6)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

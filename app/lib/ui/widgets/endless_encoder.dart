@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
-import '../midi_settings_state.dart';
+import 'config_gesture_wrapper.dart';
 
 class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
@@ -34,32 +34,14 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   bool _isDragging = false;
   Timer? _throttleTimer;
 
-  late AnimationController _progressController;
-  Timer? _configTimer;
-  bool _isLongHold = false;
-  bool _isDown = false;
-  double _totalDragDistance = 0.0;
-  DateTime? _lastTapTime;
-  bool _isTapHoldCandidate = false;
-  int _tapCount = 0;
-  Timer? _tapResetTimer;
-
   @override
   void initState() {
     super.initState();
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    _progressController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
-    );
   }
 
   @override
   void dispose() {
     _throttleTimer?.cancel();
-    _progressController.dispose();
-    _configTimer?.cancel();
-    _tapResetTimer?.cancel();
     super.dispose();
   }
 
@@ -79,23 +61,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void _handleDragStart(DragStartDetails details) {
     _isDragging = false; // Wait for movement threshold
     _accumulatedDelta = 0.0;
-    _totalDragDistance = 0.0;
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (!_isDragging) {
-      _totalDragDistance += details.delta.dy.abs();
-      if (_totalDragDistance > 10.0) {
-        setState(() {
-          _isDragging = true;
-          // Cancel "Safety Hold" now that we are definitely dragging
-          _configTimer?.cancel();
-          _configTimer = null;
-          _progressController.reset();
-        });
-      } else {
-        return; // Ignore micro-movements to preserve "Hold" timer
-      }
+      _isDragging = true;
     }
 
     _accumulatedDelta -= details.delta.dy;
@@ -146,71 +116,10 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
         // If size is not restricted, give it a default reasonable size
         final double effectiveSize = size.isInfinite ? 100.0 : size;
 
-        return Listener(
-          onPointerDown: (e) {
-            final now = DateTime.now();
-            final timeSinceLastTap = _lastTapTime != null
-                ? now.difference(_lastTapTime!)
-                : const Duration(seconds: 1);
-
-            final mode = ref.read(configGestureModeProvider);
-            if (mode == ConfigGestureMode.doubleTapHold) {
-              _isTapHoldCandidate =
-                  _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
-            } else {
-              // Single tap-hold mode: Trigger on first touch (Long Press behavior)
-              _isTapHoldCandidate = true;
-            }
-
-            setState(() {
-              _isDown = true;
-              _isLongHold = false;
-            });
-
-            if (_isTapHoldCandidate) {
-              final durationSecs = ref.read(safetyHoldDurationProvider);
-              final duration = Duration(
-                milliseconds: (durationSecs * 1000).toInt(),
-              );
-
-              _progressController.duration = duration;
-              _progressController.forward(from: 0);
-              _configTimer?.cancel();
-              _configTimer = Timer(duration, () {
-                if (_isDown && _isTapHoldCandidate) {
-                  setState(() => _isLongHold = true);
-                  _progressController.reset();
-                  widget.onConfigRequested?.call();
-                }
-              });
-            }
-          },
-          onPointerUp: (_) {
-            _lastTapTime = DateTime.now();
-            _tapCount++;
-            _tapResetTimer?.cancel();
-            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-              _tapCount = 0;
-            });
-
-            setState(() {
-              _isDown = false;
-              _isTapHoldCandidate = false;
-              _isLongHold = false;
-              _progressController.reset();
-              _configTimer?.cancel();
-            });
-          },
-          onPointerCancel: (_) {
-            setState(() {
-              _isDown = false;
-              _isTapHoldCandidate = false;
-              _isLongHold = false;
-              _progressController.reset();
-              _configTimer?.cancel();
-            });
-          },
-          behavior: HitTestBehavior.opaque,
+        return ConfigGestureWrapper(
+          id: 'encoder_${widget.cc}',
+          isDragging: _isDragging,
+          onConfigRequested: () => widget.onConfigRequested?.call(),
           child: GestureDetector(
             onPanStart: _handleDragStart,
             onPanUpdate: _handleDragUpdate,
@@ -280,28 +189,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                       ),
                     ],
                   ),
-
-                  // Config Hold Progress - Only visible during an active Tap-Hold sequence
-                  if (_isDown && !_isLongHold && _isTapHoldCandidate)
-                    Center(
-                      child: AnimatedBuilder(
-                        animation: _progressController,
-                        builder: (context, child) {
-                          return SizedBox(
-                            width: effectiveSize * 0.9,
-                            height: effectiveSize * 0.9,
-                            child: CircularProgressIndicator(
-                              value: _progressController.value,
-                              strokeWidth: 4,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
                 ],
               ),
             ),

@@ -2,13 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:math' as math;
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../midi_service.dart';
-import '../midi_settings_state.dart';
+import 'config_gesture_wrapper.dart';
 
 class DrumPadConfig {
   final int note;
@@ -84,15 +81,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   Offset? _lastTouchPosition;
 
   late AnimationController _scaleController;
-  late AnimationController _progressController;
-  Timer? _configTimer;
-  Timer? _tapResetTimer;
-  bool _isLongHold = false;
-
-  // Gesture state
-  DateTime? _lastTapTime;
-  int _tapCount = 0;
-  bool _isTapHoldCandidate = false;
 
   @override
   void initState() {
@@ -105,20 +93,11 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       upperBound: 1.0,
       value: 1.0,
     );
-
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    _progressController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: (durationSecs * 1000).toInt()),
-    );
   }
 
   @override
   void dispose() {
     _scaleController.dispose();
-    _progressController.dispose();
-    _configTimer?.cancel();
-    _tapResetTimer?.cancel();
     super.dispose();
   }
 
@@ -151,44 +130,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         widget.minVelocity +
         ((widget.maxVelocity - widget.minVelocity) * intensity).round();
 
-    final now = DateTime.now();
-    final timeSinceLastTap = _lastTapTime != null
-        ? now.difference(_lastTapTime!)
-        : const Duration(seconds: 1);
-
-    final mode = ref.read(configGestureModeProvider);
-    if (mode == ConfigGestureMode.doubleTapHold) {
-      _isTapHoldCandidate =
-          _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
-    } else {
-      _isTapHoldCandidate =
-          _tapCount == 0 && timeSinceLastTap.inMilliseconds < 400;
-    }
-
     setState(() {
       _isPressed = true;
       _lastVelocity = velocity;
       _lastTouchPosition = touchOffset;
-      _isLongHold = false;
     });
 
-    final durationSecs = ref.read(safetyHoldDurationProvider);
-    final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
-
     _scaleController.reverse();
-
-    if (_isTapHoldCandidate) {
-      _progressController.duration = duration;
-      _progressController.forward(from: 0);
-      _configTimer?.cancel();
-      _configTimer = Timer(duration, () {
-        if (_isPressed && _isTapHoldCandidate) {
-          setState(() => _isLongHold = true);
-          _progressController.reset();
-          _showConfigModal(context, ref, note, channel);
-        }
-      });
-    }
 
     ref
         .read(midiServiceProvider)
@@ -196,26 +144,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   }
 
   void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
-    _configTimer?.cancel();
-    _configTimer = null;
-    _progressController.reset();
-
     setState(() {
       _isPressed = false;
       _lastVelocity = null;
       _lastTouchPosition = null;
-      _isLongHold = false;
-      _isTapHoldCandidate = false;
     });
 
     _scaleController.forward();
-
-    _lastTapTime = DateTime.now();
-    _tapCount++;
-    _tapResetTimer?.cancel();
-    _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-      _tapCount = 0;
-    });
 
     ref
         .read(midiServiceProvider)
@@ -282,140 +217,119 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        return Listener(
-          onPointerDown: (event) =>
-              _handlePointerDown(event, size, note, channel),
-          onPointerUp: (event) =>
-              _handlePointerUpOrCancel(event, note, channel),
-          onPointerCancel: (event) =>
-              _handlePointerUpOrCancel(event, note, channel),
-          behavior: HitTestBehavior.opaque,
-          child: ScaleTransition(
-            scale: _scaleController,
-            child: Container(
-              decoration: BoxDecoration(
-                color: _isPressed
-                    ? (_isLongHold ? Colors.white : const Color(0xFFE9C46A))
-                    : widget.padColor,
-                borderRadius: BorderRadius.zero,
-                border: Border.all(
-                  color: _isPressed
-                      ? (_isLongHold
-                            ? Colors.white.withValues(alpha: 0.8)
-                            : widget.padColor.withValues(alpha: 0.8))
-                      : const Color(0xFF111318).withValues(alpha: 0.5),
-                  width: _isPressed ? 2.0 : 1.0,
+        return ConfigGestureWrapper(
+          id: 'drum_pad_${widget.id}',
+          onConfigRequested: () =>
+              _showConfigModal(context, ref, note, channel),
+          child: Listener(
+            onPointerDown: (event) =>
+                _handlePointerDown(event, size, note, channel),
+            onPointerUp: (event) =>
+                _handlePointerUpOrCancel(event, note, channel),
+            onPointerCancel: (event) =>
+                _handlePointerUpOrCancel(event, note, channel),
+            behavior: HitTestBehavior.opaque,
+            child: ScaleTransition(
+              scale: _scaleController,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(
+                    color: _isPressed
+                        ? widget.padColor.withValues(alpha: 0.8)
+                        : const Color(0xFF111318).withValues(alpha: 0.5),
+                    width: _isPressed ? 2.0 : 1.0,
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  // Note Name (Top Left)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Text(
-                      _getNoteName(note),
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
-                        color: _isPressed
-                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ),
-
-                  // MIDI Channel (Bottom Right)
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Text(
-                      'CH${channel + 1}',
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
-                        color: _isPressed
-                            ? const Color(0xFF1E2024).withValues(alpha: 0.6)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  // Velocity (Bottom Left)
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: Text(
-                      'V:${_lastVelocity ?? 0}',
-                      style: TextStyle(
-                        fontFamily: 'Space Grotesk',
-                        color: _isPressed
-                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
-                  // Ghost hit indicator
-                  if (widget.showVelocityGhost &&
-                      _isPressed &&
-                      _lastTouchPosition != null)
+                child: Stack(
+                  children: [
+                    // Note Name (Top Left)
                     Positioned(
-                      left: _lastTouchPosition!.dx - 20,
-                      top: _lastTouchPosition!.dy - 20,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.2),
+                      top: 8,
+                      left: 8,
+                      child: Text(
+                        _getNoteName(note),
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: _isPressed
+                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.5),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ),
 
-                  // Central Label
-                  Center(
-                    child: Text(
-                      widget.label.isNotEmpty ? widget.label : 'PAD $note',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: _isPressed
-                            ? const Color(0xFF1E2024)
-                            : const Color(0xFFC3C7CA),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                    // MIDI Channel (Bottom Right)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Text(
+                        'CH${channel + 1}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: _isPressed
+                              ? const Color(0xFF1E2024).withValues(alpha: 0.6)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
 
-                  // Config Hold Progress
-                  if (_isPressed && _isTapHoldCandidate && !_isLongHold)
-                    Center(
-                      child: AnimatedBuilder(
-                        animation: _progressController,
-                        builder: (context, child) {
-                          return SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: CircularProgressIndicator(
-                              value: _progressController.value,
-                              strokeWidth: 4,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                          );
-                        },
+                    // Velocity (Bottom Left)
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Text(
+                        'V:${_lastVelocity ?? 0}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: _isPressed
+                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                ],
+
+                    // Ghost hit indicator
+                    if (widget.showVelocityGhost &&
+                        _isPressed &&
+                        _lastTouchPosition != null)
+                      Positioned(
+                        left: _lastTouchPosition!.dx - 20,
+                        top: _lastTouchPosition!.dy - 20,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
+
+                    // Central Label
+                    Center(
+                      child: Text(
+                        widget.label.isNotEmpty ? widget.label : 'PAD $note',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: _isPressed
+                              ? const Color(0xFF1E2024)
+                              : const Color(0xFFC3C7CA),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

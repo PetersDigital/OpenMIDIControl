@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_service.dart';
-import '../midi_settings_state.dart';
+import 'config_gesture_wrapper.dart';
 
 class XYPadConfig {
   final int ccX;
@@ -110,17 +110,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   bool _canSend = true;
   bool _hasPendingSend = false;
 
-  late AnimationController _progressController;
-  Timer? _configTimer;
-  Timer? _tapResetTimer;
-  bool _isLongHold = false;
-  bool _isDown = false;
-
-  // Gesture state
-  DateTime? _lastTapTime;
-  int _tapCount = 0;
-  bool _isTapHoldCandidate = false;
-
+  // Gesture state (Managed by ConfigGestureWrapper)
   ProviderSubscription<AsyncValue<int>>? _ccXSubscription;
   ProviderSubscription<AsyncValue<int>>? _ccYSubscription;
 
@@ -142,7 +132,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       _normalizedY = hotY / 127.0;
     }
 
-    _progressController = AnimationController(vsync: this);
     _setupListeners();
   }
 
@@ -170,28 +159,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     _ccXSubscription?.close();
     _ccYSubscription?.close();
     _throttleTimer?.cancel();
-    _progressController.dispose();
-    _configTimer?.cancel();
-    _tapResetTimer?.cancel();
     super.dispose();
-  }
-
-  void _startHold() {
-    if (_isTapHoldCandidate) {
-      final durationSecs = ref.read(safetyHoldDurationProvider);
-      final duration = Duration(milliseconds: (durationSecs * 1000).toInt());
-
-      _progressController.duration = duration;
-      _progressController.forward(from: 0);
-      _configTimer?.cancel();
-      _configTimer = Timer(duration, () {
-        if (_isDown && _isTapHoldCandidate && !_isDragging) {
-          setState(() => _isLongHold = true);
-          _progressController.reset();
-          _showConfigMenu();
-        }
-      });
-    }
   }
 
   void _showConfigMenu() {
@@ -205,19 +173,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
           invertY: widget.invertY,
         );
     _showConfigDialog(context, currentConfig);
-  }
-
-  void _stopHold() {
-    _configTimer?.cancel();
-    _configTimer = null;
-    if (mounted) {
-      setState(() {
-        _isLongHold = false;
-        _isTapHoldCandidate = false;
-        _isDown = false;
-      });
-      _progressController.reset();
-    }
   }
 
   void _handleXUpdate(int val) {
@@ -447,56 +402,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        return Listener(
-          onPointerDown: (e) {
-            final now = DateTime.now();
-            final timeSinceLastTap = _lastTapTime != null
-                ? now.difference(_lastTapTime!)
-                : const Duration(seconds: 1);
-
-            final mode = ref.read(configGestureModeProvider);
-
-            if (mode == ConfigGestureMode.doubleTapHold) {
-              _isTapHoldCandidate =
-                  _tapCount == 1 && timeSinceLastTap.inMilliseconds < 400;
-            } else {
-              // Single tap-hold mode: Trigger on first touch (Long Press behavior)
-              _isTapHoldCandidate = true;
-            }
-
-            setState(() {
-              _isDown = true;
-              _isLongHold = false;
-            });
-
-            if (_isTapHoldCandidate) {
-              _startHold();
-            }
-          },
-          onPointerUp: (_) {
-            _lastTapTime = DateTime.now();
-            _tapCount++;
-            _tapResetTimer?.cancel();
-            _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-              _tapCount = 0;
-            });
-
-            setState(() {
-              _isDown = false;
-              _isTapHoldCandidate = false;
-              _progressController.reset();
-              _configTimer?.cancel();
-            });
-          },
-          onPointerCancel: (_) {
-            setState(() {
-              _isDown = false;
-              _isTapHoldCandidate = false;
-              _progressController.reset();
-              _configTimer?.cancel();
-            });
-          },
-          behavior: HitTestBehavior.opaque,
+        return ConfigGestureWrapper(
+          id: widget.id,
+          isDragging: _isDragging,
+          onConfigRequested: _showConfigMenu,
           child: GestureDetector(
             onPanStart: (details) {
               setState(() {
@@ -508,7 +417,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _updatePosition(details.localPosition, size, isFinal: false);
             },
             onPanEnd: (details) {
-              _stopHold();
               setState(() {
                 _isDragging = false;
               });
@@ -516,7 +424,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _sendMidi(isFinal: true);
             },
             onPanCancel: () {
-              _stopHold();
               setState(() {
                 _isDragging = false;
               });
@@ -570,27 +477,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
                       ),
                     ),
-                    // Progress ring for config - Gated by candidate sequence
-                    if (_isDown && _isTapHoldCandidate && !_isLongHold)
-                      Center(
-                        child: AnimatedBuilder(
-                          animation: _progressController,
-                          builder: (context, child) {
-                            return SizedBox(
-                              width: 80,
-                              height: 80,
-                              child: CircularProgressIndicator(
-                                value: _progressController.value,
-                                strokeWidth: 4,
-                                color: Colors.white.withValues(alpha: 0.6),
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.1,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                     // Touch Point Marker
                     Positioned(
                       left: (_normalizedX * size.width) - 15,
