@@ -98,7 +98,8 @@ class UtilityGridPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final utilityControls = ref.watch(
       layoutStateProvider.select(
-        (s) => s.pages.length > 3 ? s.pages[3].controls : <LayoutControl>[],
+        (s) =>
+            s.pages.length > 3 ? s.pages[3].controls : const <LayoutControl>[],
       ),
     );
     final isLocked = ref.watch(

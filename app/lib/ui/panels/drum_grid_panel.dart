@@ -15,7 +15,8 @@ class DrumGridPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final padControls = ref.watch(
       layoutStateProvider.select(
-        (s) => s.pages.length > 2 ? s.pages[2].controls : <LayoutControl>[],
+        (s) =>
+            s.pages.length > 2 ? s.pages[2].controls : const <LayoutControl>[],
       ),
     );
     final isLocked = ref.watch(
