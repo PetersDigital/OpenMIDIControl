@@ -34,6 +34,11 @@ class PeripheralMidiService : MidiDeviceService() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: android.content.Intent?) {
+        super.onTaskRemoved(rootIntent)
+        stopSelf()
+    }
+
     override fun onGetInputPortReceivers(): Array<MidiReceiver> {
         MidiSystemManager.setUsbHostConnected(true)
         return arrayOf(inputReceiver)

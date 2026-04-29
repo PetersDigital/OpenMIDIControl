@@ -811,7 +811,12 @@ class MainActivity : FlutterActivity() {
             unregisterReceiver(usbStateReceiver)
         } catch (e: Exception) { }
         disconnectDevice()
+        VirtualMidiService.activeInstance?.onDestroy()
+        PeripheralMidiService.activeInstance?.onDestroy()
+        MidiSystemManager.teardown()
         activeInstance = null
         super.onDestroy()
     }
+
+
 }

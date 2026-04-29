@@ -26,6 +26,11 @@ class VirtualMidiService : MidiDeviceService() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: android.content.Intent?) {
+        super.onTaskRemoved(rootIntent)
+        stopSelf()
+    }
+
     override fun onGetInputPortReceivers(): Array<MidiReceiver> {
         return arrayOf(object : MidiReceiver() {
             override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {

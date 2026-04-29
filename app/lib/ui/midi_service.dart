@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import '../core/lifecycle/app_lifecycle_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:isolate';
@@ -200,6 +202,7 @@ class MidiService {
   SendPort? _workerSendPort;
   final List<dynamic> _queuedEvents = [];
   late final ReceivePort _workerReceivePort;
+  StreamSubscription<dynamic>? _workerReceivePortSubscription;
   Isolate? _workerIsolate;
 
   final MidiRouter outgoingRouter = MidiRouter();
@@ -234,6 +237,7 @@ class MidiService {
   final Stopwatch _stopwatch = Stopwatch()..start();
 
   late final Stream<dynamic> _rawStream;
+  StreamSubscription<dynamic>? _rawStreamSubscription;
 
   void _initStreams() {
     _rawStream = _eventsChannel.receiveBroadcastStream();
@@ -243,7 +247,7 @@ class MidiService {
       return _LazyMidiEventList(data, data.isNotEmpty ? data[0] : 0);
     }).asBroadcastStream();
 
-    _rawStream.listen((event) {
+    _rawStreamSubscription = _rawStream.listen((event) {
       if (event is Int64List) {
         final int usedLongCount = event.isNotEmpty ? event[0] : 0;
 
@@ -263,7 +267,7 @@ class MidiService {
 
   Future<void> _initWorker() async {
     _workerReceivePort = ReceivePort();
-    _workerReceivePort.listen((message) {
+    _workerReceivePortSubscription = _workerReceivePort.listen((message) {
       if (message is SendPort) {
         _workerSendPort = message;
         if (_queuedEvents.isNotEmpty) {
@@ -358,6 +362,8 @@ class MidiService {
   }
 
   void dispose() {
+    _rawStreamSubscription?.cancel();
+    _workerReceivePortSubscription?.cancel();
     _uiStateController.close();
     _hostConnectionController.close();
     _workerReceivePort.close();
@@ -938,11 +944,20 @@ class ControlStateNotifier extends Notifier<ControlState> {
     milliseconds: 16,
   );
 
+  bool _isPaused = false;
+
   @override
   ControlState build() {
     final service = ref.watch(midiServiceProvider);
 
+    ref.listen(appLifecycleStateProvider, (previous, next) {
+      _isPaused =
+          (next == AppLifecycleState.paused ||
+          next == AppLifecycleState.hidden);
+    });
+
     final sub = service.uiStateUpdates.listen((updates) {
+      if (_isPaused) return;
       ingestIncomingUpdates(updates);
     });
 

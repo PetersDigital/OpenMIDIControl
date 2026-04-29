@@ -4,6 +4,8 @@
 import 'dart:async';
 import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
+import '../../core/lifecycle/app_lifecycle_manager.dart';
 
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
@@ -97,7 +99,7 @@ class DiagnosticLogEntry {
 }
 
 class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
-  static const int maxLogs = 200;
+  static const int maxLogs = 500;
   static const Duration _publishCadence = Duration(milliseconds: 100);
 
   final Queue<DiagnosticLogEntry> _pendingEvents =
@@ -106,11 +108,20 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
   bool _disposed = false;
   Timer? _publishTimer;
 
+  bool _isPaused = false;
+
   @override
   List<DiagnosticLogEntry> build() {
     final service = ref.watch(midiServiceProvider);
 
+    ref.listen(appLifecycleStateProvider, (previous, next) {
+      _isPaused =
+          (next == AppLifecycleState.paused ||
+          next == AppLifecycleState.hidden);
+    });
+
     final sub = service.midiEventsStream.listen((midiEvents) {
+      if (_isPaused) return;
       if (midiEvents.isEmpty) return;
 
       // Prevent excessive instantiation by limiting the batch to maxLogs
