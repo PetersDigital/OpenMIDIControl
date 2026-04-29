@@ -17,6 +17,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
+import android.util.Log
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
