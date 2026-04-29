@@ -27,8 +27,13 @@ class NativeTransportSinkNode extends SinkNode {
 
   @override
   void executeSingle(MidiEvent event) {
-    // Filter out non-CC events
-    if (event.messageType == 0x2 && (event.legacyStatusByte & 0xF0) == 0xB0) {
+    // Filter out non-MIDI 1.0 voice messages
+    final statusNibble = event.legacyStatusByte & 0xF0;
+    if (event.messageType == 0x2 &&
+        (statusNibble == 0x80 ||
+            statusNibble == 0x90 ||
+            statusNibble == 0xB0 ||
+            statusNibble == 0xE0)) {
       _eventBuffer.add(event);
 
       if (_flushTimer == null || !_flushTimer!.isActive) {
@@ -48,8 +53,12 @@ class NativeTransportSinkNode extends SinkNode {
     if (events.isEmpty) return;
 
     for (var event in events) {
-      // Filter out non-CC events before buffering to save space
-      if (event.messageType == 0x2 && (event.legacyStatusByte & 0xF0) == 0xB0) {
+      final statusNibble = event.legacyStatusByte & 0xF0;
+      if (event.messageType == 0x2 &&
+          (statusNibble == 0x80 ||
+              statusNibble == 0x90 ||
+              statusNibble == 0xB0 ||
+              statusNibble == 0xE0)) {
         _eventBuffer.add(event);
       }
     }

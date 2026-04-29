@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import '../midi_utils.dart';
+
 /// Enumeration of supported control types in the layout schema.
 enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
 
@@ -29,9 +31,13 @@ class LayoutControl {
        assert(channel >= 0 && channel <= 15, 'Channel must be 0-15');
 
   /// Display name: uses customName if provided and non-empty, else "CC $defaultCc".
+  /// For drum pads, uses the note name (e.g., "C1").
   String get displayName {
     if (customName != null && customName!.trim().isNotEmpty) {
       return customName!;
+    }
+    if (type == ControlType.drumPad) {
+      return MidiUtils.getNoteName(defaultCc);
     }
     return 'CC $defaultCc';
   }
