@@ -188,7 +188,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
         Container(
           height: 64,
           color: Theme.of(context).colorScheme.surfaceContainerLowest,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -197,62 +197,66 @@ class _MobilePortraitLayout extends ConsumerWidget {
                 color: Color(0xFFA6C9F8),
                 size: 26,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ConnectionStatusButton(
-                    onTap: () => _showMidiSettings(context),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'Toggle Transport',
-                    child: GestureDetector(
-                      key: const ValueKey('transport_toggle_button'),
-                      onTap: () =>
-                          ref.read(transportVisibleProvider.notifier).toggle(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.play_circle_outline,
-                          color: Color(0xFFC3C7CA),
-                          size: 24,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ConnectionStatusButton(
+                      onTap: () => _showMidiSettings(context),
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'Toggle Transport',
+                      child: GestureDetector(
+                        key: const ValueKey('transport_toggle_button'),
+                        onTap: () => ref
+                            .read(transportVisibleProvider.notifier)
+                            .toggle(),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.play_circle_outline,
+                            color: Color(0xFFC3C7CA),
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: Icon(
-                      ref.watch(layoutStateProvider).isPerformanceLocked
-                          ? Icons.lock
-                          : Icons.lock_open,
-                      color: ref.watch(layoutStateProvider).isPerformanceLocked
-                          ? Colors.redAccent
-                          : Colors.white,
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Icons.lock
+                            : Icons.lock_open,
+                        color:
+                            ref.watch(layoutStateProvider).isPerformanceLocked
+                            ? Colors.redAccent
+                            : Colors.white,
+                      ),
+                      tooltip: 'Lock Performance Interface',
+                      onPressed: () => ref
+                          .read(layoutStateProvider.notifier)
+                          .togglePerformanceLock(),
                     ),
-                    tooltip: 'Lock Performance Interface',
-                    onPressed: () => ref
-                        .read(layoutStateProvider.notifier)
-                        .togglePerformanceLock(),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: 'App Settings',
-                    child: GestureDetector(
-                      onTap: () => _showAppSettings(context),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          Icons.more_vert,
-                          color: Color(0xFFC3C7CA),
-                          size: 24,
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'App Settings',
+                      child: GestureDetector(
+                        onTap: () => _showAppSettings(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.more_vert,
+                            color: Color(0xFFC3C7CA),
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
