@@ -110,24 +110,29 @@ void main() {
       expect(received, isNot(contains('buttons')));
     });
 
-    test('does not emit redundant updates for duplicate Note On events', () {
-      var updateCount = 0;
-      final node = UiStateSinkNode(
-        onStateUpdate: (_) {
-          updateCount++;
-        },
-      );
+    test(
+      'does not emit redundant updates for duplicate Note On events',
+      () async {
+        var updateCount = 0;
+        final node = UiStateSinkNode(
+          onStateUpdate: (_) {
+            updateCount++;
+          },
+        );
 
-      final event = MidiEvent(
-        buildUmp(messageType: 0x2, status: 0x90, data1: 60, data2: 127),
-        0,
-      );
+        final event = MidiEvent(
+          buildUmp(messageType: 0x2, status: 0x90, data1: 60, data2: 127),
+          0,
+        );
 
-      node.executeSingle(event);
-      node.executeSingle(event);
+        node.executeSingle(event);
+        node.executeSingle(event);
 
-      expect(updateCount, 1);
-    });
+        await Future.delayed(const Duration(milliseconds: 32));
+
+        expect(updateCount, 1);
+      },
+    );
 
     test('keeps last value for repeated CC keys within one batch', () {
       Map<String, dynamic>? received;
@@ -156,63 +161,44 @@ void main() {
       expect(received!["ccs"], equals({"0:7": 99, "0:10": 127}));
     });
 
-    test('emits isolated snapshots for executeSingle calls', () {
-      final received = <Map<String, dynamic>>[];
-      final node = UiStateSinkNode(
-        onStateUpdate: (updates) {
-          received.add(updates);
-        },
-      );
+    test(
+      'emits isolated snapshots for executeSingle calls (throttled)',
+      () async {
+        final received = <Map<String, dynamic>>[];
+        final node = UiStateSinkNode(
+          onStateUpdate: (updates) {
+            received.add(updates);
+          },
+        );
 
-      node.executeSingle(
-        MidiEvent(
-          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
-          0,
-        ),
-      );
-      node.executeSingle(
-        MidiEvent(
-          buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
-          0,
-        ),
-      );
+        node.executeSingle(
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+            0,
+          ),
+        );
 
-      expect(received, hasLength(2));
-      expect(received[0]["ccs"], equals({"0:7": 64}));
-      expect(received[1]["ccs"], equals({"0:10": 127}));
-      expect(received[0], isNot(same(received[1])));
-    });
+        await Future.delayed(const Duration(milliseconds: 32));
 
-    test('returns stable snapshots across multiple execute calls', () {
-      final received = <Map<String, dynamic>>[];
-      final node = UiStateSinkNode(
-        onStateUpdate: (updates) {
-          received.add(updates);
-        },
-      );
+        node.executeSingle(
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+            0,
+          ),
+        );
 
-      node.execute([
-        MidiEvent(
-          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
-          0,
-        ),
-      ]);
-      node.execute([
-        MidiEvent(
-          buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
-          0,
-        ),
-      ]);
+        await Future.delayed(const Duration(milliseconds: 32));
 
-      expect(received, hasLength(2));
-      expect(received[0]["ccs"], equals({"0:7": 64}));
-      expect(received[1]["ccs"], equals({"0:10": 127}));
-      expect(received[0], isNot(same(received[1])));
-    });
+        expect(received, hasLength(2));
+        expect(received[0]["ccs"], equals({"0:7": 64}));
+        expect(received[1]["ccs"], equals({"0:10": 127}));
+        expect(received[0], isNot(same(received[1])));
+      },
+    );
 
     test(
-      'published snapshots remain immutable after buffer reuse across generations',
-      () {
+      'returns stable snapshots across multiple execute calls (throttled)',
+      () async {
         final received = <Map<String, dynamic>>[];
         final node = UiStateSinkNode(
           onStateUpdate: (updates) {
@@ -226,18 +212,61 @@ void main() {
             0,
           ),
         ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
         node.execute([
           MidiEvent(
             buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
             0,
           ),
         ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
+        expect(received, hasLength(2));
+        expect(received[0]["ccs"], equals({"0:7": 64}));
+        expect(received[1]["ccs"], equals({"0:10": 127}));
+        expect(received[0], isNot(same(received[1])));
+      },
+    );
+
+    test(
+      'published snapshots remain immutable after buffer reuse across generations (throttled)',
+      () async {
+        final received = <Map<String, dynamic>>[];
+        final node = UiStateSinkNode(
+          onStateUpdate: (updates) {
+            received.add(updates);
+          },
+        );
+
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+            0,
+          ),
+        ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 10, data2: 127),
+            0,
+          ),
+        ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
         node.execute([
           MidiEvent(
             buildUmp(messageType: 0x2, status: 0xB0, data1: 11, data2: 32),
             0,
           ),
         ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
 
         expect(received, hasLength(3));
         expect(received[0]["ccs"], equals({"0:7": 64}));

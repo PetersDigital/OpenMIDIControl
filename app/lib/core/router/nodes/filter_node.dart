@@ -40,8 +40,39 @@ class FilterNode extends TransformerNode {
   List<MidiEvent> process(List<MidiEvent> events) {
     if (events.isEmpty) return events;
 
+    // Fast-path: check if any filtering is needed
+    bool needsFiltering = false;
+    for (int i = 0; i < events.length; i++) {
+      final event = events[i];
+      if (allowedChannel != null && event.channel != allowedChannel) {
+        needsFiltering = true;
+        break;
+      }
+      if (allowedMessageType != null &&
+          event.messageType != allowedMessageType) {
+        needsFiltering = true;
+        break;
+      }
+      if (minCc != null || maxCc != null) {
+        if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
+          final ccNumber = event.data1;
+          if (minCc != null && ccNumber < minCc!) {
+            needsFiltering = true;
+            break;
+          }
+          if (maxCc != null && ccNumber > maxCc!) {
+            needsFiltering = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!needsFiltering) return events;
+
     final filtered = <MidiEvent>[];
-    for (final event in events) {
+    for (int i = 0; i < events.length; i++) {
+      final event = events[i];
       if (allowedChannel != null && event.channel != allowedChannel) {
         continue;
       }
@@ -50,14 +81,13 @@ class FilterNode extends TransformerNode {
         continue;
       }
       if (minCc != null || maxCc != null) {
-        // Only apply CC range filtering to Control Change messages
         if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
           final ccNumber = event.data1;
           if (minCc != null && ccNumber < minCc!) continue;
           if (maxCc != null && ccNumber > maxCc!) continue;
         }
       }
-      filtered.add(event);
+      filtered.add(event); // Pass by reference
     }
     return filtered;
   }

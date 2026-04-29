@@ -27,6 +27,11 @@ class UiStateSinkNode extends SinkNode {
 
   UiStateSinkNode({required this.onStateUpdate});
 
+  // Debounce timing
+  DateTime? _lastEmitTime;
+  static const int _throttleMs = 16;
+  bool _hasPendingEmission = false;
+
   void _emitSnapshot() {
     final ccBatch = <String, int>{};
     for (final index in _dirtyCcIndices) {
@@ -51,6 +56,34 @@ class UiStateSinkNode extends SinkNode {
     }
 
     onStateUpdate(payload);
+    _lastEmitTime = DateTime.now();
+  }
+
+  void _throttledEmit() {
+    if (_dirtyCcIndices.isEmpty && !_hasNoteUpdates && !_hasButtonUpdates) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastEmitTime == null ||
+        now.difference(_lastEmitTime!).inMilliseconds >= _throttleMs) {
+      _emitSnapshot();
+      _hasPendingEmission = false;
+    } else if (!_hasPendingEmission) {
+      _hasPendingEmission = true;
+      Future.delayed(
+        Duration(
+          milliseconds:
+              _throttleMs - now.difference(_lastEmitTime!).inMilliseconds,
+        ),
+        () {
+          if (_hasPendingEmission) {
+            _emitSnapshot();
+            _hasPendingEmission = false;
+          }
+        },
+      );
+    }
   }
 
   void _processEvent(MidiEvent event) {
@@ -96,9 +129,7 @@ class UiStateSinkNode extends SinkNode {
   @override
   void executeSingle(MidiEvent event) {
     _processEvent(event);
-    if (_dirtyCcIndices.isNotEmpty || _hasNoteUpdates || _hasButtonUpdates) {
-      _emitSnapshot();
-    }
+    _throttledEmit();
   }
 
   @override
@@ -106,9 +137,6 @@ class UiStateSinkNode extends SinkNode {
     for (final event in events) {
       _processEvent(event);
     }
-
-    if (_dirtyCcIndices.isNotEmpty || _hasNoteUpdates || _hasButtonUpdates) {
-      _emitSnapshot();
-    }
+    _throttledEmit();
   }
 }
