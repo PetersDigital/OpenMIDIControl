@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter/material.dart';
+import 'scrollable_dialog_content.dart';
 
 class RenameControlDialog extends StatefulWidget {
   final String currentName;
@@ -19,18 +20,15 @@ class RenameControlDialog extends StatefulWidget {
 
 class _RenameControlDialogState extends State<RenameControlDialog> {
   late TextEditingController _controller;
-  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
     _controller = TextEditingController(text: widget.currentName);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -48,48 +46,39 @@ class _RenameControlDialogState extends State<RenameControlDialog> {
           color: Colors.white,
         ),
       ),
-      content: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          child: TextField(
-            controller: _controller,
-            autofocus: true,
-            textInputAction: TextInputAction.done,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 14,
-              color: Colors.white,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Enter new name',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: const Color(0xFF282A2E),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF3F4149)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF3F4149)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(
-                  color: Color(0xFFA6C9F8),
-                  width: 2,
-                ),
-              ),
-            ),
-            onSubmitted: (_) => _submit(),
+      content: ScrollableDialogContent(
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: Colors.white,
           ),
+          decoration: InputDecoration(
+            hintText: 'Enter new name',
+            hintStyle: const TextStyle(color: Colors.white30),
+            filled: true,
+            fillColor: const Color(0xFF282A2E),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Color(0xFF3F4149)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Color(0xFF3F4149)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Color(0xFFA6C9F8), width: 2),
+            ),
+          ),
+          onSubmitted: (_) => _submit(),
         ),
       ),
       actions: [

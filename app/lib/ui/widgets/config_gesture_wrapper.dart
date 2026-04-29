@@ -10,7 +10,7 @@ import '../providers/config_ui_provider.dart';
 class ConfigGestureWrapper extends ConsumerStatefulWidget {
   final String id;
   final Widget child;
-  final VoidCallback onConfigRequested;
+  final VoidCallback? onConfigRequested;
   final VoidCallback? onRenameRequested;
   final bool isDragging;
   final HitTestBehavior behavior;
@@ -19,7 +19,7 @@ class ConfigGestureWrapper extends ConsumerStatefulWidget {
     super.key,
     required this.id,
     required this.child,
-    required this.onConfigRequested,
+    this.onConfigRequested,
     this.onRenameRequested,
     this.isDragging = false,
     this.behavior = HitTestBehavior.translucent,
@@ -111,8 +111,10 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
         if (mounted) setState(() => _tapCount = 0);
       });
 
-      // If in single-tap mode, start the timer immediately
-      if (mode == ConfigGestureMode.tapHold) {
+      // If in single-tap mode, start the timer immediately if we have a callback
+      if (mode == ConfigGestureMode.tapHold &&
+          (widget.onConfigRequested != null ||
+              widget.onRenameRequested != null)) {
         _startConfigTimer();
       }
     } else if (_tapCount == 1 && timeSinceLastTap.inMilliseconds < 400) {
@@ -127,7 +129,10 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
           return;
         }
 
-        _startConfigTimer();
+        if (widget.onConfigRequested != null ||
+            widget.onRenameRequested != null) {
+          _startConfigTimer();
+        }
       }
     } else {
       // Excessive taps or too slow - reset
@@ -157,7 +162,9 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       });
       Future.microtask(() => ref.read(configProgressProvider.notifier).reset());
       _tapCount = 0;
-      widget.onConfigRequested();
+      if (widget.onConfigRequested != null) {
+        widget.onConfigRequested!();
+      }
     });
   }
 

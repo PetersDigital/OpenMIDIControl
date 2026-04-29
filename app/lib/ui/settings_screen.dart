@@ -10,6 +10,7 @@ import '../core/managers/snapshot_manager.dart';
 import 'layout_state.dart';
 import 'midi_settings_state.dart';
 import 'design_system.dart';
+import 'widgets/scrollable_dialog_content.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -361,9 +362,11 @@ class SettingsScreen extends ConsumerWidget {
           'Overwrite Layout?',
           style: TextStyle(color: Colors.white),
         ),
-        content: const Text(
-          'Importing a layout will completely overwrite your current active grid. This cannot be undone.',
-          style: TextStyle(color: Colors.white70),
+        content: const ScrollableDialogContent(
+          child: Text(
+            'Importing a layout will completely overwrite your current active grid. This cannot be undone.',
+            style: TextStyle(color: Colors.white70),
+          ),
         ),
         actions: [
           TextButton(

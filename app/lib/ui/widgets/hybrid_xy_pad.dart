@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'scrollable_dialog_content.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
@@ -278,7 +279,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     );
     bool invertX = currentConfig.invertX;
     bool invertY = currentConfig.invertY;
-    final scrollController = ScrollController();
 
     showDialog(
       context: context,
@@ -292,76 +292,68 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               fontFamily: 'Space Grotesk',
             ),
           ),
-          content: Scrollbar(
-            controller: scrollController,
-            thumbVisibility: true,
-            trackVisibility: true,
-            child: SingleChildScrollView(
-              controller: scrollController,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: ccXController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'X Axis CC',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white12),
-                      ),
+          content: ScrollableDialogContent(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: ccXController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'X Axis CC',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white12),
                     ),
-                    keyboardType: TextInputType.number,
                   ),
-                  TextField(
-                    controller: ccYController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Y Axis CC',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white12),
-                      ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: ccYController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Y Axis CC',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white12),
                     ),
-                    keyboardType: TextInputType.number,
                   ),
-                  TextField(
-                    controller: channelController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'MIDI Channel (0-15)',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white12),
-                      ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: channelController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'MIDI Channel (0-15)',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white12),
                     ),
-                    keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 12),
-                  CheckboxListTile(
-                    title: const Text(
-                      'Invert X',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    value: invertX,
-                    onChanged: (v) =>
-                        setDialogState(() => invertX = v ?? false),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  title: const Text(
+                    'Invert X',
+                    style: TextStyle(color: Colors.white),
                   ),
-                  CheckboxListTile(
-                    title: const Text(
-                      'Invert Y',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    value: invertY,
-                    onChanged: (v) =>
-                        setDialogState(() => invertY = v ?? false),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
+                  value: invertX,
+                  onChanged: (v) => setDialogState(() => invertX = v ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                CheckboxListTile(
+                  title: const Text(
+                    'Invert Y',
+                    style: TextStyle(color: Colors.white),
                   ),
-                ],
-              ),
+                  value: invertY,
+                  onChanged: (v) => setDialogState(() => invertY = v ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
             ),
           ),
           actions: [

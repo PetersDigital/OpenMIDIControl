@@ -182,35 +182,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     return '$name$octave';
   }
 
-  int? _parseNoteName(String name) {
-    final noteNames = [
-      'C',
-      'C#',
-      'D',
-      'D#',
-      'E',
-      'F',
-      'F#',
-      'G',
-      'G#',
-      'A',
-      'A#',
-      'B',
-    ];
-    final match = RegExp(
-      r'^([A-G]#?)(-?\d+)$',
-      caseSensitive: false,
-    ).firstMatch(name.trim());
-    if (match == null) {
-      // Fallback to numeric if it's just a number
-      return int.tryParse(name.trim());
-    }
-    final notePart = match.group(1)!.toUpperCase();
-    final octavePart = int.parse(match.group(2)!);
-    final noteIndex = noteNames.indexOf(notePart);
-    if (noteIndex == -1) return null;
-    return (octavePart + 1) * 12 + noteIndex;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -257,8 +228,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                         'config_wrapper_drum_pad_${widget.id}_note',
                       ),
                       id: 'drum_pad_${widget.id}',
-                      onConfigRequested: () =>
-                          _showConfigModal(context, ref, note, channel),
+                      onConfigRequested: isPerformanceLocked
+                          ? null
+                          : () => _showConfigModal(context, ref, note, channel),
                       child: Container(
                         padding: const EdgeInsets.only(
                           top: 8,
@@ -342,8 +314,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                     child: ConfigGestureWrapper(
                       key: ValueKey('rename_wrapper_drum_pad_${widget.id}'),
                       id: widget.id,
-                      onConfigRequested: () =>
-                          _showConfigModal(context, ref, note, channel),
+                      onConfigRequested: isPerformanceLocked
+                          ? null
+                          : () => _showConfigModal(context, ref, note, channel),
                       onRenameRequested: null,
                       child: Container(
                         constraints: const BoxConstraints(
