@@ -10,7 +10,7 @@ import '../midi_service.dart';
 
 enum MidiButtonMode { note, cc }
 
-class MomentaryButton extends ConsumerStatefulWidget {
+class Trigger extends ConsumerStatefulWidget {
   final int identifier; // Note or CC number
   final int channel;
   final MidiButtonMode mode;
@@ -19,7 +19,7 @@ class MomentaryButton extends ConsumerStatefulWidget {
   final Color inactiveColor;
   final VoidCallback? onConfigRequested;
 
-  const MomentaryButton({
+  const Trigger({
     super.key,
     required this.identifier,
     this.channel = 0,
@@ -31,10 +31,10 @@ class MomentaryButton extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MomentaryButton> createState() => _MomentaryButtonState();
+  ConsumerState<Trigger> createState() => _TriggerState();
 }
 
-class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
+class _TriggerState extends ConsumerState<Trigger> {
   bool _isPressed = false;
 
   void _handlePointerDown(PointerEvent event) {
@@ -107,8 +107,8 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
               top: 0,
               left: 0,
               child: ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_button_${widget.identifier}'),
-                id: 'button_${widget.identifier}',
+                key: ValueKey('config_wrapper_trigger_${widget.identifier}'),
+                id: 'trigger_${widget.identifier}',
                 onConfigRequested: () => widget.onConfigRequested?.call(),
                 child: Container(
                   padding: const EdgeInsets.only(
@@ -191,7 +191,7 @@ class _MomentaryButtonState extends ConsumerState<MomentaryButton> {
   }
 }
 
-class ToggleButton extends ConsumerStatefulWidget {
+class Toggle extends ConsumerStatefulWidget {
   final int identifier; // Note or CC number
   final int channel;
   final MidiButtonMode mode;
@@ -200,7 +200,7 @@ class ToggleButton extends ConsumerStatefulWidget {
   final Color inactiveColor;
   final VoidCallback? onConfigRequested;
 
-  const ToggleButton({
+  const Toggle({
     super.key,
     required this.identifier,
     this.channel = 0,
@@ -212,10 +212,10 @@ class ToggleButton extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ToggleButton> createState() => _ToggleButtonState();
+  ConsumerState<Toggle> createState() => _ToggleState();
 }
 
-class _ToggleButtonState extends ConsumerState<ToggleButton> {
+class _ToggleState extends ConsumerState<Toggle> {
   bool _isActive = false;
   bool _isPressed = false;
 

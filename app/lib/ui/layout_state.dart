@@ -211,13 +211,13 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     );
   }
 
-  /// Page 3: UTILITY (4 encoders + 4 buttons)
+  /// Page 3: UTILITY (4 encoders + 4 toggles + 4 trigger)
   static LayoutPage _buildUtilityPage() {
     return LayoutPage(
       id: 'page_3',
       name: 'UTILITY',
       controls: [
-        // Encoders
+        // Encoders (Row 0 & 1)
         LayoutControl(
           id: 'encoder_0',
           type: ControlType.encoder,
@@ -246,34 +246,63 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           channel: 0,
           customName: 'ENC 4',
         ),
-        // Buttons
+        // Toggle Buttons (Row 2 & 3)
         LayoutControl(
-          id: 'button_0',
-          type: ControlType.button,
+          id: 'toggle_0',
+          type: ControlType.toggle,
           defaultCc: 24,
           channel: 0,
-          customName: 'BTN 1',
+          customName: 'TOGGLE 1',
         ),
         LayoutControl(
-          id: 'button_1',
-          type: ControlType.button,
+          id: 'toggle_1',
+          type: ControlType.toggle,
           defaultCc: 25,
           channel: 0,
-          customName: 'BTN 2',
+          customName: 'TOGGLE 2',
         ),
         LayoutControl(
-          id: 'button_2',
-          type: ControlType.button,
+          id: 'toggle_2',
+          type: ControlType.toggle,
           defaultCc: 26,
           channel: 0,
-          customName: 'BTN 3',
+          customName: 'TOGGLE 3',
         ),
         LayoutControl(
-          id: 'button_3',
-          type: ControlType.button,
+          id: 'toggle_3',
+          type: ControlType.toggle,
           defaultCc: 27,
           channel: 0,
-          customName: 'BTN 4',
+          customName: 'TOGGLE 4',
+        ),
+        // Trigger Buttons (Row 4 & 5)
+        LayoutControl(
+          id: 'trigger_0',
+          type: ControlType.trigger,
+          defaultCc: 28,
+          channel: 0,
+          customName: 'TRIG 1',
+        ),
+        LayoutControl(
+          id: 'trigger_1',
+          type: ControlType.trigger,
+          defaultCc: 29,
+          channel: 0,
+          customName: 'TRIG 2',
+        ),
+        LayoutControl(
+          id: 'trigger_2',
+          type: ControlType.trigger,
+          defaultCc: 30,
+          channel: 0,
+          customName: 'TRIG 3',
+        ),
+        LayoutControl(
+          id: 'trigger_3',
+          type: ControlType.trigger,
+          defaultCc: 31,
+          channel: 0,
+          customName: 'TRIG 4',
         ),
       ],
     );

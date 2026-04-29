@@ -107,7 +107,7 @@ class UtilityGridPanel extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final padWidth = constraints.maxWidth / 2;
-        final padHeight = constraints.maxHeight / 4;
+        final padHeight = constraints.maxHeight / 6;
         final aspectRatio = padWidth / padHeight;
 
         Widget buildEncoderFromControl(LayoutControl control) {
@@ -165,13 +165,35 @@ class UtilityGridPanel extends ConsumerWidget {
           );
         }
 
-        Widget buildButtonFromControl(LayoutControl control) {
+        Widget buildTriggerFromControl(LayoutControl control) {
           final id = control.id;
           final config = configs[id];
           final channel = config?.channel ?? control.channel;
           final cc = config?.cc ?? control.defaultCc;
 
-          return MomentaryButton(
+          return Trigger(
+            identifier: cc,
+            channel: channel,
+            mode: MidiButtonMode.cc,
+            label: control.displayName,
+            onConfigRequested: () => _showConfigModal(
+              context,
+              ref,
+              id,
+              channel,
+              cc,
+              control.displayName,
+            ),
+          );
+        }
+
+        Widget buildToggleFromControl(LayoutControl control) {
+          final id = control.id;
+          final config = configs[id];
+          final channel = config?.channel ?? control.channel;
+          final cc = config?.cc ?? control.defaultCc;
+
+          return Toggle(
             identifier: cc,
             channel: channel,
             mode: MidiButtonMode.cc,
@@ -190,8 +212,8 @@ class UtilityGridPanel extends ConsumerWidget {
         return Stack(
           children: [
             GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(top: 8.0),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: aspectRatio,
@@ -201,10 +223,14 @@ class UtilityGridPanel extends ConsumerWidget {
               itemCount: utilityControls.length,
               itemBuilder: (context, index) {
                 final control = utilityControls[index];
-                if (control.type == ControlType.encoder) {
-                  return buildEncoderFromControl(control);
-                } else {
-                  return buildButtonFromControl(control);
+                switch (control.type) {
+                  case ControlType.encoder:
+                    return buildEncoderFromControl(control);
+                  case ControlType.toggle:
+                    return buildToggleFromControl(control);
+                  case ControlType.trigger:
+                  default:
+                    return buildTriggerFromControl(control);
                 }
               },
             ),

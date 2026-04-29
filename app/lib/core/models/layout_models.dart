@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 /// Enumeration of supported control types in the layout schema.
-enum ControlType { fader, xyPad, drumPad, encoder, button }
+enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
 
 /// Represents a single control within a layout page.
 ///
