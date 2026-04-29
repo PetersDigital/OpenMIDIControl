@@ -57,8 +57,8 @@ class MainActivity : FlutterActivity() {
     private var cachedDevicesList: List<Map<String, Any>>? = null
 
     // Rate-limiting and Deduplication state
-    private val lastSentValue = IntArray(2048) { -1 }
-    private val lastSentTime = LongArray(2048)
+    private val lastSentValue = IntArray(16384) { -1 }
+    private val lastSentTime = LongArray(16384)
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
@@ -375,7 +375,7 @@ class MainActivity : FlutterActivity() {
                                 val safeCc = cc and 0xFF
                                 val safeValue = value and 0xFF
                                 val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (safeCc shl 8) or safeValue
-                                processMidiCcEvent(umpInt, isFinal, System.nanoTime())
+                                processMidiEvent(umpInt, isFinal, System.nanoTime())
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -390,24 +390,26 @@ class MainActivity : FlutterActivity() {
                     if (events != null) {
                         try {
                             val nowNs = System.nanoTime()
-                            val seen = java.util.BitSet(2048)
+                            val seen = java.util.BitSet(16384)
                             
                             // Optimization: iterate backwards to implement "latest wins" in O(N)
                             for (i in events.size - 2 downTo 0 step 2) {
                                 val umpInt = events[i].toInt()
                                 val status = (umpInt ushr 16) and 0xFF
-                                val cc = (umpInt ushr 8) and 0xFF
-                                val index = ((status and 0x0F) shl 7) or cc
+                                val data1 = (umpInt ushr 8) and 0xFF
                                 
-                                if (!seen.get(index)) {
+                                // Unique index per message type + channel + data1
+                                val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
+                                
+                                if (index >= 0 && index < 16384 && !seen.get(index)) {
                                     seen.set(index)
                                     val isFinal = events[i + 1] != 0L
-                                    processMidiCcEvent(umpInt, isFinal, nowNs)
+                                    processMidiEvent(umpInt, isFinal, nowNs)
                                 }
                             }
                             result.success(true)
                         } catch (e: Exception) {
-                            result.error("BATCH_SEND_FAILED", "Failed to send MIDI CC batch: ${e.message}", null)
+                            result.error("BATCH_SEND_FAILED", "Failed to send MIDI batch: ${e.message}", null)
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "Events batch is required", null)
@@ -444,15 +446,23 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun processMidiCcEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
+    private fun processMidiEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
         val group = (umpInt ushr 24) and 0xF
         val status = (umpInt ushr 16) and 0xFF
-        val cc = (umpInt ushr 8) and 0xFF
-        val value = umpInt and 0xFF
+        val data1 = (umpInt ushr 8) and 0xFF
+        val data2 = umpInt and 0xFF
 
-        if (cc !in 0..127) return
+        if (data1 !in 0..127) return
 
-        val index = ((status and 0x0F) shl 7) or cc
+        // Unique index per message type + channel + data1
+        val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
+        
+        if (index < 0 || index >= 16384) {
+            // Send immediately if out of voice message range (unlikely for MT 0x2)
+            sendToBackends(umpInt, status, data1, data2, nowNs)
+            return
+        }
+
         val lastTime = lastSentTime[index]
         val timeDiff = nowNs - lastTime
 
@@ -460,7 +470,7 @@ class MainActivity : FlutterActivity() {
         var shouldSend = true
         if (!isFinal) {
             // Deduplication: if value hasn't changed and within suppression window, drop it
-            if (lastSentValue[index] == value && timeDiff < suppressionWindowNs) {
+            if (lastSentValue[index] == data2 && timeDiff < suppressionWindowNs) {
                 shouldSend = false
             }
             // Rate Limiting: ensure we don't send faster than ~120Hz
@@ -470,30 +480,33 @@ class MainActivity : FlutterActivity() {
         }
 
         if (shouldSend) {
-            lastSentValue[index] = value
+            lastSentValue[index] = data2
             lastSentTime[index] = nowNs
-
-            legacyMsgBuffer[0] = status.toByte()
-            legacyMsgBuffer[1] = cc.toByte()
-            legacyMsgBuffer[2] = value.toByte()
-
-            umpMsgBuffer[0] = (umpInt ushr 24).toByte()
-            umpMsgBuffer[1] = (umpInt ushr 16).toByte()
-            umpMsgBuffer[2] = (umpInt ushr 8).toByte()
-            umpMsgBuffer[3] = umpInt.toByte()
-
-            // Send to physically connected hardware (if any)
-            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, nowNs)
-            
-            // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
-            if (currentUsbMode != "peripheral") {
-                // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
-                VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
-            }
-            
-            // Send to Host PC/Mac via USB over UMP transport
-            PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, nowNs)
+            sendToBackends(umpInt, status, data1, data2, nowNs)
         }
+    }
+
+    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long) {
+        legacyMsgBuffer[0] = status.toByte()
+        legacyMsgBuffer[1] = data1.toByte()
+        legacyMsgBuffer[2] = data2.toByte()
+
+        umpMsgBuffer[0] = (umpInt ushr 24).toByte()
+        umpMsgBuffer[1] = (umpInt ushr 16).toByte()
+        umpMsgBuffer[2] = (umpInt ushr 8).toByte()
+        umpMsgBuffer[3] = umpInt.toByte()
+
+        // Send to physically connected hardware (if any)
+        hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        
+        // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
+        if (currentUsbMode != "peripheral") {
+            // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
+            VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
+        }
+        
+        // Send to Host PC/Mac via USB over UMP transport
+        PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, timestamp)
     }
 
     private fun getMidiDevices(): List<Map<String, Any>> {

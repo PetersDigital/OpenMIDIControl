@@ -121,12 +121,13 @@ object MidiParser {
                     // MT 0x2: MIDI 1.0 Channel Voice
                     val group = (umpInt ushr 24) and 0xF
                     val status = (umpInt ushr 16) and 0xFF
+                    val statusNibble = status and 0xF0
 
-                    if (status in 0xB0..0xBF) { // Control Change
-                        val ccNumber = (umpInt ushr 8) and 0xFF
-                        val ccValue = umpInt and 0xFF
+                    if (statusNibble == 0x80 || statusNibble == 0x90 || statusNibble == 0xB0 || statusNibble == 0xE0) {
+                        val data1 = (umpInt ushr 8) and 0xFF
+                        val data2 = umpInt and 0xFF
 
-                        forwardCcEvent(group, status, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
+                        forwardMidiEvent(group, status, data1, data2, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     }
                 }
                 // Silently drop other MTs or unrecognized words.
@@ -144,11 +145,12 @@ object MidiParser {
                     continue
                 }
 
-                // Check if we have enough bytes for a CC message
-                if (i + 2 < offset + count && statusByte in 0xB0..0xBF) {
-                    val ccNumber = msg[i + 1].toInt() and 0xFF
-                    val ccValue = msg[i + 2].toInt() and 0xFF
-                    forwardCcEvent(0, statusByte, ccNumber, ccValue, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
+                // Check if we have enough bytes for a 3-byte message (Note, CC, Pitch Bend)
+                val statusNibble = statusByte and 0xF0
+                if (i + 2 < offset + count && (statusNibble == 0x80 || statusNibble == 0x90 || statusNibble == 0xB0 || statusNibble == 0xE0)) {
+                    val data1 = msg[i + 1].toInt() and 0xFF
+                    val data2 = msg[i + 2].toInt() and 0xFF
+                    forwardMidiEvent(0, statusByte, data1, data2, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
                     i += 3
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
@@ -158,11 +160,11 @@ object MidiParser {
         }
     }
 
-    private fun forwardCcEvent(
+    private fun forwardMidiEvent(
         group: Int,
         status: Int,
-        ccNumber: Int,
-        ccValue: Int,
+        data1: Int,
+        data2: Int,
         timestamp: Long,
         isVirtual: Boolean,
         incomingEventsSink: IncomingEventsSink,
@@ -171,22 +173,24 @@ object MidiParser {
     ) {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
-            if (ccNumber in 0..127) {
-                val index = ((status and 0x0F) shl 7) or ccNumber
-                val lastTime = lastSentTime[index]
-                val timeDiff = timestamp - lastTime
+            if (data1 in 0..127) {
+                val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
+                if (index in 0 until 16384) {
+                    val lastTime = lastSentTime[index]
+                    val timeDiff = timestamp - lastTime
 
-                if (timeDiff < suppressionWindowNs) {
-                    // Ignore message from host if we recently sent *any* value for this CC.
-                    // This prevents delayed echoes from older values causing oscillation during rapid movement.
-                    return
+                    if (timeDiff < suppressionWindowNs) {
+                        // Ignore message from host if we recently sent *any* value for this event.
+                        // This prevents delayed echoes from older values causing oscillation during rapid movement.
+                        return
+                    }
                 }
             }
         }
 
 
         // Reconstruct the 32-bit UMP (MT=0x2 Channel Voice) using the original group and status byte
-        val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (ccNumber.toLong() shl 8) or ccValue.toLong()
+        val umpInt = (0x2L shl 28) or (group.toLong() shl 24) or (status.toLong() shl 16) or (data1.toLong() shl 8) or data2.toLong()
 
         // Pack UMP (upper 32 bits) + timestamp in ms (lower 32 bits) into a single Long
         // Eliminates Pair<Long, Long> allocation (~48 bytes) per event (~5,760 bytes/sec at 120 events/sec)
