@@ -96,13 +96,15 @@ class UtilityGridPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layoutState = ref.watch(layoutStateProvider);
+    final utilityControls = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.length > 3 ? s.pages[3].controls : <LayoutControl>[],
+      ),
+    );
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
     final configs = ref.watch(utilityGridConfigProvider);
-
-    // Get UTILITY page (index 3)
-    final utilityControls = layoutState.pages.length > 3
-        ? layoutState.pages[3].controls
-        : <LayoutControl>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -236,7 +238,7 @@ class UtilityGridPanel extends ConsumerWidget {
             ),
 
             // Utility Settings/Presets
-            if (!layoutState.isPerformanceLocked)
+            if (!isLocked)
               Positioned(
                 top: 8,
                 right: 8,

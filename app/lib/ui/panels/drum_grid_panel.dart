@@ -13,11 +13,14 @@ class DrumGridPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layoutState = ref.watch(layoutStateProvider);
-    // Get PADS page (index 2)
-    final padControls = layoutState.pages.length > 2
-        ? layoutState.pages[2].controls
-        : <LayoutControl>[];
+    final padControls = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.length > 2 ? s.pages[2].controls : <LayoutControl>[],
+      ),
+    );
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -48,7 +51,7 @@ class DrumGridPanel extends ConsumerWidget {
               },
             ),
             // Layout Settings Icon
-            if (!layoutState.isPerformanceLocked)
+            if (!isLocked)
               Positioned(
                 top: 8,
                 right: 8,

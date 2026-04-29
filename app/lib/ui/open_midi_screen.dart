@@ -182,6 +182,10 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+
     return Column(
       children: [
         // Top bar
@@ -226,13 +230,8 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     const SizedBox(width: 4),
                     IconButton(
                       icon: Icon(
-                        ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Icons.lock
-                            : Icons.lock_open,
-                        color:
-                            ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Colors.redAccent
-                            : Colors.white,
+                        isLocked ? Icons.lock : Icons.lock_open,
+                        color: isLocked ? Colors.redAccent : Colors.white,
                       ),
                       tooltip: 'Lock Performance Interface',
                       onPressed: () => ref
@@ -480,6 +479,10 @@ class _MobileLandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool faderOnRight,
   ) {
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E2024).withValues(alpha: 0.8),
@@ -509,12 +512,8 @@ class _MobileLandscapeLayout extends ConsumerWidget {
           ),
           IconButton(
             icon: Icon(
-              ref.watch(layoutStateProvider).isPerformanceLocked
-                  ? Icons.lock
-                  : Icons.lock_open,
-              color: ref.watch(layoutStateProvider).isPerformanceLocked
-                  ? Colors.redAccent
-                  : Colors.white,
+              isLocked ? Icons.lock : Icons.lock_open,
+              color: isLocked ? Colors.redAccent : Colors.white,
               size: 20,
             ),
             tooltip: 'Lock Performance Interface',
@@ -543,6 +542,10 @@ class _MobileLandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool faderOnRight,
   ) {
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+
     return Container(
       color: const Color(0xFF1E2024),
       child: Column(
@@ -586,13 +589,8 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: Icon(
-                        ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Icons.lock
-                            : Icons.lock_open,
-                        color:
-                            ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Colors.redAccent
-                            : Colors.white,
+                        isLocked ? Icons.lock : Icons.lock_open,
+                        color: isLocked ? Colors.redAccent : Colors.white,
                         size: 20,
                       ),
                       tooltip: 'Lock Performance Interface',
@@ -791,6 +789,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool faderOnRight,
   ) {
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E2024).withValues(alpha: 0.8),
@@ -821,12 +823,8 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           const SizedBox(width: 8),
           IconButton(
             icon: Icon(
-              ref.watch(layoutStateProvider).isPerformanceLocked
-                  ? Icons.lock
-                  : Icons.lock_open,
-              color: ref.watch(layoutStateProvider).isPerformanceLocked
-                  ? Colors.redAccent
-                  : Colors.white,
+              isLocked ? Icons.lock : Icons.lock_open,
+              color: isLocked ? Colors.redAccent : Colors.white,
               size: 28,
             ),
             tooltip: 'Lock Performance Interface',
@@ -856,6 +854,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool faderOnRight,
   ) {
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+
     return Container(
       color: const Color(0xFF1A1C20),
       padding: const EdgeInsets.all(32),
@@ -924,13 +926,8 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: Icon(
-                        ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Icons.lock
-                            : Icons.lock_open,
-                        color:
-                            ref.watch(layoutStateProvider).isPerformanceLocked
-                            ? Colors.redAccent
-                            : Colors.white,
+                        isLocked ? Icons.lock : Icons.lock_open,
+                        color: isLocked ? Colors.redAccent : Colors.white,
                       ),
                       tooltip: 'Lock Performance Interface',
                       onPressed: () => ref
@@ -1257,8 +1254,10 @@ class PerformanceZone extends ConsumerStatefulWidget {
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
   @override
   Widget build(BuildContext context) {
-    final layoutState = ref.watch(layoutStateProvider);
-    final currentPage = layoutState.activePageIndex;
+    final currentPage = ref.watch(
+      layoutStateProvider.select((s) => s.activePageIndex),
+    );
+    final pages = ref.watch(layoutStateProvider.select((s) => s.pages));
 
     return Column(
       children: [
@@ -1269,8 +1268,8 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
             Row(
               children: [
                 // Dynamically render tabs from layout schema
-                for (int i = 0; i < layoutState.pages.length; i++)
-                  _buildTabButton(i, layoutState.pages[i].name, currentPage),
+                for (int i = 0; i < pages.length; i++)
+                  _buildTabButton(i, pages[i].name, currentPage),
               ],
             ),
             const GlobalConfigProgressBar(),
