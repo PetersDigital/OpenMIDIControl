@@ -228,6 +228,12 @@ class MidiService {
       },
     );
     _hostConnectionController = StreamController<bool>.broadcast();
+
+    // Reset native state on startup/hot-restart to clear deduplication buffers
+    _channel.invokeMethod('resetMidiTransport').catchError((e) {
+      debugPrint('Failed to reset MIDI transport: $e');
+    });
+
     _setupRouters();
     _initStreams();
     _initWorker();
