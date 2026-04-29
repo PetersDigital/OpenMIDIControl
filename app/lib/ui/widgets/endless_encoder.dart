@@ -107,89 +107,91 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       }
     });
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = math.min(constraints.maxWidth, constraints.maxHeight);
-        final double effectiveSize = size.isInfinite ? 100.0 : size;
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = math.min(constraints.maxWidth, constraints.maxHeight);
+          final double effectiveSize = size.isInfinite ? 100.0 : size;
 
-        return GestureDetector(
-          onPanStart: _handleDragStart,
-          onPanUpdate: _handleDragUpdate,
-          onPanEnd: _handleDragEnd,
-          onPanCancel: () =>
-              _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: effectiveSize,
-            height: effectiveSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Knob base
-                Container(
-                  width: effectiveSize * 0.8,
-                  height: effectiveSize * 0.8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1E2024),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // LED Ring
-                SizedBox(
-                  width: effectiveSize,
-                  height: effectiveSize,
-                  child: CustomPaint(
-                    painter: _LedRingPainter(
-                      value: _currentValue,
-                      activeColor: const Color(0xFFA6C9F8),
-                      inactiveColor: const Color(0xFF0C0E12),
+          return GestureDetector(
+            onPanStart: _handleDragStart,
+            onPanUpdate: _handleDragUpdate,
+            onPanEnd: _handleDragEnd,
+            onPanCancel: () =>
+                _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              width: effectiveSize,
+              height: effectiveSize,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Knob base
+                  Container(
+                    width: effectiveSize * 0.8,
+                    height: effectiveSize * 0.8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF1E2024),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
                   ),
-                ),
 
-                // Center Readout
-                Container(
-                  width: effectiveSize * 0.6,
-                  height: effectiveSize * 0.6,
-                  alignment: Alignment.center,
-                  color: Colors.transparent, // Ensure it's tappable
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$_currentValue',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: Colors.white,
-                          fontSize: effectiveSize * 0.2,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  // LED Ring
+                  SizedBox(
+                    width: effectiveSize,
+                    height: effectiveSize,
+                    child: CustomPaint(
+                      painter: _LedRingPainter(
+                        value: _currentValue,
+                        activeColor: const Color(0xFFA6C9F8),
+                        inactiveColor: const Color(0xFF0C0E12),
                       ),
-                      Text(
-                        'CH${widget.channel + 1}',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: effectiveSize * 0.1,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+
+                  // Center Readout
+                  Container(
+                    width: effectiveSize * 0.6,
+                    height: effectiveSize * 0.6,
+                    alignment: Alignment.center,
+                    color: Colors.transparent, // Ensure it's tappable
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$_currentValue',
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: Colors.white,
+                            fontSize: effectiveSize * 0.2,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'CH${widget.channel + 1}',
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: effectiveSize * 0.1,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

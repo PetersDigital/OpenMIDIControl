@@ -172,150 +172,157 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     final note = config?.note ?? widget.note;
     final channel = config?.channel ?? widget.channel;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
 
-        return Listener(
-          onPointerDown: (event) =>
-              _handlePointerDown(event, size, note, channel),
-          onPointerUp: (event) =>
-              _handlePointerUpOrCancel(event, note, channel),
-          onPointerCancel: (event) =>
-              _handlePointerUpOrCancel(event, note, channel),
-          behavior: HitTestBehavior.opaque,
-          child: ScaleTransition(
-            scale: _scaleController,
-            child: Container(
-              decoration: BoxDecoration(
-                color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
-                borderRadius: BorderRadius.zero,
-                border: Border.all(
-                  color: _isPressed
-                      ? widget.padColor.withValues(alpha: 0.8)
-                      : const Color(0xFF111318).withValues(alpha: 0.5),
-                  width: _isPressed ? 2.0 : 1.0,
+          return Listener(
+            onPointerDown: (event) =>
+                _handlePointerDown(event, size, note, channel),
+            onPointerUp: (event) =>
+                _handlePointerUpOrCancel(event, note, channel),
+            onPointerCancel: (event) =>
+                _handlePointerUpOrCancel(event, note, channel),
+            behavior: HitTestBehavior.opaque,
+            child: ScaleTransition(
+              scale: _scaleController,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(
+                    color: _isPressed
+                        ? widget.padColor.withValues(alpha: 0.8)
+                        : const Color(0xFF111318).withValues(alpha: 0.5),
+                    width: _isPressed ? 2.0 : 1.0,
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  // Note Name (Top Left)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: ConfigGestureWrapper(
-                      key: ValueKey(
-                        'config_wrapper_drum_pad_${widget.id}_note',
-                      ),
-                      id: 'drum_pad_${widget.id}',
-                      onConfigRequested: isPerformanceLocked
-                          ? null
-                          : () => _showConfigModal(context, ref, note, channel),
-                      child: Container(
-                        padding: const EdgeInsets.only(
-                          top: 8,
-                          left: 10,
-                          bottom: 20,
-                          right: 20,
+                child: Stack(
+                  children: [
+                    // Note Name (Top Left)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: ConfigGestureWrapper(
+                        key: ValueKey(
+                          'config_wrapper_drum_pad_${widget.id}_note',
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          minHeight: 60,
-                        ),
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          MidiUtils.getNoteName(note),
-                          style: AppText.performance(
-                            color: _isPressed
-                                ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                                : const Color(
-                                    0xFFC3C7CA,
-                                  ).withValues(alpha: 0.5),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1,
+                        id: 'drum_pad_${widget.id}',
+                        onConfigRequested: isPerformanceLocked
+                            ? null
+                            : () =>
+                                  _showConfigModal(context, ref, note, channel),
+                        child: Container(
+                          padding: const EdgeInsets.only(
+                            top: 8,
+                            left: 10,
+                            bottom: 20,
+                            right: 20,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 60,
+                            minHeight: 60,
+                          ),
+                          alignment: Alignment.topLeft,
+                          child: Text(
+                            MidiUtils.getNoteName(note),
+                            style: AppText.performance(
+                              color: _isPressed
+                                  ? const Color(
+                                      0xFF1E2024,
+                                    ).withValues(alpha: 0.8)
+                                  : const Color(
+                                      0xFFC3C7CA,
+                                    ).withValues(alpha: 0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // MIDI Channel (Bottom Right)
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: Text(
-                      'CH${channel + 1}',
-                      style: AppText.system(
-                        color: _isPressed
-                            ? const Color(0xFF1E2024).withValues(alpha: 0.6)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  // Velocity (Bottom Left)
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: Text(
-                      'V:${_lastVelocity ?? 0}',
-                      style: AppText.performance(
-                        color: _isPressed
-                            ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
-                  // Ghost hit indicator
-                  if (widget.showVelocityGhost &&
-                      _isPressed &&
-                      _lastTouchPosition != null)
+                    // MIDI Channel (Bottom Right)
                     Positioned(
-                      left: _lastTouchPosition!.dx - 20,
-                      top: _lastTouchPosition!.dy - 20,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.2),
+                      bottom: 8,
+                      right: 8,
+                      child: Text(
+                        'CH${channel + 1}',
+                        style: AppText.system(
+                          color: _isPressed
+                              ? const Color(0xFF1E2024).withValues(alpha: 0.6)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
 
-                  // Central Label (Static display)
-                  Center(
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 60,
-                        minHeight: 44,
-                      ),
-                      alignment: Alignment.center,
+                    // Velocity (Bottom Left)
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
                       child: Text(
-                        _displayLabel.isNotEmpty ? _displayLabel : 'PAD $note',
-                        textAlign: TextAlign.center,
+                        'V:${_lastVelocity ?? 0}',
                         style: AppText.performance(
                           color: _isPressed
-                              ? const Color(0xFF1E2024)
-                              : const Color(0xFFC3C7CA),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                  ),
-                ],
+
+                    // Ghost hit indicator
+                    if (widget.showVelocityGhost &&
+                        _isPressed &&
+                        _lastTouchPosition != null)
+                      Positioned(
+                        left: _lastTouchPosition!.dx - 20,
+                        top: _lastTouchPosition!.dy - 20,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
+
+                    // Central Label (Static display)
+                    Center(
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 60,
+                          minHeight: 44,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _displayLabel.isNotEmpty
+                              ? _displayLabel
+                              : 'PAD $note',
+                          textAlign: TextAlign.center,
+                          style: AppText.performance(
+                            color: _isPressed
+                                ? const Color(0xFF1E2024)
+                                : const Color(0xFFC3C7CA),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
