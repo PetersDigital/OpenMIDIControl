@@ -46,8 +46,12 @@ class PeripheralMidiService : MidiDeviceService() {
 
     fun sendToHost(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
         val receivers = outputPortReceivers
-        if (receivers != null && receivers.isNotEmpty()) {
-            for (receiver in receivers) {
+        if (receivers == null || receivers.isEmpty()) {
+            // This is expected if no DAW/Host is connected or listening
+            return
+        }
+
+        for (receiver in receivers) {
                 if (receiver != null && deadReceivers.contains(receiver)) continue
 
                 try {

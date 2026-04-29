@@ -341,6 +341,12 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
                     }
                 }
+                "resetMidiTransport" -> {
+                    lastSentValue.fill(-1)
+                    lastSentTime.fill(0)
+                    Log.i("MainActivity", "MIDI Transport state reset (deduplication buffers cleared)")
+                    result.success(true)
+                }
                 "getMidiDevices" -> {
                     result.success(getMidiDevices())
                 }
@@ -497,7 +503,9 @@ class MainActivity : FlutterActivity() {
         umpMsgBuffer[3] = umpInt.toByte()
 
         // Send to physically connected hardware (if any)
-        hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        if (hostMidiBackend != null) {
+            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        }
         
         // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
         if (currentUsbMode != "peripheral") {
@@ -506,7 +514,15 @@ class MainActivity : FlutterActivity() {
         }
         
         // Send to Host PC/Mac via USB over UMP transport
-        PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, timestamp)
+        val peripheral = PeripheralMidiService.activeInstance
+        if (peripheral != null) {
+            peripheral.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, timestamp)
+        } else {
+            // Only log if we expect to be connected to help debug host-reconnect issues
+            if (MidiSystemManager.usbHostConnected.value) {
+                Log.w("MainActivity", "Attempted to send to host but PeripheralMidiService is null")
+            }
+        }
     }
 
     private fun getMidiDevices(): List<Map<String, Any>> {
