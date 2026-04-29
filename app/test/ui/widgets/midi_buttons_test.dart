@@ -70,22 +70,22 @@ void main() {
       );
     }
 
-    group('MomentaryButton', () {
+    group('Trigger', () {
       testWidgets('sends NoteOn/Off correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const MomentaryButton(
+            const Trigger(
               identifier: 36,
               channel: 9,
               mode: MidiButtonMode.note,
-              label: 'MOMENTARY NOTE',
+              label: 'TRIGGER NOTE',
             ),
           ),
         );
 
-        expect(find.text('MOMENTARY NOTE'), findsOneWidget);
+        expect(find.text('TRIGGER NOTE'), findsOneWidget);
 
-        final btnFinder = find.byType(MomentaryButton);
+        final btnFinder = find.byType(Trigger);
         final gesture = await tester.createGesture();
 
         await gesture.down(tester.getCenter(btnFinder));
@@ -107,15 +107,11 @@ void main() {
       testWidgets('sends CC correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const MomentaryButton(
-              identifier: 14,
-              channel: 0,
-              mode: MidiButtonMode.cc,
-            ),
+            const Trigger(identifier: 14, channel: 0, mode: MidiButtonMode.cc),
           ),
         );
 
-        final btnFinder = find.byType(MomentaryButton);
+        final btnFinder = find.byType(Trigger);
         final gesture = await tester.createGesture();
 
         await gesture.down(tester.getCenter(btnFinder));
@@ -135,13 +131,13 @@ void main() {
       });
     });
 
-    group('ToggleButton', () {
+    group('Toggle', () {
       testWidgets('toggles NoteOn/Off states sequentially', (
         WidgetTester tester,
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const ToggleButton(
+            const Toggle(
               identifier: 64,
               channel: 2,
               mode: MidiButtonMode.note,
@@ -152,7 +148,7 @@ void main() {
 
         expect(find.text('TOGGLE NOTE'), findsOneWidget);
 
-        final btnFinder = find.byType(ToggleButton);
+        final btnFinder = find.byType(Toggle);
 
         // First tap: turns ON
         await tester.tap(btnFinder);
@@ -179,15 +175,11 @@ void main() {
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const ToggleButton(
-              identifier: 65,
-              channel: 1,
-              mode: MidiButtonMode.cc,
-            ),
+            const Toggle(identifier: 65, channel: 1, mode: MidiButtonMode.cc),
           ),
         );
 
-        final btnFinder = find.byType(ToggleButton);
+        final btnFinder = find.byType(Toggle);
 
         // First tap: turns ON (127)
         await tester.tap(btnFinder);

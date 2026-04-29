@@ -33,7 +33,10 @@ void main() {
     await tester.enterText(find.byType(TextFormField), '150');
     await tester.pumpAndSettle();
 
-    expect(find.text('Must be between 0 and 127'), findsOneWidget);
+    expect(
+      find.text('Enter a number (0-127) or note (e.g., C3)'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ControlConfigModal returns data on save', (

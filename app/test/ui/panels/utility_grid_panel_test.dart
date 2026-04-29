@@ -25,7 +25,7 @@ void main() {
       ],
       child: const MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 800, height: 600, child: UtilityGridPanel()),
+          body: SizedBox(width: 1000, height: 800, child: UtilityGridPanel()),
         ),
       ),
     );
@@ -36,27 +36,21 @@ void main() {
     (WidgetTester tester) async {
       await tester.pumpWidget(buildTestSubject());
 
-      // Should find 2 Encoders
-      expect(find.byType(EndlessEncoderWidget), findsNWidgets(2));
+      // Should find 4 Encoders
+      expect(find.byType(EndlessEncoderWidget), findsNWidgets(4));
 
-      // Should find 2 Toggle buttons
-      expect(find.byType(ToggleButton), findsNWidgets(2));
+      // Should find 4 Toggle buttons
+      expect(find.byType(Toggle), findsNWidgets(4));
 
-      // Should find 4 Momentary buttons
-      expect(find.byType(MomentaryButton), findsNWidgets(4));
+      // Should find 4 Trigger buttons
+      expect(find.byType(Trigger), findsNWidgets(4));
 
       // Verify default labels
-      expect(find.text('ENC | CC 20'), findsOneWidget); // Encoder
-      expect(
-        find.text('TOGGLE'),
-        findsAtLeastNWidgets(1),
-      ); // Toggle center label
+      expect(find.text('ENC 1 | CC 20'), findsOneWidget); // Encoder 1
+      expect(find.text('TOGGLE 1'), findsOneWidget); // Toggle label
       expect(find.text('CC 24'), findsOneWidget); // Toggle CC label
-      expect(
-        find.text('MOMENT'),
-        findsAtLeastNWidgets(1),
-      ); // Momentary center label
-      expect(find.text('CC 28'), findsOneWidget); // Momentary CC label
+      expect(find.text('TRIG 1'), findsOneWidget); // Trigger label
+      expect(find.text('CC 28'), findsOneWidget); // Trigger CC label
     },
   );
 
@@ -66,7 +60,7 @@ void main() {
       await tester.pumpWidget(buildTestSubject());
 
       // Hold the first label for > 1.0s
-      final label = find.text('ENC | CC 20');
+      final label = find.text('ENC 1 | CC 20');
       final gesture = await tester.startGesture(tester.getCenter(label));
       await tester.pump(const Duration(milliseconds: 1100));
       await gesture.up();
@@ -76,7 +70,7 @@ void main() {
       expect(find.byType(ControlConfigModal), findsOneWidget);
 
       // Change CC value in modal to 99
-      await tester.enterText(find.byType(TextFormField), '99');
+      await tester.enterText(find.byType(TextFormField).first, '99');
       await tester.pumpAndSettle();
 
       // Save
@@ -84,8 +78,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify the label updated
-      expect(find.text('ENC | CC 99'), findsOneWidget);
-      expect(find.text('ENC | CC 20'), findsNothing); // Old one is gone
+      expect(find.text('ENC 1 | CC 99'), findsOneWidget);
+      expect(find.text('ENC 1 | CC 20'), findsNothing); // Old one is gone
     },
   );
 }
