@@ -1,10 +1,10 @@
-import 'panels/utility_grid_panel.dart';
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/hybrid_xy_pad.dart';
 import 'panels/drum_grid_panel.dart';
+import 'panels/utility_grid_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'hybrid_touch_fader.dart';

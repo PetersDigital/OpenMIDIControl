@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/velocity_drum_pad.dart';
+import '../widgets/delayed_menu_trigger.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 
@@ -46,9 +47,71 @@ class DrumGridPanel extends ConsumerWidget {
                 );
               },
             ),
+            // Layout Settings Icon
+            if (!layoutState.isPerformanceLocked)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Builder(
+                  builder: (menuContext) => DelayedMenuTrigger(
+                    id: 'drum_grid_settings',
+                    onTrigger: () => _showPresetMenu(menuContext, ref),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.settings_outlined,
+                        color: Colors.white24,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
     );
+  }
+
+  void _showPresetMenu(BuildContext context, WidgetRef ref) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      color: const Color(0xFF1E2024),
+      items: [
+        const PopupMenuItem(
+          value: 'MPC',
+          child: Text(
+            'MPC Layout',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'Ableton',
+          child: Text(
+            'Ableton Layout',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+      ],
+    ).then((choice) {
+      if (choice != null) {
+        ref.read(layoutStateProvider.notifier).applyDrumPreset(choice);
+      }
+    });
   }
 }

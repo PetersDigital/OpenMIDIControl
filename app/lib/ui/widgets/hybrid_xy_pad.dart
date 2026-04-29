@@ -320,11 +320,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                     ),
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 8,
                     ),
                   ),
                   keyboardType: TextInputType.text,
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: ccYController,
                   style: const TextStyle(color: Colors.white),
@@ -342,11 +343,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                     ),
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 8,
                     ),
                   ),
                   keyboardType: TextInputType.text,
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: channelController,
                   style: const TextStyle(color: Colors.white),
@@ -364,7 +366,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                     ),
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 8,
                     ),
                   ),
                   keyboardType: TextInputType.number,

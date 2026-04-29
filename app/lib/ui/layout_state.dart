@@ -329,6 +329,68 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   void setPerformanceLock(bool locked) {
     state = state.copyWith(isPerformanceLocked: locked);
   }
+
+  /// Apply a drum pad layout preset (MPC or Ableton).
+  void applyDrumPreset(String preset) {
+    const padsPageIndex = 2;
+    if (padsPageIndex >= state.pages.length) return;
+
+    final existingPage = state.pages[padsPageIndex];
+    final updatedControls = [...existingPage.controls];
+
+    if (preset == 'MPC') {
+      // MPC: Bottom-to-top chromatic
+      // Row 3 (Bottom): 36, 37
+      // Row 2: 38, 39
+      // Row 1: 40, 41
+      // Row 0 (Top): 42, 43
+      final notes = [42, 43, 40, 41, 38, 39, 36, 37];
+      final names = [
+        'HAT C',
+        'TOM 2',
+        'SNARE 3',
+        'TOM 1',
+        'SNARE 2',
+        'CLAP',
+        'KICK 1',
+        'SNARE 1',
+      ];
+
+      for (int i = 0; i < updatedControls.length && i < notes.length; i++) {
+        updatedControls[i] = updatedControls[i].copyWith(
+          defaultCc: notes[i],
+          customName: names[i],
+        );
+      }
+    } else if (preset == 'Ableton') {
+      // Ableton: Top-to-bottom linear chromatic (Legacy)
+      final notes = [36, 37, 38, 39, 40, 41, 42, 43];
+      final names = [
+        'KICK 1',
+        'SNARE 1',
+        'SNARE 2',
+        'CLAP',
+        'SNARE 3',
+        'TOM 1',
+        'HAT C',
+        'TOM 2',
+      ];
+
+      for (int i = 0; i < updatedControls.length && i < notes.length; i++) {
+        updatedControls[i] = updatedControls[i].copyWith(
+          defaultCc: notes[i],
+          customName: names[i],
+        );
+      }
+    }
+
+    final updatedPages = [...state.pages];
+    updatedPages[padsPageIndex] = existingPage.copyWith(
+      controls: updatedControls,
+    );
+
+    state = state.copyWith(pages: updatedPages);
+  }
 }
 
 /// Global Riverpod provider for layout state.

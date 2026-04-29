@@ -210,19 +210,25 @@ class UtilityGridPanel extends ConsumerWidget {
             ),
 
             // Utility Settings/Presets
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Builder(
-                builder: (menuContext) => DelayedMenuTrigger(
-                  onTrigger: () => _showUtilityPresetMenu(menuContext, ref),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Icon(Icons.settings_outlined, color: Colors.white24),
+            if (!layoutState.isPerformanceLocked)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Builder(
+                  builder: (menuContext) => DelayedMenuTrigger(
+                    id: 'utility_grid_settings',
+                    onTrigger: () => _showUtilityPresetMenu(menuContext, ref),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(
+                        Icons.settings_outlined,
+                        color: Colors.white24,
+                        size: 20,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         );
       },

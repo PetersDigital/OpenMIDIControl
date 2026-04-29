@@ -289,33 +289,23 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
                     ),
 
-                  // Central Label with rename gesture
+                  // Central Label (Static display)
                   Center(
-                    child: ConfigGestureWrapper(
-                      key: ValueKey('rename_wrapper_drum_pad_${widget.id}'),
-                      id: widget.id,
-                      onConfigRequested: isPerformanceLocked
-                          ? null
-                          : () => _showConfigModal(context, ref, note, channel),
-                      onRenameRequested: null,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          minHeight: 44,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _displayLabel.isNotEmpty
-                              ? _displayLabel
-                              : 'PAD $note',
-                          textAlign: TextAlign.center,
-                          style: AppText.performance(
-                            color: _isPressed
-                                ? const Color(0xFF1E2024)
-                                : const Color(0xFFC3C7CA),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 60,
+                        minHeight: 44,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _displayLabel.isNotEmpty ? _displayLabel : 'PAD $note',
+                        textAlign: TextAlign.center,
+                        style: AppText.performance(
+                          color: _isPressed
+                              ? const Color(0xFF1E2024)
+                              : const Color(0xFFC3C7CA),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                         ),
                       ),
                     ),

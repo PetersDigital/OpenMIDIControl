@@ -171,7 +171,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                 ),
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 10,
+                  vertical: 8,
                 ),
               ),
               validator: (value) {
@@ -213,7 +213,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                   ),
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 10,
+                    vertical: 8,
                   ),
                 ),
               ),
