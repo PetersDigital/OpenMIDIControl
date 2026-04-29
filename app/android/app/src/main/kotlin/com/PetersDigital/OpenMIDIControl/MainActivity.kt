@@ -396,7 +396,6 @@ class MainActivity : FlutterActivity() {
                     val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
-                            val nowNs = System.nanoTime()
                             val seen = java.util.BitSet(16384)
                             
                             // Optimization: iterate backwards to implement "latest wins" in O(N)
@@ -411,7 +410,8 @@ class MainActivity : FlutterActivity() {
                                 if (index >= 0 && index < 16384 && !seen.get(index)) {
                                     seen.set(index)
                                     val isFinal = events[i + 1] != 0L
-                                    processMidiEvent(umpInt, isFinal, nowNs)
+                                    // Use individual timestamp per event to maintain order and length
+                                    processMidiEvent(umpInt, isFinal, System.nanoTime())
                                 }
                             }
                             result.success(true)
