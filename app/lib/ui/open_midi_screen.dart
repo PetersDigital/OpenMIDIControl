@@ -149,6 +149,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

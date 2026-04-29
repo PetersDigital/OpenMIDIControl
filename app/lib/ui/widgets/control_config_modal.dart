@@ -41,11 +41,13 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
   late int _selectedChannel;
   late TextEditingController _identifierController;
   TextEditingController? _displayNameController;
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
     _selectedChannel = widget.initialChannel;
+    _scrollController = ScrollController();
     _identifierController = TextEditingController(
       text: widget.initialIdentifier.toString(),
     );
@@ -58,6 +60,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _identifierController.dispose();
     _displayNameController?.dispose();
     super.dispose();
@@ -89,117 +92,125 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
         fontSize: 20,
         fontWeight: FontWeight.bold,
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'MIDI Channel',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-            initialValue: _selectedChannel,
-            dropdownColor: const Color(0xFF282A2E),
-            decoration: const InputDecoration(
-              filled: true,
-              fillColor: Color(0xFF111318),
-              border: OutlineInputBorder(),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF282A2E)),
+      content: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        trackVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'MIDI Channel',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Color(0xFFC3C7CA),
+                  fontSize: 14,
+                ),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                initialValue: _selectedChannel,
+                dropdownColor: const Color(0xFF282A2E),
+                decoration: const InputDecoration(
+                  filled: true,
+                  fillColor: Color(0xFF111318),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF282A2E)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                  ),
+                ),
+                items: List.generate(16, (index) {
+                  return DropdownMenuItem(
+                    value: index,
+                    child: Text(
+                      'Channel ${index + 1}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedChannel = value;
+                    });
+                  }
+                },
               ),
-            ),
-            items: List.generate(16, (index) {
-              return DropdownMenuItem(
-                value: index,
-                child: Text(
-                  'Channel ${index + 1}',
+              const SizedBox(height: 24),
+              Text(
+                widget.identifierLabel,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  color: Color(0xFFC3C7CA),
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _identifierController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  filled: true,
+                  fillColor: Color(0xFF111318),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF282A2E)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a number';
+                  }
+                  final num = int.tryParse(value);
+                  if (num == null || num < 0 || num > 127) {
+                    return 'Must be between 0 and 127';
+                  }
+                  return null;
+                },
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+              ),
+              if (_displayNameController != null) ...[
+                const SizedBox(height: 24),
+                Text(
+                  widget.displayNameLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Color(0xFFC3C7CA),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _displayNameController,
+                  textInputAction: TextInputAction.done,
                   style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Color(0xFF111318),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF282A2E)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                    ),
+                  ),
                 ),
-              );
-            }),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedChannel = value;
-                });
-              }
-            },
+              ],
+            ],
           ),
-          const SizedBox(height: 24),
-          Text(
-            widget.identifierLabel,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _identifierController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              filled: true,
-              fillColor: Color(0xFF111318),
-              border: OutlineInputBorder(),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF282A2E)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a number';
-              }
-              final num = int.tryParse(value);
-              if (num == null || num < 0 || num > 127) {
-                return 'Must be between 0 and 127';
-              }
-              return null;
-            },
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-          ),
-          if (_displayNameController != null) ...[
-            const SizedBox(height: 24),
-            Text(
-              widget.displayNameLabel,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                color: Color(0xFFC3C7CA),
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _displayNameController,
-              textInputAction: TextInputAction.done,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: Color(0xFF111318),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF282A2E)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
       actions: [
         TextButton(
