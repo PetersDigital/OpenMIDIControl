@@ -109,9 +109,28 @@ class UtilityGridPanel extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final padWidth = constraints.maxWidth / 2;
-        final padHeight = constraints.maxHeight / 6;
-        final aspectRatio = padWidth / padHeight;
+        const int crossAxisCount = 2;
+        final int rows = (utilityControls.length / crossAxisCount).ceil();
+        const double mainAxisSpacing = 2.0;
+        const double crossAxisSpacing = 2.0;
+        const double topPadding = 8.0;
+        const double bottomPadding = 20.0;
+
+        final double availableWidth = constraints.maxWidth - crossAxisSpacing;
+        final double padWidth = availableWidth / crossAxisCount;
+
+        final double totalMainAxisSpacing = rows > 1
+            ? (rows - 1) * mainAxisSpacing
+            : 0.0;
+        final double availableHeight =
+            constraints.maxHeight -
+            topPadding -
+            bottomPadding -
+            totalMainAxisSpacing;
+        final double padHeight = rows > 0 ? availableHeight / rows : 1.0;
+
+        final double safePadHeight = padHeight > 0 ? padHeight : 1.0;
+        final double aspectRatio = padWidth / safePadHeight;
 
         Widget buildEncoderFromControl(LayoutControl control) {
           final id = control.id;
@@ -215,7 +234,7 @@ class UtilityGridPanel extends ConsumerWidget {
         return Stack(
           children: [
             GridView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
