@@ -396,23 +396,11 @@ class MainActivity : FlutterActivity() {
                     val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
-                            val seen = java.util.BitSet(16384)
-                            
-                            // Optimization: iterate backwards to implement "latest wins" in O(N)
-                            for (i in events.size - 2 downTo 0 step 2) {
+                            for (i in 0 until events.size step 2) {
                                 val umpInt = events[i].toInt()
-                                val status = (umpInt ushr 16) and 0xFF
-                                val data1 = (umpInt ushr 8) and 0xFF
-                                
-                                // Unique index per message type + channel + data1
-                                val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
-                                
-                                if (index >= 0 && index < 16384 && !seen.get(index)) {
-                                    seen.set(index)
-                                    val isFinal = events[i + 1] != 0L
-                                    // Use individual timestamp per event to maintain order and length
-                                    processMidiEvent(umpInt, isFinal, System.nanoTime())
-                                }
+                                val isFinal = events[i + 1] != 0L
+                                // Use individual timestamp per event to maintain order and length
+                                processMidiEvent(umpInt, isFinal, System.nanoTime())
                             }
                             result.success(true)
                         } catch (e: Exception) {
