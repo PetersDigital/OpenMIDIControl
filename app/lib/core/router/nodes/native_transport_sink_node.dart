@@ -40,7 +40,7 @@ class NativeTransportSinkNode extends SinkNode {
         _flushTimer = Timer(_flushInterval, () => _flush());
       }
 
-      if (_eventBuffer.length >= _maxBufferSize) {
+      if (event.isFinal || _eventBuffer.length >= _maxBufferSize) {
         _flushTimer?.cancel();
         _flushTimer = null;
         _flush();
@@ -69,7 +69,7 @@ class NativeTransportSinkNode extends SinkNode {
       _flushTimer = Timer(_flushInterval, () => _flush());
     }
 
-    if (_eventBuffer.length >= _maxBufferSize) {
+    if (events.any((e) => e.isFinal) || _eventBuffer.length >= _maxBufferSize) {
       _flushTimer?.cancel();
       _flushTimer = null;
       _flush();
