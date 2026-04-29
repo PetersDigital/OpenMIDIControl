@@ -442,7 +442,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       builder: (context) => ControlConfigModal(
         initialChannel: _midiChannel,
         initialIdentifier: _ccNumber,
-        identifierLabel: 'CC Number',
+        identifierLabel: 'CC Number (0-127)',
         initialDisplayName: _ccLabel,
         displayNameLabel: 'Fader Name',
       ),

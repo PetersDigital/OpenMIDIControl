@@ -3,8 +3,8 @@
 
 import 'package:flutter/material.dart';
 import '../design_system.dart';
-import 'package:flutter/services.dart';
 import 'scrollable_dialog_content.dart';
+import '../../core/midi_utils.dart';
 
 class ControlConfigResult {
   final int channel;
@@ -29,7 +29,7 @@ class ControlConfigModal extends StatefulWidget {
     super.key,
     this.initialChannel = 0,
     this.initialIdentifier = 0,
-    this.identifierLabel = 'CC / Note Number',
+    this.identifierLabel = 'MIDI ID (e.g., C3 or 60)',
     this.initialDisplayName,
     this.displayNameLabel = 'Display Name',
   });
@@ -65,10 +65,13 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
   }
 
   void _save() {
-    final identifier = int.tryParse(_identifierController.text) ?? 0;
+    final identifier = MidiUtils.parseNoteIdentifier(
+      _identifierController.text,
+    );
+    if (identifier == null) return;
 
     // Clamp values just to be safe
-    final clampedIdentifier = identifier.clamp(0, 127);
+    final clampedIdentifier = identifier;
 
     Navigator.of(context).pop(
       ControlConfigResult(
@@ -83,11 +86,13 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Configure Control'),
+      titlePadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
       backgroundColor: const Color(0xFF1E2024),
       titleTextStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: 'Space Grotesk',
         color: Colors.white,
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: FontWeight.bold,
       ),
       content: ScrollableDialogContent(
@@ -117,6 +122,10 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Color(0xFFA6C9F8)),
                 ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               items: List.generate(16, (index) {
                 return DropdownMenuItem(
@@ -135,7 +144,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                 }
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
             Text(
               widget.identifierLabel,
               style: const TextStyle(
@@ -147,9 +156,9 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _identifierController,
-              keyboardType: TextInputType.number,
+              keyboardType: TextInputType.text,
               style: const TextStyle(color: Colors.white),
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: const [], // Allow letters for note names
               decoration: const InputDecoration(
                 filled: true,
                 fillColor: Color(0xFF111318),
@@ -160,21 +169,25 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Color(0xFFA6C9F8)),
                 ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter a number';
                 }
-                final num = int.tryParse(value);
-                if (num == null || num < 0 || num > 127) {
-                  return 'Must be between 0 and 127';
+                final parsed = MidiUtils.parseNoteIdentifier(value);
+                if (parsed == null) {
+                  return 'Enter a number (0-127) or note (e.g., C3)';
                 }
                 return null;
               },
               autovalidateMode: AutovalidateMode.onUserInteraction,
             ),
             if (_displayNameController != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 widget.displayNameLabel,
                 style: const TextStyle(
@@ -197,6 +210,10 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
                 ),
               ),

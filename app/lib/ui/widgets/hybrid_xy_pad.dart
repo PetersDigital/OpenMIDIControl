@@ -8,6 +8,7 @@ import 'scrollable_dialog_content.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
+import '../../core/midi_utils.dart';
 import 'config_gesture_wrapper.dart';
 
 class XYPadConfig {
@@ -285,12 +286,18 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFF1E2024),
-          title: Text(
-            'XY Pad Config (${widget.id})',
-            style: const TextStyle(
+          title: const Text(
+            'XY Pad Config',
+            style: TextStyle(
               color: Colors.white,
               fontFamily: 'Space Grotesk',
+              fontSize: 18,
             ),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 8,
           ),
           content: ScrollableDialogContent(
             child: Column(
@@ -300,25 +307,45 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                   controller: ccXController,
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
-                    labelText: 'X Axis CC',
+                    labelText: 'X Axis MIDI ID (e.g., 20 or C3)',
                     labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white12),
+                    filled: true,
+                    fillColor: Color(0xFF111318),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF282A2E)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                 ),
                 TextField(
                   controller: ccYController,
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(
-                    labelText: 'Y Axis CC',
+                    labelText: 'Y Axis MIDI ID (e.g., 21 or C#3)',
                     labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white12),
+                    filled: true,
+                    fillColor: Color(0xFF111318),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF282A2E)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                 ),
                 TextField(
                   controller: channelController,
@@ -326,8 +353,18 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                   decoration: const InputDecoration(
                     labelText: 'MIDI Channel (0-15)',
                     labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white12),
+                    filled: true,
+                    fillColor: Color(0xFF111318),
+                    border: OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF282A2E)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
                   ),
                   keyboardType: TextInputType.number,
@@ -367,8 +404,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
             TextButton(
               onPressed: () {
                 final newConfig = XYPadConfig(
-                  ccX: int.tryParse(ccXController.text) ?? currentConfig.ccX,
-                  ccY: int.tryParse(ccYController.text) ?? currentConfig.ccY,
+                  ccX:
+                      MidiUtils.parseNoteIdentifier(ccXController.text) ??
+                      currentConfig.ccX,
+                  ccY:
+                      MidiUtils.parseNoteIdentifier(ccYController.text) ??
+                      currentConfig.ccY,
                   channel:
                       int.tryParse(channelController.text) ??
                       currentConfig.channel,

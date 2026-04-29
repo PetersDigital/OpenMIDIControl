@@ -9,6 +9,7 @@ import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 import 'control_config_modal.dart';
 import '../layout_state.dart';
+import '../../core/midi_utils.dart';
 
 class DrumPadConfig {
   final int note;
@@ -162,27 +163,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         .sendNoteOff(note, channel: channel, isFinal: true);
   }
 
-  String _getNoteName(int note) {
-    final noteNames = [
-      'C',
-      'C#',
-      'D',
-      'D#',
-      'E',
-      'F',
-      'F#',
-      'G',
-      'G#',
-      'A',
-      'A#',
-      'B',
-    ];
-    final name = noteNames[note % 12];
-    final octave = (note ~/ 12) - 1;
-    return '$name$octave';
-  }
-
-
   @override
   Widget build(BuildContext context) {
     final isPerformanceLocked = ref
@@ -244,7 +224,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                         ),
                         alignment: Alignment.topLeft,
                         child: Text(
-                          _getNoteName(note),
+                          MidiUtils.getNoteName(note),
                           style: AppText.performance(
                             color: _isPressed
                                 ? const Color(0xFF1E2024).withValues(alpha: 0.8)
@@ -360,7 +340,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       builder: (context) => ControlConfigModal(
         initialChannel: currentChannel,
         initialIdentifier: currentNote,
-        identifierLabel: 'MIDI Note (0-127)',
+        identifierLabel: 'MIDI Note (e.g., C3 or 36)',
         initialDisplayName: _displayLabel,
         displayNameLabel: 'Pad Name',
       ),

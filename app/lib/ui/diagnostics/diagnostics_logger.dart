@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
+import '../../core/midi_utils.dart';
 
 class _RingBufferList<T> extends ListBase<T> {
   final List<T?> _buffer;
@@ -80,8 +81,15 @@ class DiagnosticLogEntry {
         ? 'Port ${event.sourceId} | '
         : '';
 
-    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
+    final status = event.legacyStatusByte;
+    if (status >= 0xB0 && status <= 0xBF) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
+    } else if (status >= 0x90 && status <= 0x9F) {
+      final noteName = MidiUtils.getNoteName(event.data1);
+      return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Note On $noteName (${event.data1}) | Vel ${event.data2}';
+    } else if (status >= 0x80 && status <= 0x8F) {
+      final noteName = MidiUtils.getNoteName(event.data1);
+      return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Note Off $noteName (${event.data1}) | Vel ${event.data2}';
     } else {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
     }
