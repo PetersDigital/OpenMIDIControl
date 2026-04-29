@@ -146,7 +146,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
     ref
         .read(midiServiceProvider)
-        .sendNoteOn(note, velocity, channel: channel, isFinal: false);
+        .sendNoteOn(note, velocity, channel: channel, isFinal: true);
   }
 
   void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
