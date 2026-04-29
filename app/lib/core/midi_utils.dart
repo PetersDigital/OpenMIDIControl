@@ -20,7 +20,7 @@ class MidiUtils {
   /// Converts a MIDI note number (0-127) to a string representation (e.g., "C3").
   static String getNoteName(int note) {
     final name = _noteNames[note % 12];
-    final octave = (note ~/ 12) - 1;
+    final octave = (note ~/ 12) - 2;
     return '$name$octave';
   }
 
@@ -59,7 +59,7 @@ class MidiUtils {
     final int noteIndex = _noteNames.indexOf(notePart);
     if (noteIndex == -1) return null;
 
-    final int result = (octavePart + 1) * 12 + noteIndex;
+    final int result = (octavePart + 2) * 12 + noteIndex;
     if (result < 0 || result > 127) return null;
 
     return result;
