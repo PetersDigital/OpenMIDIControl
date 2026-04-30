@@ -27,7 +27,7 @@ class FilterNode extends TransformerNode {
       return null;
     }
     if (minCc != null || maxCc != null) {
-      if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
+      if (event.messageType == 0x2 && (event.legacyStatusByte & 0xF0) == 0xB0) {
         final ccNumber = event.data1;
         if (minCc != null && ccNumber < minCc!) return null;
         if (maxCc != null && ccNumber > maxCc!) return null;
@@ -54,7 +54,8 @@ class FilterNode extends TransformerNode {
         break;
       }
       if (minCc != null || maxCc != null) {
-        if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
+        if (event.messageType == 0x2 &&
+            (event.legacyStatusByte & 0xF0) == 0xB0) {
           final ccNumber = event.data1;
           if (minCc != null && ccNumber < minCc!) {
             needsFiltering = true;
@@ -81,7 +82,8 @@ class FilterNode extends TransformerNode {
         continue;
       }
       if (minCc != null || maxCc != null) {
-        if (event.messageType == 0x2 && (event.status & 0xF0) == 0xB0) {
+        if (event.messageType == 0x2 &&
+            (event.legacyStatusByte & 0xF0) == 0xB0) {
           final ccNumber = event.data1;
           if (minCc != null && ccNumber < minCc!) continue;
           if (maxCc != null && ccNumber > maxCc!) continue;
