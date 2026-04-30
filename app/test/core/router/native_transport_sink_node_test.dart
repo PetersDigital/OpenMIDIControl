@@ -79,10 +79,7 @@ void main() {
       node.execute([event2]);
       node.execute([event3]);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // event3 has isFinal: true, which triggers an immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 6);
 
@@ -100,10 +97,7 @@ void main() {
 
       node.executeSingle(event);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // isFinal: true triggers immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 2);
       expect(capturedEvents[0], event.ump);
@@ -123,10 +117,7 @@ void main() {
 
       node.execute([event]);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // isFinal: true triggers immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 2);
       expect(capturedEvents[0], event.ump);
