@@ -97,6 +97,14 @@ class UiStateSinkNode extends SinkNode {
       if (_ccBuffer[index] != value) {
         _ccBuffer[index] = value;
         _dirtyCcIndices.add(index);
+
+        // Update button state (>= 64 is active)
+        final buttonKey = _addressKeys[index];
+        final bool buttonActive = value >= 64;
+        if (_buttonStates[buttonKey] != buttonActive) {
+          _buttonStates[buttonKey] = buttonActive;
+          _hasButtonUpdates = true;
+        }
       }
     } else if (event.legacyStatusByte >= 0x90 &&
         event.legacyStatusByte <= 0x9F) {
@@ -115,6 +123,14 @@ class UiStateSinkNode extends SinkNode {
           _hasNoteUpdates = true;
         }
       }
+
+      // Update button state (Note On with velocity > 0 is active)
+      final buttonKey = 'note:$channel:$note';
+      final bool buttonActive = velocity > 0;
+      if (_buttonStates[buttonKey] != buttonActive) {
+        _buttonStates[buttonKey] = buttonActive;
+        _hasButtonUpdates = true;
+      }
     } else if (event.legacyStatusByte >= 0x80 &&
         event.legacyStatusByte <= 0x8F) {
       // Note Off Event
@@ -122,6 +138,13 @@ class UiStateSinkNode extends SinkNode {
       final note = event.data1;
       if (_noteStates[channel]?.remove(note) ?? false) {
         _hasNoteUpdates = true;
+      }
+
+      // Update button state (Note Off is inactive)
+      final buttonKey = 'note:$channel:$note';
+      if (_buttonStates[buttonKey] ?? false) {
+        _buttonStates[buttonKey] = false;
+        _hasButtonUpdates = true;
       }
     }
   }
