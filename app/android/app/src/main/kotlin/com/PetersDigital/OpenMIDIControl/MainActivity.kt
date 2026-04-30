@@ -503,9 +503,11 @@ class MainActivity : FlutterActivity() {
         }
         
         // Send to Host PC/Mac via USB over UMP transport
+        // Use real monotonic timestamp at point of transmission for accurate
+        // event timing on the Windows host (some DAWs use packet timestamps).
         val peripheral = PeripheralMidiService.activeInstance
         if (peripheral != null) {
-            peripheral.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, timestamp)
+            peripheral.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, System.nanoTime())
         } else {
             // Only log if we expect to be connected to help debug host-reconnect issues
             if (MidiSystemManager.usbHostConnected.value) {
