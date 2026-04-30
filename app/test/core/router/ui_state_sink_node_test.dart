@@ -87,10 +87,11 @@ void main() {
       expect(received, isNotNull);
       expect(received!['ccs'], equals({'0:7': 64}));
       expect(received, isNot(contains('notes')));
-      expect(received, isNot(contains('buttons')));
+      // Now includes buttons because CC 64 triggered a state change from null to true
+      expect(received!['buttons'], containsPair('0:7', true));
     });
 
-    test('does not include buttons when no button state has changed', () {
+    test('includes buttons when note state changes', () {
       Map<String, dynamic>? received;
       final node = UiStateSinkNode(
         onStateUpdate: (updates) {
@@ -107,8 +108,41 @@ void main() {
 
       expect(received, isNotNull);
       expect(received!['notes'], isNotNull);
-      expect(received, isNot(contains('buttons')));
+      expect(received!['buttons'], containsPair('note:0:10', true));
     });
+
+    test(
+      'does not include buttons when button state has not changed (lazy update)',
+      () async {
+        final updates = <Map<String, dynamic>>[];
+        final node = UiStateSinkNode(onStateUpdate: (u) => updates.add(u));
+
+        // First event triggers change from null to true
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 127),
+            0,
+          ),
+        ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
+        // Second event is different CC value but same button state, should NOT trigger a button update
+        node.execute([
+          MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 65),
+            0,
+          ),
+        ]);
+
+        await Future.delayed(const Duration(milliseconds: 32));
+
+        expect(updates, hasLength(2));
+        expect(updates[0], contains('buttons'));
+        // The second update should NOT contain 'buttons' because the state (true) didn't change
+        expect(updates[1], isNot(contains('buttons')));
+      },
+    );
 
     test(
       'does not emit redundant updates for duplicate Note On events',
