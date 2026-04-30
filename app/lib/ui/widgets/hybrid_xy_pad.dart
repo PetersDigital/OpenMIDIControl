@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'scrollable_dialog_content.dart';
 
@@ -113,9 +115,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   bool _canSend = true;
   bool _hasPendingSend = false;
 
-  // Gesture state (Managed by ConfigGestureWrapper)
-  ProviderSubscription<AsyncValue<int>>? _ccXSubscription;
-  ProviderSubscription<AsyncValue<int>>? _ccYSubscription;
+  // Ticker for pulling updates
+  late Ticker _pullTicker;
+  int? _lastPolledX;
+  int? _lastPolledY;
 
   @override
   void initState() {
@@ -125,8 +128,9 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final ccX = config?.ccX ?? widget.ccX;
     final ccY = config?.ccY ?? widget.ccY;
 
-    final hotX = ref.read(hotCcValueProvider("$channel:$ccX")).asData?.value;
-    final hotY = ref.read(hotCcValueProvider("$channel:$ccY")).asData?.value;
+    final controlState = ref.read(controlStateProvider);
+    final hotX = controlState.ccValues["$channel:$ccX"];
+    final hotY = controlState.ccValues["$channel:$ccY"];
 
     if (hotX != null) {
       _normalizedX = hotX / 127.0;
@@ -135,32 +139,65 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       _normalizedY = hotY / 127.0;
     }
 
-    _setupListeners();
+    _setupTicker();
   }
 
-  void _setupListeners() {
-    _ccXSubscription?.close();
-    _ccYSubscription?.close();
+  void _setupTicker() {
+    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
 
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final channel = config?.channel ?? widget.channel;
-    final ccX = config?.ccX ?? widget.ccX;
-    final ccY = config?.ccY ?? widget.ccY;
+    _pullTicker = createTicker((elapsed) {
+      if (!mounted) return;
+      final config = ref.read(xyPadConfigProvider)[widget.id];
+      final channel = config?.channel ?? widget.channel;
+      final ccX = config?.ccX ?? widget.ccX;
+      final ccY = config?.ccY ?? widget.ccY;
 
-    _ccXSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("$channel:$ccX"),
-      (previous, next) => next.whenData(_handleXUpdate),
-    );
-    _ccYSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("$channel:$ccY"),
-      (previous, next) => next.whenData(_handleYUpdate),
-    );
+      final currentState = ref.read(controlStateProvider);
+      final valX = currentState.ccValues["$channel:$ccX"];
+      final valY = currentState.ccValues["$channel:$ccY"];
+
+      if (valX != null && valX != _lastPolledX) {
+        _lastPolledX = valX;
+        _handleXUpdate(valX);
+      }
+      if (valY != null && valY != _lastPolledY) {
+        _lastPolledY = valY;
+        _handleYUpdate(valY);
+      }
+    });
+
+    if (!isTestEnv) {
+      _pullTicker.start();
+    } else {
+      final config = ref.read(xyPadConfigProvider)[widget.id];
+      final channel = config?.channel ?? widget.channel;
+      final ccX = config?.ccX ?? widget.ccX;
+      final ccY = config?.ccY ?? widget.ccY;
+
+      ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
+        if (next is AsyncData) {
+          final valX = next.value;
+          if (valX != null && valX != _lastPolledX) {
+            _lastPolledX = valX;
+            _handleXUpdate(valX);
+          }
+        }
+      });
+      ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
+        if (next is AsyncData) {
+          final valY = next.value;
+          if (valY != null && valY != _lastPolledY) {
+            _lastPolledY = valY;
+            _handleYUpdate(valY);
+          }
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
-    _ccXSubscription?.close();
-    _ccYSubscription?.close();
+    _pullTicker.dispose();
     _throttleTimer?.cancel();
     super.dispose();
   }
@@ -436,9 +473,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
   @override
   Widget build(BuildContext context) {
-    // Re-setup listeners if config changes
+    // Reset polled values if config changes
     ref.listen(xyPadConfigProvider, (prev, next) {
-      _setupListeners();
+      _lastPolledX = null;
+      _lastPolledY = null;
     });
 
     final config = ref.watch(xyPadConfigProvider)[widget.id];

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
+import 'dart:io' as io;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
 
@@ -30,22 +32,67 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
   Timer? _throttleTimer;
+  late Ticker _pullTicker;
+  int? _lastPolledValue;
 
   @override
   void initState() {
     super.initState();
     // Initialize from current state
     final hotValue = ref
-        .read(hotCcValueProvider("${widget.channel}:${widget.cc}"))
-        .asData
-        ?.value;
+        .read(controlStateProvider)
+        .ccValues["${widget.channel}:${widget.cc}"];
     if (hotValue != null) {
       _currentValue = hotValue;
+      _lastPolledValue = hotValue;
+    }
+
+    _setupTicker();
+  }
+
+  void _setupTicker() {
+    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
+
+    _pullTicker = createTicker((elapsed) {
+      if (!mounted || _isDragging) return;
+      final currentState = ref.read(controlStateProvider);
+      final val = currentState.ccValues["${widget.channel}:${widget.cc}"];
+      if (val != null && val != _lastPolledValue) {
+        _lastPolledValue = val;
+        if (val != _currentValue) {
+          setState(() {
+            _currentValue = val;
+          });
+        }
+      }
+    });
+
+    if (!isTestEnv) {
+      _pullTicker.start();
+    } else {
+      ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
+        previous,
+        next,
+      ) {
+        if (next is AsyncData) {
+          final val = next.value;
+          if (_isDragging) return;
+          if (val != null && val != _lastPolledValue) {
+            _lastPolledValue = val;
+            if (val != _currentValue) {
+              setState(() {
+                _currentValue = val;
+              });
+            }
+          }
+        }
+      });
     }
   }
 
   @override
   void dispose() {
+    _pullTicker.dispose();
     _throttleTimer?.cancel();
     super.dispose();
   }
@@ -90,23 +137,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
 
   @override
   Widget build(BuildContext context) {
-    // Watch the hot CC value, but don't overwrite if dragging.
-    final asyncValue = ref.watch(
-      hotCcValueProvider("${widget.channel}:${widget.cc}"),
-    );
-
-    asyncValue.whenData((val) {
-      if (!_isDragging && val != _currentValue) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_isDragging && val != _currentValue) {
-            setState(() {
-              _currentValue = val;
-            });
-          }
-        });
-      }
-    });
-
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, constraints) {

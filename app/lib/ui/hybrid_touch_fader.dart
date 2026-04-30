@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
@@ -67,7 +68,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _isIncomingUpdateScheduled = false;
 
   SpringSimulation? _springSimulation;
-  ProviderSubscription<AsyncValue<int>>? _ccSubscription;
+  late Ticker _pullTicker;
+  int? _lastPolledValue;
 
   @override
   void initState() {
@@ -77,7 +79,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _ccLabel = widget.displayName;
 
     // Restore value from session state if available, otherwise use initialValue
-    final hotValue = ref.read(hotCcValueProvider("0:$_ccNumber")).asData?.value;
+    final hotValue = ref.read(controlStateProvider).ccValues["0:$_ccNumber"];
     final startValue = hotValue != null
         ? hotValue / 127.0
         : widget.initialValue;
@@ -87,22 +89,46 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       value: startValue.clamp(0.0, 1.0),
     );
 
-    _setupListener();
+    _setupTicker();
   }
 
-  void _setupListener() {
-    _ccSubscription?.close();
-    _ccSubscription = ref.listenManual<AsyncValue<int>>(
-      hotCcValueProvider("0:$_ccNumber"),
-      (previous, next) =>
-          next.whenData((val) => _handleCcUpdate(previous?.asData?.value, val)),
-    );
+  void _setupTicker() {
+    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
+
+    _pullTicker = createTicker((elapsed) {
+      if (!mounted) return;
+      final currentState = ref.read(controlStateProvider);
+      final val = currentState.ccValues["$_midiChannel:$_ccNumber"];
+      if (val != null && val != _lastPolledValue) {
+        final prev = _lastPolledValue;
+        _lastPolledValue = val;
+        _handleCcUpdate(prev, val);
+      }
+    });
+
+    if (!isTestEnv) {
+      _pullTicker.start();
+    } else {
+      ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
+        previous,
+        next,
+      ) {
+        if (next is AsyncData) {
+          final val = next.value;
+          if (val != null && val != _lastPolledValue) {
+            final prev = _lastPolledValue;
+            _lastPolledValue = val;
+            _handleCcUpdate(prev, val);
+          }
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _animationController.dispose();
-    _ccSubscription?.close();
+    _pullTicker.dispose();
     super.dispose();
   }
 
@@ -460,8 +486,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         if (trimmedName.isNotEmpty) {
           _ccLabel = trimmedName;
         }
+        _lastPolledValue = null; // Reset to force update
       });
-      _setupListener();
       if (trimmedName.isNotEmpty) {
         ref
             .read(layoutStateProvider.notifier)

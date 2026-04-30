@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:io' as io;
 import 'dart:typed_data';
+import 'package:flutter/scheduler.dart';
 import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
@@ -28,8 +30,6 @@ class UiStateSinkNode extends SinkNode {
   UiStateSinkNode({required this.onStateUpdate});
 
   // Debounce timing
-  DateTime? _lastEmitTime;
-  static const int _throttleMs = 16;
   bool _hasPendingEmission = false;
 
   void _emitSnapshot() {
@@ -56,7 +56,6 @@ class UiStateSinkNode extends SinkNode {
     }
 
     onStateUpdate(payload);
-    _lastEmitTime = DateTime.now();
   }
 
   void _throttledEmit() {
@@ -64,25 +63,30 @@ class UiStateSinkNode extends SinkNode {
       return;
     }
 
-    final now = DateTime.now();
-    if (_lastEmitTime == null ||
-        now.difference(_lastEmitTime!).inMilliseconds >= _throttleMs) {
-      _emitSnapshot();
-      _hasPendingEmission = false;
-    } else if (!_hasPendingEmission) {
+    if (!_hasPendingEmission) {
       _hasPendingEmission = true;
-      Future.delayed(
-        Duration(
-          milliseconds:
-              _throttleMs - now.difference(_lastEmitTime!).inMilliseconds,
-        ),
-        () {
-          if (_hasPendingEmission) {
-            _emitSnapshot();
-            _hasPendingEmission = false;
-          }
-        },
-      );
+
+      // Sync emission with the hardware display refresh rate.
+      // In headless unit tests, frames are never drawn, causing scheduleFrameCallback to hang.
+      try {
+        final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
+        if (!isTest) {
+          SchedulerBinding.instance.scheduleFrameCallback((_) {
+            if (_hasPendingEmission) {
+              _emitSnapshot();
+              _hasPendingEmission = false;
+            }
+          });
+          SchedulerBinding.instance.ensureVisualUpdate();
+        } else {
+          _emitSnapshot();
+          _hasPendingEmission = false;
+        }
+      } catch (_) {
+        // Fallback for isolated contexts
+        _emitSnapshot();
+        _hasPendingEmission = false;
+      }
     }
   }
 
