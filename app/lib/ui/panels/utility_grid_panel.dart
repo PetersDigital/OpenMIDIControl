@@ -306,20 +306,13 @@ class UtilityGridPanel extends ConsumerWidget {
         const PopupMenuItem(
           value: 'reset',
           child: Text(
-            'Reset to Factory CCs',
+            'Reset All Assignments',
             style: TextStyle(color: Colors.white),
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'clear',
-          child: Text(
-            'Clear All Assignments',
-            style: TextStyle(color: Colors.white54),
           ),
         ),
       ],
     ).then((choice) {
-      if (choice == 'reset' || choice == 'clear') {
+      if (choice == 'reset') {
         ref.read(utilityGridConfigProvider.notifier).setAllConfigs({});
       }
     });
