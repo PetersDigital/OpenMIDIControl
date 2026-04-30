@@ -16,15 +16,15 @@ class MidiEvent {
   });
 
   // Bitwise extraction getters for standard MIDI 1.0 Voice fields
-  int get messageType => (ump >> 28) & 0xF;
-  int get group => (ump >> 24) & 0xF;
-  int get status => (ump >> 16) & 0xF0;
-  int get channel => (ump >> 16) & 0x0F;
-  int get data1 => (ump >> 8) & 0xFF; // e.g., CC number
+  int get messageType => (ump >>> 28) & 0xF;
+  int get group => (ump >>> 24) & 0xF;
+  int get status => (ump >>> 16) & 0xF0;
+  int get channel => (ump >>> 16) & 0x0F;
+  int get data1 => (ump >>> 8) & 0xFF; // e.g., CC number
   int get data2 => ump & 0xFF; // e.g., CC value
 
   // Exposing the combined legacy status byte (e.g., 0xB0 for CC on Channel 1)
-  int get legacyStatusByte => (ump >> 16) & 0xFF;
+  int get legacyStatusByte => (ump >>> 16) & 0xFF;
 
   @override
   bool operator ==(Object other) {
