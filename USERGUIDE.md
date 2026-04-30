@@ -69,11 +69,13 @@ Expected baseline:
 
 ## 5. MIDI Mapping Reference (Initial)
 
-### Current Implementation (MIDI 1.0 / 14-bit):
+### Current Implementation (MIDI 1.0 / 14-bit)
+
 - Fader A: CC11/CC43 (14-bit LSB/MSB pair)
 - Fader B: CC1/CC33 (14-bit LSB/MSB pair)
 
-### Future Proposal (Native MIDI 2.0):
+### Future Proposal (Native MIDI 2.0)
+
 - Native 32-bit UMP CC values (v0.2.2+)
 
 Notes:
@@ -108,17 +110,22 @@ Notes:
 3. Verify automatic recovery without restarting the app.
 
 ### 6.5 Rate-limit verification
+
 1. Sweep a fader rapidly for 5 seconds.
 2. Confirm outbound MIDI rate caps at the configured limit (target 60–120 Hz per control) and still emits final value on release.
 
 ## 7. Cubase Mapping Appendix (Initial)
+
 - Purpose: document how core controls map when using Cubase host adapters.
-### Current Mappings (v0.2.3):
+
+### Current Mappings (v0.2.3)
+
 - Fader A: CC11/CC43 (14-bit pair), Channel 1.
 - Fader B: CC1/CC33 (14-bit pair), Channel 1.
 - Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup via reconstructed UMP.
 
-### Target Architecture (v0.2.2+):
+### Target Architecture (v0.2.2+)
+
 - Native UMP High-Res CC without legacy byte-stitching.
 - See reference scripts and mappings under [references/cubase](references/cubase) for vendor-specific examples.
 
@@ -145,25 +152,32 @@ Notes:
 ## 9. Debugging & Testing (v0.2.0+)
 
 ### 9.1 Diagnostics Console (NEW)
+
 Open the **MIDI Connection Settings** screen and tap the **bug icon** (labeled with a "View Diagnostics" tooltip) in the top bar. This reveals a real-time, terminal-style MIDI event logger directly on the device.
+
 - **Auto-Dispose**: The logging subscription is automatically terminated when you close the modal to preserve CPU cycles.
 - **Parsed Events**: View incoming `MidiEvent` data, including high-precision native timestamps, CC numbers, and values.
 
 ### 9.2 Native Logging (ADB)
+
 To monitor the internal MIDI dispatcher and USB handshake events, use `adb`:
+
 ```powershell
 # Windows PowerShell
 adb -s <devicename> logcat -c; adb -s <devicename> logcat | Select-String "OpenMIDIControl|flutter"
 ```
 
 ### 9.2 Sending Test MIDI
+
 Use the [Windows MIDI Services](https://microsoft.github.io/MIDI/tools/) CLI to send test messages to the app:
+
 ```bash
 # Send CC 1 Value 33 to Channel 1
 midi endpoint send-message 0x20B00121
 ```
 
 ## 10. Design References
+
 - Architecture and event model: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Change history: [CHANGELOG.md](CHANGELOG.md)

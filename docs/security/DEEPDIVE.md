@@ -8,7 +8,7 @@ This document provides a formal description of the release pipeline using indust
 
 ## Architecture Overview
 
-```
+```text
 Developer (GPG Key)
         │
         ▼
@@ -72,7 +72,7 @@ GitHub Actions (OIDC Identity)
 ## SLSA Mapping
 
 | Requirement | Status |
-|------------|--------|
+| ------------ | -------- |
 | Source control versioning | Yes |
 | Provenance available | Yes |
 | Authenticated provenance | Yes |
@@ -87,36 +87,50 @@ Approximate Level: **SLSA Level 2–3**
 ## Threat Model & Mitigations
 
 ### Tag Forgery
+
 Mitigation:
+
 - GPG signature verification via `release-tag-validation` action
 - GitHub API tag signature verification with HTTP code+reason logging
 - Fingerprint pinning
 
 ### Tag Retargeting
+
 Mitigation:
+
 - Local vs remote commit comparison in `release-tag-validation`
 - `git fetch --tags --force` + remote `git ls-remote` check
 - CI checks in `cd_auto_prod.yml`, `cd_man_prod.yml`, and `cd_man_retro.yml` include `git fetch --tags --force` + `git ls-remote --tags origin "$TAG"` to prevent retargeting after signing
 
 ### Release Branch Drift
+
 Mitigation:
+
 - `pre-main-sync` gate in `ci_auto_main.yml` requires `beta`/`rc` PR heads to already exist in `dev`
 - Enforces dev-first promotion chain before stable `main` merges
 
 ### Unauthorized Release Trigger
+
 Mitigation:
+
 - Actor allowlist
 
 ### Artifact Tampering
+
 Mitigation:
+
 - Cosign signature verification
 
 ### Compromised CI Secrets
+
 Mitigation:
+
 - Keyless signing (no private keys stored)
 
 ### Vulnerable Third-Party Dependencies
+
 Mitigation:
+
 - Dependabot weekly monitoring for GitHub Actions, npm, and pub ecosystems
 - Dedicated `security-updates` grouping to prioritize vulnerability remediation
 - Controlled PR volume for pub updates (`open-pull-requests-limit: 5`)

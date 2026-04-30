@@ -1,11 +1,15 @@
-### 1.0 Standards & References
+# References
+
+## 1.0 Standards & References
 
 **MIDI 1.0 Standards:**
+
 - [MIDI.org Specifications (Official)](https://midi.org/developing-midi-applications-on-android) — Reference for RPN/NRPN, Control Changes, SysEx
 - [General MIDI Level 1 Developer Guidelines](https://midi.org/general-midi-level-1-developer-guidelines) — Legacy compatibility baseline
 - [MIDI 1.0 Complete Specification](https://www.midi.org/specifications-old/item/the-midi-1-0-specification) — Historical reference (archived)
 
 **MIDI 2.0 (Emerging Standard for Cubase 15+):**
+
 - [Microsoft MIDI 2.0 Documentation](https://microsoft.github.io/MIDI/) — Windows 11 2026 rollout, UMP protocol
 - [Microsoft MIDI SDK & API Reference](https://microsoft.github.io/MIDI/sdk-reference/) — Native Windows MIDI 2.0 implementation
 - [Microsoft MIDI GitHub](https://github.com/microsoft/MIDI) — Open-source MIDI 2.0 SDK for Windows
@@ -16,6 +20,7 @@
 - [Curated MIDI 2.0 Resources for Developers](https://midi.org/curated-midi-2-0-resources-for-developers) — Official MIDI Association resource hub
 
 **Cubase MIDI Remote API v1 (Official):**
+
 - [Steinberg MIDI Remote API Documentation](https://steinbergmedia.github.io/midiremote_api_doc/) — Official GitHub Pages reference
 - [API Version History](https://steinbergmedia.github.io/midiremote_api_doc/versions) — v1.1+ introduces Direct Access (`getParameterTitle`, `getParameterDisplayValue`)
 - [AI Integration & Scripting Gap](https://forums.steinberg.net/t/full-scripting-api-for-cubase-the-ai-integration-gap-is-now-a-competitive-threat/1026258/62) — Discussion on Cubase 15 technical limits and performance
@@ -23,12 +28,14 @@
 - [High Resolution MIDI 2.0 (Win 11)](https://forums.steinberg.net/t/high-resolution-midi-2-0-windows-11-which-version-of-cubase/1025711) — Technical requirements for Cubase 14/15 UMP transport
 
 **Flutter/Dart MIDI Integration:**
+
 - [Flutter Platform Channels](https://flutter.dev/docs/development/platform-integration/platform-channels) — MethodChannel/EventChannel architecture
 - [Dart async/await](https://dart.dev/guides/language/language-tour#async-await) — Concurrency & Future handling
 - [Web MIDI API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API) — Browser-based MIDI access details
 - [Web MIDI API Specification](https://webaudio.github.io/web-midi-api/) — W3C/WebAudio draft for low-level byte access
 
 **Android Native MIDI:**
+
 - [Android MIDI Architecture](https://source.android.com/docs/core/audio/midi_arch) — Kernel, HAL, and platform service routing
 - [android.media.midi Package Documentation](https://android.googlesource.com/platform/frameworks/base/+/master/media/java/android/media/midi/package.html) — Inner workings of the Android MIDI stack
 - [Android MIDI API Reference (Official)](https://developer.android.com/reference/android/media/midi/package-summary) — MidiManager, MidiDevice, MidiPort
@@ -36,14 +43,17 @@
 - [MIDI 2.0 Android Samples](https://github.com/android/midi-samples) — Google reference implementations for Android **MidiUmpDeviceService** logic
 
 **iOS / macOS Core MIDI:**
+
 - [Apple Core MIDI Documentation](https://developer.apple.com/documentation/coremidi/) — Official reference for `MIDIProtocolID` and UMP abstractions
 - [MIDI 2.0 on Apple Platforms](https://developer.apple.com/documentation/coremidi/midi_services/supporting_midi_2_0) — Implementation guide for native UMP endpoints and function blocks
 
 **Open Source References:**
+
 - [Arduino MIDI Library](https://github.com/FortySevenEffects/arduino_midi_library) — For future hardware integration (DIY MIDI controllers)
 - [ni-midi2 GitHub](https://github.com/NativeInstruments/ni-midi2) — Reference model for UMP 1.1 / MIDI-CI 1.2 by Native Instruments
 
 **Performance & Optimization:**
+
 - [MIDI Latency Reduction Guide](https://www.sweetwater.com/insync/daw-latency/) — Sweetwater practical optimization strategies
 **Platform & Protocol Specifics:**
 - **Windows MIDI Services (WinRT)**: Multi-client by default. Multiple applications (e.g., Cubase 15 + OpenMIDIControl Logger) can share the same hardware port simultaneously.

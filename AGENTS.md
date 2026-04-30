@@ -4,7 +4,7 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface built w
 
 ## Project Structure
 
-```
+```text
 OpenMIDIControl/
 ├── app/                          # Flutter application root
 │   ├── android/                  # Android native Kotlin layer
@@ -31,7 +31,7 @@ OpenMIDIControl/
 ### Key Components
 
 | File / Directory | Purpose |
-|---|---|
+| --- | --- |
 | `app/lib/core/models/MidiEvent` | Immutable 32-bit UMP-ready MIDI event model |
 | `app/lib/core/models/ControlState` | Scalable Riverpod state for UI controls |
 | `app/lib/ui/open_midi_screen.dart` | Main performance screen |
@@ -45,6 +45,7 @@ OpenMIDIControl/
 ## Build & Test Commands
 
 ### Prerequisites
+
 - Flutter 3.x (SDK ^3.11.0)
 - Android Studio / Android SDK
 - Android device with USB MIDI support (API 29+)
@@ -88,7 +89,7 @@ flutter test
 ## Code Style
 
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
-- **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`. 
+- **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`.
   - Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
 - **Monotonic Clocks for Timing:** Use `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for all MIDI throttling and rate-limiting logic. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle guarantees.
 - **Lazy-Init State Updates:** When batching multiple state changes (e.g., `updateMultipleCCs`), use lazy `Map` initialization with single-pass iteration — only allocate new state when the first actual change is detected. Avoid double-pass patterns (check-then-copy).
@@ -111,10 +112,12 @@ flutter test
 ## Testing Instructions
 
 ### Automated Test Suite (v0.2.2+)
+
 The v0.2.2 release includes a comprehensive test suite with 10+ test files covering native layer, models, state, UI components, and integration tests. \
 See [TESTING.md](TESTING.md) for complete documentation and commands for all dart and native tests.
 
 ### Manual Testing
+
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Confirm **"USB PERIPHERAL READY"** or **"USB HOST CONNECTED"** banner.
 3. Select "OpenMIDIControl" as MIDI Input/Output in DAW.
@@ -122,6 +125,7 @@ See [TESTING.md](TESTING.md) for complete documentation and commands for all dar
 5. Test bi-directional feedback with DAW automation.
 
 ### Diagnostics Console
+
 - Access via the debug modal in Settings.
 - Real-time event logging with native timestamps.
 - Auto-disposes on close to prevent CPU drain.
@@ -144,6 +148,7 @@ midi endpoint send-message 0x20B00140  # CC1, Value 64
 - Default promotion path is `feature/fix -> dev -> beta/rc -> main`.
 
 ### Checklist
+
 - [ ] Conventional Commit title (enforced by Commitlint)
 - [ ] Tests added/updated (where applicable)
 - [ ] Docs updated (README/ARCHITECTURE/CHANGELOG)
@@ -169,6 +174,7 @@ gh pr view --web
 ## Agent Priorities
 
 When making decisions, agents must prioritize in this order:
+
 1. Low-latency, low-jitter MIDI event handling
 2. Reliable MIDI behavior and deterministic state
 3. Multi-touch correctness
@@ -186,6 +192,7 @@ When making decisions, agents must prioritize in this order:
 This is a hard requirement. CI will fail without it.
 
 ### Dart Files (`.dart`)
+
 ```dart
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
@@ -194,6 +201,7 @@ import 'package:flutter/material.dart';
 ```
 
 ### Kotlin Files (`.kt`)
+
 ```kotlin
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
@@ -202,18 +210,21 @@ package com.petersdigital.openmidicontrol
 ```
 
 ### Python Scripts (`.py`)
+
 ```python
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
 ### PowerShell Scripts (`.ps1`)
+
 ```powershell
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
 ### Shell Scripts (`.sh`)
+
 ```bash
 #!/bin/bash
 # Copyright (c) 2026 Peters Digital
@@ -221,12 +232,14 @@ package com.petersdigital.openmidicontrol
 ```
 
 ### YAML Files (`.yml`)
+
 ```yaml
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
 **Rules:**
+
 - The header must be the **first content** in the file (after shebang `#!` if present)
 - Do NOT place headers after imports, packages, or other declarations
 - Apply to all new `.dart`, `.kt`, `.py`, `.ps1`, `.sh`, `.yml` files you create

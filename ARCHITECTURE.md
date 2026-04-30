@@ -55,7 +55,8 @@ The post-v0.2.0 trajectory prioritizes architectural purity and deterministic ro
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
 
 Connection lifecycle (text diagram):
-```
+
+```text
 INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 ```
 
@@ -63,17 +64,18 @@ INIT -> READY_PROBE -> ACTIVE_STREAM -> RECOVERY (on disconnect) -> INIT
 
 The Native Kotlin layer guarantees UMP traffic by opening ports with the `MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag. Although it interacts with legacy `MidiDevice` and `MidiPort` classes (due to SDK limitations), it enforces a **Manual 32-bit Reconstruction** strategy:
 
-1.  **OS Delivery:** The Android OS delivers UMP packets as 4-byte blocks within a standard `ByteArray`.
-2.  **Reconstruction:** Inside `onSend()`, the Kotlin layer iterates through the buffer in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts (Big-Endian).
-3.  **Validation:** Strict defensive bounds checking ensuring `count % 4 == 0` and payload alignment.
-4.  **Dispatch:** Reconstructed 32-bit integers are passed directly across the `EventChannel`, mapping to the Dart `MidiEvent` model.
+1. **OS Delivery:** The Android OS delivers UMP packets as 4-byte blocks within a standard `ByteArray`.
+2. **Reconstruction:** Inside `onSend()`, the Kotlin layer iterates through the buffer in 4-byte chunks, reconstructing 32-bit integers via bitwise shifts (Big-Endian).
+3. **Validation:** Strict defensive bounds checking ensuring `count % 4 == 0` and payload alignment.
+4. **Dispatch:** Reconstructed 32-bit integers are passed directly across the `EventChannel`, mapping to the Dart `MidiEvent` model.
 
 ### 3.2.1 MidiParser Extraction (v0.2.2+)
 
 To enable comprehensive unit testing without requiring Android Service lifecycle mocks, the UMP reconstruction logic was extracted from `MainActivity.kt` into a dedicated, testable static object `MidiParser.kt`.
 
 **Architecture:**
-```
+
+```text
 MidiReceiver.onSend() 
   → MidiParser.processMidiPayload()
     → UMP heuristic detection (MT=0x1 or MT=0x2)
@@ -85,12 +87,14 @@ MidiReceiver.onSend()
 ```
 
 **Benefits:**
+
 - **Testability:** `MidiParser` is a pure Kotlin object with no Android dependencies, enabling fast unit tests via JUnit + Coroutines Test
 - **Isolation:** MIDI parsing logic is decoupled from `MidiDeviceService` lifecycle complexity
 - **Coverage:** All UMP reconstruction paths, edge cases, and boundary conditions are automatically validated (see `MidiParserTest.kt`)
 - **Maintainability:** Single responsibility principle - parsing logic is isolated from JNI bridge code
 
 **Key Functions:**
+
 ```kotlin
 object MidiParser {
     fun processMidiPayload(
@@ -120,6 +124,7 @@ The function handles both UMP (32-bit) and legacy (8-bit) MIDI streams, with aut
 ## 4.1 MIDI 2.0 & UMP Core Architecture
 
 To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
+
 - **Source of Truth:** Internally, all MIDI data is treated as a **Universal MIDI Packet (UMP)** using 32-bit integer blocks rather than traditional 8-bit byte streams.
 - **Native Android Layer:** Enforces UMP mode at the query/open level using the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` transport flag. Virtual routing extends `MidiDeviceService`, while client connections utilize legacy port classes with manual packet reconstruction to maintain SDK compliance.
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
@@ -130,13 +135,15 @@ To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 The MidiRouter is a centralized **Directed Acyclic Graph (DAG)** for deterministic N-to-N message routing and transformation:
 
 **Core Components:**
+
 - **Nodes:** `TransformerNode` implementations that process batches of `MidiEvent` payloads. Each node applies a specific transformation (filtering, remapping, splitting streams).
 - **Edges:** Directed connections between nodes, validated to prevent cycles (enforced at add-time in `addEdge` via `_canReach()`/`_dfsReach()`).
 - **Queue-Based Traversal:** Uses a pre-allocated work queue to avoid deep recursion and maintain consistent processing order.
 - **Object Pooling:** Work items are recycled from a pool to reduce garbage collection pressure during high-frequency routing cycles.
 
 **Processing Model:**
-```
+
+```text
 process(sourceNodeId, eventBatch)
   → Queue.add(WorkItem(sourceNodeId, eventBatch))
   → while Queue.isNotEmpty:
@@ -146,12 +153,14 @@ process(sourceNodeId, eventBatch)
 ```
 
 **Key Features:**
+
 - **Cycle Detection:** `_canReach()` / `_dfsReach()` uses depth-first search to check reachability at add-time, preventing infinite routing loops.
 - **Batch Processing:** All nodes operate on `List<MidiEvent>` to amortize routing overhead across multiple events.
 - **Error Isolation:** Exceptions during processing clear the queue to prevent stale work items from lingering.
 - **Deterministic Order:** Queue-based dispatch ensures reproducible routing order regardless of node count.
 
 **TransformerNode Interface:**
+
 ```dart
 abstract class TransformerNode {
   List<MidiEvent> process(List<MidiEvent> events);
@@ -159,12 +168,14 @@ abstract class TransformerNode {
 ```
 
 Implementers can:
+
 - **Filter:** Remove events matching criteria (e.g., velocity < 64).
 - **Remap:** Transform CC values, channels, or message types.
 - **Split:** Send different events to different child nodes via multiple routing paths.
 - **Drop:** Return empty list to suppress downstream processing.
 
 **Example Use Cases (Future):**
+
 - Channel mapper: Remaps all CC messages to a target MIDI channel.
 - Velocity transformer: Applies dynamics curves or scaling.
 - Protocol adapter: Converts MIDI 1.0 to MIDI 2.0 format (or vice versa).
@@ -182,6 +193,7 @@ Required strategy:
 4. If outgoing value equals recently applied external value in a short window, suppress retransmit.
 
 Recommended defaults:
+
 - Dedup suppression window: 50–100 ms
 - Per-control outbound rate cap: 120 Hz max; typical 60 Hz; always send final value on release
 
@@ -199,10 +211,13 @@ Recommended defaults:
 - Treat unknown command bytes as non-fatal.
 
 ### 6.4 MIDI Device Persistence
+
 In v0.1.5, the app maintains a "Last Known Good" metadata fingerprint. This allows the system to remain robust against Android's dynamic hardware indexing.
+
 - **Reconnection Loop:** `ConnectionLost` -> `DeviceAdded` -> `Metadata Match` -> `Auto-Handshake`.
 
 ### 6.5 Global Behavior Engine
+
 The fader behavior logic (Jump/Hybrid/Catch-up) is centralized. It intercepts both local touch deltas and external MIDI CC updates, ensuring that the console logic is consistent regardless of the data source.
 
 ## 7. Connection Lifecycle

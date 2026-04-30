@@ -15,7 +15,7 @@ This document outlines how to execute the test suite and the specific scenarios 
 
 The native Android byte-parsing logic is architecturally isolated in a testable static object `MidiParser.kt` (extracted from `MainActivity.kt`). This prevents tests from requiring complex Android Service lifecycles (like `MidiManager` or `MidiDeviceService`).
 
-### Scenarios Validated:
+### Scenarios Validated
 
 - **UMP Heuristic Validation:** Feeds legacy byte streams mixed with system real-time messages. Verifies that the internal heuristic correctly falls back to legacy parsing when the Message Type (MT) nibble fails to align with UMP definitions (MT=0x1 or MT=0x2).
 - **Legacy Byte Stream Parsing:** Simulates standard 3-byte legacy CC arrays. Asserts the parser correctly isolates the status byte and reconstructs it into a fully compliant 32-bit UMP integer using Group 0.
@@ -25,7 +25,7 @@ The native Android byte-parsing logic is architecturally isolated in a testable 
 - **Batching Loop Bounds:** Simulates a coroutine channel flood (e.g., pushing 150 events into a bounding pool of 100). Asserts that the `while (count + 1 < batch.size)` logic successfully slices the batch exactly at its capacity limit without throwing an `ArrayIndexOutOfBoundsException`.
 - **Array Bounds Crash Prevention:** Validates defensive bounds checking (`offset >= 0`, `count % 4 == 0`, `offset + count <= msg.size`) prevents DoS via malformed MIDI packets.
 
-### How to Run:
+### How to Run
 
 Navigate to the nested Android directory and execute the Gradle test task (using the specific debug variant to avoid irrelevant release build issues):
 
@@ -52,13 +52,15 @@ Validates the Phase 3 UMP integration within the core Dart models and Riverpod s
 
 ### 2.1 Core Models (`midi_event_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **MidiEvent UMP Model:** Validates the new simplified constructor `MidiEvent(ump, timestamp)` replaces the old multi-field constructor.
 - **Bitwise Extraction:** Instantiates `MidiEvent` with a raw 32-bit UMP integer. Validates that the bitwise shift getters (`messageType`, `group`, `status`, `channel`, `data1`, `data2`, `legacyStatusByte`) extract the correct values.
 - **Riverpod Equality Overrides:** Instantiates multiple `MidiEvent` objects with identical integers and timestamps. Validates `operator ==` and `hashCode` functionality to ensure Riverpod correctly identifies redundant state updates.
 - **Legacy Status Byte Extraction:** Tests `legacyStatusByte` getter correctly extracts the combined status+channel byte (e.g., 0xB0 for CC on Channel 1).
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/midi_event_test.dart
@@ -66,11 +68,13 @@ flutter test test/midi_event_test.dart
 
 ### 2.2 MIDI Models (`midi_models_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **MidiPort Parsing:** Validates `MidiPort.fromMap()` correctly extracts port number and name from native maps, with defensive defaults for missing fields.
 - **MidiStatus Updates:** Tests USB state transition logic (`CONNECTED`, `DISCONNECTED`) with device metadata preservation.
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/midi_models_test.dart
@@ -78,14 +82,16 @@ flutter test test/midi_models_test.dart
 
 ### 2.3 State Management (`control_state_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **ControlState Immutability:** Validates `ControlState` constructor creates immutable `ccValues` map, defensively copies input to prevent external mutation, and `copyWith()` returns new immutable instances with updated values.
 - **CcNotifier State Mutation:** Dispatches a batch of identical CC values into the `CcNotifier`. Asserts that the internal state map reference is strictly maintained (`identical(firstState, secondState) == true`), guaranteeing no unnecessary widget rebuilds occur.
 - **CcNotifier Batch Updates:** Tests `updateMultipleCCs()` applies multiple CC changes in a single state update, preventing redundant rebuilds during heavy automation.
 - **Value Deduplication:** Validates state updates only trigger on actual value changes (early return if `state.ccValues[cc] == value`).
 - **Lazy-Init Map Allocation:** Validates `updateMultipleCCs()` uses single-pass iteration with lazy `Map` initialization — only allocates new state when first change is detected, avoiding double-pass and full-map copy overhead during MIDI bursts.
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/control_state_test.dart
@@ -93,7 +99,8 @@ flutter test test/control_state_test.dart
 
 ### 2.4 Diagnostics Module (`diagnostics_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **DiagnosticsLoggerNotifier Initialization:** Validates initial state is empty list.
 - **Clear Operation:** Tests `clear()` resets state to empty list and is idempotent.
 - **Event Logging:** Validates MIDI events are correctly appended to diagnostics log with timestamps.
@@ -101,7 +108,8 @@ flutter test test/control_state_test.dart
 - **Auto-Dispose Behavior:** Validates notifier properly disposes on navigation to prevent CPU drain.
 - **Disposal Guard:** Validates `_disposed` flag prevents state-write errors when `scheduleFrameCallback` fires after auto-dispose. Also verifies `_pendingUpdate` is reset in `onDispose` to prevent stale state on re-mount.
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/diagnostics_test.dart
@@ -109,7 +117,8 @@ flutter test test/diagnostics_test.dart
 
 ### 2.5 Settings Screens (`settings_screen_test.dart`, `midi_settings_screen_test.dart`, `midi_settings_state_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **SettingsScreen Rendering:** Tests app settings screen displays correctly with version info, fader behavior options, and orientation toggle.
 - **PackageInfo Integration:** Validates version display uses overridden `packageInfoProvider` for testability.
 - **MidiSettingsScreen Rendering:** Tests MIDI settings screen shows port lists, search field, and manual override toggle.
@@ -118,7 +127,8 @@ flutter test test/diagnostics_test.dart
 - **MidiSettingsState Immutability:** Validates state model immutability and `copyWith()` operations.
 - **Port Selection Logic:** Tests manual port override toggle and search filtering functionality.
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/settings_screen_test.dart
@@ -128,7 +138,8 @@ flutter test test/midi_settings_state_test.dart
 
 ### 2.6 Main Screen & Fader Components (`open_midi_screen_test.dart`)
 
-#### Scenarios Validated:
+#### Scenarios Validated
+
 - **OpenMIDIMainScreen Layout:** Tests responsive layout adaptation between portrait (phone) and landscape (tablet/desktop) modes.
 - **HybridTouchFader Widget:** Validates fader rendering with CC labels, DSEG7 readouts, and color cues.
 - **Fader Behavior Modes:** Tests Jump, Hybrid, and Catch-up behaviors with drag interactions.
@@ -137,7 +148,8 @@ flutter test test/midi_settings_state_test.dart
 - **Value Deduplication:** Validates state updates only trigger on actual value changes.
 - **Monotonic Clock Throttling:** Validates `HybridTouchFader` uses `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for MIDI rate limiting, ensuring throttle logic is immune to system clock jumps (NTP sync).
 
-#### How to Run:
+#### How to Run
+
 ```bash
 cd app
 flutter test test/open_midi_screen_test.dart
@@ -153,13 +165,13 @@ flutter test test/open_midi_screen_test.dart
 
 Validates the end-to-end integration between the mocked JNI EventChannel and the actual `MidiService` mapping logics.
 
-### Scenarios Validated:
+### Scenarios Validated
 
 - **EventChannel Multiplexing (The Hotplug Test):** Simulates a complex environment where high-speed primitive `Int64List` batches are abruptly interrupted by dynamic `Map` payloads (like `usb_state: DISCONNECTED`). Asserts the `MidiService` demultiplexer effectively handles the interleaved types without crashing the main application.
 - **High-Frequency Sweep (State Stress Test):** Simulates a 10,000-event CC automation sweep ping-ponging rapidly through the mocked native pipeline. Asserts that the internal Riverpod batch updates accurately process the flood and definitively reflect the final target value in the state tree.
 - **UMP Payload Processing:** Validates that `Int64List` batches containing 32-bit UMP integers are correctly decoded into `MidiEvent` objects with proper bitwise extraction.
 
-### How to Run:
+### How to Run
 
 Navigate to the root flutter app directory and run:
 
@@ -174,14 +186,14 @@ flutter test test/midi_pipeline_integration_test.dart
 
 To run the complete test suite:
 
-### Dart Tests Only:
+### Dart Tests Only
 
 ```bash
 cd app
 flutter test
 ```
 
-### Kotlin Native Tests Only:
+### Kotlin Native Tests Only
 
 ```bash
 cd app/android
@@ -195,7 +207,7 @@ cd app/android
 .\gradlew.bat :app:testDebugUnitTest
 ```
 
-### Full Suite (Dart + Kotlin):
+### Full Suite (Dart + Kotlin)
 
 ```bash
 # Run Kotlin tests
@@ -211,7 +223,7 @@ flutter test
 
 ## 5. Test Writing Guidelines
 
-### Kotlin Native Tests (`app/android/app/src/test/kotlin/...`):
+### Kotlin Native Tests (`app/android/app/src/test/kotlin/...`)
 
 ```kotlin
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -255,7 +267,7 @@ fun `UMP reconstruction preserves MIDI channel`() = runTest {
 }
 ```
 
-### Dart Unit Tests (`app/test/`):
+### Dart Unit Tests (`app/test/`)
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -281,7 +293,7 @@ void main() {
 }
 ```
 
-### Widget Tests (`app/test/`):
+### Widget Tests (`app/test/`)
 
 ```dart
 import 'package:flutter/material.dart';
@@ -324,23 +336,23 @@ void main() {
 
 Automated fuzzing tests generate random UMP packets to validate reconstruction accuracy and measure latency distribution under stress conditions.
 
-### Scenarios Validated:
+### Scenarios Validated
 
 - **Random UMP Generation:** Generates 10,000 random valid UMP packets (all message types, groups, channels).
 - **Reconstruction Accuracy:** Validates 100% accurate reconstruction after byte[] → UMP conversion.
 - **Latency Distribution:** Measures p50, p95, p99 latency percentiles.
 - **Edge Cases:** Tests boundary conditions (min/max values, all groups 0-15, all channels 0-15).
 
-### Performance Targets:
+### Performance Targets
 
 | Metric | Target | Description |
-|--------|--------|-------------|
+| -------- | -------- | ------------- |
 | **p50 Latency** | <0.05ms | Median UMP reconstruction time |
 | **p95 Latency** | <0.1ms | 95th percentile latency |
 | **p99 Latency** | <0.2ms | Worst-case acceptable latency |
 | **GC Allocations** | <100KB/batch | Memory churn per batch |
 
-### Conceptual Implementation:
+### Conceptual Implementation
 
 ```kotlin
 @Test

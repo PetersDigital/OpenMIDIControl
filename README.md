@@ -33,7 +33,6 @@ This repository currently documents the new direction, design constraints, and i
 3. Use `flutter run -d <device>` to start the UI; the command center and fader layout automatically adapt to the screen width.
 4. Launch the settings or MIDI settings screens from the top-right icons or the connection status text (e.g. "AVAILABLE", "DISCONNECTED") to configure your MIDI ports.
 
-
 ## Project Direction
 
 - Android-first touch control for expressive MIDI performance
@@ -111,11 +110,12 @@ Full attributions: [CREDITS.md](CREDITS.md)
 
 This project is dual-licensed under:
 
-* GNU General Public License v3.0 (GPLv3)
-* Commercial License (LicenseRef-Commercial)
+- GNU General Public License v3.0 (GPLv3)
+- Commercial License (LicenseRef-Commercial)
 
 All source files include the SPDX identifier:
-```
+
+```text
 SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
@@ -136,7 +136,7 @@ For licensing inquiries, contact: [dencelbabu@gmail.com](mailto:dencelbabu@gmail
 
 ### License Header Enforcement
 
-License headers are automatically checked by CI. 
+License headers are automatically checked by CI.
 
 See [docs/LICENSING.md](docs/LICENSING.md) for details.
 
@@ -146,8 +146,7 @@ Prior to version 0.2.2, this project used a custom dual-license notice.
 
 As of version 0.2.2, the project has been formally licensed under:
 
-* GNU General Public License v3.0 (GPLv3)
-* Commercial License (LicenseRef-Commercial)
+- GNU General Public License v3.0 (GPLv3)
+- Commercial License (LicenseRef-Commercial)
 
 This change clarifies and standardizes the licensing terms. Contributors retain full copyright to their contributions and are credited in Git history. By contributing, you grant Peters Digital a broad license to use your work under both the GPLv3 and Commercial License terms, enabling the project's dual-licensing model.
-

@@ -10,6 +10,7 @@ The release process is implemented via:
 - `.github/workflows/cd_man_hotfix.yml`
 
 This repository now uses reusable action modules in `.github/actions`:
+
 - `release-tag-validation`: tag authentication and GitHub signature validation
 - `flutter-build-android`: Android release artifact build
 - `flutter-build-windows`: Windows release artifact build (optional)
@@ -50,9 +51,11 @@ This job enforces strict security controls:
 - Tag retargeting protection
 
 Related branch policy:
+
 - Pre-main promotion sync check (`beta`/`rc` must already be present in `dev` before merge to `main`)
 
 Output:
+
 - Resolved commit hash
 - Validated tag name
 - Windows build availability flag
@@ -70,11 +73,13 @@ Output:
 ### 3. Build
 
 #### Android
+
 - Builds release APK
 - Signs APK using Cosign (keyless, OIDC)
 - Verifies signature immediately
 
 #### Windows (optional)
+
 - Builds Windows executable
 - Packages into ZIP
 - Signs and verifies using Cosign
@@ -91,11 +96,13 @@ Artifacts are signed using Sigstore Cosign in keyless mode:
   - `.pem` (certificate)
 
 Verification ensures:
+
 - Signature validity
 - Identity bound to repository
 - Issuer is GitHub
 
 ### Hardening details in workflow
+
 - Post-sign step includes `cosign verify-blob` with:
   - `--certificate-identity-regexp "https://github.com/<owner>/<repo>"`
   - `--certificate-oidc-issuer https://token.actions.githubusercontent.com`
@@ -131,7 +138,7 @@ Verification ensures:
 ## Security Model Summary
 
 | Layer | Protection |
-|------|-----------|
+| ------ | ----------- |
 | Source | GPG signed tags |
 | Identity | Actor allowlist |
 | Integrity | Cosign signatures |

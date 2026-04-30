@@ -17,7 +17,7 @@ Development branch model:
 
 ## Directory Structure
 
-```
+```text
 .github/
 ├── dependabot.yml              # Automated dependency update configuration (actions, npm, pub)
 ├── actions/                    # 11 reusable composite actions
@@ -154,7 +154,7 @@ flowchart LR
 All workflows follow the **`type_trigger_tier.yml`** pattern:
 
 | Type | Description | Examples |
-|------|-------------|----------|
+| ------ | ------------- | ---------- |
 | `cd_auto` | Automated Continuous Deployment | `cd_auto_dev.yml`, `cd_auto_prod.yml` |
 | `cd_man` | Manual Continuous Deployment (requires approval) | `cd_man_prod.yml`, `cd_man_hotfix.yml` |
 | `ci_auto` | Automated Continuous Integration | `ci_auto_main.yml`, `ci_auto_feature.yml` |
@@ -164,9 +164,11 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ## Composite Actions (Reusable Building Blocks)
 
 ### 1. `flutter-ci-core`
+
 **Purpose:** Shared Flutter environment setup, static analysis, testing, Windows detection, and build metrics.
 
 **Inputs:**
+
 - `working-directory`: Path to Flutter project (default: `app`)
 - `flutter-version`: Flutter version to use (optional, defaults to latest on channel)
 - `telegram-token`: Telegram Bot Token (optional)
@@ -175,11 +177,13 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 - `skip-format-check`: Skip dart format check for legacy code (default: `false`)
 
 **Outputs:**
+
 - `has_windows`: Whether the windows folder exists
 - `job_status`: Status of the CI job (success/failure)
 - `job_started_at`: Timestamp when the job started
 
 **Steps:**
+
 1. Cache Pub dependencies (`~/.pub-cache`)
 2. Detect Windows platform support (`has_windows` output)
 3. Setup Flutter (stable channel, cache enabled)
@@ -195,13 +199,16 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 2. `cosign-sign-verify`
+
 **Purpose:** Keyless Cosign signing and verification for artifact authenticity.
 
 **Inputs:**
+
 - `artifact_path`: Path to artifact to sign
 - `repository`: GitHub repository slug (owner/repo)
 
 **Steps:**
+
 1. Sign artifact with Cosign (OIDC: `token.actions.githubusercontent.com`)
 2. Generate `.sig` and `.pem` files
 3. Verify signature with certificate identity regexp
@@ -211,12 +218,15 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 3. `provenance-attestation`
+
 **Purpose:** Generate SLSA provenance attestation for build artifacts using GitHub native attestation.
 
 **Inputs:**
+
 - `subject_path`: Glob or exact path for artifact subjects (e.g., `openmidicontrol-*-android.apk`)
 
 **Output:**
+
 - GitHub-native provenance attestation (SLSA Level 2-3)
 
 **Used by:** All CD workflows for supply chain security.
@@ -224,9 +234,11 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 4. `flutter-build-android`
+
 **Purpose:** Configure keystore (optional) and build Android APKs with optional ABI splitting.
 
 **Inputs:**
+
 - `working-directory`: Path to Flutter project (default: `app`)
 - `keystore-base64`: Base64-encoded Android keystore (optional — required for `release` builds only)
 - `key-password`, `key-alias`, `store-password`: Keystore credentials (optional — required for `release` builds only)
@@ -235,10 +247,12 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 - `artifact-name`: Custom APK name (optional)
 
 **Outputs:**
+
 - `apk-path`: Path to built APK
 - `apk-name`: APK filename
 
 **Steps:**
+
 1. Setup Java 17 (Temurin)
 2. Setup Gradle with cache cleanup
 3. Decode Base64 keystore to `upload-keystore.jks` (only if `keystore-base64` provided and `build-type` is `release`)
@@ -249,17 +263,21 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 5. `flutter-build-windows`
+
 **Purpose:** Build and ZIP Windows desktop application.
 
 **Inputs:**
+
 - `working-directory`: Path to Flutter project (default: `app`)
 - `artifact-name`: Custom ZIP name (optional)
 
 **Outputs:**
+
 - `zip-path`: Path to built ZIP
 - `zip-name`: ZIP filename
 
 **Steps:**
+
 1. Setup Flutter (stable, cache)
 2. Check for `windows/` directory
 3. Run `flutter build windows` (if directory exists)
@@ -269,13 +287,16 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 6. `download-and-prepare-artifacts`
+
 **Purpose:** Download build artifacts with pattern matching and merge support.
 
 **Inputs:**
+
 - `artifact-pattern`: Glob pattern (default: `*`)
 - `merge-multiple`: Merge into single directory (default: `true`)
 
 **Outputs:**
+
 - `artifacts-dir`: Directory containing downloaded artifacts
 
 **Used by:** Release publishing workflows to collect Android and Windows builds. Also downloads `release_notes.md` artifact for prerelease and stable publishing jobs.
@@ -283,9 +304,11 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 7. `generate-release-notes`
+
 **Purpose:** Parse CHANGELOG.md and generate release notes from conventional commits with full type detection.
 
 **Inputs:**
+
 - `tag`: Release tag (e.g., `v0.2.2` or `v0.2.2-beta.1`)
 - `changelog-path`: Path to CHANGELOG.md (default: `CHANGELOG.md`)
 - `include-metadata`: Include build metadata section (default: `true`)
@@ -295,9 +318,11 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 - `changelog-type`: `auto`, `full`, or `incremental` (default: `auto`)
 
 **Outputs:**
+
 - `notes-path`: Path to generated release notes file
 
 **Features:**
+
 - **Beta/RC/Hotfix Detection:** Automatically detects release type from tag pattern
 - **Path-Based Changelog Routing:** Commits touching only `.github/` are routed to "CI/CD Infrastructure" section. Commits touching only `scripts/` are routed to "Development Tools" section. All other commits use type-based routing (Added, Fixed, Changed, etc.). This keeps infrastructure changes from polluting the main app changelog.
 - **Conventional Commit Parsing:** Groups commits by type (Added, Fixed, Changed, etc.)
@@ -312,19 +337,23 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 7b. `generate-prerelease-tag`
+
 **Purpose:** Generate deterministic beta/RC tags from `pubspec.yaml` + `.version` with safe fallbacks.
 
 **Inputs:**
+
 - `prerelease-type`: `beta` or `rc` (required)
 - `pubspec-path`: Path to `pubspec.yaml` (default: `app/pubspec.yaml`)
 - `version-file`: Path to `.version` file (default: `.version`)
 
 **Outputs:**
+
 - `prerelease-tag`: Generated tag (e.g., `v0.2.2-rc.1`)
 - `from-ref`: Reference used for release notes diff
 - `base-version`: Resolved base version before prerelease suffix
 
 **Logic:**
+
 1. Reads version from `pubspec.yaml`
 2. If that version is already a stable git tag, falls back to `NEXT_PLANNED_VERSION` from `.version`
 3. Increments the prerelease counter (`beta.1`, `beta.2`, etc.)
@@ -335,9 +364,11 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 ---
 
 ### 8. `notify-telegram`
+
 **Purpose:** Send enterprise-grade, context-aware build status and release notifications to Telegram (text and optional artifact document).
 
 **Inputs:**
+
 - `telegram-token`: Telegram bot token (secret)
 - `telegram-chat-id`: Target chat ID (secret)
 - `notification-type`: `ci-failure`, `release`, `dev-build`, `beta-build`, `rc-build`, `build-skipped`, `hotfix-release`
@@ -367,6 +398,7 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 **Design Decision:** All notification types (dev, beta, RC, release, hotfix, CI failures) route through this composite action for consistent enterprise formatting, diagnostics, and delivery controls.
 
 **Features:**
+
 - HTML parse mode with user-input escaping (prevents injection)
 - Tiered layout (signal first, details later) with dynamic verbosity
 - Inline keyboard buttons for action links
@@ -385,7 +417,7 @@ All workflows follow the **`type_trigger_tier.yml`** pattern:
 The CI/CD pipeline sends the following Telegram messages across all workflows:
 
 | # | Type | Workflow | Format | Content |
-|---|------|----------|--------|---------|
+| --- | ------ | ---------- | -------- | --------- |
 | 1 | Dev Build | `cd_auto_dev.yml` | Enterprise message + artifact | Tiered message + action buttons + APK document |
 | 2 | Beta Build | `cd_auto_beta.yml` | Enterprise message | Tiered message + action buttons + release link |
 | 3 | RC Build | `cd_auto_rc.yml` | Enterprise message | Tiered message + action buttons + release link |
@@ -405,12 +437,14 @@ The CI/CD pipeline sends the following Telegram messages across all workflows:
 All notifications use a unified enterprise template with linked Repository, Branch/Tag, Commit, and Workflow URLs, plus consistent section labels and emoji markers.
 
 **Standardized Message Vocabulary:**
+
 - `🧭 Actions`
 - `🛠 Diagnostics`
 - `📊 Signals`
 - `🛡 Trust Signals`
 
 **Standardized Emoji Map:**
+
 - Status: `🟢` success, `🔴` failure, `🟡` warning/skipped
 - Ref/Environment: `🌿` ref, `🧩` dev, `🧪` staging, `🌍` production
 - Security/Artifacts: `🔐` signed build, `📜` provenance, `🧾` SBOM, `📦` artifact
@@ -420,7 +454,8 @@ All notifications use a unified enterprise template with linked Repository, Bran
 All 11+ Telegram message types have interactive HTML/CSS previews in `.github/notify-telegram-HTMLCSS-preview/`. These render pixel-accurate Telegram phone frame mockups for documentation and review purposes.
 
 **Directory Structure:**
-```
+
+```text
 .github/notify-telegram-HTMLCSS-preview/
 ├── telegram-preview.html          # Index page with links to all previews
 ├── telegram-styles.css            # Shared CSS for all preview pages
@@ -440,6 +475,7 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 **Usage:** Open `telegram-preview.html` in any modern browser. Each preview page includes a "← All Previews" back link and a source note showing which workflow file generates the message.
 
 **When to Update:**
+
 - After modifying Telegram message templates in any workflow or composite action
 - When adding new notification types
 - When changing message formatting (HTML tags, structure, or fields)
@@ -448,17 +484,21 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 ### 9. `prepare-release-assets`
+
 **Purpose:** Prepare the list of artifact files to be attached to a GitHub Release.
 
 **Inputs:**
+
 - `tag`: Release tag for artifact name prefix (required)
 - `has-windows`: Whether Windows artifacts exist (required)
 - `include-provenance`: Whether to include `.jsonl` provenance files (default: `true`)
 
 **Outputs:**
+
 - `files`: Newline-separated list of asset files to upload
 
 **Steps:**
+
 1. Scan for Android APK and signature files (`openmidicontrol-{tag}-android.{apk,sig,pem}`)
 2. Scan for Windows ZIP and signature files (if `has-windows` is `true`)
 3. Scan for provenance `.jsonl` files (if `include-provenance` is `true`)
@@ -470,9 +510,11 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 ### 10. `release-tag-validation`
+
 **Purpose:** Validate release tag security invariants before production deployment.
 
 **Inputs:**
+
 - `tag`: Tag to validate (if empty, detects from `github.ref_name`)
 - `allowed_actors`: Comma-separated allowlist of GitHub actors (empty means skip actor check)
 - `gpg_public_key`: GPG public key content to import and validate tag signature
@@ -481,12 +523,14 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 - `main_branch`: Main branch to check ancestry against (default: `main`)
 
 **Outputs:**
+
 - `tag`: Resolved tag name
 - `commit`: Tag commit hash
 - `on_main`: Is tag on main branch (always `true` if validation passes)
 - `has_windows`: Whether `app/windows` directory exists
 
 **Validations:**
+
 1. Actor validation (if `allowed_actors` provided)
 2. Annotated tag requirement (`git cat-file -t` must be `tag`)
 3. GPG signature verification with imported public key
@@ -504,10 +548,12 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ### Automated CD Pipelines (`cd_auto_*`)
 
 #### `cd_auto_dev.yml`
+
 **Trigger:** Push to `dev` branch
 **Concurrency:** `dev-{workflow}-{ref}` (cancel-in-progress: true)
 
 **Jobs:**
+
 1. `analyze-and-test` - Flutter CI core (analysis + tests) — **Always runs** on push (skips for Dependabot)
 2. `build-and-push-dev` - Build Android APK, normalize branch name, generate changelog from `git log`
 3. Notify Telegram via `notify-telegram` composite action (enterprise profile) for success/failure paths
@@ -521,10 +567,12 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `cd_auto_beta.yml`
+
 **Trigger:** Push to `beta` branch
 **Concurrency:** `beta-{workflow}-{ref}` (cancel-in-progress: true)
 
 **Jobs:**
+
 1. `analyze-and-test` - Flutter CI core — **Always runs** on push (skips for Dependabot)
 2. `build-beta` - Reads `pubspec.yaml` version; if not yet a stable GitHub release, uses it. Otherwise falls back to `NEXT_PLANNED_VERSION` from `.version`. Generates sequential beta tag, builds Android APK
 3. `build-windows` - Windows ZIP (if `windows/` directory exists) — conditional on `build-beta` success
@@ -546,12 +594,14 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `cd_auto_rc.yml`
+
 **Trigger:** Push to `rc` branch
 **Concurrency:** `rc-{workflow}-{ref}` (cancel-in-progress: true)
 
 `cd_auto_rc.yml` uses the same 7-stage prerelease pipeline as `cd_auto_beta.yml` and also fetches full git history and tags before prerelease tag generation.
 
 **RC-specific differences:**
+
 1. Uses `build-rc` and generates `v{version}-rc.N` tags (instead of beta tags)
 2. Sends `notification-type: rc-build` in `notify-telegram`
 
@@ -561,12 +611,14 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `cd_auto_prod.yml`
+
 **Trigger:** Push to `v[0-9]+.[0-9]+.[0-9]+` tags (SemVer tags)
 **Concurrency:** `release-{workflow}-{ref}` (cancel-in-progress: true)
 
 **Tag Visibility:** The production release workflow fetches full git history and tags before release notes generation and notification metadata collection.
 
 **Jobs:**
+
 1. `verify-tag-on-main` - Validates tag is annotated, GPG-signed, on main branch, not retargeted
 2. `analyze-and-test` - Flutter CI core (skips if tag not on main)
 3. `build-android` - Release APK with Cosign signing
@@ -583,12 +635,15 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ### Manual CD Pipelines (`cd_man_*`)
 
 #### `cd_man_prod.yml`
+
 **Trigger:** Manual dispatch (`workflow_dispatch`)
 **Inputs:**
+
 - `tag`: Tag to rebuild (e.g., `v1.0.2`)
 - `force`: Force overwrite existing release assets (boolean)
 
 **Jobs:**
+
 1. `validate-tag` - Validates tag format, GPG signature, main branch ancestry
 2. `analyze-and-test` - Restores modern CI actions from main, runs Flutter core
 3. `build-android` - Release APK with Cosign signing
@@ -602,10 +657,12 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `cd_man_hotfix.yml`
+
 **Trigger:** Push to `v*-patch.*` tags (e.g., `v0.2.2-patch.1`)
 **Category:** Auto-triggered CD (tag-based, not manual dispatch)
 
 **Jobs:**
+
 1. `verify-patch-tag` - Parses base version and patch number, determines if first patch
 2. `analyze-and-test` - Flutter CI core
 3. `build-hotfix` - Android APK (+ Windows if supported), Cosign signing
@@ -618,12 +675,15 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `cd_man_retro.yml`
+
 **Trigger:** Manual dispatch (`workflow_dispatch`)
 **Inputs:**
+
 - `tag`: Tag to rebuild (e.g., `v0.2.1`)
 - `force`: Force overwrite existing release assets (boolean)
 
 **Jobs:**
+
 1. `validate-tag` - Validates tag format, GPG signature, main branch ancestry
 2. `analyze-and-test` - Restores modern CI actions from main, runs Flutter core (with `skip-format-check: true`)
 3. `build-android` - Release APK with Cosign signing
@@ -639,10 +699,12 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ### Automated CI Pipelines (`ci_auto_*`)
 
 #### `ci_auto_main.yml`
+
 **Trigger:** Pull requests to `main` (promotion gate for `beta`/`rc`)
 **Path filters:** none (runs on all PRs to `main` so promotion guard is always enforced)
 
 **Jobs:**
+
 1. `pre-main-sync` - For PRs from `beta`/`rc` into `main`, verifies release branch head is already present in `origin/dev`
 
 **Purpose:** Enforce dev-first promotion integrity before stable merges into `main`
@@ -650,10 +712,12 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `ci_auto_feature.yml`
+
 **Trigger:** Push to all branches except `main`, `dev`, `beta`, `rc`, `dependabot/**`; plus PRs targeting `dev`
 **Path filters:** `app/**`, `.github/**`, `scripts/**`, `pubspec.yaml` (excludes `*.md`, `docs/**`, `.github/notify-telegram-HTMLCSS-preview/**`)
 
 **Jobs:**
+
 1. `analyze-and-test` - Flutter CI core (includes Dependabot PRs targeting `dev`)
 
 **Purpose:** Validate feature branches and Dependabot PRs before integration into `dev`
@@ -663,12 +727,15 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ### Validation Workflows (`validate_*`)
 
 #### `validate_auto_yaml.yml`
+
 **Trigger:** Push to `dev` and PRs targeting `dev`, `release/**`, `hotfix/**` when modifying `.github/**` (excluding `*.md` files and `.github/notify-telegram-HTMLCSS-preview/**`)
 **Jobs:**
+
 1. `yaml-lint` - YAML syntax validation using `.github/workflows/.yamllint` (ibiqlik/action-yamllint v3.4.0)
 2. `actionlint` - GitHub Actions workflow schema validation (rhysd/actionlint v1.7.12)
 
 **Configuration (`.github/workflows/.yamllint`):**
+
 - Document start markers required (`---`)
 - Line length: 150 (warning)
 - Trailing spaces: warning
@@ -679,12 +746,15 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `validate_auto_license.yml`
+
 **Trigger:** Push to `dev`; PRs targeting `dev`, `release/**`, or `hotfix/**`
 **Path filters:** `**` with exclusions for `**/*.md`, `docs/**`, `.github/notify-telegram-HTMLCSS-preview/**`
 **Jobs:**
+
 1. `license-check` - Run `scripts/check_license_headers.py`
 
 **Validation:**
+
 - Checks all Dart, Kotlin, PowerShell, YAML, Python, Shell files
 - Requires copyright notice + SPDX identifier
 - Exit code 1 on failure (CI gate)
@@ -693,12 +763,15 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ---
 
 #### `validate_pr_commitlint.yml`
+
 **Trigger:** PR to `dev`, `release/**`, `hotfix/**` (types: `opened`, `synchronize`, `reopened`, `ready_for_review`)
 **Concurrency:** `commitlint-{workflow}-{pr-number}` (cancel-in-progress: true)
 **Jobs:**
+
 1. `commitlint` - Validate all commits in PR using conventional commits (Node.js 20, `commitlint.config.js`)
 
 **Configuration:**
+
 - Skips draft PRs (`github.event.pull_request.draft == false`)
 - Skips Dependabot PRs
 - Validates from PR base SHA to head SHA
@@ -709,17 +782,21 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 ### Operational Workflows (`ops_*`)
 
 #### `ops_schedule_stale.yml`
+
 **Trigger:** Weekly cron (`0 0 * * 0`)  
 **Jobs:**
+
 1. `stale` - Mark and close inactive issues/PRs
 
 **Configuration:**
+
 - Stale threshold: 60 days
 - Close after: 14 days (grace period)
 - Exempt labels: `bug`, `security`
 - Pinned to `actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f` (v10.2.0)
 
 **Messages:**
+
 - Stale warning with closure timeline
 - Closure notification with reason
 
@@ -729,7 +806,7 @@ All 11+ Telegram message types have interactive HTML/CSS previews in `.github/no
 
 The `.version` file (project root) is the **single source of truth** for beta and RC workflows. It contains:
 
-```
+```text
 CURRENT_STABLE_RELEASE_VERSION=0.2.1
 NEXT_PLANNED_VERSION=0.2.2
 ```
@@ -737,7 +814,7 @@ NEXT_PLANNED_VERSION=0.2.2
 ### Fields
 
 | Field | Purpose | Used By |
-|-------|---------|---------|
+| ------- | --------- | --------- |
 | `CURRENT_STABLE_RELEASE_VERSION` | Latest stable release available to users | Baseline `from-ref` for release notes diffs and compare context |
 | `NEXT_PLANNED_VERSION` | Version currently being developed | Fallback tag generation when `pubspec.yaml` version is already stable |
 
@@ -762,7 +839,7 @@ NEXT_PLANNED_VERSION=0.2.2
 
 ### Versioning Example: Moving to v0.3.0
 
-```
+```text
 # Before starting v0.3.0 development:
 CURRENT_STABLE_RELEASE_VERSION=0.2.1
 NEXT_PLANNED_VERSION=0.2.2
@@ -782,18 +859,21 @@ Push to `rc` → creates `v0.3.0-rc.1`
 **File:** `.github/dependabot.yml`
 
 ### GitHub Actions
+
 - **Schedule:** Weekly (Sunday 04:00 Asia/Kolkata)
 - **Target branch:** `dev`
 - **Commit prefix:** `ci(actions)`
 - **Grouping:** `security-updates` (`applies-to: security-updates`), `actions-minor-patch` (minor/patch), `actions-major` (major)
 
 ### NPM
+
 - **Schedule:** Weekly (Sunday 04:00 Asia/Kolkata)
 - **Target branch:** `dev`
 - **Commit prefix:** `chore(npm)`
 - **Grouping:** `security-updates` (`applies-to: security-updates`)
 
 ### Flutter/Pub
+
 - **Schedule:** Weekly (Sunday 04:00 Asia/Kolkata)
 - **Directory:** `app/`
 - **Target branch:** `dev`
@@ -835,13 +915,16 @@ rules:
 ## Security Model
 
 ### Supply Chain Security
+
 1. **Pinned Actions:** All third-party actions pinned to commit SHAs (not tags)
 2. **Cosign Signing:** Keyless OIDC signing with GitHub OIDC issuer
 3. **SLSA Provenance:** Native GitHub attestation for production builds
 4. **GPG Verification:** Optional tag signature verification in `release-tag-validation`
 
 ### Secret Management
+
 **Required Repository Secrets:**
+
 - `TELEGRAM_TOKEN` - Bot token for notifications
 - `TELEGRAM_CHAT_ID` - Target chat for messages
 - `KEYSTORE_BASE64` - Base64-encoded Android signing keystore
@@ -850,24 +933,30 @@ rules:
 - `STORE_PASSWORD` - Keystore store password
 
 **Optional Secrets:**
+
 - `GPG_PUBLIC_KEY` - For release tag verification
 - `EXPECTED_GPG_FINGERPRINT` - Expected GPG key fingerprint
 - `ALLOWED_RELEASE_ACTORS` - Comma-separated list of users who can trigger releases
 
 ### OIDC-First Integrations
+
 When integrating external services (artifact storage, registries, cloud signing, deployment APIs), prefer GitHub OIDC federation over static long-lived credentials.
 
 Current OIDC usage in this repository:
+
 - Keyless Cosign signing via `token.actions.githubusercontent.com`
 - Provenance/attestation jobs with explicit `id-token: write`
 
 Policy for new integrations:
+
 - Use OIDC trust relationships wherever supported
 - Do not add static cloud access keys when OIDC is available
 - Keep `id-token: write` scoped only to jobs that actually request federation tokens
 
 ### Permissions
+
 All workflows use **least-privilege permissions**:
+
 - Workflow baseline: `contents: read`
 - Every job defines explicit `permissions:` at job level
 - Release publishing jobs elevate to `contents: write` only where release/tag mutation is required
