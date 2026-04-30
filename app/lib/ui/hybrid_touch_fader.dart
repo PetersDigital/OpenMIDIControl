@@ -115,7 +115,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
     setState(() {
-      _isDragging = false; // Will become true once we actually start dragging
+      _isDragging =
+          true; // Lock immediately to prevent host "yanking" the fader
     });
 
     if (widget.behavior == FaderBehavior.catchUp) {
