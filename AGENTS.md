@@ -89,9 +89,12 @@ flutter test
 ## Code Style
 
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
-- **Native UMP (v0.2.2+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). Due to SDK constraints, client ports use legacy classes but are opened with `TRANSPORT_UNIVERSAL_MIDI_PACKETS`.
+- **Native UMP (v0.3.0+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). To ensure absolute compatibility, Android builds must explicitly hardcode `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` directly in `app/android/app/build.gradle.kts`, overriding and ignoring `flutter.minSdkVersion` variables.
   - Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
+  - Builds must use Java 21 (`sourceCompatibility = JavaVersion.VERSION_21`, `compileSdk = 36`).
+- **DAG Routing:** The core routing engine is a Directed Acyclic Graph (`MidiRouter`). Never use deep recursion for event traversal; strictly use pre-allocated work queues (`Queue<WorkItem>`) and object pooling to maintain determinism and reduce allocation churn.
 - **Monotonic Clocks for Timing:** Use `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for all MIDI throttling and rate-limiting logic. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle guarantees.
+- **Primitive Packing & Thermal Stability:** Do not use `Pair` or objects to bundle UMP payloads and timestamps. Pack them into `Long` primitives to prevent garbage collection spikes (`~2MB/sec` allocation reduction) that cause thermal churn.
 - **Lazy-Init State Updates:** When batching multiple state changes (e.g., `updateMultipleCCs`), use lazy `Map` initialization with single-pass iteration — only allocate new state when the first actual change is detected. Avoid double-pass patterns (check-then-copy).
 - **Disposal Guards:** Notifiers using `scheduleFrameCallback` or similar async callbacks must check a `_disposed` flag before writing state. Always reset pending flags in `onDispose` to prevent stale state on re-mount.
 - **Versioning:** SemVer (`MAJOR.MINOR.PATCH`). See `.version` file for CD workflow tracking.

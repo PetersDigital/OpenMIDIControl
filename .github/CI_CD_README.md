@@ -837,20 +837,20 @@ NEXT_PLANNED_VERSION=0.2.2
 
 **What version to use next?** Refer to [IMPLEMENTATION.md](../IMPLEMENTATION.md) for the planned future versions and their scope. Each milestone (v0.2.3, v0.3.0, v0.4.x, etc.) has a defined scope so you know which version number to set when starting new work.
 
-### Versioning Example: Moving to v0.3.0
+### Versioning Example: Moving to v0.4.0
 
 ```text
-# Before starting v0.3.0 development:
-CURRENT_STABLE_RELEASE_VERSION=0.2.1
-NEXT_PLANNED_VERSION=0.2.2
-
-# After v0.2.2 stable release, preparing v0.3.0:
+# Before starting v0.4.0 development:
 CURRENT_STABLE_RELEASE_VERSION=0.2.2
 NEXT_PLANNED_VERSION=0.3.0
+
+# After v0.3.0 stable release, preparing v0.4.0:
+CURRENT_STABLE_RELEASE_VERSION=0.3.0
+NEXT_PLANNED_VERSION=0.4.0
 ```
 
-Push to `beta` → creates `v0.3.0-beta.1`  
-Push to `rc` → creates `v0.3.0-rc.1`
+Push to `beta` → creates `v0.4.0-beta.1`
+Push to `rc` → creates `v0.4.0-rc.1`
 
 ---
 
@@ -1007,6 +1007,10 @@ All workflows use **least-privilege permissions**:
 **Symptom:** Android build fails with keystore error  
 **Cause:** Missing or invalid GitHub secrets  
 **Fix:** Verify `KEYSTORE_BASE64`, `KEY_PASSWORD`, `KEY_ALIAS`, `STORE_PASSWORD` in repository settings
+
+**Symptom:** Android build fails indicating missing API or compilation errors
+**Cause:** Build environment mismatch
+**Fix:** Ensure the workflow uses Java 21 and the builder respects `compileSdk = 36` to support the UMP 32-bit architecture.
 
 **Symptom:** Telegram notification not sent  
 **Cause:** Invalid bot token or chat ID  

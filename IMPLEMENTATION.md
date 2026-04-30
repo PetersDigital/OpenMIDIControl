@@ -52,28 +52,25 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Thermal Stabilization**: Fixed stream leaks, infinite update loops, MIDI flooding, and monotonic clock throttling. Optimized Riverpod batching and diagnostics disposal.
 - **Automated Test Suite**: 10+ test files covering native UMP parsing, Dart layer integration, widget tests, and stress testing.
 
-### ✅ v0.2.3 – Core Routing Engine & Thermal Hardening
+### ✅ v0.2.3 – Core Routing Engine Phase 1 & Hardening
 
 - **MidiRouter Graph**: Centralized DAG for N-to-N routing with reachability-based cycle prevention (`_canReach`), queue-based traversal, and object pooling.
-- **Transformer Nodes**: Implemented abstract base class and concrete nodes (Filter, Remap) with exception-safe processing and batch reuse.
 - **Extreme Thermal Optimization**:
   - **Primitive Packing**: Eliminated `Pair` boxing by packing UMP and timestamps into `Long` primitives.
   - **Buffer Re-use**: Reimplemented `MidiParser` and JNI bridge to reuse buffers and coroutines, reducing allocation churn by ~2MB/sec.
-  - **Packed Transport**: Implemented `Int64List` packed transport for MIDI CC batches over platform channels.
-- **UI & Connectivity Polish**: Two-stage USB status (Ready/Connected), unique status color tokens, and manufacturer-agnostic peripheral logic.
 - **Architecture & Thermal Reliability**:
-  - **MidiSystemManager**: Persistent singleton for lifecycle decoupling.
   - **Thermal Priority**: `appCategory="game"` for OS-level scheduler prioritization.
   - **State Reliability**: CC state replay, lazy-init map allocations, and fixed UMP word alignment for multi-word packets.
-  - **Packed Transport**: Formalized 32-bit millisecond-packed timestamps for ~49-day wrap-around.
 
-### ⏳ Current Focus: v0.3.0 – Control Expansion & Basic State
+### ✅ v0.3.0: Core Routing Engine, UMP, & Snapshot Expansion
 
-- **Grid & Tactile Inputs**: 3x3 pads, buttons, and switches with low-latency velocity simulation.
-- **Multi-Channel Support**: Assignable UI controls for independent MIDI channels.
-- **Raw Snapshots**: Basic save/load functionality via the `ControlState` model.
+- **DAG Routing Ecosystem**: Full integration of transformer nodes (`SplitNode`, `RemapNode`, `FilterNode`) allowing modular N-to-N manipulations inside the `MidiRouter`.
+- **Universal MIDI Packets (UMP) Migration**: Finalized transition to 32-bit `MidiEvent` architecture internally to secure MIDI 2.0 readiness.
+- **Android UMP Requirement**: Rigidly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` to strictly utilize Android 13's UMP-native capabilities.
+- **Snapshot & Preset Manager**: Integrated a robust architecture capable of dynamic state loading, saving complex multi-fader layouts and configurations.
+- **Grid & Tactile Inputs**: 3x3 pads and extended UI elements adapted to the new architecture.
 
-### ⏳ v0.4.x – The MCU / HUI Protocol Series
+### ⏳ Current Focus: v0.4.x – The MCU / HUI Protocol Series
 
 - **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
 - **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.

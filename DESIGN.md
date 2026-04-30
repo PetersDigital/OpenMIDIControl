@@ -108,6 +108,8 @@ To prevent accidental simultaneous activation in high-stakes environments:
 
 Treat the command center as the "instrument cluster" for the console: 30% of the portrait canvas and 40% of the landscape canvas are reserved for it so the status row, timecode, and nav grid never compete with the faders.
 
+* **Snapshot / Preset Panel:** Accessible from the settings drawer. Provides the UI state for managing deeply configurable presets that drive the underlying `MidiRouter`. Presets recall layout and routing configurations dynamically.
+
 * **Status Banners:**
   * `usbReady`: Amber border/title. "USB PERIPHERAL READY". (Peripheral mode active, waiting for traffic).
   * `usbConnected`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB HOST CONNECTED". (DAW traffic detected).

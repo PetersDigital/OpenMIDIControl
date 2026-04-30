@@ -21,12 +21,13 @@ OpenMIDIControl is a touch-first MIDI control surface with strict goals:
 
 ## 2.1 Platform & Runtime
 
-- Android 10+ (API 29+) (expanding to iOS/iPadOS/Windows touch displays).
+- Android 13+ (API 33+) enforced for native MIDI 2.0 Universal MIDI Packets (UMP) compatibility (expanding to iOS/iPadOS/Windows touch displays).
 - Flutter UI (Dart) relying on `LayoutBuilder` for responsive adaptation.
 - "Absolute/Relative" hybrid touch faders to capture interactions without jarring volume changes.
 - Internal state management strictly emitting "Intent" events to remain transport-agnostic.
-- **Transport Role Pivot:** v0.2.0 shifts the app from a simple "MIDI Host" (controlling hardware) to a **"USB MIDI Peripheral"** (acting as a standard MIDI device for PCs). This pivot requires a native `MidiDeviceService` implementation to ensure driverless Windows 11 compatibility.
+- **Transport Role Pivot:** shifts the app from a simple "MIDI Host" (controlling hardware) to a **"USB MIDI Peripheral"** (acting as a standard MIDI device for PCs). This pivot utilizes a native `MidiDeviceService` implementation to ensure driverless Windows 11 compatibility.
 - Phone UI is portrait-first for expressive fader controls; tablet landscape remains the preferred mode for grid-style pads and extended control surfaces.
+- **Snapshots & Layouts:** Dedicated data models (`PresetSnapshot`, `LayoutModels`) save and reload full visual and functional constraints seamlessly.
 
 ## 3. System Model
 
@@ -38,19 +39,19 @@ Initial target is wired MIDI with three logical layers:
 
 Each layer can reject duplicate or unsafe events independently. In v0.2.0+, the Transport layer is optimized for **USB Class Compliance**, ensuring that the phone appears as a high-precision controller to the desktop OS.
 
-## 3.1 Future Evolution (The Master Plan)
+## 3.1 Evolution (The Master Plan)
 
-The post-v0.2.0 trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
+The trajectory prioritizes architectural purity and deterministic routing before further UI expansion:
 
-- **Canonical Data Model (v0.2.1):** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
-- **API 33+ Baseline (Post-v0.2.1):** Enforced `minSdkVersion = 33` to provide a native foundation for MIDI 2.0 and Universal MIDI Packets (UMP).
-- **Native UMP Backend Migration (v0.2.2):** Implementing the core UMP transport layer. The native code inherits from `MidiDeviceService` (API 33+) with UMP transport enforced via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag. It uses legacy `MidiDevice` and `MidiPort` classes for client connections to satisfy Android SDK visibility constraints, with manual 32-bit packet reconstruction from `byte[]` buffers.
-- **MidiRouter Graph (v0.2.3):** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping.
-- **Performance & Thermal Hardening (v0.2.3):** Eliminating object allocation churn in the MIDI hot-path through primitive packing, buffer reuse, and coalesced state updates.
-- **Native Loop Prevention (v0.2.3):** Implemented explicit `UsbMode` tracking in the native layer to disable `VirtualMidiService` dispatch when in Peripheral mode, eliminating internal feedback loops.
-- **Service Decoupling (v0.2.3):** Refactored native logic into a persistent `MidiSystemManager` singleton to decouple MIDI lifecycle from `MainActivity`. This ensures that `PeripheralMidiService` remains active during background transitions and focus changes.
-- **Unique Status Identity (v0.2.3):** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity.
-- **Thermal Priority Flags (v0.2.3):** Integrated `android:appCategory="audio"` and `android:isGame="false"` flags in `AndroidManifest.xml` to grant the application higher priority in the Android OS scheduler and thermal management system.
+- **Canonical Data Model:** Established a unified **32-bit UMP-ready** payload as the internal source of truth. Formalized the separation between `MidiEvent` (transport) and `ControlState` (UI-facing logic), enforced through strict Map immutability and centralized stream parsing.
+- **API 33+ Baseline:** Enforced `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` to explicitly require native Android UMP.
+- **Native UMP Backend Migration:** Implementing the core UMP transport layer. The native code inherits from `MidiDeviceService` (API 33+) with UMP transport enforced via the `TRANSPORT_UNIVERSAL_MIDI_PACKETS` flag. It uses legacy `MidiDevice` and `MidiPort` classes for client connections to satisfy Android SDK visibility constraints, with manual 32-bit packet reconstruction from `byte[]` buffers.
+- **MidiRouter Graph:** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping (`SplitNode`, `RemapNode`, `FilterNode`, `SinkNode`).
+- **Performance & Thermal Hardening:** Eliminating object allocation churn in the MIDI hot-path through primitive packing, buffer reuse (~2MB/sec allocation reduction), and coalesced state updates.
+- **Native Loop Prevention:** Implemented explicit `UsbMode` tracking in the native layer to disable `VirtualMidiService` dispatch when in Peripheral mode, eliminating internal feedback loops.
+- **Service Decoupling:** Refactored native logic into a persistent `MidiSystemManager` singleton to decouple MIDI lifecycle from `MainActivity`. This ensures that `PeripheralMidiService` remains active during background transitions and focus changes.
+- **Unique Status Identity:** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity.
+- **Snapshot Manager:** Integrated an architecture capable of saving/loading complex multi-fader layouts and settings securely.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
 
@@ -130,13 +131,13 @@ To future-proof the system, OpenMIDIControl adopts a **UMP Core Architecture**:
 - **MidiRouter Graph:** The routing engine only handles UMP payloads, ensuring it can process high-resolution (32-bit) data natively without architectural changes.
 - **Output Negotiation:** The app uses MIDI-CI (Capability Inquiry) to negotiate with the DAW. If MIDI 2.0 is supported, UMP is sent directly; otherwise, the packet is down-translated to legacy MIDI 1.0 bytes.
 
-## 4.2 MidiRouter Graph (v0.2.3)
+## 4.2 MidiRouter Graph
 
 The MidiRouter is a centralized **Directed Acyclic Graph (DAG)** for deterministic N-to-N message routing and transformation:
 
 **Core Components:**
 
-- **Nodes:** `TransformerNode` implementations that process batches of `MidiEvent` payloads. Each node applies a specific transformation (filtering, remapping, splitting streams).
+- **Nodes:** `TransformerNode` implementations that process batches of `MidiEvent` payloads. Each node applies a specific transformation (`FilterNode`, `RemapNode`, `SplitNode`, `UiStateSinkNode`, `NativeTransportSinkNode`).
 - **Edges:** Directed connections between nodes, validated to prevent cycles (enforced at add-time in `addEdge` via `_canReach()`/`_dfsReach()`).
 - **Queue-Based Traversal:** Uses a pre-allocated work queue to avoid deep recursion and maintain consistent processing order.
 - **Object Pooling:** Work items are recycled from a pool to reduce garbage collection pressure during high-frequency routing cycles.

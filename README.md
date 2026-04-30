@@ -12,12 +12,12 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.3** (Current) Core Routing Engine (DAG-based `MidiRouter`) and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
+- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), Snapshot/Preset Management, and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
 - **v0.2.2** (Previous) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
 - **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
-- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.3 implementation.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.3.0 implementation.
 
 ## Current UI & Controls
 
@@ -25,6 +25,7 @@ This repository currently documents the new direction, design constraints, and i
 - **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
 - **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle. The MIDI settings view allows discrete port selection with active-port highlighting (Blue/Green) and automatic persistence.
 - **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the [DESIGN.md](DESIGN.md) system.
+- **Snapshots & Presets:** Save and recall complex UI layouts and control states directly from the settings drawer, backed by the DAG-based routing engine.
 
 ## Getting Started
 
@@ -42,10 +43,10 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Platform & Stack (baseline)
 
-- Android 10+ (API 29+), scaling to tablets (iPadOS/Android) and Windows touch displays
+- Android 13+ (API 33+), scaling to tablets (iPadOS/Android) and Windows touch displays (enforced for UMP support)
 - Flutter UI (Dart) for high-performance, cross-platform Material 3 rendering
 - Core app is isolated in a subdirectory (e.g., `app/`) to maintain modularity for future host adapters and desktop bridges
-- Target transport: wired USB-MIDI (v0.1.0 to v0.3.0); WebSockets/OSC (v0.4.0+) for advanced macro integration
+- Target transport: Universal MIDI Packets (UMP), wired USB-MIDI (v0.1.0 to v0.3.0); WebSockets/OSC (v0.4.0+) for advanced macro integration
 - Build variants: debug (verbose logging, test harness) and release (reduced logging)
 
 ## Project Goals
@@ -68,6 +69,8 @@ This repository currently documents the new direction, design constraints, and i
 - **Virtual MIDI Port**: Exposes the app as a native MIDI source/sink for other mobile DAWs.
 - **Metadata Persistence**: Uses device name and manufacturer fingerprints to maintain connections across USB hot-plugs.
 - Rate limiting/coalescing to protect battery and thermal stability
+- **DAG Routing:** Advanced node-based graph processing (`MidiRouter`) allowing modular splitting, remapping, filtering, and state syncing.
+- **Universal MIDI Packets (UMP):** Fully migrated to a 32-bit `MidiEvent` architecture ensuring forward compatibility with MIDI 2.0 standards.
 
 ## Version Roadmap
 

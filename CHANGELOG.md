@@ -6,7 +6,21 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...HEAD)
+
+## [0.3.0] - 2026-05-01
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...v0.3.0)
+
+### Added
+
+- **Snapshot & Preset Architecture:** Introduced `SnapshotManager` allowing complex UI states and active controls to be saved and recalled dynamically.
+- **Universal MIDI Packets (UMP) Migration:** Fully integrated a 32-bit `MidiEvent` paradigm enforcing forward compatibility with MIDI 2.0 standards across the application stack.
+- **Android Native UMP SDK Enforcement:** explicitly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` in `app/android/app/build.gradle.kts` to strictly support native UMP.
+
+### Changed
+
+- **Docs Consolidation:** Updated architectural and design documentation across the repository to formally reflect the v0.3.0 `MidiRouter` (DAG), thermal hardening optimizations, and UMP shift.
 
 ## [0.2.3] - 2026-04-24
 
@@ -270,7 +284,9 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...v0.3.0
+[0.2.3]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.1.5...v0.2.0
