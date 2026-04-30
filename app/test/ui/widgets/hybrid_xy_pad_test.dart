@@ -33,6 +33,12 @@ class FakeMidiService implements MidiService {
   }
 
   @override
+  Stream<Map<String, dynamic>> get uiStateUpdates => const Stream.empty();
+
+  @override
+  Map<String, dynamic> get currentState => {};
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
