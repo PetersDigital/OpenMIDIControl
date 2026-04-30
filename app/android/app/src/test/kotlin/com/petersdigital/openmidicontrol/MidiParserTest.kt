@@ -114,11 +114,13 @@ class MidiParserTest {
     @Test
     fun testBidirectionalEchoSuppression() = runBlocking {
         val sink = TestIncomingEventsSink()
-        // UMP CC
+        // UMP CC (MT=2, Group=0, Status=0xB0, CC=10, Val=127)
         val payload = byteArrayOf(0x20.toByte(), 0xB0.toByte(), 0x0A.toByte(), 0x7F.toByte())
 
-        // Simulate sent value at time 1000
-        val lastSentTime = LongArray(128).apply { this[0x0A] = 1000L }
+        // Index for Status 0xB0, CC 0x0A: (((0xB0 ushr 4) - 8) shl 11) or ((0xB0 and 0x0F) shl 7) or 0x0A
+        // = (3 << 11) | 0 | 10 = 6144 + 10 = 6154
+        val index = 6154
+        val lastSentTime = LongArray(16384).apply { this[index] = 1000L }
         val suppressionWindowNs = 500L
 
         // Attempt to receive Virtual MIDI at time 1200 (within suppression window 1000 + 500 = 1500)
