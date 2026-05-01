@@ -444,11 +444,12 @@ class MidiService {
     }
 
     int ump =
-        (0x2 << 28) |
-        (0x0 << 24) |
-        ((0xB0 | channel) << 16) |
-        ((cc & 0xFF) << 8) |
-        (value & 0xFF);
+        ((0x2 << 28) |
+            (0x0 << 24) |
+            (((0xB0 | (channel & 0x0F)) & 0xFF) << 16) |
+            ((cc & 0xFF) << 8) |
+            (value & 0xFF)) &
+        0xFFFFFFFF;
     final event = MidiEvent(
       ump,
       _stopwatch.elapsedMilliseconds,
@@ -477,11 +478,12 @@ class MidiService {
     }
 
     int ump =
-        (0x2 << 28) |
-        (0x0 << 24) |
-        ((0x90 | channel) << 16) |
-        ((note & 0xFF) << 8) |
-        (velocity & 0xFF);
+        ((0x2 << 28) |
+            (0x0 << 24) |
+            (((0x90 | (channel & 0x0F)) & 0xFF) << 16) |
+            ((note & 0xFF) << 8) |
+            (velocity & 0xFF)) &
+        0xFFFFFFFF;
     final event = MidiEvent(
       ump,
       _stopwatch.elapsedMilliseconds,
@@ -504,11 +506,12 @@ class MidiService {
 
     // Note off uses 0x80 status, velocity 0
     int ump =
-        (0x2 << 28) |
-        (0x0 << 24) |
-        ((0x80 | channel) << 16) |
-        ((note & 0xFF) << 8) |
-        0x00;
+        ((0x2 << 28) |
+            (0x0 << 24) |
+            (((0x80 | (channel & 0x0F)) & 0xFF) << 16) |
+            ((note & 0xFF) << 8) |
+            0x00) &
+        0xFFFFFFFF;
     final event = MidiEvent(
       ump,
       _stopwatch.elapsedMilliseconds,
