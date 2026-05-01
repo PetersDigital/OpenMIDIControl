@@ -28,7 +28,7 @@ class MidiRouter {
   final Map<String, List<String>> _edges = {};
 
   // Pre-allocated queue and object pool to reduce GC pressure during high-frequency routing
-  static const int _MAX_POOL_SIZE = 256;
+  static const int _maxPoolSize = 256;
   final Queue<_WorkItem> _processQueue = Queue<_WorkItem>();
   final List<_WorkItem> _workItemPool = [];
 
@@ -53,7 +53,7 @@ class MidiRouter {
 
   void _releaseWorkItem(_WorkItem item) {
     item.events = const []; // Clear references
-    if (_workItemPool.length < _MAX_POOL_SIZE) {
+    if (_workItemPool.length < _maxPoolSize) {
       _workItemPool.add(item);
     }
   }
@@ -69,7 +69,7 @@ class MidiRouter {
   }
 
   void _releaseWorkItemSingle(_WorkItemSingle item) {
-    if (_workItemSinglePool.length < _MAX_POOL_SIZE) {
+    if (_workItemSinglePool.length < _maxPoolSize) {
       _workItemSinglePool.add(item);
     }
   }
