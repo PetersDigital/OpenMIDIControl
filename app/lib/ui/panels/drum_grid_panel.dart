@@ -28,18 +28,25 @@ class DrumGridPanel extends ConsumerWidget {
         const double mainAxisSpacing = 2.0;
         const double crossAxisSpacing = 2.0;
 
-        final double availableWidth = constraints.maxWidth - crossAxisSpacing;
+        final double availableWidth = (constraints.maxWidth - crossAxisSpacing)
+            .clamp(1.0, double.infinity);
         final double padWidth = availableWidth / crossAxisCount;
 
         final double totalMainAxisSpacing = rows > 1
             ? (rows - 1) * mainAxisSpacing
             : 0.0;
         final double availableHeight =
-            constraints.maxHeight - totalMainAxisSpacing;
+            (constraints.maxHeight - totalMainAxisSpacing).clamp(
+              1.0,
+              double.infinity,
+            );
         final double padHeight = rows > 0 ? availableHeight / rows : 1.0;
 
-        final double safePadHeight = padHeight > 0 ? padHeight : 1.0;
-        final double aspectRatio = padWidth / safePadHeight;
+        final double safePadHeight = padHeight.clamp(1.0, double.infinity);
+        final double aspectRatio = (padWidth / safePadHeight).clamp(
+          0.01,
+          double.infinity,
+        );
 
         return Stack(
           children: [
