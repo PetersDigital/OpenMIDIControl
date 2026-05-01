@@ -118,7 +118,7 @@ class _TriggerState extends ConsumerState<Trigger>
             borderRadius: BorderRadius.zero,
             border: Border.all(
               color: _isPressed ? widget.activeColor : const Color(0xFF111318),
-              width: 2.0,
+              width: 1.0,
             ),
           ),
           child: Stack(
@@ -347,7 +347,7 @@ class _ToggleState extends ConsumerState<Toggle>
             borderRadius: BorderRadius.zero,
             border: Border.all(
               color: _isActive ? widget.activeColor : const Color(0xFF111318),
-              width: 2.0,
+              width: 1.0,
             ),
           ),
           child: Stack(
