@@ -28,20 +28,27 @@ class UtilityGridPanel extends ConsumerWidget {
       builder: (context, constraints) {
         const int crossAxisCount = 2;
         final int rows = (controlCount / crossAxisCount).ceil();
-        const double mainAxisSpacing = 2.0;
-        const double crossAxisSpacing = 2.0;
+        const double mainAxisSpacing = 0.0;
+        const double crossAxisSpacing = 0.0;
 
-        final double availableWidth = constraints.maxWidth - crossAxisSpacing;
+        final double availableWidth = (constraints.maxWidth - crossAxisSpacing)
+            .clamp(1.0, double.infinity);
         final double itemWidth = availableWidth / crossAxisCount;
 
         final double totalMainAxisSpacing = rows > 1
             ? (rows - 1) * mainAxisSpacing
             : 0.0;
         final double availableHeight =
-            constraints.maxHeight - totalMainAxisSpacing;
+            (constraints.maxHeight - totalMainAxisSpacing).clamp(
+              1.0,
+              double.infinity,
+            );
         final double itemHeight = rows > 0 ? availableHeight / rows : 1.0;
-        final double safeItemHeight = itemHeight > 0 ? itemHeight : 1.0;
-        final double aspectRatio = itemWidth / safeItemHeight;
+        final double safeItemHeight = itemHeight.clamp(1.0, double.infinity);
+        final double aspectRatio = (itemWidth / safeItemHeight).clamp(
+          0.01,
+          double.infinity,
+        );
 
         return Stack(
           children: [
@@ -51,8 +58,8 @@ class UtilityGridPanel extends ConsumerWidget {
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
                 childAspectRatio: aspectRatio,
-                crossAxisSpacing: crossAxisSpacing,
-                mainAxisSpacing: mainAxisSpacing,
+                crossAxisSpacing: 0.0,
+                mainAxisSpacing: 0.0,
               ),
               itemCount: controlCount,
               itemBuilder: (context, index) {
@@ -65,22 +72,28 @@ class UtilityGridPanel extends ConsumerWidget {
 
                 switch (control.type) {
                   case ControlType.encoder:
-                    return Opacity(
-                      opacity: isUnassigned ? 0.3 : 1.0,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Knob area fills all available height;
-                          // CC label overlays the top-left without consuming height
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                // Knob — fills the expanded area
-                                Center(
-                                  child: AspectRatio(
-                                    aspectRatio: 1,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.zero,
+                        border: Border.all(
+                          color: const Color(0xFF111318).withValues(alpha: 0.5),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Opacity(
+                        opacity: isUnassigned ? 0.3 : 1.0,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Knob area fills all available height;
+                            // CC label overlays the top-left without consuming height
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  // Knob — fills the expanded area
+                                  Center(
+                                    child: AspectRatio(
+                                      aspectRatio: 1,
                                       child: EndlessEncoderWidget(
                                         key: ValueKey('encoder_$index'),
                                         channel: channel,
@@ -89,33 +102,77 @@ class UtilityGridPanel extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                ),
-                                // CC number — overlaid top-left, ONLY this triggers config
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  child: ConfigGestureWrapper(
-                                    key: ValueKey(
-                                      'config_wrapper_encoder_${control.id}',
-                                    ),
-                                    id: 'encoder_${control.id}',
-                                    onConfigRequested: isLocked
-                                        ? null
-                                        : () => showUtilityConfigModal(
-                                            context,
-                                            ref,
-                                            control.id,
-                                          ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 4,
-                                        left: 6,
-                                        right: 16,
-                                        bottom: 8,
+                                  // CC number — overlaid top-left, ONLY this triggers config
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    child: ConfigGestureWrapper(
+                                      key: ValueKey(
+                                        'config_wrapper_encoder_${control.id}',
                                       ),
+                                      id: 'encoder_${control.id}',
+                                      onConfigRequested: isLocked
+                                          ? null
+                                          : () => showUtilityConfigModal(
+                                              context,
+                                              ref,
+                                              control.id,
+                                            ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 4,
+                                          left: 6,
+                                          right: 16,
+                                          bottom: 8,
+                                        ),
+                                        child: Text(
+                                          isUnassigned
+                                              ? 'UNASSIGNED'
+                                              : 'CC $cc',
+                                          style: AppText.performance(
+                                            color: const Color(
+                                              0xFFC3C7CA,
+                                            ).withValues(alpha: 0.3),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Bottom row — fixed height, always below the knob
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 2,
+                                bottom: 4,
+                                left: 4,
+                                right: 4,
+                              ),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Text(
+                                    displayName,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'Space Grotesk',
+                                      color: const Color(
+                                        0xFFC3C7CA,
+                                      ).withValues(alpha: 0.3),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (!isUnassigned)
+                                    Align(
+                                      alignment: Alignment.centerRight,
                                       child: Text(
-                                        isUnassigned ? 'UNASSIGNED' : 'CC $cc',
-                                        style: AppText.performance(
+                                        'CH${channel + 1}',
+                                        style: TextStyle(
+                                          fontFamily: 'Space Grotesk',
                                           color: const Color(
                                             0xFFC3C7CA,
                                           ).withValues(alpha: 0.3),
@@ -124,53 +181,11 @@ class UtilityGridPanel extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          // Bottom row — fixed height, always below the knob
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 2,
-                              bottom: 4,
-                              left: 4,
-                              right: 4,
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Text(
-                                  displayName,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontFamily: 'Space Grotesk',
-                                    color: const Color(
-                                      0xFFC3C7CA,
-                                    ).withValues(alpha: 0.3),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (!isUnassigned)
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      'CH${channel + 1}',
-                                      style: TextStyle(
-                                        fontFamily: 'Space Grotesk',
-                                        color: const Color(
-                                          0xFFC3C7CA,
-                                        ).withValues(alpha: 0.3),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
 
