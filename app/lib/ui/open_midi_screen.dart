@@ -818,10 +818,11 @@ class _DynamicConnectionIslandState
                 clipBehavior: Clip.none,
                 child: Padding(
                   padding: EdgeInsets.symmetric(
-                    horizontal: _isExpanded ? 16 : 12,
+                    horizontal: _isExpanded ? 16 : 0,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // The Dot
                       Container(
