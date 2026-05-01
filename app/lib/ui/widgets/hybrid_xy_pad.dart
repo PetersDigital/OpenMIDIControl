@@ -257,6 +257,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     _sendMidi(isFinal: isFinal);
   }
 
+  static const int _kTransmissionThrottleMs = 8;
+
   void _sendMidi({required bool isFinal}) {
     if (!_canSend && !isFinal) {
       setState(() => _isDragging = true);
@@ -268,12 +270,15 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     _hasPendingSend = false;
     _throttleTimer?.cancel();
 
-    _throttleTimer = Timer(const Duration(milliseconds: 16), () {
-      _canSend = true;
-      if (_hasPendingSend && mounted && _isDragging) {
-        _sendMidi(isFinal: false);
-      }
-    });
+    _throttleTimer = Timer(
+      const Duration(milliseconds: _kTransmissionThrottleMs),
+      () {
+        _canSend = true;
+        if (_hasPendingSend && mounted && _isDragging) {
+          _sendMidi(isFinal: false);
+        }
+      },
+    );
 
     final config = ref.read(xyPadConfigProvider)[widget.id];
     final effectiveCcX = config?.ccX ?? widget.ccX;

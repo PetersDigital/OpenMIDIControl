@@ -105,11 +105,16 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
         .sendCC(widget.cc, _currentValue, channel: widget.channel);
   }
 
+  static const int _kTransmissionThrottleMs = 8;
+
   void _throttledSendMidiUpdate() {
     if (_throttleTimer?.isActive ?? false) return;
-    _throttleTimer = Timer(const Duration(milliseconds: 16), () {
-      _sendMidiUpdate();
-    });
+    _throttleTimer = Timer(
+      const Duration(milliseconds: _kTransmissionThrottleMs),
+      () {
+        _sendMidiUpdate();
+      },
+    );
   }
 
   void _handleDragStart(DragStartDetails details) {
