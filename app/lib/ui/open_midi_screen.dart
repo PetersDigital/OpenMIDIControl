@@ -414,53 +414,69 @@ class _LandscapeLayout extends ConsumerWidget {
       color: const Color(0xFF111318),
       padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, 8, 12, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            "OpenMIDIControl",
-            style: AppText.system(
-              color: const Color(0xFFA6C9F8),
-              fontWeight: FontWeight.w900,
-              fontSize: isMobile ? 18 : 24,
+          // LEFT ZONE: Title
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  "OpenMIDIControl",
+                  style: AppText.system(
+                    color: const Color(0xFFA6C9F8),
+                    fontWeight: FontWeight.w900,
+                    fontSize: isMobile ? 18 : 24,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
-          Flexible(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _ConnectionStatusButton(
-                onTap: () => _showMidiSettings(context, ref),
-              ),
+
+          // CENTER ZONE: Connection Status Badge
+          _ConnectionStatusButton(
+            onTap: () => _showMidiSettings(context, ref),
+          ),
+
+          // RIGHT ZONE: Actions
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Transport Toggle Button
+                _HeaderIconButton(
+                  key: const ValueKey('transport_toggle_button_landscape'),
+                  icon:
+                      isVisible
+                          ? (faderOnRight
+                              ? Icons.keyboard_double_arrow_left
+                              : Icons.keyboard_double_arrow_right)
+                          : (faderOnRight
+                              ? Icons.keyboard_double_arrow_right
+                              : Icons.keyboard_double_arrow_left),
+                  tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
+                  onPressed:
+                      () =>
+                          ref.read(transportVisibleProvider.notifier).toggle(),
+                ),
+                const SizedBox(width: 4),
+                // Lock/Unlock Button
+                _HeaderIconButton(
+                  icon: isLocked ? Icons.lock : Icons.lock_open,
+                  color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
+                  tooltip: 'Lock Performance Interface',
+                  onPressed:
+                      () => ref
+                          .read(layoutStateProvider.notifier)
+                          .togglePerformanceLock(),
+                ),
+                const SizedBox(width: 4),
+                _HeaderIconButton(
+                  icon: Icons.more_vert,
+                  tooltip: 'App Settings',
+                  onPressed: () => _showAppSettings(context, ref),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          // Transport Toggle Button
-          _HeaderIconButton(
-            key: const ValueKey('transport_toggle_button_landscape'),
-            icon: isVisible
-                ? (faderOnRight
-                      ? Icons.keyboard_double_arrow_left
-                      : Icons.keyboard_double_arrow_right)
-                : (faderOnRight
-                      ? Icons.keyboard_double_arrow_right
-                      : Icons.keyboard_double_arrow_left),
-            tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
-            onPressed: () =>
-                ref.read(transportVisibleProvider.notifier).toggle(),
-          ),
-          const SizedBox(width: 4),
-          // Lock/Unlock Button
-          _HeaderIconButton(
-            icon: isLocked ? Icons.lock : Icons.lock_open,
-            color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
-            tooltip: 'Lock Performance Interface',
-            onPressed: () =>
-                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
-          ),
-          const SizedBox(width: 4),
-          _HeaderIconButton(
-            icon: Icons.more_vert,
-            tooltip: 'App Settings',
-            onPressed: () => _showAppSettings(context, ref),
           ),
         ],
       ),
