@@ -390,9 +390,13 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGUMENT", "CC and value must be in the range 0..127", null)
                         } else {
                             try {
-                                val safeCc = cc and 0xFF
-                                val safeValue = value and 0xFF
-                                val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (safeCc shl 8) or safeValue
+                                val safeCc = cc and 0x7F
+                                val safeValue = value and 0x7F
+                                val umpInt = ((0x2 and 0x0F) shl 28) or 
+                                             ((0x0 and 0x0F) shl 24) or 
+                                             ((0xB0 and 0xFF) shl 16) or 
+                                             (safeCc shl 8) or 
+                                             safeValue
                                 processMidiEvent(umpInt, isFinal, System.nanoTime())
                                 result.success(true)
                             } catch (e: Exception) {
