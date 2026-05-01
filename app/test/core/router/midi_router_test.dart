@@ -209,5 +209,30 @@ void main() {
       expect(sink.receivedEvents.first.data1, 12);
       expect(sink.receivedEvents.last.data1, 12);
     });
+
+    test('Stress Test: Object pool length is strictly bounded at 256', () {
+      final router = MidiRouter();
+
+      // Create a massive split to force concurrent WorkItem allocations
+      router.addNode('source', SplitNode());
+      for (int i = 0; i < 500; i++) {
+        router.addNode('sink$i', _TestSinkNode());
+        router.addEdge('source', 'sink$i');
+      }
+
+      final events = [MidiEvent(createUmp(0x2, 0, 0xB0, 10, 127), 0)];
+
+      // This traversal will allocate 500+ items during the breadth-first expansion
+      router.process('source', events);
+
+      // After processing completes, the pool should be capped
+      expect(router.workItemPoolLength, equals(256));
+
+      // Repeat for processSingle
+      final singleEvent = MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0);
+      router.processSingle('source', singleEvent);
+
+      expect(router.workItemSinglePoolLength, equals(256));
+    });
   });
 }

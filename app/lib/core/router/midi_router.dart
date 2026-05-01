@@ -3,6 +3,7 @@
 
 import 'dart:collection';
 
+import 'package:meta/meta.dart';
 import '../models/midi_event.dart';
 import 'transformer_node.dart';
 
@@ -27,11 +28,18 @@ class MidiRouter {
   final Map<String, List<String>> _edges = {};
 
   // Pre-allocated queue and object pool to reduce GC pressure during high-frequency routing
+  static const int _MAX_POOL_SIZE = 256;
   final Queue<_WorkItem> _processQueue = Queue<_WorkItem>();
   final List<_WorkItem> _workItemPool = [];
 
   final Queue<_WorkItemSingle> _processSingleQueue = Queue<_WorkItemSingle>();
   final List<_WorkItemSingle> _workItemSinglePool = [];
+
+  @visibleForTesting
+  int get workItemPoolLength => _workItemPool.length;
+
+  @visibleForTesting
+  int get workItemSinglePoolLength => _workItemSinglePool.length;
 
   _WorkItem _getWorkItem(String nodeId, List<MidiEvent> events) {
     if (_workItemPool.isNotEmpty) {
@@ -45,7 +53,9 @@ class MidiRouter {
 
   void _releaseWorkItem(_WorkItem item) {
     item.events = const []; // Clear references
-    _workItemPool.add(item);
+    if (_workItemPool.length < _MAX_POOL_SIZE) {
+      _workItemPool.add(item);
+    }
   }
 
   _WorkItemSingle _getWorkItemSingle(String nodeId, MidiEvent event) {
@@ -59,7 +69,9 @@ class MidiRouter {
   }
 
   void _releaseWorkItemSingle(_WorkItemSingle item) {
-    _workItemSinglePool.add(item);
+    if (_workItemSinglePool.length < _MAX_POOL_SIZE) {
+      _workItemSinglePool.add(item);
+    }
   }
 
   /// Registers a new node in the graph.
