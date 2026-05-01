@@ -872,208 +872,198 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: SizedBox(
-              width: 400,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildTransportButton(Icons.skip_previous, () {}),
-                  _buildTransportButton(Icons.stop, () {}),
-                  _buildTransportButton(
-                    Icons.play_arrow,
-                    () {},
-                    isPrimary: true,
-                  ),
-                  _buildTransportButton(Icons.pause, () {}),
-                  _buildTransportButton(Icons.skip_next, () {}),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "OPENMIDI",
-                  style: AppText.performance(
-                    color: const Color(0xFFA6C9F8),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 24,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _ConnectionStatusButton(
-                      onTap: () => _showMidiSettings(context),
+                    Text(
+                      "OPENMIDI",
+                      style: AppText.performance(
+                        color: const Color(0xFFA6C9F8),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 24,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'Toggle Transport',
-                      child: IconButton(
-                        key: const ValueKey('transport_toggle_button_panel'),
-                        icon: Icon(
-                          faderOnRight
-                              ? Icons.keyboard_double_arrow_left
-                              : Icons.keyboard_double_arrow_right,
-                          color: const Color(0xFFA6C9F8),
+                    const SizedBox(width: 24),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ConnectionStatusButton(
+                          onTap: () => _showMidiSettings(context),
                         ),
-                        onPressed: () {
-                          ref.read(transportVisibleProvider.notifier).toggle();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(
-                        isLocked ? Icons.lock : Icons.lock_open,
-                        color: isLocked ? Colors.redAccent : Colors.white,
-                      ),
-                      tooltip: 'Lock Performance Interface',
-                      onPressed: () => ref
-                          .read(layoutStateProvider.notifier)
-                          .togglePerformanceLock(),
-                    ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'App Settings',
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.more_vert,
-                          color: Color(0xFFC3C7CA),
-                          size: 28,
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Toggle Transport',
+                          child: IconButton(
+                            key: const ValueKey(
+                              'transport_toggle_button_panel',
+                            ),
+                            icon: Icon(
+                              faderOnRight
+                                  ? Icons.keyboard_double_arrow_left
+                                  : Icons.keyboard_double_arrow_right,
+                              color: const Color(0xFFA6C9F8),
+                            ),
+                            onPressed: () {
+                              ref
+                                  .read(transportVisibleProvider.notifier)
+                                  .toggle();
+                            },
+                          ),
                         ),
-                        onPressed: () => _showAppSettings(context),
-                      ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            isLocked ? Icons.lock : Icons.lock_open,
+                            color: isLocked ? Colors.redAccent : Colors.white,
+                          ),
+                          tooltip: 'Lock Performance Interface',
+                          onPressed: () => ref
+                              .read(layoutStateProvider.notifier)
+                              .togglePerformanceLock(),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'App Settings',
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: Color(0xFFC3C7CA),
+                              size: 28,
+                            ),
+                            onPressed: () => _showAppSettings(context),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Status displays
-          Row(
-            children: const [
-              Expanded(
-                child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
               ),
-              Expanded(
-                child: _StatusDisplay(label: "TIMECODE", value: "001:01:000"),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Track name
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              "01 - Cinematic Violins",
-              style: AppText.performance(
-                color: const Color(0xFFA6C9F8),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 3×3 grid
-          AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              color: const Color(0xFF111318),
-              child: Column(
-                children: [
+              // Status displays
+              Row(
+                children: const [
                   Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_up,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.fiber_manual_record,
-                            bgColor: Color(0xFFFFB59E),
-                            iconColor: Color(0xFF690005),
-                            isSolid: true,
-                            shadowColor: Color(0xFFFFB59E),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
                   ),
                   Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_left,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.stop,
-                            bgColor: Color(0xFF33353A),
-                            iconColor: Colors.white,
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_right,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_down,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.play_arrow,
-                            bgColor: Color(0xFFA6C9F8),
-                            iconColor: Color(0xFF033258),
-                            isSolid: true,
-                            shadowColor: Color(0xFFA6C9F8),
-                          ),
-                        ),
-                      ],
+                    child: _StatusDisplay(
+                      label: "TIMECODE",
+                      value: "001:01:000",
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
+
+              // Track name
+              SizedBox(
+                width: double.infinity,
+                child: Text(
+                  "01 - Cinematic Violins",
+                  style: AppText.performance(
+                    color: const Color(0xFFA6C9F8),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 3×3 grid
+              AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  color: const Color(0xFF111318),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Expanded(
+                              child: _GridButton(icon: Icons.fast_rewind),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_up,
+                                bgColor: Color(0xFF282A2E),
+                              ),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.fiber_manual_record,
+                                bgColor: Color(0xFFFFB59E),
+                                iconColor: Color(0xFF690005),
+                                isSolid: true,
+                                shadowColor: Color(0xFFFFB59E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_left,
+                                bgColor: Color(0xFF282A2E),
+                              ),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.stop,
+                                bgColor: Color(0xFF33353A),
+                                iconColor: Colors.white,
+                              ),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_right,
+                                bgColor: Color(0xFF282A2E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: const [
+                            Expanded(
+                              child: _GridButton(icon: Icons.fast_forward),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_down,
+                                bgColor: Color(0xFF282A2E),
+                              ),
+                            ),
+                            Expanded(
+                              child: _GridButton(
+                                icon: Icons.play_arrow,
+                                bgColor: Color(0xFFA6C9F8),
+                                iconColor: Color(0xFF033258),
+                                isSolid: true,
+                                shadowColor: Color(0xFFA6C9F8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          ],
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildTransportButton(
     IconData icon,
