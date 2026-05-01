@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
+import '../performance_ticker_mixin.dart';
 
 class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
@@ -28,19 +29,21 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
 }
 
 class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   int _currentValue = 0;
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
   Timer? _throttleTimer;
   Ticker? _vrrTicker;
-  ProviderSubscription? _ccSub;
   int? _lastPolledValue;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    initPerformanceMixin();
     // Initialize from current state
     final hotValue = ref
         .read(controlStateProvider)
@@ -54,7 +57,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _setupTicker() {
-    _vrrTicker = createTicker((elapsed) {
+    _vrrTicker = createManagedTicker((elapsed) {
       if (!mounted || _isDragging) return;
       final currentState = ref.read(controlStateProvider);
       final val = currentState.ccValues["${widget.channel}:${widget.cc}"];
@@ -68,36 +71,31 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       }
     });
 
-    _ccSub = ref.listenManual(
-        hotCcValueProvider("${widget.channel}:${widget.cc}"), (previous, next) {
-      if (next is AsyncData) {
-        final val = next.value;
-        if (_isDragging) return;
-        if (val != null && val != _lastPolledValue) {
-          _lastPolledValue = val;
-          if (val != _currentValue) {
-            setState(() {
-              _currentValue = val;
-            });
+    addManagedSubscription(
+      ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
+        previous,
+        next,
+      ) {
+        if (next is AsyncData) {
+          final val = next.value;
+          if (_isDragging) return;
+          if (val != null && val != _lastPolledValue) {
+            _lastPolledValue = val;
+            if (val != _currentValue) {
+              setState(() {
+                _currentValue = val;
+              });
+            }
           }
         }
-      }
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      _vrrTicker?.stop();
-    }
+      }),
+    );
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _vrrTicker?.dispose();
-    _ccSub?.close();
     _throttleTimer?.cancel();
+    disposePerformanceMixin();
     super.dispose();
   }
 

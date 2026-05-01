@@ -9,6 +9,7 @@ import 'scrollable_dialog_content.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
+import '../performance_ticker_mixin.dart';
 import '../../core/midi_utils.dart';
 import 'config_gesture_wrapper.dart';
 
@@ -105,7 +106,10 @@ class HybridXYPad extends ConsumerStatefulWidget {
 }
 
 class _HybridXYPadState extends ConsumerState<HybridXYPad>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   bool _isDragging = false;
   double _normalizedX = 0.5;
   double _normalizedY = 0.5;
@@ -116,15 +120,13 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
   // Ticker for VRR sync during active interaction
   Ticker? _vrrTicker;
-  ProviderSubscription? _xSub;
-  ProviderSubscription? _ySub;
   int? _lastPolledX;
   int? _lastPolledY;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    initPerformanceMixin();
     final config = ref.read(xyPadConfigProvider)[widget.id];
     final channel = config?.channel ?? widget.channel;
     final ccX = config?.ccX ?? widget.ccX;
@@ -145,7 +147,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   }
 
   void _setupTicker() {
-    _vrrTicker = createTicker((elapsed) {
+    _vrrTicker = createManagedTicker((elapsed) {
       if (!mounted) return;
       final config = ref.read(xyPadConfigProvider)[widget.id];
       final channel = config?.channel ?? widget.channel;
@@ -171,40 +173,34 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final ccX = config?.ccX ?? widget.ccX;
     final ccY = config?.ccY ?? widget.ccY;
 
-    _xSub = ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
-      if (next is AsyncData) {
-        final valX = next.value;
-        if (valX != null && valX != _lastPolledX) {
-          _lastPolledX = valX;
-          _handleXUpdate(valX);
+    addManagedSubscription(
+      ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
+        if (next is AsyncData) {
+          final valX = next.value;
+          if (valX != null && valX != _lastPolledX) {
+            _lastPolledX = valX;
+            _handleXUpdate(valX);
+          }
         }
-      }
-    });
-    _ySub = ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
-      if (next is AsyncData) {
-        final valY = next.value;
-        if (valY != null && valY != _lastPolledY) {
-          _lastPolledY = valY;
-          _handleYUpdate(valY);
+      }),
+    );
+    addManagedSubscription(
+      ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
+        if (next is AsyncData) {
+          final valY = next.value;
+          if (valY != null && valY != _lastPolledY) {
+            _lastPolledY = valY;
+            _handleYUpdate(valY);
+          }
         }
-      }
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      _vrrTicker?.stop();
-    }
+      }),
+    );
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _vrrTicker?.dispose();
-    _xSub?.close();
-    _ySub?.close();
     _throttleTimer?.cancel();
+    disposePerformanceMixin();
     super.dispose();
   }
 
