@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
-import 'dart:io' as io;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -29,17 +28,19 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
 }
 
 class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   int _currentValue = 0;
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
   Timer? _throttleTimer;
-  late Ticker _pullTicker;
+  Ticker? _vrrTicker;
+  ProviderSubscription? _ccSub;
   int? _lastPolledValue;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Initialize from current state
     final hotValue = ref
         .read(controlStateProvider)
@@ -53,9 +54,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _setupTicker() {
-    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
-
-    _pullTicker = createTicker((elapsed) {
+    _vrrTicker = createTicker((elapsed) {
       if (!mounted || _isDragging) return;
       final currentState = ref.read(controlStateProvider);
       final val = currentState.ccValues["${widget.channel}:${widget.cc}"];
@@ -69,32 +68,35 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       }
     });
 
-    if (!isTestEnv) {
-      _pullTicker.start();
-    } else {
-      ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
-        previous,
-        next,
-      ) {
-        if (next is AsyncData) {
-          final val = next.value;
-          if (_isDragging) return;
-          if (val != null && val != _lastPolledValue) {
-            _lastPolledValue = val;
-            if (val != _currentValue) {
-              setState(() {
-                _currentValue = val;
-              });
-            }
+    _ccSub = ref.listenManual(
+        hotCcValueProvider("${widget.channel}:${widget.cc}"), (previous, next) {
+      if (next is AsyncData) {
+        final val = next.value;
+        if (_isDragging) return;
+        if (val != null && val != _lastPolledValue) {
+          _lastPolledValue = val;
+          if (val != _currentValue) {
+            setState(() {
+              _currentValue = val;
+            });
           }
         }
-      });
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _vrrTicker?.stop();
     }
   }
 
   @override
   void dispose() {
-    _pullTicker.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _vrrTicker?.dispose();
+    _ccSub?.close();
     _throttleTimer?.cancel();
     super.dispose();
   }
@@ -118,6 +120,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragStart(DragStartDetails details) {
+    _vrrTicker?.start();
     _isDragging = true;
     _accumulatedDelta = 0.0;
   }
@@ -137,6 +140,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragEnd(DragEndDetails details) {
+    _vrrTicker?.stop();
     _isDragging = false;
     _accumulatedDelta = 0.0;
     _sendMidiUpdate(); // Final update

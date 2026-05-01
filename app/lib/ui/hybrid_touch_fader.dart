@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
-import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
@@ -43,7 +42,7 @@ class HybridTouchFader extends ConsumerStatefulWidget {
 }
 
 class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   late int _ccNumber;
   int _midiChannel = 0;
@@ -68,21 +67,22 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _isIncomingUpdateScheduled = false;
 
   SpringSimulation? _springSimulation;
-  late Ticker _pullTicker;
+  Ticker? _vrrTicker;
+  ProviderSubscription? _midiSubscription;
   int? _lastPolledValue;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _throttleStopwatch = Stopwatch()..start();
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.displayName;
 
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = ref.read(controlStateProvider).ccValues["0:$_ccNumber"];
-    final startValue = hotValue != null
-        ? hotValue / 127.0
-        : widget.initialValue;
+    final startValue =
+        hotValue != null ? hotValue / 127.0 : widget.initialValue;
 
     _animationController = AnimationController(
       vsync: this,
@@ -93,9 +93,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _setupTicker() {
-    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
-
-    _pullTicker = createTicker((elapsed) {
+    _vrrTicker = createTicker((elapsed) {
       if (!mounted) return;
       final currentState = ref.read(controlStateProvider);
       final val = currentState.ccValues["$_midiChannel:$_ccNumber"];
@@ -106,13 +104,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       }
     });
 
-    if (!isTestEnv) {
-      _pullTicker.start();
-    } else {
-      ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
-        previous,
-        next,
-      ) {
+    _midiSubscription = ref.listenManual(
+      hotCcValueProvider("$_midiChannel:$_ccNumber"),
+      (previous, next) {
         if (next is AsyncData) {
           final val = next.value;
           if (val != null && val != _lastPolledValue) {
@@ -121,14 +115,23 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
             _handleCcUpdate(prev, val);
           }
         }
-      });
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _vrrTicker?.stop();
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
-    _pullTicker.dispose();
+    _vrrTicker?.dispose();
+    _midiSubscription?.close();
     super.dispose();
   }
 
@@ -140,6 +143,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
+    _vrrTicker?.start();
     setState(() {
       _isDragging =
           true; // Lock immediately to prevent host "yanking" the fader
@@ -160,6 +164,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
+    _vrrTicker?.start();
     if (widget.behavior == FaderBehavior.jump) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
       return;
@@ -277,7 +282,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                   incomingNormalized,
                   duration: _kFaderSmoothingDuration,
                   curve: Curves.linear,
-                );
+                ).whenComplete(() => _vrrTicker?.stop());
               }
               _lastHardwareValue = incomingNormalized;
             } else {
@@ -286,7 +291,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                 incomingNormalized,
                 duration: _kFaderSmoothingDuration,
                 curve: Curves.linear,
-              );
+              ).whenComplete(() => _vrrTicker?.stop());
             }
           }
         });
@@ -301,6 +306,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   );
 
   void _animateToIncomingValue(double incomingNormalized) {
+    _vrrTicker?.start();
     if (_springSimulation == null) {
       _springSimulation = SpringSimulation(
         _springDesc,
@@ -308,7 +314,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         0.0,
       );
-      _animationController.animateWith(_springSimulation!);
+      _animationController.animateWith(_springSimulation!).whenComplete(() => _vrrTicker?.stop());
     } else {
       // Retarget the existing simulation
       _springSimulation = SpringSimulation(
@@ -317,7 +323,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         _animationController.velocity,
       );
-      _animationController.animateWith(_springSimulation!);
+      _animationController.animateWith(_springSimulation!).whenComplete(() => _vrrTicker?.stop());
     }
   }
 
@@ -357,12 +363,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                 setState(() {
                   _isDragging = false;
                 });
+                _vrrTicker?.stop();
                 _sendMidiUpdate(isFinal: true);
               },
               onVerticalDragEnd: (_) {
                 setState(() {
                   _isDragging = false;
                 });
+                _vrrTicker?.stop();
                 _sendMidiUpdate(isFinal: true);
               },
               behavior: HitTestBehavior.opaque,

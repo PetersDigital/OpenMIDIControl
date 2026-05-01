@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
-import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,7 +105,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
 }
 
 class _HybridXYPadState extends ConsumerState<HybridXYPad>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isDragging = false;
   double _normalizedX = 0.5;
   double _normalizedY = 0.5;
@@ -115,14 +114,17 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   bool _canSend = true;
   bool _hasPendingSend = false;
 
-  // Ticker for pulling updates
-  late Ticker _pullTicker;
+  // Ticker for VRR sync during active interaction
+  Ticker? _vrrTicker;
+  ProviderSubscription? _xSub;
+  ProviderSubscription? _ySub;
   int? _lastPolledX;
   int? _lastPolledY;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final config = ref.read(xyPadConfigProvider)[widget.id];
     final channel = config?.channel ?? widget.channel;
     final ccX = config?.ccX ?? widget.ccX;
@@ -143,9 +145,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   }
 
   void _setupTicker() {
-    final bool isTestEnv = io.Platform.environment.containsKey('FLUTTER_TEST');
-
-    _pullTicker = createTicker((elapsed) {
+    _vrrTicker = createTicker((elapsed) {
       if (!mounted) return;
       final config = ref.read(xyPadConfigProvider)[widget.id];
       final channel = config?.channel ?? widget.channel;
@@ -166,38 +166,44 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       }
     });
 
-    if (!isTestEnv) {
-      _pullTicker.start();
-    } else {
-      final config = ref.read(xyPadConfigProvider)[widget.id];
-      final channel = config?.channel ?? widget.channel;
-      final ccX = config?.ccX ?? widget.ccX;
-      final ccY = config?.ccY ?? widget.ccY;
+    final config = ref.read(xyPadConfigProvider)[widget.id];
+    final channel = config?.channel ?? widget.channel;
+    final ccX = config?.ccX ?? widget.ccX;
+    final ccY = config?.ccY ?? widget.ccY;
 
-      ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
-        if (next is AsyncData) {
-          final valX = next.value;
-          if (valX != null && valX != _lastPolledX) {
-            _lastPolledX = valX;
-            _handleXUpdate(valX);
-          }
+    _xSub = ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
+      if (next is AsyncData) {
+        final valX = next.value;
+        if (valX != null && valX != _lastPolledX) {
+          _lastPolledX = valX;
+          _handleXUpdate(valX);
         }
-      });
-      ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
-        if (next is AsyncData) {
-          final valY = next.value;
-          if (valY != null && valY != _lastPolledY) {
-            _lastPolledY = valY;
-            _handleYUpdate(valY);
-          }
+      }
+    });
+    _ySub = ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
+      if (next is AsyncData) {
+        final valY = next.value;
+        if (valY != null && valY != _lastPolledY) {
+          _lastPolledY = valY;
+          _handleYUpdate(valY);
         }
-      });
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _vrrTicker?.stop();
     }
   }
 
   @override
   void dispose() {
-    _pullTicker.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _vrrTicker?.dispose();
+    _xSub?.close();
+    _ySub?.close();
     _throttleTimer?.cancel();
     super.dispose();
   }
@@ -495,6 +501,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
           return GestureDetector(
             onPanStart: (details) {
+              _vrrTicker?.start();
               setState(() {
                 _isDragging = true;
               });
@@ -504,6 +511,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _updatePosition(details.localPosition, size, isFinal: false);
             },
             onPanEnd: (details) {
+              _vrrTicker?.stop();
               setState(() {
                 _isDragging = false;
               });
@@ -511,6 +519,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _sendMidi(isFinal: true);
             },
             onPanCancel: () {
+              _vrrTicker?.stop();
               setState(() {
                 _isDragging = false;
               });
