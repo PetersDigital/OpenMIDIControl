@@ -52,7 +52,7 @@ class MainActivity : FlutterActivity() {
 
     private var eventSink: EventChannel.EventSink? = null
     private var systemEventSink: EventChannel.EventSink? = null
-    private var deviceCallback: MidiManager.DeviceCallback? = null
+    private val deviceCallbacks = mutableListOf<MidiManager.DeviceCallback>()
 
     private val mainThreadHandler = Handler(Looper.getMainLooper())
     private var currentUsbMode = "peripheral" // Default to peripheral as per AGENTS.md priorities
@@ -769,8 +769,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun setupMidiDeviceCallback() {
-        if (deviceCallback == null) {
-            deviceCallback = object : MidiManager.DeviceCallback() {
+        if (deviceCallbacks.isEmpty()) {
+            val callback = object : MidiManager.DeviceCallback() {
                 override fun onDeviceAdded(device: MidiDeviceInfo) {
                     val id = device.id.toString()
                     if (shouldSuppressDuplicateDeviceEvent("added", id)) {
@@ -815,21 +815,29 @@ class MainActivity : FlutterActivity() {
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), deviceCallback!!)
-                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), callback)
+                deviceCallbacks.add(callback)
+
+                // Create a distinct instance for the second transport to ensure unregister succeeds for both
+                val callback2 = object : MidiManager.DeviceCallback() {
+                    override fun onDeviceAdded(device: MidiDeviceInfo) { callback.onDeviceAdded(device) }
+                    override fun onDeviceRemoved(device: MidiDeviceInfo) { callback.onDeviceRemoved(device) }
+                }
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), callback2)
+                deviceCallbacks.add(callback2)
             } else {
                 @Suppress("DEPRECATION")
-                midiManager?.registerDeviceCallback(deviceCallback, mainThreadHandler)
+                midiManager?.registerDeviceCallback(callback, mainThreadHandler)
+                deviceCallbacks.add(callback)
             }
         }
     }
 
     private fun teardownMidiDeviceCallback() {
-        deviceCallback?.let {
-            // Single call removes callback from all transports (UMP + byte-stream).
-            midiManager?.unregisterDeviceCallback(it)
-            deviceCallback = null
+        deviceCallbacks.forEach { callback ->
+            midiManager?.unregisterDeviceCallback(callback)
         }
+        deviceCallbacks.clear()
     }
 
     private fun sendSystemEvent(type: String, data: Map<String, Any>) {
