@@ -116,6 +116,8 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
 }
 
 class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
+  Orientation? _lastOrientation;
+
   @override
   void initState() {
     super.initState();
@@ -142,6 +144,21 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.orientationOf(context);
+
+    // Auto-toggle transport based on orientation
+    if (_lastOrientation != orientation) {
+      _lastOrientation = orientation;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          if (orientation == Orientation.landscape) {
+            ref.read(transportVisibleProvider.notifier).setVisible(true);
+          } else {
+            ref.read(transportVisibleProvider.notifier).setVisible(false);
+          }
+        }
+      });
+    }
+
     final size = MediaQuery.sizeOf(context);
 
     final isLandscape = orientation == Orientation.landscape;
@@ -752,26 +769,37 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       children: [
         _buildLandscapeHeader(context, ref),
         Expanded(
-          child: Stack(
+          child: Row(
             children: [
-              // Always 100% performance zone
-              PerformanceZone(key: _performanceZoneKey, isMobile: false),
-
-              // Sliding Command Center
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                top: 0,
-                bottom: 0,
-                left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-                right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-                width: panelWidth,
-                child: Visibility(
-                  visible: isVisible,
-                  maintainState: true,
-                  child: _buildCommandCenter(context, ref, faderOnRight),
+              if (faderOnRight)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  width: isVisible ? panelWidth : 0,
+                  decoration: const BoxDecoration(),
+                  clipBehavior: Clip.hardEdge,
+                  child: Visibility(
+                    visible: isVisible,
+                    maintainState: true,
+                    child: _buildCommandCenter(context, ref, faderOnRight),
+                  ),
                 ),
+              Expanded(
+                child: PerformanceZone(key: _performanceZoneKey, isMobile: false),
               ),
+              if (!faderOnRight)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  width: isVisible ? panelWidth : 0,
+                  decoration: const BoxDecoration(),
+                  clipBehavior: Clip.hardEdge,
+                  child: Visibility(
+                    visible: isVisible,
+                    maintainState: true,
+                    child: _buildCommandCenter(context, ref, faderOnRight),
+                  ),
+                ),
             ],
           ),
         ),
