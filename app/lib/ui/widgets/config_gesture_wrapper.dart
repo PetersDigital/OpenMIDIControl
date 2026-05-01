@@ -96,6 +96,11 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     // This stops "flams" or simultaneous performance hits from triggering the menu.
     if (_isDown || widget.isDragging) return;
 
+    // If no callbacks are provided, don't track taps at all to avoid stealing gestures
+    if (widget.onConfigRequested == null && widget.onRenameRequested == null) {
+      return;
+    }
+
     final currentElapsed = _tapStopwatch.elapsedMilliseconds;
     final int timeSinceLastTap = _lastTapElapsedMs > 0
         ? currentElapsed - _lastTapElapsedMs
@@ -217,7 +222,9 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     // to the parent performance widget (fader/encoder).
     // Subsequent taps (like the second tap of a double-tap-hold) should be
     // intercepted to handle the config loading and prevent accidental underlying hits.
-    final shouldIntercept = _tapCount > 0;
+    final hasCallbacks =
+        widget.onConfigRequested != null || widget.onRenameRequested != null;
+    final shouldIntercept = _tapCount > 0 && hasCallbacks;
 
     return GestureDetector(
       // We only provide handlers if we want to intercept, otherwise we let the
