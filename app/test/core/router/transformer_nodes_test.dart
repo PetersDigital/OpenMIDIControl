@@ -167,6 +167,49 @@ void main() {
       expect(result.first.data2, 99);
     });
 
+    test(
+      'RemapNode handles zero-width source range (division by zero guard)',
+      () {
+        final remap = RemapNode(
+          sourceCc: 10,
+          destCc: 10,
+          sourceMin: 64,
+          sourceMax: 64,
+          destMin: 100,
+          destMax: 120,
+        );
+
+        final events = [MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0)];
+
+        // Should not throw and should return destMin per logic
+        final result = remap.process(events);
+        expect(result.first.data2, 100);
+      },
+    );
+
+    test('RemapNode handles inverted destination range', () {
+      final remap = RemapNode(
+        sourceCc: 10,
+        destCc: 10,
+        sourceMin: 0,
+        sourceMax: 127,
+        destMin: 127,
+        destMax: 0,
+      );
+
+      final events = [
+        MidiEvent(createUmp(0x2, 0, 0xB0, 10, 0), 0), // Should map to 127
+        MidiEvent(createUmp(0x2, 0, 0xB0, 10, 127), 0), // Should map to 0
+        MidiEvent(createUmp(0x2, 0, 0xB0, 10, 64), 0), // Should map to ~63
+      ];
+
+      final result = remap.process(events);
+      expect(result[0].data2, 127);
+      expect(result[1].data2, 0);
+      // Math: 127 + ((64 * -127) - 63) ~/ 127 = 127 + (-8128 - 63) ~/ 127 = 127 - 64 = 63
+      expect(result[2].data2, 63);
+    });
+
     test('SplitNode passes batches through unmodified', () {
       final split = SplitNode();
       final events = [
