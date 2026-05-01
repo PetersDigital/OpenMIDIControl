@@ -129,9 +129,11 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(buildWidget());
+      // Let the post-frame callback run to expand the island
+      await tester.pump();
 
-      // Open MIDI Settings via the connection status button
-      await tester.tap(find.byKey(const ValueKey('connection_status_button')));
+      // Open MIDI Settings via the dynamic connection island
+      await tester.tap(find.byKey(const ValueKey('connection_status_island')));
       // Wait for the overlay animation to complete
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
