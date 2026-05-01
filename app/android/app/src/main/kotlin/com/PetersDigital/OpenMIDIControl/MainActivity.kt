@@ -95,7 +95,10 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             if (payload[0] > 0) {
-                mainThreadHandler.post {
+                // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
+                // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
+                // until the UI thread has acknowledged the message, preventing queue flooding.
+                withContext(Dispatchers.Main) {
                     try {
                         eventSink?.success(payload)
                     } finally {
@@ -256,7 +259,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main) {
             MidiSystemManager.usbHostConnected.collect { connected ->
                 if (connected) {
                     sendSystemEvent("usb_state", mapOf("state" to "CONNECTED"))
@@ -264,7 +267,7 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main) {
             MidiSystemManager.portFailures.collect { portId ->
                 handlePortFailure(portId)
             }
