@@ -31,6 +31,10 @@ object MidiSystemManager {
     private val _incomingEvents = MutableSharedFlow<Pair<ByteArray, Long>>(extraBufferCapacity = 1024)
     val incomingEvents = _incomingEvents.asSharedFlow()
 
+    // Shared flow for port failures (IOExceptions, etc.)
+    private val _portFailures = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val portFailures = _portFailures.asSharedFlow()
+
     /**
      * Handles MIDI data coming from the PeripheralMidiService (USB client/DAW).
      */
@@ -46,6 +50,14 @@ object MidiSystemManager {
 
         // Dispatch to observers (like MainActivity/Flutter)
         _incomingEvents.tryEmit(Pair(copy, timestamp))
+    }
+
+    /**
+     * Notifies the system that a port has failed fatally (e.g. IOException).
+     */
+    fun onPortFailure(portId: String) {
+        Log.e(TAG, "Fatal failure on port: $portId")
+        _portFailures.tryEmit(portId)
     }
 
     /**

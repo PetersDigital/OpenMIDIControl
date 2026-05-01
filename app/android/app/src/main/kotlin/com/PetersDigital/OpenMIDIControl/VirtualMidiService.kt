@@ -4,6 +4,7 @@ package com.petersdigital.openmidicontrol
 
 import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver
+import android.util.Log
 import java.io.IOException
 
 class VirtualMidiService : MidiDeviceService() {
@@ -49,13 +50,16 @@ class VirtualMidiService : MidiDeviceService() {
 
                 try {
                     receiver?.send(msg, offset, count)
-                } catch (e: IOException) {
+                } catch (e: java.io.IOException) {
                     // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
                     // When a virtual DAW connection (like FL Studio Mobile) is closed or severed while sending,
                     // attempting to send data throws an IOException. Since the receiver set is immutable,
                     // we "quarantine" the dead receiver in our local set to skip it on subsequent messages.
                     // This maintains UI responsiveness and prevents infinite exception loops.
-                    receiver?.let { deadReceivers.add(it) }
+                    receiver?.let { 
+                        deadReceivers.add(it)
+                        MidiSystemManager.onPortFailure("virtual_daw")
+                    }
                 } catch (e: Exception) {
                     // Ignore other broad exceptions related to closed virtual receivers.
                 }

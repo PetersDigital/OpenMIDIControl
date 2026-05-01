@@ -81,6 +81,12 @@ android {
             )
         }
     }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 flutter {

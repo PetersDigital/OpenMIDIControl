@@ -39,6 +39,8 @@ class MainActivity : FlutterActivity() {
         var activeInstance: MainActivity? = null
     }
 
+    private val mainScope = CoroutineScope(Dispatchers.Main + Job())
+
     private val CHANNEL = "com.petersdigital.openmidicontrol/midi"
     private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
     private val SYSTEM_EVENT_CHANNEL = "com.petersdigital.openmidicontrol/system_events"
@@ -259,6 +261,12 @@ class MainActivity : FlutterActivity() {
                 if (connected) {
                     sendSystemEvent("usb_state", mapOf("state" to "CONNECTED"))
                 }
+            }
+        }
+
+        coroutineScope.launch {
+            MidiSystemManager.portFailures.collect { portId ->
+                handlePortFailure(portId)
             }
         }
 
@@ -656,6 +664,32 @@ class MainActivity : FlutterActivity() {
         hostMidiBackend = null
     }
 
+    /**
+     * Handles fatal hardware or stream failures reported by backends or services.
+     */
+    private fun handlePortFailure(portId: String) {
+        android.util.Log.e("MainActivity", "Handling fatal port failure: $portId")
+        
+        if (portId == "peripheral_host") {
+            // Special handling for USB Peripheral (OTG) disconnects
+            MidiSystemManager.setUsbHostConnected(false)
+            sendSystemEvent("usb_state", mapOf("state" to "DISCONNECTED"))
+        } else if (portId == "virtual_daw") {
+            // Cleanup virtual session if needed
+            activeSessions[portId]?.job?.cancel()
+            activeSessions.remove(portId)
+            sendSystemEvent("DISCONNECT", mapOf("portId" to portId))
+        } else {
+            // For hardware devices, if the failing port is our active one, tear it down.
+            if (hostMidiBackend?.portId == portId) {
+                mainThreadHandler.post {
+                    disconnectDevice()
+                    sendSystemEvent("DISCONNECT", mapOf("portId" to portId))
+                }
+            }
+        }
+    }
+
     private fun setupMidiReceiver() {
         val backend = hostMidiBackend ?: return
         val backendId = backend.portId
@@ -764,14 +798,19 @@ class MainActivity : FlutterActivity() {
 
                     // Disconnect if the removed device ID matches the current host backend portId.
                     if (hostMidiBackend?.portId == id) {
-                        disconnectDevice()
-                    }
-                    val event = mapOf(
-                        "type" to "removed",
-                        "id" to id
-                    )
-                    mainThreadHandler.post {
-                        systemEventSink?.success(event)
+                        mainThreadHandler.post {
+                            disconnectDevice()
+                            // Instantly signal disconnect to Flutter to prevent ghost states
+                            sendSystemEvent("DISCONNECT", mapOf("portId" to id))
+                        }
+                    } else {
+                        val event = mapOf(
+                            "type" to "removed",
+                            "id" to id
+                        )
+                        mainThreadHandler.post {
+                            systemEventSink?.success(event)
+                        }
                     }
                 }
             }

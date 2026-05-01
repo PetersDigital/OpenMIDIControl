@@ -4,6 +4,7 @@ package com.petersdigital.openmidicontrol
 
 import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver
+import android.util.Log
 import java.io.IOException
 
 class PeripheralMidiService : MidiDeviceService() {
@@ -56,13 +57,17 @@ class PeripheralMidiService : MidiDeviceService() {
 
             try {
                 receiver?.send(msg, offset, count, timestamp)
-            } catch (e: IOException) {
+            } catch (e: java.io.IOException) {
                 // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
                 // When a physical USB connection is severed, attempting to send data to its bound receiver 
                 // throws an IOException. Since Android's internal receiver set is immutable for services, 
                 // we catch this and "quarantine" the receiver in our local set to prevent further attempts.
                 // This prevents memory leaks and avoids continuous Binder crashes during rapid hotplugging.
-                receiver?.let { deadReceivers.add(it) }
+                receiver?.let { 
+                    deadReceivers.add(it)
+                    // Notify system of fatal failure for peripheral host connection
+                    MidiSystemManager.onPortFailure("peripheral_host")
+                }
             } catch (e: Exception) {
                 // Ignore other broad exceptions related to closed receivers or Binder issues.
             }
