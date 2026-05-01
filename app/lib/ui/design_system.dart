@@ -14,6 +14,7 @@ class AppText {
     Color? color,
     FontWeight? fontWeight,
     double? letterSpacing,
+    double? height,
   }) {
     return TextStyle(
       fontFamily: performanceFont,
@@ -21,6 +22,7 @@ class AppText {
       color: color,
       fontWeight: fontWeight,
       letterSpacing: letterSpacing,
+      height: height,
     );
   }
 
@@ -30,6 +32,7 @@ class AppText {
     Color? color,
     FontWeight? fontWeight,
     double? letterSpacing,
+    double? height,
   }) {
     return TextStyle(
       fontFamily: systemFont,
@@ -37,6 +40,7 @@ class AppText {
       color: color,
       fontWeight: fontWeight,
       letterSpacing: letterSpacing,
+      height: height,
     );
   }
 }
