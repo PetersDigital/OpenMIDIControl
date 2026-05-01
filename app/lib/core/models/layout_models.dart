@@ -28,14 +28,17 @@ class LayoutControl {
     required this.defaultCc,
     required this.channel,
     this.customName,
-  }) : assert(defaultCc >= 0 && defaultCc <= 127, 'CC must be 0-127'),
-       assert(channel >= 0 && channel <= 15, 'Channel must be 0-15');
+  }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
+       assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15');
 
   /// Display name: uses customName if provided and non-empty, else "CC $defaultCc".
   /// For drum pads, uses the note name (e.g., "C1").
   String get displayName {
     if (customName != null && customName!.trim().isNotEmpty) {
       return customName!;
+    }
+    if (defaultCc == -1) {
+      return 'UNASSIGNED';
     }
     if (type == ControlType.drumPad) {
       return MidiUtils.getNoteName(defaultCc);
