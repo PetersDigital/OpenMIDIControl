@@ -420,6 +420,45 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
     state = state.copyWith(pages: updatedPages);
   }
+
+  /// Reset a specific control on a specific page to its factory default.
+  void resetControlToDefault(int pageIndex, int controlIndex) {
+    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+
+    final defaultPages = _buildDefaultPages();
+    final defaultPage = defaultPages[pageIndex];
+    if (controlIndex < 0 || controlIndex >= defaultPage.controls.length) return;
+
+    final defaultControl = defaultPage.controls[controlIndex];
+
+    final updatedPages = [...state.pages];
+    final pageToUpdate = updatedPages[pageIndex];
+    final updatedControls = [...pageToUpdate.controls];
+    updatedControls[controlIndex] = defaultControl;
+
+    updatedPages[pageIndex] = pageToUpdate.copyWith(controls: updatedControls);
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  /// Clear (unbind) a specific control on a specific page.
+  void clearControl(int pageIndex, int controlIndex) {
+    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+
+    final updatedPages = [...state.pages];
+    final pageToUpdate = updatedPages[pageIndex];
+    final updatedControls = [...pageToUpdate.controls];
+
+    if (controlIndex < 0 || controlIndex >= updatedControls.length) return;
+
+    updatedControls[controlIndex] = updatedControls[controlIndex].copyWith(
+      defaultCc: -1,
+      channel: -1,
+      customName: 'Unassigned',
+    );
+
+    updatedPages[pageIndex] = pageToUpdate.copyWith(controls: updatedControls);
+    state = state.copyWith(pages: updatedPages);
+  }
 }
 
 /// Global Riverpod provider for layout state.
