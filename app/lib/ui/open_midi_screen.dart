@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'midi_service.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
 import 'providers/config_ui_provider.dart';
+import 'widgets/config_gesture_wrapper.dart';
 import 'design_system.dart';
 import 'layout_state.dart';
 import 'side_panel_state.dart';
@@ -201,6 +203,13 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
             ),
             const DeviceOfflineOverlay(),
             if (isLandscape) const _SidePanelOverlay(),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 24.0),
+                child: DynamicConnectionIsland(),
+              ),
+            ),
           ],
         ),
       ),
@@ -243,11 +252,6 @@ class _MobilePortraitLayout extends ConsumerWidget {
                 ),
               ),
 
-              // CENTER ZONE: Connection Status Badge
-              _ConnectionStatusButton(
-                onTap: () => _showMidiSettings(context, ref),
-              ),
-
               // RIGHT ZONE: Transport + Settings
               Expanded(
                 child: Row(
@@ -257,10 +261,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       message: 'Toggle Transport',
                       child: GestureDetector(
                         key: const ValueKey('transport_toggle_button_portrait'),
-                        onTap:
-                            () => ref
-                                .read(transportVisibleProvider.notifier)
-                                .toggle(),
+                        onTap: () => ref
+                            .read(transportVisibleProvider.notifier)
+                            .toggle(),
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
@@ -413,11 +416,6 @@ class _LandscapeLayout extends ConsumerWidget {
             ),
           ),
 
-          // CENTER ZONE: Connection Status Badge
-          _ConnectionStatusButton(
-            onTap: () => _showMidiSettings(context, ref),
-          ),
-
           // RIGHT ZONE: Actions
           Expanded(
             child: Row(
@@ -426,18 +424,16 @@ class _LandscapeLayout extends ConsumerWidget {
                 // Transport Toggle Button
                 _HeaderIconButton(
                   key: const ValueKey('transport_toggle_button_landscape'),
-                  icon:
-                      isVisible
-                          ? (faderOnRight
-                              ? Icons.keyboard_double_arrow_left
-                              : Icons.keyboard_double_arrow_right)
-                          : (faderOnRight
-                              ? Icons.keyboard_double_arrow_right
-                              : Icons.keyboard_double_arrow_left),
+                  icon: isVisible
+                      ? (faderOnRight
+                            ? Icons.keyboard_double_arrow_left
+                            : Icons.keyboard_double_arrow_right)
+                      : (faderOnRight
+                            ? Icons.keyboard_double_arrow_right
+                            : Icons.keyboard_double_arrow_left),
                   tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
-                  onPressed:
-                      () =>
-                          ref.read(transportVisibleProvider.notifier).toggle(),
+                  onPressed: () =>
+                      ref.read(transportVisibleProvider.notifier).toggle(),
                 ),
                 const SizedBox(width: 4),
                 _HeaderIconButton(
@@ -718,80 +714,177 @@ class _HeaderIconButton extends StatelessWidget {
 // SHARED WIDGETS
 // ===========================================================================
 
-class _ConnectionStatusButton extends ConsumerWidget {
-  final VoidCallback onTap;
-
-  const _ConnectionStatusButton({required this.onTap});
+class DynamicConnectionIsland extends ConsumerStatefulWidget {
+  const DynamicConnectionIsland({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DynamicConnectionIsland> createState() =>
+      _DynamicConnectionIslandState();
+}
+
+class _DynamicConnectionIslandState
+    extends ConsumerState<DynamicConnectionIsland> {
+  bool _isExpanded = false;
+  Timer? _collapseTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start expanded briefly to show status, then collapse
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _expandTemporarily();
+    });
+  }
+
+  @override
+  void dispose() {
+    _collapseTimer?.cancel();
+    super.dispose();
+  }
+
+  void _expandTemporarily() {
+    if (!mounted) return;
+    setState(() => _isExpanded = true);
+    _collapseTimer?.cancel();
+    _collapseTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _isExpanded = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final midiStatus = ref.watch(midiStatusProvider);
 
+    // Auto-expand on status change
+    ref.listen(midiStatusProvider, (previous, next) {
+      if (previous != next) {
+        _expandTemporarily();
+      }
+    });
+
     final (statusText, statusColor) = switch (midiStatus) {
-      MidiStatus.usbActive => (
-        "USB PERIPHERAL READY",
-        const Color(0xFF4DD0E1), // Cyan
-      ),
+      MidiStatus.usbActive => ("USB PERIPHERAL READY", const Color(0xFF4DD0E1)),
       MidiStatus.usbHostAwaitingPort => (
         "USB HOST DETECTED",
-        const Color(0xFF9575CD), // Purple
+        const Color(0xFF9575CD),
       ),
       MidiStatus.usbHostConnected => (
         "USB HOST ACTIVE",
-        const Color(0xFF66BB6A), // Green
+        const Color(0xFF66BB6A),
       ),
-      MidiStatus.connected => (
-        "DEVICE CONNECTED",
-        const Color(0xFF42A5F5), // Blue
-      ),
-      MidiStatus.available => (
-        "MIDI READY",
-        const Color(0xFFFFCA28), // Amber
-      ),
-      MidiStatus.connectionLost => (
-        "CONNECTION LOST",
-        const Color(0xFFE57373), // Red
-      ),
-      MidiStatus.disconnected => (
-        "DISCONNECTED",
-        const Color(0xFFBDBDBD), // Grey
-      ),
+      MidiStatus.connected => ("DEVICE CONNECTED", const Color(0xFF42A5F5)),
+      MidiStatus.available => ("MIDI READY", const Color(0xFFFFCA28)),
+      MidiStatus.connectionLost => ("CONNECTION LOST", const Color(0xFFE57373)),
+      MidiStatus.disconnected => ("DISCONNECTED", const Color(0xFFBDBDBD)),
     };
 
-    final buttonContent = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: statusColor.withValues(alpha: 0.2), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              statusText,
-              style: AppText.system(
-                color: statusColor,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+    return ConfigGestureWrapper(
+      key: const ValueKey('connection_status_island'),
+      id: 'connection_status_island',
+      // Step 1: Double-tap and hold to expand when collapsed
+      onConfigRequested: !_isExpanded ? () => _expandTemporarily() : null,
+      child: GestureDetector(
+        onTap: () {
+          // Step 2: Regular tap to navigate only when already expanded
+          if (_isExpanded) {
+            _showMidiSettings(context, ref);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOutCubic,
+          height: 36,
+          // Finite constraints for smooth lerp
+          constraints: BoxConstraints(
+            minWidth: 36,
+            maxWidth: _isExpanded ? 500 : 36,
+          ),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2024),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: statusColor.withValues(alpha: 0.3),
+              width: 1.5,
             ),
           ),
-        ],
-      ),
-    );
-
-    return Tooltip(
-      key: const ValueKey('connection_status_button'),
-      message: 'MIDI Connection Settings',
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: buttonContent,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer scroll view suppresses overflow errors for the whole row
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                clipBehavior: Clip.none,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _isExpanded ? 16 : 12,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // The Dot
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      // Expansion Spacer
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOutCubic,
+                        width: _isExpanded ? 12 : 0,
+                      ),
+                      // Expanded content
+                      AnimatedOpacity(
+                        opacity: _isExpanded ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOutCubic,
+                          constraints: BoxConstraints(
+                            maxWidth: _isExpanded ? 400 : 0,
+                          ),
+                          // Inner scroll view suppresses overflow errors for the text row
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const NeverScrollableScrollPhysics(),
+                            clipBehavior: Clip.none,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  statusText,
+                                  style: AppText.system(
+                                    color: statusColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.settings_ethernet,
+                                  color: statusColor.withValues(alpha: 0.7),
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
