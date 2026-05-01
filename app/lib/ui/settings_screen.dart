@@ -11,7 +11,7 @@ import 'layout_state.dart';
 import 'midi_settings_state.dart';
 import 'design_system.dart';
 import 'side_panel_state.dart';
-import 'widgets/scrollable_dialog_content.dart';
+import 'widgets/preset_management.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -391,16 +391,72 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
-
-          Text(
-            'ADVANCED (COMING SOON)',
+          const Text(
+            'ADVANCED',
             style: TextStyle(
               fontFamily: 'Inter',
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: Colors.white54,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
             ),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
+              'EXPORT ACTIVE PAGE (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Share your current page mapping with other devices.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.ios_share,
+              color: Colors.white54,
+              size: 20,
+            ),
+            onTap: () {
+              final activePage = ref.read(layoutStateProvider).activePage;
+              ref.read(snapshotManagerProvider).exportActiveLayout(activePage);
+            },
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
+              'IMPORT PAGE (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Load a single page mapping from an external file.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.file_open_outlined,
+              color: Colors.white54,
+              size: 20,
+            ),
+            onTap: () async {
+              final newPage = await ref
+                  .read(snapshotManagerProvider)
+                  .importLayout();
+              if (newPage != null) {
+                ref
+                    .read(layoutStateProvider.notifier)
+                    .overwriteActivePage(newPage);
+              }
+            },
           ),
         ],
       ),
@@ -408,52 +464,28 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _handleSavePreset(BuildContext context, WidgetRef ref) async {
-    final activePage = ref.read(layoutStateProvider).activePage;
-    await ref.read(snapshotManagerProvider).exportActiveLayout(activePage);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => const SavePresetDialog(),
+    );
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Preset "$result" saved.')));
+    }
   }
 
   Future<void> _handleLoadPreset(BuildContext context, WidgetRef ref) async {
-    final confirm = await showDialog<bool>(
+    final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2024),
-        title: const Text(
-          'Overwrite Layout?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const ScrollableDialogContent(
-          child: Text(
-            'Importing a layout will completely overwrite your current active grid. This cannot be undone.',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'CANCEL',
-              style: TextStyle(color: Colors.white60),
-            ),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('OVERWRITE'),
-          ),
-        ],
-      ),
+      builder: (context) => const LoadPresetDialog(),
     );
 
-    if (confirm == true) {
-      final newPage = await ref.read(snapshotManagerProvider).importLayout();
-      if (newPage != null) {
-        ref.read(layoutStateProvider.notifier).overwriteActivePage(newPage);
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Imported ${newPage.name}')));
-        }
-      }
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Loaded preset "$result".')));
     }
   }
 
