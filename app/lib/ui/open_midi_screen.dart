@@ -590,7 +590,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
         children: [
           // Compact Header Strip
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -599,60 +599,65 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                   color: Color(0xFFA6C9F8),
                   size: 20,
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ConnectionStatusButton(
-                      onTap: () => _showMidiSettings(context, ref),
-                    ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'Toggle Transport',
-                      child: IconButton(
-                        key: const ValueKey('transport_toggle_button_panel'),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: _ConnectionStatusButton(
+                          onTap: () => _showMidiSettings(context, ref),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Toggle Transport',
+                        child: IconButton(
+                          key: const ValueKey('transport_toggle_button_panel'),
+                          icon: Icon(
+                            faderOnRight
+                                ? Icons.keyboard_double_arrow_left
+                                : Icons.keyboard_double_arrow_right,
+                            color: const Color(0xFFC3C7CA),
+                            size: 20,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => ref
+                              .read(transportVisibleProvider.notifier)
+                              .toggle(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
                         icon: Icon(
-                          faderOnRight
-                              ? Icons.keyboard_double_arrow_left
-                              : Icons.keyboard_double_arrow_right,
-                          color: const Color(0xFFC3C7CA),
+                          isLocked ? Icons.lock : Icons.lock_open,
+                          color: isLocked ? Colors.redAccent : Colors.white,
                           size: 20,
                         ),
+                        tooltip: 'Lock Performance Interface',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => ref
-                            .read(transportVisibleProvider.notifier)
-                            .toggle(),
+                            .read(layoutStateProvider.notifier)
+                            .togglePerformanceLock(),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(
-                        isLocked ? Icons.lock : Icons.lock_open,
-                        color: isLocked ? Colors.redAccent : Colors.white,
-                        size: 20,
-                      ),
-                      tooltip: 'Lock Performance Interface',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () => ref
-                          .read(layoutStateProvider.notifier)
-                          .togglePerformanceLock(),
-                    ),
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: 'App Settings',
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.more_vert,
-                          color: Color(0xFFC3C7CA),
-                          size: 20,
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'App Settings',
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            color: Color(0xFFC3C7CA),
+                            size: 20,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _showAppSettings(context, ref),
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => _showAppSettings(context, ref),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1075,7 +1080,7 @@ class _ConnectionStatusButton extends ConsumerWidget {
     };
 
     final buttonContent = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
@@ -1084,13 +1089,17 @@ class _ConnectionStatusButton extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            statusText,
-            style: AppText.system(
-              color: statusColor,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
+          Flexible(
+            child: Text(
+              statusText,
+              style: AppText.system(
+                color: statusColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
         ],
