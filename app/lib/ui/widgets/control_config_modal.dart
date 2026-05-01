@@ -24,6 +24,8 @@ class ControlConfigModal extends StatefulWidget {
   final String identifierLabel;
   final String? initialDisplayName;
   final String displayNameLabel;
+  final VoidCallback? onClear;
+  final VoidCallback? onReset;
 
   const ControlConfigModal({
     super.key,
@@ -32,6 +34,8 @@ class ControlConfigModal extends StatefulWidget {
     this.identifierLabel = 'MIDI ID (e.g., C3 or 60)',
     this.initialDisplayName,
     this.displayNameLabel = 'Display Name',
+    this.onClear,
+    this.onReset,
   });
 
   @override
@@ -222,6 +226,29 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
         ),
       ),
       actions: [
+        if (widget.onClear != null)
+          TextButton(
+            onPressed: () {
+              widget.onClear!();
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'Clear',
+              style: AppText.system(color: Colors.redAccent),
+            ),
+          ),
+        if (widget.onReset != null)
+          TextButton(
+            onPressed: () {
+              widget.onReset!();
+              Navigator.of(context).pop();
+            },
+            child: Text(
+              'Reset',
+              style: AppText.system(color: const Color(0xFFA6C9F8)),
+            ),
+          ),
+        const Spacer(),
         TextButton(
           onPressed: () => Navigator.of(context).pop(null),
           child: Text(
