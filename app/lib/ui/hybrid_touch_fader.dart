@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'open_midi_screen.dart'; // For FaderBehavior type
 import 'design_system.dart';
 import 'midi_service.dart';
+import 'performance_ticker_mixin.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
 import 'layout_state.dart';
@@ -42,7 +43,10 @@ class HybridTouchFader extends ConsumerStatefulWidget {
 }
 
 class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   late AnimationController _animationController;
   late int _ccNumber;
   int _midiChannel = 0;
@@ -68,21 +72,21 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   SpringSimulation? _springSimulation;
   Ticker? _vrrTicker;
-  ProviderSubscription? _midiSubscription;
   int? _lastPolledValue;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    initPerformanceMixin();
     _throttleStopwatch = Stopwatch()..start();
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.displayName;
 
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = ref.read(controlStateProvider).ccValues["0:$_ccNumber"];
-    final startValue =
-        hotValue != null ? hotValue / 127.0 : widget.initialValue;
+    final startValue = hotValue != null
+        ? hotValue / 127.0
+        : widget.initialValue;
 
     _animationController = AnimationController(
       vsync: this,
@@ -93,7 +97,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _setupTicker() {
-    _vrrTicker = createTicker((elapsed) {
+    _vrrTicker = createManagedTicker((elapsed) {
       if (!mounted) return;
       final currentState = ref.read(controlStateProvider);
       final val = currentState.ccValues["$_midiChannel:$_ccNumber"];
@@ -104,9 +108,11 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       }
     });
 
-    _midiSubscription = ref.listenManual(
-      hotCcValueProvider("$_midiChannel:$_ccNumber"),
-      (previous, next) {
+    addManagedSubscription(
+      ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
+        previous,
+        next,
+      ) {
         if (next is AsyncData) {
           final val = next.value;
           if (val != null && val != _lastPolledValue) {
@@ -115,23 +121,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
             _handleCcUpdate(prev, val);
           }
         }
-      },
+      }),
     );
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      _vrrTicker?.stop();
-    }
-  }
-
-  @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
-    _vrrTicker?.dispose();
-    _midiSubscription?.close();
+    disposePerformanceMixin();
     super.dispose();
   }
 
@@ -278,20 +275,24 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
               if (crossed) {
                 _hardwareIsCatchingUp = false;
-                _animationController.animateTo(
-                  incomingNormalized,
-                  duration: _kFaderSmoothingDuration,
-                  curve: Curves.linear,
-                ).whenComplete(() => _vrrTicker?.stop());
+                _animationController
+                    .animateTo(
+                      incomingNormalized,
+                      duration: _kFaderSmoothingDuration,
+                      curve: Curves.linear,
+                    )
+                    .whenComplete(() => _vrrTicker?.stop());
               }
               _lastHardwareValue = incomingNormalized;
             } else {
               // Already caught up, track normally
-              _animationController.animateTo(
-                incomingNormalized,
-                duration: _kFaderSmoothingDuration,
-                curve: Curves.linear,
-              ).whenComplete(() => _vrrTicker?.stop());
+              _animationController
+                  .animateTo(
+                    incomingNormalized,
+                    duration: _kFaderSmoothingDuration,
+                    curve: Curves.linear,
+                  )
+                  .whenComplete(() => _vrrTicker?.stop());
             }
           }
         });
@@ -314,7 +315,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         0.0,
       );
-      _animationController.animateWith(_springSimulation!).whenComplete(() => _vrrTicker?.stop());
+      _animationController
+          .animateWith(_springSimulation!)
+          .whenComplete(() => _vrrTicker?.stop());
     } else {
       // Retarget the existing simulation
       _springSimulation = SpringSimulation(
@@ -323,7 +326,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         _animationController.velocity,
       );
-      _animationController.animateWith(_springSimulation!).whenComplete(() => _vrrTicker?.stop());
+      _animationController
+          .animateWith(_springSimulation!)
+          .whenComplete(() => _vrrTicker?.stop());
     }
   }
 
