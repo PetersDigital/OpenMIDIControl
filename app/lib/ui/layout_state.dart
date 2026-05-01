@@ -4,182 +4,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
 
-// ---------------------------------------------------------------------------
-// Page-Specific Override Models
-// ---------------------------------------------------------------------------
-
-class UtilityGridConfig {
-  final int channel;
-  final int cc;
-
-  const UtilityGridConfig({required this.channel, required this.cc});
-
-  Map<String, dynamic> toJson() => {'channel': channel, 'cc': cc};
-
-  factory UtilityGridConfig.fromJson(Map<String, dynamic> json) {
-    return UtilityGridConfig(
-      channel: json['channel'] as int,
-      cc: json['cc'] as int,
-    );
-  }
-
-  UtilityGridConfig copyWith({int? channel, int? cc}) {
-    return UtilityGridConfig(
-      channel: channel ?? this.channel,
-      cc: cc ?? this.cc,
-    );
-  }
-}
-
-class DrumPadConfig {
-  final int note;
-  final int channel;
-
-  const DrumPadConfig({required this.note, required this.channel});
-
-  Map<String, dynamic> toJson() => {'note': note, 'channel': channel};
-
-  factory DrumPadConfig.fromJson(Map<String, dynamic> json) {
-    return DrumPadConfig(
-      note: json['note'] as int,
-      channel: json['channel'] as int,
-    );
-  }
-
-  DrumPadConfig copyWith({int? note, int? channel}) {
-    return DrumPadConfig(
-      note: note ?? this.note,
-      channel: channel ?? this.channel,
-    );
-  }
-}
-
-class XYPadConfig {
-  final int ccX;
-  final int ccY;
-  final int channel;
-  final bool invertX;
-  final bool invertY;
-
-  const XYPadConfig({
-    required this.ccX,
-    required this.ccY,
-    required this.channel,
-    required this.invertX,
-    required this.invertY,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'ccX': ccX,
-    'ccY': ccY,
-    'channel': channel,
-    'invertX': invertX,
-    'invertY': invertY,
-  };
-
-  factory XYPadConfig.fromJson(Map<String, dynamic> json) {
-    return XYPadConfig(
-      ccX: json['ccX'] as int,
-      ccY: json['ccY'] as int,
-      channel: json['channel'] as int,
-      invertX: json['invertX'] as bool,
-      invertY: json['invertY'] as bool,
-    );
-  }
-
-  XYPadConfig copyWith({
-    int? ccX,
-    int? ccY,
-    int? channel,
-    bool? invertX,
-    bool? invertY,
-  }) {
-    return XYPadConfig(
-      ccX: ccX ?? this.ccX,
-      ccY: ccY ?? this.ccY,
-      channel: channel ?? this.channel,
-      invertX: invertX ?? this.invertX,
-      invertY: invertY ?? this.invertY,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Page-Specific Notifiers (Moved from individual files)
-// ---------------------------------------------------------------------------
-
-class UtilityGridConfigManager
-    extends Notifier<Map<String, UtilityGridConfig>> {
-  @override
-  Map<String, UtilityGridConfig> build() => const {};
-
-  void setConfig(String id, UtilityGridConfig config) {
-    state = {...state, id: config};
-  }
-
-  void removeConfig(String id) {
-    final newState = Map<String, UtilityGridConfig>.from(state);
-    newState.remove(id);
-    state = Map.unmodifiable(newState);
-  }
-
-  void setAllConfigs(Map<String, UtilityGridConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-class DrumPadConfigManager extends Notifier<Map<String, DrumPadConfig>> {
-  @override
-  Map<String, DrumPadConfig> build() => const {};
-
-  void setConfig(String id, DrumPadConfig config) {
-    state = {...state, id: config};
-  }
-
-  void removeConfig(String id) {
-    final newState = Map<String, DrumPadConfig>.from(state);
-    newState.remove(id);
-    state = Map.unmodifiable(newState);
-  }
-
-  void setAllConfigs(Map<String, DrumPadConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-class XYPadConfigManager extends Notifier<Map<String, XYPadConfig>> {
-  @override
-  Map<String, XYPadConfig> build() => const {};
-
-  void setConfig(String id, XYPadConfig config) {
-    state = {...state, id: config};
-  }
-
-  void removeConfig(String id) {
-    final newState = Map<String, XYPadConfig>.from(state);
-    newState.remove(id);
-    state = Map.unmodifiable(newState);
-  }
-
-  void setAllConfigs(Map<String, XYPadConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-final utilityGridConfigProvider =
-    NotifierProvider<UtilityGridConfigManager, Map<String, UtilityGridConfig>>(
-      UtilityGridConfigManager.new,
-    );
-
-final drumPadConfigProvider =
-    NotifierProvider<DrumPadConfigManager, Map<String, DrumPadConfig>>(
-      DrumPadConfigManager.new,
-    );
-
-final xyPadConfigProvider =
-    NotifierProvider<XYPadConfigManager, Map<String, XYPadConfig>>(
-      XYPadConfigManager.new,
-    );
+// All control state is now managed directly within LayoutState using the expanded LayoutControl model.
+// This removes the need for page-specific override providers and complex synchronization logic.
 
 // ---------------------------------------------------------------------------
 // Layout State
@@ -314,7 +140,9 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           id: 'xy_main',
           type: ControlType.xyPad,
           defaultCc: 1, // X-axis
+          secondaryCc: 11, // Y-axis
           channel: 0,
+          invertY: true, // Default to true for standard DAW behavior (bottom=0, top=127)
           customName: 'XY PAD',
         ),
       ],
@@ -399,7 +227,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     bool? invertX,
     bool? invertY,
   }) {
-    // 1. Update Global Layout State
     final updatedPages = state.pages.map((page) {
       final updatedControls = page.controls.map((control) {
         if (control.id == controlId) {
@@ -407,6 +234,9 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
             channel: channel,
             defaultCc: identifier,
             customName: name,
+            secondaryCc: secondaryIdentifier,
+            invertX: invertX,
+            invertY: invertY,
           );
         }
         return control;
@@ -414,36 +244,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       return page.copyWith(controls: updatedControls);
     }).toList();
     state = state.copyWith(pages: updatedPages);
-
-    // 2. Update Sub-Providers
-    if (controlId.startsWith('util_')) {
-      ref
-          .read(utilityGridConfigProvider.notifier)
-          .setConfig(
-            controlId,
-            UtilityGridConfig(channel: channel ?? 0, cc: identifier ?? 0),
-          );
-    } else if (controlId.startsWith('pad_')) {
-      ref
-          .read(drumPadConfigProvider.notifier)
-          .setConfig(
-            controlId,
-            DrumPadConfig(note: identifier ?? 0, channel: channel ?? 9),
-          );
-    } else if (controlId == 'xy_main') {
-      ref
-          .read(xyPadConfigProvider.notifier)
-          .setConfig(
-            controlId,
-            XYPadConfig(
-              ccX: identifier ?? 1,
-              ccY: secondaryIdentifier ?? 11,
-              channel: channel ?? 0,
-              invertX: invertX ?? false,
-              invertY: invertY ?? true,
-            ),
-          );
-    }
   }
 
   void resetControl(String controlId) {
@@ -471,15 +271,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       controls: updatedControls,
     );
     state = state.copyWith(pages: updatedPages);
-
-    // Wipe overrides
-    if (controlId.startsWith('util_')) {
-      ref.read(utilityGridConfigProvider.notifier).removeConfig(controlId);
-    } else if (controlId.startsWith('pad_')) {
-      ref.read(drumPadConfigProvider.notifier).removeConfig(controlId);
-    } else if (controlId == 'xy_main') {
-      ref.read(xyPadConfigProvider.notifier).removeConfig(controlId);
-    }
   }
 
   void clearControl(String controlId) {
@@ -488,8 +279,11 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         if (control.id == controlId) {
           return control.copyWith(
             defaultCc: -1,
+            secondaryCc: -1,
             channel: -1,
             customName: 'Unassigned',
+            invertX: false,
+            invertY: false,
           );
         }
         return control;
@@ -497,30 +291,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       return page.copyWith(controls: updatedControls);
     }).toList();
     state = state.copyWith(pages: updatedPages);
-
-    // Sync sub-providers to "disabled" state
-    if (controlId.startsWith('util_')) {
-      ref
-          .read(utilityGridConfigProvider.notifier)
-          .setConfig(controlId, const UtilityGridConfig(channel: -1, cc: -1));
-    } else if (controlId.startsWith('pad_')) {
-      ref
-          .read(drumPadConfigProvider.notifier)
-          .setConfig(controlId, const DrumPadConfig(note: -1, channel: -1));
-    } else if (controlId == 'xy_main') {
-      ref
-          .read(xyPadConfigProvider.notifier)
-          .setConfig(
-            controlId,
-            const XYPadConfig(
-              ccX: -1,
-              ccY: -1,
-              channel: -1,
-              invertX: false,
-              invertY: false,
-            ),
-          );
-    }
   }
 
   void applyDrumPreset(String preset) {
