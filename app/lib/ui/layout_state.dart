@@ -142,7 +142,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 1, // X-axis
           secondaryCc: 11, // Y-axis
           channel: 0,
-          invertY: true, // Default to true for standard DAW behavior (bottom=0, top=127)
+          invertY:
+              true, // Default to true for standard DAW behavior (bottom=0, top=127)
           customName: 'XY PAD',
         ),
       ],
@@ -216,6 +217,11 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final updatedPages = [...state.pages];
     updatedPages[state.activePageIndex] = newPage;
     state = state.copyWith(pages: updatedPages);
+  }
+
+  void overwriteAllPages(List<LayoutPage> pages) {
+    if (pages.isEmpty) return;
+    state = state.copyWith(pages: pages, activePageIndex: 0);
   }
 
   void updateControl(
