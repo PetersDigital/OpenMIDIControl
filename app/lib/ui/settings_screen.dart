@@ -10,6 +10,7 @@ import '../core/managers/snapshot_manager.dart';
 import 'layout_state.dart';
 import 'midi_settings_state.dart';
 import 'design_system.dart';
+import 'side_panel_state.dart';
 import 'widgets/scrollable_dialog_content.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
@@ -27,15 +28,22 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+        automaticallyImplyLeading: false,
+        leading: MediaQuery.of(context).orientation == Orientation.landscape
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => ref.read(sidePanelProvider.notifier).hide(),
+              )
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
         title: Text(
           'Settings',
           style: AppText.system(
-            color: const Color(0xFFC3C7CA),
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
-        ),
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.primaryContainer,
         ),
         actions: [
           IconButton(
@@ -197,6 +205,57 @@ class SettingsScreen extends ConsumerWidget {
                 ).colorScheme.primaryContainer,
                 onChanged: (_) =>
                     ref.read(layoutHandProvider.notifier).toggle(),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+
+          // Panel Position Section
+          Text(
+            'PANEL POSITION',
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Consumer(
+            builder: (context, ref, _) {
+              final panelSide = ref.watch(sidePanelProvider).side;
+              final isLeft = panelSide == SidePanelSide.left;
+              return SwitchListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                title: Text(
+                  isLeft ? 'DOCK ON LEFT' : 'DOCK ON RIGHT',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Text(
+                  'Choose which side the settings panel appears in landscape.',
+                  style: AppText.system(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+                value: isLeft,
+                activeThumbColor: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer,
+                onChanged: (val) {
+                  ref
+                      .read(sidePanelProvider.notifier)
+                      .setSide(val ? SidePanelSide.left : SidePanelSide.right);
+                },
               );
             },
           ),
