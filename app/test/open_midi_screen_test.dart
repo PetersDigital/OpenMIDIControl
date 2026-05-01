@@ -11,6 +11,7 @@ import 'package:app/ui/widgets/hybrid_xy_pad.dart';
 import 'package:app/ui/panels/drum_grid_panel.dart';
 import 'package:app/ui/panels/utility_grid_panel.dart';
 import 'package:app/ui/midi_service.dart';
+import 'package:app/ui/midi_settings_screen.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,9 +31,16 @@ void main() {
   });
 
   group('OpenMIDIMainScreen Pagination', () {
-    Widget buildWidget() {
-      return const ProviderScope(
-        child: MaterialApp(home: OpenMIDIMainScreen()),
+    Widget buildWidget({MidiConnectionState? midiState}) {
+      return ProviderScope(
+        overrides: [
+          if (midiState != null)
+            connectedMidiDeviceProvider.overrideWith(
+              () => MockConnectedMidiDeviceNotifier(midiState),
+            ),
+          firstLaunchCheckProvider.overrideWith((ref) => Future.value(false)),
+        ],
+        child: const MaterialApp(home: OpenMIDIMainScreen()),
       );
     }
 
@@ -108,7 +116,35 @@ void main() {
       // Should find the overlay
       expect(find.byType(DeviceOfflineOverlay), findsOneWidget);
       expect(find.text('DEVICE OFFLINE'), findsOneWidget);
-      expect(find.text('OPEN MIDI SETTINGS'), findsOneWidget);
+      expect(find.text('RESET PORTS'), findsOneWidget);
+      expect(find.text('DISMISS'), findsOneWidget);
+    });
+
+    testWidgets('landscape mode shows SidePanel when settings triggered', (
+      WidgetTester tester,
+    ) async {
+      // Set to landscape
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWidget());
+
+      // Open MIDI Settings via the connection status button
+      await tester.tap(find.byKey(const ValueKey('connection_status_button')));
+      // Wait for the overlay animation to complete
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Verify SidePanel is visible
+      expect(find.byType(MidiSettingsScreen), findsOneWidget);
+
+      // Tap the scrim to dismiss
+      await tester.tap(find.byKey(const ValueKey('side_panel_scrim')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(MidiSettingsScreen), findsNothing);
     });
   });
 }
