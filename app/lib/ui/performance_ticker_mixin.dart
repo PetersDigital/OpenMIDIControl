@@ -62,6 +62,14 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
     _managedSubscriptions.add(sub);
   }
 
+  /// Safely starts a ticker, guarding against 'already active' or 'disposed'
+  /// exceptions. This is the preferred way to start any [_vrrTicker].
+  void safeStartTicker(Ticker? ticker) {
+    if (ticker != null && !ticker.isActive && !ticker.muted) {
+      ticker.start();
+    }
+  }
+
   /// Clears all managed tickers and subscriptions without removing the observer.
   /// Useful for re-configuring a widget reactively.
   void clearManagedResources() {

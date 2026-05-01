@@ -118,7 +118,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragStart(DragStartDetails details) {
-    _vrrTicker?.start();
+    safeStartTicker(_vrrTicker);
     _isDragging = true;
     _accumulatedDelta = 0.0;
   }

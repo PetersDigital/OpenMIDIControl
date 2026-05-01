@@ -140,7 +140,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
-    _vrrTicker?.start();
+    safeStartTicker(_vrrTicker);
     setState(() {
       _isDragging =
           true; // Lock immediately to prevent host "yanking" the fader
@@ -161,7 +161,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
-    _vrrTicker?.start();
+    safeStartTicker(_vrrTicker);
     if (widget.behavior == FaderBehavior.jump) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
       return;
@@ -307,7 +307,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   );
 
   void _animateToIncomingValue(double incomingNormalized) {
-    _vrrTicker?.start();
+    safeStartTicker(_vrrTicker);
     if (_springSimulation == null) {
       _springSimulation = SpringSimulation(
         _springDesc,

@@ -273,7 +273,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
           return GestureDetector(
             onPanStart: (details) {
-              _vrrTicker?.start();
+              safeStartTicker(_vrrTicker);
               setState(() {
                 _isDragging = true;
               });
