@@ -10,7 +10,6 @@ import '../midi_service.dart';
 import '../layout_state.dart';
 import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
-import '../panels/utility_grid_panel.dart';
 
 enum MidiButtonMode { note, cc }
 
@@ -136,14 +135,7 @@ class _TriggerState extends ConsumerState<Trigger>
                   id: 'trigger_${control.id}',
                   onConfigRequested: isLocked
                       ? null
-                      : () => showUtilityConfigModal(
-                          context,
-                          ref,
-                          control.id,
-                          channel,
-                          identifier,
-                          label,
-                        ),
+                      : () => showUtilityConfigModal(context, ref, control.id),
                   child: Container(
                     padding: const EdgeInsets.only(
                       top: 4,
@@ -234,61 +226,15 @@ Future<void> showUtilityConfigModal(
   BuildContext context,
   WidgetRef ref,
   String id,
-  int currentChannel,
-  int currentCc,
-  String currentName,
 ) async {
-  // Utility page is index 3 in the default layout
-  const int pageIndex = 3;
-  final layoutState = ref.read(layoutStateProvider);
-  final controlIndex = layoutState.pages[pageIndex].controls.indexWhere(
-    (c) => c.id == id,
-  );
-
-  if (controlIndex == -1) return;
-
-  final result = await showDialog<ControlConfigResult>(
+  await showDialog(
     context: context,
     builder: (context) => ControlConfigModal(
-      initialChannel: currentChannel,
-      initialIdentifier: currentCc,
+      controlId: id,
       identifierLabel: 'CC Number',
-      initialDisplayName: currentName,
       displayNameLabel: 'Control Name',
-      onClear: () {
-        ref
-            .read(layoutStateProvider.notifier)
-            .clearControl(pageIndex, controlIndex);
-        // Sync the config override to unassigned as well
-        ref
-            .read(utilityGridConfigProvider.notifier)
-            .setConfig(id, const UtilityGridConfig(channel: -1, cc: -1));
-      },
-      onReset: () {
-        ref
-            .read(layoutStateProvider.notifier)
-            .resetControlToDefault(pageIndex, controlIndex);
-        // Wipe the manual override so it pulls from the newly reset factory state
-        ref.read(utilityGridConfigProvider.notifier).removeConfig(id);
-      },
     ),
   );
-
-  if (result != null) {
-    final trimmedName = (result.displayName ?? '').trim();
-    ref
-        .read(utilityGridConfigProvider.notifier)
-        .setConfig(
-          id,
-          UtilityGridConfig(channel: result.channel, cc: result.identifier),
-        );
-
-    if (trimmedName.isNotEmpty) {
-      ref
-          .read(layoutStateProvider.notifier)
-          .updateControlLabel(id, trimmedName);
-    }
-  }
 }
 
 class Toggle extends ConsumerStatefulWidget {
@@ -422,14 +368,7 @@ class _ToggleState extends ConsumerState<Toggle>
                   id: 'toggle_${control.id}',
                   onConfigRequested: isLocked
                       ? null
-                      : () => showUtilityConfigModal(
-                          context,
-                          ref,
-                          control.id,
-                          channel,
-                          identifier,
-                          label,
-                        ),
+                      : () => showUtilityConfigModal(context, ref, control.id),
                   child: Container(
                     padding: const EdgeInsets.only(
                       top: 4,

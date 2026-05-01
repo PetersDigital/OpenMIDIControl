@@ -5,81 +5,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'scrollable_dialog_content.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
 import '../performance_ticker_mixin.dart';
-import '../../core/midi_utils.dart';
+import 'control_config_modal.dart';
 import 'config_gesture_wrapper.dart';
-
-class XYPadConfig {
-  final int ccX;
-  final int ccY;
-  final int channel;
-  final bool invertX;
-  final bool invertY;
-
-  const XYPadConfig({
-    required this.ccX,
-    required this.ccY,
-    required this.channel,
-    required this.invertX,
-    required this.invertY,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'ccX': ccX,
-    'ccY': ccY,
-    'channel': channel,
-    'invertX': invertX,
-    'invertY': invertY,
-  };
-
-  factory XYPadConfig.fromJson(Map<String, dynamic> json) {
-    return XYPadConfig(
-      ccX: json['ccX'] as int,
-      ccY: json['ccY'] as int,
-      channel: json['channel'] as int,
-      invertX: json['invertX'] as bool,
-      invertY: json['invertY'] as bool,
-    );
-  }
-
-  XYPadConfig copyWith({
-    int? ccX,
-    int? ccY,
-    int? channel,
-    bool? invertX,
-    bool? invertY,
-  }) {
-    return XYPadConfig(
-      ccX: ccX ?? this.ccX,
-      ccY: ccY ?? this.ccY,
-      channel: channel ?? this.channel,
-      invertX: invertX ?? this.invertX,
-      invertY: invertY ?? this.invertY,
-    );
-  }
-}
-
-class XYPadConfigManager extends Notifier<Map<String, XYPadConfig>> {
-  @override
-  Map<String, XYPadConfig> build() => const {};
-
-  void setConfig(String id, XYPadConfig config) {
-    state = {...state, id: config};
-  }
-
-  void setAllConfigs(Map<String, XYPadConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-final xyPadConfigProvider =
-    NotifierProvider<XYPadConfigManager, Map<String, XYPadConfig>>(
-      XYPadConfigManager.new,
-    );
+import '../layout_state.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -205,16 +137,15 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   }
 
   void _showConfigMenu() {
-    final currentConfig =
-        ref.read(xyPadConfigProvider)[widget.id] ??
-        XYPadConfig(
-          ccX: widget.ccX,
-          ccY: widget.ccY,
-          channel: widget.channel,
-          invertX: widget.invertX,
-          invertY: widget.invertY,
-        );
-    _showConfigDialog(context, currentConfig);
+    showDialog(
+      context: context,
+      builder: (context) => ControlConfigModal(
+        controlId: widget.id,
+        identifierLabel: 'X Axis MIDI ID (e.g., 20 or C3)',
+        secondaryIdentifierLabel: 'Y Axis MIDI ID (e.g., 21 or C#3)',
+        displayNameLabel: 'XY Pad Name',
+      ),
+    );
   }
 
   void _handleXUpdate(int val) {
@@ -312,178 +243,14 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     );
   }
 
-  void _showConfigDialog(BuildContext context, XYPadConfig currentConfig) {
-    final ccXController = TextEditingController(
-      text: currentConfig.ccX.toString(),
-    );
-    final ccYController = TextEditingController(
-      text: currentConfig.ccY.toString(),
-    );
-    final channelController = TextEditingController(
-      text: currentConfig.channel.toString(),
-    );
-    bool invertX = currentConfig.invertX;
-    bool invertY = currentConfig.invertY;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E2024),
-          title: const Text(
-            'XY Pad Config',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Space Grotesk',
-              fontSize: 18,
-            ),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 8,
-          ),
-          content: ScrollableDialogContent(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: ccXController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'X Axis MIDI ID (e.g., 20 or C3)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Color(0xFF111318),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF282A2E)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  keyboardType: TextInputType.text,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ccYController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Y Axis MIDI ID (e.g., 21 or C#3)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Color(0xFF111318),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF282A2E)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  keyboardType: TextInputType.text,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: channelController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'MIDI Channel (0-15)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Color(0xFF111318),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF282A2E)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                CheckboxListTile(
-                  title: const Text(
-                    'Invert X',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  value: invertX,
-                  onChanged: (v) => setDialogState(() => invertX = v ?? false),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                CheckboxListTile(
-                  title: const Text(
-                    'Invert Y',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  value: invertY,
-                  onChanged: (v) => setDialogState(() => invertY = v ?? false),
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'CANCEL',
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final newConfig = XYPadConfig(
-                  ccX:
-                      MidiUtils.parseNoteIdentifier(ccXController.text) ??
-                      currentConfig.ccX,
-                  ccY:
-                      MidiUtils.parseNoteIdentifier(ccYController.text) ??
-                      currentConfig.ccY,
-                  channel:
-                      int.tryParse(channelController.text) ??
-                      currentConfig.channel,
-                  invertX: invertX,
-                  invertY: invertY,
-                );
-                ref
-                    .read(xyPadConfigProvider.notifier)
-                    .setConfig(widget.id, newConfig);
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'SAVE',
-                style: TextStyle(color: Color(0xFFA6C9F8)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Reset polled values if config changes
+    // Reactively update local state and subscriptions when global layout state changes
     ref.listen(xyPadConfigProvider, (prev, next) {
       _lastPolledX = null;
       _lastPolledY = null;
+      clearManagedResources();
+      _setupTicker();
     });
 
     final config = ref.watch(xyPadConfigProvider)[widget.id];

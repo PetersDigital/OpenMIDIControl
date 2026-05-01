@@ -155,9 +155,6 @@ class UtilityGridPanel extends ConsumerWidget {
                                             context,
                                             ref,
                                             control.id,
-                                            channel,
-                                            cc,
-                                            displayName,
                                           ),
                                     child: Padding(
                                       padding: const EdgeInsets.only(

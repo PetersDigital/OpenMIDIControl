@@ -12,47 +12,6 @@ import 'control_config_modal.dart';
 import '../layout_state.dart';
 import '../../core/midi_utils.dart';
 
-class DrumPadConfig {
-  final int note;
-  final int channel;
-
-  const DrumPadConfig({required this.note, required this.channel});
-
-  Map<String, dynamic> toJson() => {'note': note, 'channel': channel};
-
-  factory DrumPadConfig.fromJson(Map<String, dynamic> json) {
-    return DrumPadConfig(
-      note: json['note'] as int,
-      channel: json['channel'] as int,
-    );
-  }
-
-  DrumPadConfig copyWith({int? note, int? channel}) {
-    return DrumPadConfig(
-      note: note ?? this.note,
-      channel: channel ?? this.channel,
-    );
-  }
-}
-
-class DrumPadConfigManager extends Notifier<Map<String, DrumPadConfig>> {
-  @override
-  Map<String, DrumPadConfig> build() => const {};
-
-  void setConfig(String id, DrumPadConfig config) {
-    state = {...state, id: config};
-  }
-
-  void setAllConfigs(Map<String, DrumPadConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-final drumPadConfigProvider =
-    NotifierProvider<DrumPadConfigManager, Map<String, DrumPadConfig>>(
-      DrumPadConfigManager.new,
-    );
-
 class VelocityDrumPad extends ConsumerStatefulWidget {
   final int index;
   final Color padColor;
@@ -233,14 +192,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                         id: 'drum_pad_${control.id}',
                         onConfigRequested: isPerformanceLocked
                             ? null
-                            : () => _showConfigModal(
-                                context,
-                                ref,
-                                note,
-                                channel,
-                                control.id,
-                                displayLabel,
-                              ),
+                            : () => _showConfigModal(context, ref, control.id),
                         child: Container(
                           padding: const EdgeInsets.only(
                             top: 8,
@@ -355,38 +307,15 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   Future<void> _showConfigModal(
     BuildContext context,
     WidgetRef ref,
-    int currentNote,
-    int currentChannel,
     String controlId,
-    String displayLabel,
   ) async {
-    final result = await showDialog<ControlConfigResult>(
+    await showDialog(
       context: context,
       builder: (context) => ControlConfigModal(
-        initialChannel: currentChannel,
-        initialIdentifier: currentNote,
+        controlId: controlId,
         identifierLabel: 'MIDI Note (e.g., C3 or 36)',
-        initialDisplayName: displayLabel,
         displayNameLabel: 'Pad Name',
       ),
     );
-
-    if (result != null) {
-      final trimmedName = (result.displayName ?? '').trim();
-      if (result.identifier >= 0 && result.identifier <= 127) {
-        final newChannel = result.channel.clamp(0, 15);
-        ref
-            .read(drumPadConfigProvider.notifier)
-            .setConfig(
-              controlId,
-              DrumPadConfig(note: result.identifier, channel: newChannel),
-            );
-      }
-      if (trimmedName.isNotEmpty) {
-        ref
-            .read(layoutStateProvider.notifier)
-            .updateControlLabel(controlId, trimmedName);
-      }
-    }
   }
 }
