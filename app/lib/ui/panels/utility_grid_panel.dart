@@ -44,6 +44,12 @@ class UtilityGridConfigManager
     state = {...state, id: config};
   }
 
+  void removeConfig(String id) {
+    final newState = Map<String, UtilityGridConfig>.from(state);
+    newState.remove(id);
+    state = Map.unmodifiable(newState);
+  }
+
   void setAllConfigs(Map<String, UtilityGridConfig> configs) {
     state = Map.unmodifiable(configs);
   }
@@ -105,100 +111,91 @@ class UtilityGridPanel extends ConsumerWidget {
                 final cc = config?.cc ?? control.defaultCc;
                 final displayName = control.displayName;
 
+                final bool isUnassigned = cc == -1;
+
                 switch (control.type) {
                   case ControlType.encoder:
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Knob area fills all available height;
-                        // CC label overlays the top-left without consuming height
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              // Knob — fills the expanded area
-                              Center(
-                                child: AspectRatio(
-                                  aspectRatio: 1,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8),
-                                    child: EndlessEncoderWidget(
-                                      key: ValueKey('encoder_$index'),
-                                      channel: channel,
-                                      cc: cc,
-                                      showChannelLabel: false,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // CC number — overlaid top-left, ONLY this triggers config
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                child: ConfigGestureWrapper(
-                                  key: ValueKey(
-                                    'config_wrapper_encoder_${control.id}',
-                                  ),
-                                  id: 'encoder_${control.id}',
-                                  onConfigRequested: isLocked
-                                      ? null
-                                      : () => showUtilityConfigModal(
-                                          context,
-                                          ref,
-                                          control.id,
-                                          channel,
-                                          cc,
-                                          displayName,
-                                        ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      top: 4,
-                                      left: 6,
-                                      right: 16,
-                                      bottom: 8,
-                                    ),
-                                    child: Text(
-                                      'CC $cc',
-                                      style: AppText.performance(
-                                        color: const Color(
-                                          0xFFC3C7CA,
-                                        ).withValues(alpha: 0.3),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                    return Opacity(
+                      opacity: isUnassigned ? 0.3 : 1.0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Knob area fills all available height;
+                          // CC label overlays the top-left without consuming height
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                // Knob — fills the expanded area
+                                Center(
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: EndlessEncoderWidget(
+                                        key: ValueKey('encoder_$index'),
+                                        channel: channel,
+                                        cc: isUnassigned ? 0 : cc,
+                                        showChannelLabel: false,
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Bottom row — fixed height, always below the knob
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            top: 2,
-                            bottom: 4,
-                            left: 4,
-                            right: 4,
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Text(
-                                displayName,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'Space Grotesk',
-                                  color: const Color(
-                                    0xFFC3C7CA,
-                                  ).withValues(alpha: 0.3),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                // CC number — overlaid top-left, ONLY this triggers config
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  child: ConfigGestureWrapper(
+                                    key: ValueKey(
+                                      'config_wrapper_encoder_${control.id}',
+                                    ),
+                                    id: 'encoder_${control.id}',
+                                    onConfigRequested: isLocked
+                                        ? null
+                                        : () => showUtilityConfigModal(
+                                            context,
+                                            ref,
+                                            control.id,
+                                            channel,
+                                            cc,
+                                            displayName,
+                                          ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 4,
+                                        left: 6,
+                                        right: 16,
+                                        bottom: 8,
+                                      ),
+                                      child: Text(
+                                        isUnassigned ? 'UNASSIGNED' : 'CC $cc',
+                                        style: AppText.performance(
+                                          color: const Color(
+                                            0xFFC3C7CA,
+                                          ).withValues(alpha: 0.3),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'CH${channel + 1}',
+                              ],
+                            ),
+                          ),
+                          // Bottom row — fixed height, always below the knob
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: 2,
+                              bottom: 4,
+                              left: 4,
+                              right: 4,
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Text(
+                                  displayName,
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: 'Space Grotesk',
                                     color: const Color(
@@ -208,11 +205,26 @@ class UtilityGridPanel extends ConsumerWidget {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ),
-                            ],
+                                if (!isUnassigned)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'CH${channel + 1}',
+                                      style: TextStyle(
+                                        fontFamily: 'Space Grotesk',
+                                        color: const Color(
+                                          0xFFC3C7CA,
+                                        ).withValues(alpha: 0.3),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     );
 
                   case ControlType.toggle:
