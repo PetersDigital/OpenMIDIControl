@@ -59,10 +59,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   void initState() {
     super.initState();
     initPerformanceMixin();
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final channel = config?.channel ?? widget.channel;
-    final ccX = config?.ccX ?? widget.ccX;
-    final ccY = config?.ccY ?? widget.ccY;
+    final control = ref.read(layoutStateProvider).getControlById(widget.id);
+    final channel = control?.channel ?? widget.channel;
+    final ccX = control?.defaultCc ?? widget.ccX;
+    final ccY = control?.secondaryCc ?? widget.ccY;
 
     final controlState = ref.read(controlStateProvider);
     final hotX = controlState.ccValues["$channel:$ccX"];
@@ -81,10 +81,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   void _setupTicker() {
     _vrrTicker = createManagedTicker((elapsed) {
       if (!mounted) return;
-      final config = ref.read(xyPadConfigProvider)[widget.id];
-      final channel = config?.channel ?? widget.channel;
-      final ccX = config?.ccX ?? widget.ccX;
-      final ccY = config?.ccY ?? widget.ccY;
+      final control = ref.read(layoutStateProvider).getControlById(widget.id);
+      final channel = control?.channel ?? widget.channel;
+      final ccX = control?.defaultCc ?? widget.ccX;
+      final ccY = control?.secondaryCc ?? widget.ccY;
 
       final currentState = ref.read(controlStateProvider);
       final valX = currentState.ccValues["$channel:$ccX"];
@@ -100,10 +100,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       }
     });
 
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final channel = config?.channel ?? widget.channel;
-    final ccX = config?.ccX ?? widget.ccX;
-    final ccY = config?.ccY ?? widget.ccY;
+    final control = ref.read(layoutStateProvider).getControlById(widget.id);
+    final channel = control?.channel ?? widget.channel;
+    final ccX = control?.defaultCc ?? widget.ccX;
+    final ccY = control?.secondaryCc ?? widget.ccY;
 
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
@@ -152,8 +152,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     if (_isDragging) return;
     if (!mounted) return;
 
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final invertX = config?.invertX ?? widget.invertX;
+    final control = ref.read(layoutStateProvider).getControlById(widget.id);
+    final invertX = control?.invertX ?? widget.invertX;
     final norm = val / 127.0;
 
     setState(() {
@@ -165,8 +165,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     if (_isDragging) return;
     if (!mounted) return;
 
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final invertY = config?.invertY ?? widget.invertY;
+    final control = ref.read(layoutStateProvider).getControlById(widget.id);
+    final invertY = control?.invertY ?? widget.invertY;
     final norm = val / 127.0;
 
     setState(() {
@@ -213,12 +213,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       },
     );
 
-    final config = ref.read(xyPadConfigProvider)[widget.id];
-    final effectiveCcX = config?.ccX ?? widget.ccX;
-    final effectiveCcY = config?.ccY ?? widget.ccY;
-    final effectiveChannel = config?.channel ?? widget.channel;
-    final effectiveInvertX = config?.invertX ?? widget.invertX;
-    final effectiveInvertY = config?.invertY ?? widget.invertY;
+    final control = ref.read(layoutStateProvider).getControlById(widget.id);
+    final effectiveCcX = control?.defaultCc ?? widget.ccX;
+    final effectiveCcY = control?.secondaryCc ?? widget.ccY;
+    final effectiveChannel = control?.channel ?? widget.channel;
+    final effectiveInvertX = control?.invertX ?? widget.invertX;
+    final effectiveInvertY = control?.invertY ?? widget.invertY;
 
     final effectiveX = effectiveInvertX ? 1.0 - _normalizedX : _normalizedX;
     final effectiveY = effectiveInvertY ? 1.0 - _normalizedY : _normalizedY;
@@ -246,16 +246,25 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   @override
   Widget build(BuildContext context) {
     // Reactively update local state and subscriptions when global layout state changes
-    ref.listen(xyPadConfigProvider, (prev, next) {
-      _lastPolledX = null;
-      _lastPolledY = null;
-      clearManagedResources();
-      _setupTicker();
+    ref.listen(layoutStateProvider.select((s) => s.getControlById(widget.id)), (
+      prev,
+      next,
+    ) {
+      if (prev != next) {
+        _lastPolledX = null;
+        _lastPolledY = null;
+        clearManagedResources();
+        _setupTicker();
+      }
     });
 
-    final config = ref.watch(xyPadConfigProvider)[widget.id];
-    final ccX = config?.ccX ?? widget.ccX;
-    final ccY = config?.ccY ?? widget.ccY;
+    final control = ref.watch(
+      layoutStateProvider.select((s) => s.getControlById(widget.id)),
+    );
+    final ccX = control?.defaultCc ?? widget.ccX;
+    final ccY = control?.secondaryCc ?? widget.ccY;
+    final invertX = control?.invertX ?? widget.invertX;
+    final invertY = control?.invertY ?? widget.invertY;
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -374,7 +383,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                (((config?.invertX ?? widget.invertX)
+                                ((invertX
                                             ? (1.0 - _normalizedX)
                                             : _normalizedX) *
                                         127)
@@ -426,7 +435,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                 ),
                               ),
                               Text(
-                                (((config?.invertY ?? widget.invertY)
+                                ((invertY
                                             ? (1.0 - _normalizedY)
                                             : _normalizedY) *
                                         127)
