@@ -748,106 +748,97 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     final size = MediaQuery.sizeOf(context);
     final panelWidth = size.width * 0.40;
 
-    return Stack(
+    return Column(
       children: [
-        // Always 100% performance zone
-        PerformanceZone(key: _performanceZoneKey, isMobile: false),
+        _buildLandscapeHeader(context, ref),
+        Expanded(
+          child: Stack(
+            children: [
+              // Always 100% performance zone
+              PerformanceZone(key: _performanceZoneKey, isMobile: false),
 
-        // Sliding Command Center
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          top: 0,
-          bottom: 0,
-          left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-          right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-          width: panelWidth,
-          child: Visibility(
-            visible: isVisible,
-            maintainState: true,
-            child: _buildCommandCenter(context, ref, faderOnRight),
-          ),
-        ),
-
-        // Floating Toggle (only visible when panel is hidden)
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          top: 24,
-          left: faderOnRight ? (isVisible ? -300 : 24) : null,
-          right: !faderOnRight ? (isVisible ? -300 : 24) : null,
-          child: AnimatedOpacity(
-            opacity: isVisible ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: isVisible,
-              child: _buildFloatingControls(context, ref, faderOnRight),
-            ),
+              // Sliding Command Center
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+                right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
+                width: panelWidth,
+                child: Visibility(
+                  visible: isVisible,
+                  maintainState: true,
+                  child: _buildCommandCenter(context, ref, faderOnRight),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFloatingControls(
-    BuildContext context,
-    WidgetRef ref,
-    bool faderOnRight,
-  ) {
+  Widget _buildLandscapeHeader(BuildContext context, WidgetRef ref) {
+    final faderOnRight =
+        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
+    final isVisible = ref.watch(transportVisibleProvider);
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2024).withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      color: const Color(0xFF111318),
+      padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
+          Text(
+            "OPENMIDI",
+            style: AppText.performance(
+              color: const Color(0xFFA6C9F8),
+              fontWeight: FontWeight.w900,
+              fontSize: 24,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const Spacer(),
           _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
           const SizedBox(width: 8),
+          // Transport Toggle Button
           Tooltip(
-            message: 'Toggle Transport',
+            message: isVisible ? 'Hide Transport' : 'Show Transport',
             child: IconButton(
-              key: const ValueKey('transport_toggle_button_floating'),
+              key: const ValueKey('transport_toggle_button_landscape'),
               icon: Icon(
-                faderOnRight
-                    ? Icons.keyboard_double_arrow_right
-                    : Icons.keyboard_double_arrow_left,
+                isVisible
+                    ? (faderOnRight
+                          ? Icons.keyboard_double_arrow_left
+                          : Icons.keyboard_double_arrow_right)
+                    : (faderOnRight
+                          ? Icons.keyboard_double_arrow_right
+                          : Icons.keyboard_double_arrow_left),
                 color: const Color(0xFFA6C9F8),
-                size: 28,
               ),
-              onPressed: () =>
-                  ref.read(transportVisibleProvider.notifier).toggle(),
+              onPressed: () {
+                ref.read(transportVisibleProvider.notifier).toggle();
+              },
             ),
           ),
           const SizedBox(width: 8),
+          // Lock/Unlock Button
           IconButton(
             icon: Icon(
               isLocked ? Icons.lock : Icons.lock_open,
-              color: isLocked ? Colors.redAccent : Colors.white,
-              size: 28,
+              color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
             ),
             tooltip: 'Lock Performance Interface',
-            onPressed: () =>
-                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
+            onPressed: () {
+              ref.read(layoutStateProvider.notifier).togglePerformanceLock();
+            },
           ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: 'App Settings',
-            child: IconButton(
-              key: const ValueKey('desktop_floating_app_settings'),
-              icon: const Icon(
-                Icons.more_vert,
-                color: Color(0xFFC3C7CA),
-                size: 28,
-              ),
-              onPressed: () => _showAppSettings(context),
-            ),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Color(0xFFC3C7CA)),
+            onPressed: () => _showAppSettings(context),
           ),
         ],
       ),
@@ -859,10 +850,6 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool faderOnRight,
   ) {
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
-
     return Container(
       color: const Color(0xFF1A1C20),
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -872,77 +859,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "OPENMIDI",
-                      style: AppText.performance(
-                        color: const Color(0xFFA6C9F8),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 24,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ConnectionStatusButton(
-                          onTap: () => _showMidiSettings(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Tooltip(
-                          message: 'Toggle Transport',
-                          child: IconButton(
-                            key: const ValueKey(
-                              'transport_toggle_button_panel',
-                            ),
-                            icon: Icon(
-                              faderOnRight
-                                  ? Icons.keyboard_double_arrow_left
-                                  : Icons.keyboard_double_arrow_right,
-                              color: const Color(0xFFA6C9F8),
-                            ),
-                            onPressed: () {
-                              ref
-                                  .read(transportVisibleProvider.notifier)
-                                  .toggle();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            isLocked ? Icons.lock : Icons.lock_open,
-                            color: isLocked ? Colors.redAccent : Colors.white,
-                          ),
-                          tooltip: 'Lock Performance Interface',
-                          onPressed: () => ref
-                              .read(layoutStateProvider.notifier)
-                              .togglePerformanceLock(),
-                        ),
-                        const SizedBox(width: 8),
-                        Tooltip(
-                          message: 'App Settings',
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.more_vert,
-                              color: Color(0xFFC3C7CA),
-                              size: 28,
-                            ),
-                            onPressed: () => _showAppSettings(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+              // Status displays
 
               // Status displays
               Row(
@@ -1064,8 +981,6 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
       ),
     );
   }
-
-
 }
 
 // ===========================================================================
