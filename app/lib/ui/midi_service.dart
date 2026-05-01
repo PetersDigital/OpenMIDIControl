@@ -782,18 +782,21 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
       final type = event['type'];
       final id = event['id'];
 
-      if (type == 'removed') {
+      if (type == 'removed' || type == 'DISCONNECT') {
         if (_isDuplicateDeviceEvent(type as String, id)) {
           return;
         }
 
         // If the removed device is our currently connected device
-        if (state.connectedDevice?.id == id) {
-          state = state.disconnect(connectionLost: true);
-          service.vibrate(
-            pattern: [0, 100, 100, 100],
-            amplitude: [0, 255, 0, 255],
-          );
+        if (state.connectedDevice?.id == id || type == 'DISCONNECT') {
+          final isTargetDevice = id == null || state.connectedDevice?.id == id;
+          if (isTargetDevice) {
+            state = state.disconnect(connectionLost: true);
+            service.vibrate(
+              pattern: [0, 100, 100, 100],
+              amplitude: [0, 255, 0, 255],
+            );
+          }
         }
         // Refresh the available devices list
         _scheduleDeviceRefresh();

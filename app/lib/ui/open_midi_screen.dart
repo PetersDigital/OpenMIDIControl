@@ -151,19 +151,24 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
       backgroundColor: const Color(0xFF111318),
       resizeToAvoidBottomInset: false,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Adaptive layout selection
-            if (isLandscape) {
-              if (isTablet && constraints.maxWidth > 900) {
-                return const _DesktopLandscapeLayout();
-              }
-              // Landscape on phones (including ultra-wide 19.5:9+)
-              return const _MobileLandscapeLayout();
-            }
-            // Default portrait for mobile
-            return const _MobilePortraitLayout();
-          },
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Adaptive layout selection
+                if (isLandscape) {
+                  if (isTablet && constraints.maxWidth > 900) {
+                    return const _DesktopLandscapeLayout();
+                  }
+                  // Landscape on phones (including ultra-wide 19.5:9+)
+                  return const _MobileLandscapeLayout();
+                }
+                // Default portrait for mobile
+                return const _MobilePortraitLayout();
+              },
+            ),
+            const DeviceOfflineOverlay(),
+          ],
         ),
       ),
     );
@@ -1394,6 +1399,83 @@ class GlobalConfigProgressBar extends ConsumerWidget {
               end: Alignment.centerRight,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// DEVICE OFFLINE OVERLAY
+// ===========================================================================
+
+class DeviceOfflineOverlay extends ConsumerWidget {
+  const DeviceOfflineOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(midiStatusProvider);
+    if (status != MidiStatus.connectionLost) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.85),
+      width: double.infinity,
+      height: double.infinity,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFFFB59E),
+              size: 80,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "DEVICE OFFLINE",
+              style: TextStyle(
+                fontFamily: 'Space Grotesk',
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFFB59E),
+                letterSpacing: 3.0,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "HARDWARE CONNECTION SEVERED",
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 14,
+                color: Colors.white54,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 48),
+            TextButton(
+              onPressed: () => _showMidiSettings(context),
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF1E2024),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white10),
+                ),
+              ),
+              child: const Text(
+                "OPEN MIDI SETTINGS",
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Color(0xFFA6C9F8),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
