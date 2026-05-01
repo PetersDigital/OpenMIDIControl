@@ -835,11 +835,9 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         _lastUsbStatus = usbStatus;
 
         if (usbStatus == 'DISCONNECTED' || usbStatus == 'INIT') {
-          final shouldHandleDisconnect =
-              state.connectedDevice != null || !state.isConnectionLost;
-
-          // Only disconnect once per transition to avoid repeated thermal churn.
-          if (shouldHandleDisconnect) {
+          // Only trigger "Connection Lost" if we were actually connected to something.
+          // This prevents the overlay from appearing on every app launch when no device is present.
+          if (state.connectedDevice != null) {
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],
@@ -923,6 +921,10 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
     service.vibrate(duration: 50);
     service.disconnectDevice();
     state = state.disconnect(connectionLost: false);
+  }
+
+  void clearConnectionLost() {
+    state = state.copyWith(isConnectionLost: false);
   }
 }
 

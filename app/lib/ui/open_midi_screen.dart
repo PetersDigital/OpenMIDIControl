@@ -785,7 +785,10 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   ),
                 ),
               Expanded(
-                child: PerformanceZone(key: _performanceZoneKey, isMobile: false),
+                child: PerformanceZone(
+                  key: _performanceZoneKey,
+                  isMobile: false,
+                ),
               ),
               if (!faderOnRight)
                 AnimatedContainer(
@@ -1342,65 +1345,98 @@ class DeviceOfflineOverlay extends ConsumerWidget {
     final status = ref.watch(midiStatusProvider);
     if (status != MidiStatus.connectionLost) return const SizedBox.shrink();
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.85),
-      width: double.infinity,
-      height: double.infinity,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Color(0xFFFFB59E),
-              size: 80,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "DEVICE OFFLINE",
-              style: TextStyle(
-                fontFamily: 'Space Grotesk',
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFFFB59E),
-                letterSpacing: 3.0,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "HARDWARE CONNECTION SEVERED",
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: Colors.white54,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const SizedBox(height: 48),
-            TextButton(
-              onPressed: () => _showMidiSettings(context),
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFF1E2024),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+    return GestureDetector(
+      onTap: () =>
+          ref.read(connectedMidiDeviceProvider.notifier).clearConnectionLost(),
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.85),
+        width: double.infinity,
+        height: double.infinity,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {}, // Consume taps inside the content area
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFFFB59E),
+                  size: 80,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Colors.white10),
+                const SizedBox(height: 24),
+                const Text(
+                  "DEVICE OFFLINE",
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFFFB59E),
+                    letterSpacing: 3.0,
+                  ),
                 ),
-              ),
-              child: const Text(
-                "OPEN MIDI SETTINGS",
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFFA6C9F8),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+                const SizedBox(height: 12),
+                const Text(
+                  "HARDWARE CONNECTION SEVERED",
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.white54,
+                    letterSpacing: 1.5,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 48),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => _showMidiSettings(context),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E2024),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Colors.white10),
+                        ),
+                      ),
+                      child: const Text(
+                        "OPEN MIDI SETTINGS",
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Color(0xFFA6C9F8),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(connectedMidiDeviceProvider.notifier)
+                          .clearConnectionLost(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                      ),
+                      child: const Text(
+                        "DISMISS",
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: Colors.white54,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
