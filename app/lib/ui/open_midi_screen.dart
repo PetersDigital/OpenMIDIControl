@@ -865,10 +865,13 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
 
     return Container(
       color: const Color(0xFF1A1C20),
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
           FittedBox(
             fit: BoxFit.scaleDown,
             child: SizedBox(
@@ -889,7 +892,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -956,7 +959,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
           // Status displays
           Row(
@@ -969,7 +972,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
           // Track name
           SizedBox(
@@ -983,7 +986,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
           // 3×3 grid
           AspectRatio(
@@ -1065,10 +1068,12 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTransportButton(
     IconData icon,
