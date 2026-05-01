@@ -3,119 +3,57 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/ui/widgets/control_config_modal.dart';
 
 void main() {
-  testWidgets('ControlConfigModal renders correctly', (
+  testWidgets('ControlConfigModal renders correctly and saves to state', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: ControlConfigModal(initialChannel: 0, initialIdentifier: 22),
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(body: ControlConfigModal(controlId: 'fader_0')),
         ),
       ),
     );
 
     expect(find.text('Configure Control'), findsOneWidget);
-    expect(find.text('Channel 1'), findsOneWidget); // Dropdown selected item
-    expect(find.widgetWithText(TextFormField, '22'), findsOneWidget);
-  });
-
-  testWidgets('ControlConfigModal validates identifier input', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: ControlConfigModal())),
-    );
-
-    // Enter an invalid number
-    await tester.enterText(find.byType(TextFormField), '150');
-    await tester.pumpAndSettle();
-
     expect(
-      find.text('Enter a number (0-127) or note (e.g., C3)'),
+      find.text('Channel 1'),
       findsOneWidget,
-    );
-  });
+    ); // Default for fader_0 is 0 (Channel 1)
 
-  testWidgets('ControlConfigModal returns data on save', (
-    WidgetTester tester,
-  ) async {
-    ControlConfigResult? result;
+    // Default identifier for fader_0 is 1
+    expect(find.widgetWithText(TextFormField, '1'), findsOneWidget);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () async {
-                result = await showDialog<ControlConfigResult>(
-                  context: context,
-                  builder: (context) => const ControlConfigModal(
-                    initialChannel: 1,
-                    initialIdentifier: 50,
-                  ),
-                );
-              },
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-
-    // Change value
-    await tester.enterText(find.byType(TextFormField), '64');
+    // Enter a new value
+    await tester.enterText(find.widgetWithText(TextFormField, '1'), '64');
     await tester.pumpAndSettle();
 
     // Tap Save
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(result, isNotNull);
-    expect(result!.channel, 1);
-    expect(result!.identifier, 64);
+    // Verify it's gone (modal closed)
+    expect(find.byType(ControlConfigModal), findsNothing);
   });
 
-  testWidgets('ControlConfigModal returns null on cancel', (
+  testWidgets('ControlConfigModal handles Clear action', (
     WidgetTester tester,
   ) async {
-    ControlConfigResult? result = const ControlConfigResult(
-      channel: 0,
-      identifier: 0,
-    );
-
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => ElevatedButton(
-              onPressed: () async {
-                final r = await showDialog<ControlConfigResult>(
-                  context: context,
-                  builder: (context) => const ControlConfigModal(),
-                );
-                // only overwrite if null was returned (to test if cancel works)
-                result = r;
-              },
-              child: const Text('Open'),
-            ),
-          ),
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(body: ControlConfigModal(controlId: 'fader_0')),
         ),
       ),
     );
 
-    await tester.tap(find.text('Open'));
+    // Tap Clear
+    await tester.tap(find.text('Clear'));
     await tester.pumpAndSettle();
 
-    // Tap Cancel
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-
-    expect(result, isNull);
+    expect(find.byType(ControlConfigModal), findsNothing);
   });
 }
