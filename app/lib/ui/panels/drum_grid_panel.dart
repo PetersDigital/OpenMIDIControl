@@ -25,8 +25,8 @@ class DrumGridPanel extends ConsumerWidget {
       builder: (context, constraints) {
         const int crossAxisCount = 2;
         final int rows = (padCount / crossAxisCount).ceil();
-        const double mainAxisSpacing = 2.0;
-        const double crossAxisSpacing = 2.0;
+        const double mainAxisSpacing = 0.0;
+        const double crossAxisSpacing = 0.0;
 
         final double availableWidth = (constraints.maxWidth - crossAxisSpacing)
             .clamp(1.0, double.infinity);
@@ -51,12 +51,13 @@ class DrumGridPanel extends ConsumerWidget {
         return Stack(
           children: [
             GridView.builder(
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: aspectRatio,
-                crossAxisSpacing: 2.0,
-                mainAxisSpacing: 2.0,
+                crossAxisSpacing: 0.0,
+                mainAxisSpacing: 0.0,
               ),
               itemCount: padCount,
               itemBuilder: (context, index) {
