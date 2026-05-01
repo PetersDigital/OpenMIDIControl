@@ -4,8 +4,187 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
 
-/// State object for the layout engine.
-/// Tracks pages, active page index, and performance lock state.
+// ---------------------------------------------------------------------------
+// Page-Specific Override Models
+// ---------------------------------------------------------------------------
+
+class UtilityGridConfig {
+  final int channel;
+  final int cc;
+
+  const UtilityGridConfig({required this.channel, required this.cc});
+
+  Map<String, dynamic> toJson() => {'channel': channel, 'cc': cc};
+
+  factory UtilityGridConfig.fromJson(Map<String, dynamic> json) {
+    return UtilityGridConfig(
+      channel: json['channel'] as int,
+      cc: json['cc'] as int,
+    );
+  }
+
+  UtilityGridConfig copyWith({int? channel, int? cc}) {
+    return UtilityGridConfig(
+      channel: channel ?? this.channel,
+      cc: cc ?? this.cc,
+    );
+  }
+}
+
+class DrumPadConfig {
+  final int note;
+  final int channel;
+
+  const DrumPadConfig({required this.note, required this.channel});
+
+  Map<String, dynamic> toJson() => {'note': note, 'channel': channel};
+
+  factory DrumPadConfig.fromJson(Map<String, dynamic> json) {
+    return DrumPadConfig(
+      note: json['note'] as int,
+      channel: json['channel'] as int,
+    );
+  }
+
+  DrumPadConfig copyWith({int? note, int? channel}) {
+    return DrumPadConfig(
+      note: note ?? this.note,
+      channel: channel ?? this.channel,
+    );
+  }
+}
+
+class XYPadConfig {
+  final int ccX;
+  final int ccY;
+  final int channel;
+  final bool invertX;
+  final bool invertY;
+
+  const XYPadConfig({
+    required this.ccX,
+    required this.ccY,
+    required this.channel,
+    required this.invertX,
+    required this.invertY,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'ccX': ccX,
+    'ccY': ccY,
+    'channel': channel,
+    'invertX': invertX,
+    'invertY': invertY,
+  };
+
+  factory XYPadConfig.fromJson(Map<String, dynamic> json) {
+    return XYPadConfig(
+      ccX: json['ccX'] as int,
+      ccY: json['ccY'] as int,
+      channel: json['channel'] as int,
+      invertX: json['invertX'] as bool,
+      invertY: json['invertY'] as bool,
+    );
+  }
+
+  XYPadConfig copyWith({
+    int? ccX,
+    int? ccY,
+    int? channel,
+    bool? invertX,
+    bool? invertY,
+  }) {
+    return XYPadConfig(
+      ccX: ccX ?? this.ccX,
+      ccY: ccY ?? this.ccY,
+      channel: channel ?? this.channel,
+      invertX: invertX ?? this.invertX,
+      invertY: invertY ?? this.invertY,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page-Specific Notifiers (Moved from individual files)
+// ---------------------------------------------------------------------------
+
+class UtilityGridConfigManager
+    extends Notifier<Map<String, UtilityGridConfig>> {
+  @override
+  Map<String, UtilityGridConfig> build() => const {};
+
+  void setConfig(String id, UtilityGridConfig config) {
+    state = {...state, id: config};
+  }
+
+  void removeConfig(String id) {
+    final newState = Map<String, UtilityGridConfig>.from(state);
+    newState.remove(id);
+    state = Map.unmodifiable(newState);
+  }
+
+  void setAllConfigs(Map<String, UtilityGridConfig> configs) {
+    state = Map.unmodifiable(configs);
+  }
+}
+
+class DrumPadConfigManager extends Notifier<Map<String, DrumPadConfig>> {
+  @override
+  Map<String, DrumPadConfig> build() => const {};
+
+  void setConfig(String id, DrumPadConfig config) {
+    state = {...state, id: config};
+  }
+
+  void removeConfig(String id) {
+    final newState = Map<String, DrumPadConfig>.from(state);
+    newState.remove(id);
+    state = Map.unmodifiable(newState);
+  }
+
+  void setAllConfigs(Map<String, DrumPadConfig> configs) {
+    state = Map.unmodifiable(configs);
+  }
+}
+
+class XYPadConfigManager extends Notifier<Map<String, XYPadConfig>> {
+  @override
+  Map<String, XYPadConfig> build() => const {};
+
+  void setConfig(String id, XYPadConfig config) {
+    state = {...state, id: config};
+  }
+
+  void removeConfig(String id) {
+    final newState = Map<String, XYPadConfig>.from(state);
+    newState.remove(id);
+    state = Map.unmodifiable(newState);
+  }
+
+  void setAllConfigs(Map<String, XYPadConfig> configs) {
+    state = Map.unmodifiable(configs);
+  }
+}
+
+final utilityGridConfigProvider =
+    NotifierProvider<UtilityGridConfigManager, Map<String, UtilityGridConfig>>(
+      UtilityGridConfigManager.new,
+    );
+
+final drumPadConfigProvider =
+    NotifierProvider<DrumPadConfigManager, Map<String, DrumPadConfig>>(
+      DrumPadConfigManager.new,
+    );
+
+final xyPadConfigProvider =
+    NotifierProvider<XYPadConfigManager, Map<String, XYPadConfig>>(
+      XYPadConfigManager.new,
+    );
+
+// ---------------------------------------------------------------------------
+// Layout State
+// ---------------------------------------------------------------------------
+
 class LayoutState {
   final List<LayoutPage> pages;
   final int activePageIndex;
@@ -18,7 +197,6 @@ class LayoutState {
   }) : assert(activePageIndex >= 0, 'Page index cannot be negative'),
        assert(activePageIndex < pages.length, 'Page index out of bounds');
 
-  /// Create a copy with optional field overrides.
   LayoutState copyWith({
     List<LayoutPage>? pages,
     int? activePageIndex,
@@ -31,16 +209,18 @@ class LayoutState {
     );
   }
 
-  /// Get the currently active page.
   LayoutPage get activePage => pages[activePageIndex];
 
-  @override
-  String toString() =>
-      'LayoutState(pages: ${pages.length}, activePage: $activePageIndex, locked: $isPerformanceLocked)';
+  LayoutControl? getControlById(String id) {
+    for (final page in pages) {
+      for (final control in page.controls) {
+        if (control.id == id) return control;
+      }
+    }
+    return null;
+  }
 }
 
-/// Notifier for the layout state.
-/// Provides mutations and initialization of layout pages.
 class LayoutStateNotifier extends Notifier<LayoutState> {
   @override
   LayoutState build() {
@@ -51,7 +231,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     );
   }
 
-  /// Build the 4 default pages matching legacy tabs.
   static List<LayoutPage> _buildDefaultPages() {
     return [
       _buildFaderPage(),
@@ -61,7 +240,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     ];
   }
 
-  /// Page 0: FADER (8 faders)
   static LayoutPage _buildFaderPage() {
     return LayoutPage(
       id: 'page_0',
@@ -127,7 +305,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     );
   }
 
-  /// Page 1: XY (1 XY pad with dual-axis control)
   static LayoutPage _buildXyPage() {
     return LayoutPage(
       id: 'page_1',
@@ -140,251 +317,231 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           channel: 0,
           customName: 'XY PAD',
         ),
-        // Note: The Y-axis is typically CC 11, but represented as a single control
       ],
     );
   }
 
-  /// Page 2: PADS (8 drum pads, channel 9, notes 36-43)
   static LayoutPage _buildPadsPage() {
+    final names = [
+      'KICK 1',
+      'SNARE 1',
+      'SNARE 2',
+      'CLAP',
+      'SNARE 3',
+      'TOM 1',
+      'HAT C',
+      'TOM 2',
+    ];
     return LayoutPage(
       id: 'page_2',
       name: 'PADS',
-      controls: [
-        LayoutControl(
-          id: 'drum_pad_0',
+      controls: List.generate(8, (index) {
+        return LayoutControl(
+          id: 'pad_$index',
           type: ControlType.drumPad,
-          defaultCc: 36, // Kick
+          defaultCc: 36 + index,
           channel: 9,
-          customName: 'KICK 1',
-        ),
-        LayoutControl(
-          id: 'drum_pad_1',
-          type: ControlType.drumPad,
-          defaultCc: 37, // Snare 1
-          channel: 9,
-          customName: 'SNARE 1',
-        ),
-        LayoutControl(
-          id: 'drum_pad_2',
-          type: ControlType.drumPad,
-          defaultCc: 38, // Snare 2
-          channel: 9,
-          customName: 'SNARE 2',
-        ),
-        LayoutControl(
-          id: 'drum_pad_3',
-          type: ControlType.drumPad,
-          defaultCc: 39, // Clap
-          channel: 9,
-          customName: 'CLAP',
-        ),
-        LayoutControl(
-          id: 'drum_pad_4',
-          type: ControlType.drumPad,
-          defaultCc: 40, // Snare 3
-          channel: 9,
-          customName: 'SNARE 3',
-        ),
-        LayoutControl(
-          id: 'drum_pad_5',
-          type: ControlType.drumPad,
-          defaultCc: 41, // Tom 1
-          channel: 9,
-          customName: 'TOM 1',
-        ),
-        LayoutControl(
-          id: 'drum_pad_6',
-          type: ControlType.drumPad,
-          defaultCc: 42, // Hat Closed
-          channel: 9,
-          customName: 'HAT C',
-        ),
-        LayoutControl(
-          id: 'drum_pad_7',
-          type: ControlType.drumPad,
-          defaultCc: 43, // Tom 2
-          channel: 9,
-          customName: 'TOM 2',
-        ),
-      ],
+          customName: names[index],
+        );
+      }),
     );
   }
 
-  /// Page 3: UTILITY (4 encoders + 4 toggles + 4 trigger)
   static LayoutPage _buildUtilityPage() {
     return LayoutPage(
       id: 'page_3',
       name: 'UTILITY',
-      controls: [
-        // Encoders (Row 0 & 1)
-        LayoutControl(
-          id: 'encoder_0',
-          type: ControlType.encoder,
-          defaultCc: 20,
-          channel: 0,
-          customName: 'ENC 1',
-        ),
-        LayoutControl(
-          id: 'encoder_1',
-          type: ControlType.encoder,
-          defaultCc: 21,
-          channel: 0,
-          customName: 'ENC 2',
-        ),
-        LayoutControl(
-          id: 'encoder_2',
-          type: ControlType.encoder,
-          defaultCc: 22,
-          channel: 0,
-          customName: 'ENC 3',
-        ),
-        LayoutControl(
-          id: 'encoder_3',
-          type: ControlType.encoder,
-          defaultCc: 23,
-          channel: 0,
-          customName: 'ENC 4',
-        ),
-        // Toggle Buttons (Row 2 & 3)
-        LayoutControl(
-          id: 'toggle_0',
-          type: ControlType.toggle,
-          defaultCc: 24,
-          channel: 0,
-          customName: 'TOGGLE 1',
-        ),
-        LayoutControl(
-          id: 'toggle_1',
-          type: ControlType.toggle,
-          defaultCc: 25,
-          channel: 0,
-          customName: 'TOGGLE 2',
-        ),
-        LayoutControl(
-          id: 'toggle_2',
-          type: ControlType.toggle,
-          defaultCc: 26,
-          channel: 0,
-          customName: 'TOGGLE 3',
-        ),
-        LayoutControl(
-          id: 'toggle_3',
-          type: ControlType.toggle,
-          defaultCc: 27,
-          channel: 0,
-          customName: 'TOGGLE 4',
-        ),
-        // Trigger Buttons (Row 4 & 5)
-        LayoutControl(
-          id: 'trigger_0',
+      controls: List.generate(8, (index) {
+        return LayoutControl(
+          id: 'util_$index',
           type: ControlType.trigger,
-          defaultCc: 28,
+          defaultCc: 20 + index,
           channel: 0,
-          customName: 'TRIG 1',
-        ),
-        LayoutControl(
-          id: 'trigger_1',
-          type: ControlType.trigger,
-          defaultCc: 29,
-          channel: 0,
-          customName: 'TRIG 2',
-        ),
-        LayoutControl(
-          id: 'trigger_2',
-          type: ControlType.trigger,
-          defaultCc: 30,
-          channel: 0,
-          customName: 'TRIG 3',
-        ),
-        LayoutControl(
-          id: 'trigger_3',
-          type: ControlType.trigger,
-          defaultCc: 31,
-          channel: 0,
-          customName: 'TRIG 4',
-        ),
-      ],
+          customName: 'UTIL $index',
+        );
+      }),
     );
   }
 
-  /// Set the active page by index.
-  void setPageIndex(int index) {
-    if (index >= 0 && index < state.pages.length) {
-      state = state.copyWith(activePageIndex: index);
-    }
-  }
-
-  /// Update the custom name of a control by ID.
-  /// Searches through all pages to find the control.
-  void updateControlLabel(String controlId, String label) {
-    final updatedPages = state.pages.map((page) {
-      final controlIndex = page.controls.indexWhere(
-        (control) => control.id == controlId,
-      );
-      if (controlIndex != -1) {
-        final updatedControls = [...page.controls];
-        updatedControls[controlIndex] = updatedControls[controlIndex].copyWith(
-          customName: label,
-        );
-        return page.copyWith(controls: updatedControls);
-      }
-      return page;
-    }).toList();
-
-    state = state.copyWith(pages: updatedPages);
-  }
-
-  /// Replace the active page with an imported page while preserving
-  /// the original page id to avoid routing/index breakage.
-  void overwriteActivePage(LayoutPage importedPage) {
-    final index = state.activePageIndex;
-    if (index < 0 || index >= state.pages.length) return;
-
-    final existingPage = state.pages[index];
-    final mergedPage = importedPage.copyWith(id: existingPage.id);
-    final updatedPages = [...state.pages];
-    updatedPages[index] = mergedPage;
-
-    state = state.copyWith(pages: updatedPages);
-  }
-
-  /// Toggle the performance lock state.
   void togglePerformanceLock() {
     state = state.copyWith(isPerformanceLocked: !state.isPerformanceLocked);
   }
 
-  /// Set performance lock to a specific state.
-  void setPerformanceLock(bool locked) {
-    state = state.copyWith(isPerformanceLocked: locked);
+  void setPageIndex(int index) {
+    state = state.copyWith(activePageIndex: index);
   }
 
-  /// Apply a drum pad layout preset (MPC or Ableton).
+  void updateControlLabel(String controlId, String label) {
+    final updatedPages = state.pages.map((page) {
+      final updatedControls = page.controls.map((control) {
+        if (control.id == controlId) {
+          return control.copyWith(customName: label);
+        }
+        return control;
+      }).toList();
+      return page.copyWith(controls: updatedControls);
+    }).toList();
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  void overwriteActivePage(LayoutPage newPage) {
+    final updatedPages = [...state.pages];
+    updatedPages[state.activePageIndex] = newPage;
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  void updateControl(
+    String controlId, {
+    int? channel,
+    int? identifier,
+    String? name,
+    int? secondaryIdentifier,
+    bool? invertX,
+    bool? invertY,
+  }) {
+    // 1. Update Global Layout State
+    final updatedPages = state.pages.map((page) {
+      final updatedControls = page.controls.map((control) {
+        if (control.id == controlId) {
+          return control.copyWith(
+            channel: channel,
+            defaultCc: identifier,
+            customName: name,
+          );
+        }
+        return control;
+      }).toList();
+      return page.copyWith(controls: updatedControls);
+    }).toList();
+    state = state.copyWith(pages: updatedPages);
+
+    // 2. Update Sub-Providers
+    if (controlId.startsWith('util_')) {
+      ref
+          .read(utilityGridConfigProvider.notifier)
+          .setConfig(
+            controlId,
+            UtilityGridConfig(channel: channel ?? 0, cc: identifier ?? 0),
+          );
+    } else if (controlId.startsWith('pad_')) {
+      ref
+          .read(drumPadConfigProvider.notifier)
+          .setConfig(
+            controlId,
+            DrumPadConfig(note: identifier ?? 0, channel: channel ?? 9),
+          );
+    } else if (controlId == 'xy_main') {
+      ref
+          .read(xyPadConfigProvider.notifier)
+          .setConfig(
+            controlId,
+            XYPadConfig(
+              ccX: identifier ?? 1,
+              ccY: secondaryIdentifier ?? 11,
+              channel: channel ?? 0,
+              invertX: invertX ?? false,
+              invertY: invertY ?? true,
+            ),
+          );
+    }
+  }
+
+  void resetControl(String controlId) {
+    final defaultPages = _buildDefaultPages();
+    LayoutControl? defaultControl;
+    int pageIdx = -1;
+    int controlIdx = -1;
+
+    for (int p = 0; p < defaultPages.length; p++) {
+      final idx = defaultPages[p].controls.indexWhere((c) => c.id == controlId);
+      if (idx != -1) {
+        defaultControl = defaultPages[p].controls[idx];
+        pageIdx = p;
+        controlIdx = idx;
+        break;
+      }
+    }
+
+    if (defaultControl == null) return;
+
+    final updatedPages = [...state.pages];
+    final updatedControls = [...updatedPages[pageIdx].controls];
+    updatedControls[controlIdx] = defaultControl;
+    updatedPages[pageIdx] = updatedPages[pageIdx].copyWith(
+      controls: updatedControls,
+    );
+    state = state.copyWith(pages: updatedPages);
+
+    // Wipe overrides
+    if (controlId.startsWith('util_')) {
+      ref.read(utilityGridConfigProvider.notifier).removeConfig(controlId);
+    } else if (controlId.startsWith('pad_')) {
+      ref.read(drumPadConfigProvider.notifier).removeConfig(controlId);
+    } else if (controlId == 'xy_main') {
+      ref.read(xyPadConfigProvider.notifier).removeConfig(controlId);
+    }
+  }
+
+  void clearControl(String controlId) {
+    final updatedPages = state.pages.map((page) {
+      final updatedControls = page.controls.map((control) {
+        if (control.id == controlId) {
+          return control.copyWith(
+            defaultCc: -1,
+            channel: -1,
+            customName: 'Unassigned',
+          );
+        }
+        return control;
+      }).toList();
+      return page.copyWith(controls: updatedControls);
+    }).toList();
+    state = state.copyWith(pages: updatedPages);
+
+    // Sync sub-providers to "disabled" state
+    if (controlId.startsWith('util_')) {
+      ref
+          .read(utilityGridConfigProvider.notifier)
+          .setConfig(controlId, const UtilityGridConfig(channel: -1, cc: -1));
+    } else if (controlId.startsWith('pad_')) {
+      ref
+          .read(drumPadConfigProvider.notifier)
+          .setConfig(controlId, const DrumPadConfig(note: -1, channel: -1));
+    } else if (controlId == 'xy_main') {
+      ref
+          .read(xyPadConfigProvider.notifier)
+          .setConfig(
+            controlId,
+            const XYPadConfig(
+              ccX: -1,
+              ccY: -1,
+              channel: -1,
+              invertX: false,
+              invertY: false,
+            ),
+          );
+    }
+  }
+
   void applyDrumPreset(String preset) {
-    const padsPageIndex = 2;
+    final padsPageIndex = 2;
     if (padsPageIndex >= state.pages.length) return;
 
     final existingPage = state.pages[padsPageIndex];
     final updatedControls = [...existingPage.controls];
 
     if (preset == 'MPC') {
-      // MPC: Bottom-to-top chromatic
-      // Row 3 (Bottom): 36, 37
-      // Row 2: 38, 39
-      // Row 1: 40, 41
-      // Row 0 (Top): 42, 43
-      final notes = [42, 43, 40, 41, 38, 39, 36, 37];
+      final notes = [37, 36, 42, 82, 40, 38, 46, 44];
       final names = [
-        'HAT C',
-        'TOM 2',
-        'SNARE 3',
-        'TOM 1',
+        'SIDE STICK',
+        'KICK',
+        'HI-HAT C',
+        'SHAKER',
         'SNARE 2',
-        'CLAP',
-        'KICK 1',
         'SNARE 1',
+        'HI-HAT O',
+        'HI-HAT P',
       ];
-
       for (int i = 0; i < updatedControls.length && i < notes.length; i++) {
         updatedControls[i] = updatedControls[i].copyWith(
           defaultCc: notes[i],
@@ -392,7 +549,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         );
       }
     } else if (preset == 'Ableton') {
-      // Ableton: Top-to-bottom linear chromatic (Legacy)
       final notes = [36, 37, 38, 39, 40, 41, 42, 43];
       final names = [
         'KICK 1',
@@ -404,7 +560,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         'HAT C',
         'TOM 2',
       ];
-
       for (int i = 0; i < updatedControls.length && i < notes.length; i++) {
         updatedControls[i] = updatedControls[i].copyWith(
           defaultCc: notes[i],
@@ -417,51 +572,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     updatedPages[padsPageIndex] = existingPage.copyWith(
       controls: updatedControls,
     );
-
-    state = state.copyWith(pages: updatedPages);
-  }
-
-  /// Reset a specific control on a specific page to its factory default.
-  void resetControlToDefault(int pageIndex, int controlIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
-
-    final defaultPages = _buildDefaultPages();
-    final defaultPage = defaultPages[pageIndex];
-    if (controlIndex < 0 || controlIndex >= defaultPage.controls.length) return;
-
-    final defaultControl = defaultPage.controls[controlIndex];
-
-    final updatedPages = [...state.pages];
-    final pageToUpdate = updatedPages[pageIndex];
-    final updatedControls = [...pageToUpdate.controls];
-    updatedControls[controlIndex] = defaultControl;
-
-    updatedPages[pageIndex] = pageToUpdate.copyWith(controls: updatedControls);
-    state = state.copyWith(pages: updatedPages);
-  }
-
-  /// Clear (unbind) a specific control on a specific page.
-  void clearControl(int pageIndex, int controlIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
-
-    final updatedPages = [...state.pages];
-    final pageToUpdate = updatedPages[pageIndex];
-    final updatedControls = [...pageToUpdate.controls];
-
-    if (controlIndex < 0 || controlIndex >= updatedControls.length) return;
-
-    updatedControls[controlIndex] = updatedControls[controlIndex].copyWith(
-      defaultCc: -1,
-      channel: -1,
-      customName: 'Unassigned',
-    );
-
-    updatedPages[pageIndex] = pageToUpdate.copyWith(controls: updatedControls);
     state = state.copyWith(pages: updatedPages);
   }
 }
 
-/// Global Riverpod provider for layout state.
 final layoutStateProvider = NotifierProvider<LayoutStateNotifier, LayoutState>(
   LayoutStateNotifier.new,
 );

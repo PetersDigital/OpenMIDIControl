@@ -62,6 +62,19 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
     _managedSubscriptions.add(sub);
   }
 
+  /// Clears all managed tickers and subscriptions without removing the observer.
+  /// Useful for re-configuring a widget reactively.
+  void clearManagedResources() {
+    for (final ticker in _managedTickers) {
+      ticker.dispose();
+    }
+    _managedTickers.clear();
+    for (final sub in _managedSubscriptions) {
+      sub.close();
+    }
+    _managedSubscriptions.clear();
+  }
+
   // ---------------------------------------------------------------------------
   // WidgetsBindingObserver
   // ---------------------------------------------------------------------------
