@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/hybrid_xy_pad.dart';
@@ -189,11 +191,9 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
               builder: (context, constraints) {
                 // Adaptive layout selection
                 if (isLandscape) {
-                  if (isTablet && constraints.maxWidth > 900) {
-                    return const _DesktopLandscapeLayout();
-                  }
-                  // Landscape on phones (including ultra-wide 19.5:9+)
-                  return const _MobileLandscapeLayout();
+                  return _LandscapeLayout(
+                    isMobile: !isTablet || constraints.maxWidth <= 900,
+                  );
                 }
                 // Default portrait for mobile
                 return const _MobilePortraitLayout();
@@ -301,151 +301,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
         // COMMAND CENTER (30%)
         if (ref.watch(transportVisibleProvider))
-          Expanded(
-            flex: 30,
-            child: Container(
-              color: const Color(0xFF1E2024),
-              child: Column(
-                children: [
-                  // Status row
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StatusDisplay(
-                            label: "TEMPO",
-                            value: "120 BPM",
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              const Text(
-                                "TRACK",
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: Colors.white60,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2.0,
-                                ),
-                              ),
-                              const Text(
-                                "01 - Cinematic Violins",
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: Color(0xFFA6C9F8),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: _StatusDisplay(
-                            label: "TIMECODE",
-                            value: "001:01:000",
-                            alignRight: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 3×3 control grid
-                  Expanded(
-                    child: Container(
-                      color: const Color(0xFF111318),
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: const [
-                                Expanded(
-                                  child: _GridButton(icon: Icons.fast_rewind),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.keyboard_arrow_up,
-                                    bgColor: Color(0xFF282A2E),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.fiber_manual_record,
-                                    bgColor: Color(0xFFFFB59E),
-                                    iconColor: Color(0xFF690005),
-                                    isSolid: true,
-                                    shadowColor: Color(0xFFFFB59E),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Row(
-                              children: const [
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.keyboard_arrow_left,
-                                    bgColor: Color(0xFF282A2E),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.stop,
-                                    bgColor: Color(0xFF33353A),
-                                    iconColor: Colors.white,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.keyboard_arrow_right,
-                                    bgColor: Color(0xFF282A2E),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Row(
-                              children: const [
-                                Expanded(
-                                  child: _GridButton(icon: Icons.fast_forward),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.keyboard_arrow_down,
-                                    bgColor: Color(0xFF282A2E),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _GridButton(
-                                    icon: Icons.play_arrow,
-                                    bgColor: Color(0xFFA6C9F8),
-                                    iconColor: Color(0xFF033258),
-                                    isSolid: true,
-                                    shadowColor: Color(0xFFA6C9F8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const Expanded(flex: 30, child: MidiTransportGrid(square: false)),
 
         // PERFORMANCE ZONE (70%)
         Expanded(
@@ -459,9 +315,12 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
 // ===========================================================================
 // MOBILE LANDSCAPE LAYOUT
+// =========================================================================== // ===========================================================================
+// UNIFIED LANDSCAPE LAYOUT
 // ===========================================================================
-class _MobileLandscapeLayout extends ConsumerWidget {
-  const _MobileLandscapeLayout();
+class _LandscapeLayout extends ConsumerWidget {
+  final bool isMobile;
+  const _LandscapeLayout({required this.isMobile});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -469,360 +328,35 @@ class _MobileLandscapeLayout extends ConsumerWidget {
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
     final isVisible = ref.watch(transportVisibleProvider);
     final size = MediaQuery.sizeOf(context);
-    final panelWidth = size.width * 0.38;
-
-    return Stack(
-      children: [
-        // Always 100% fader zone
-        _buildPerformanceZone(ref),
-
-        // Sliding Command Center
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          top: 0,
-          bottom: 0,
-          left: faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-          right: !faderOnRight ? (isVisible ? 0 : -panelWidth) : null,
-          width: panelWidth,
-          child: Visibility(
-            visible: isVisible,
-            maintainState: false,
-            child: _buildCommandCenter(context, ref, faderOnRight),
-          ),
-        ),
-
-        // Floating Toggle (only visible when panel is hidden)
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          top: 12,
-          left: faderOnRight ? (isVisible ? -300 : 12) : null,
-          right: !faderOnRight ? (isVisible ? -300 : 12) : null,
-          child: AnimatedOpacity(
-            opacity: isVisible ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: isVisible,
-              child: _buildFloatingControls(context, ref, faderOnRight),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFloatingControls(
-    BuildContext context,
-    WidgetRef ref,
-    bool faderOnRight,
-  ) {
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2024).withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ConnectionStatusButton(onTap: () => _showMidiSettings(context, ref)),
-          Tooltip(
-            message: 'Toggle Transport',
-            child: IconButton(
-              key: const ValueKey('transport_toggle_button_floating'),
-              icon: Icon(
-                faderOnRight
-                    ? Icons.keyboard_double_arrow_right
-                    : Icons.keyboard_double_arrow_left,
-                color: const Color(0xFFA6C9F8),
-                size: 20,
-              ),
-              onPressed: () {
-                ref.read(transportVisibleProvider.notifier).toggle();
-              },
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              isLocked ? Icons.lock : Icons.lock_open,
-              color: isLocked ? Colors.redAccent : Colors.white,
-              size: 20,
-            ),
-            tooltip: 'Lock Performance Interface',
-            onPressed: () =>
-                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
-          ),
-          Tooltip(
-            message: 'App Settings',
-            child: IconButton(
-              key: const ValueKey('floating_app_settings'),
-              icon: const Icon(
-                Icons.more_vert,
-                color: Color(0xFFC3C7CA),
-                size: 20,
-              ),
-              onPressed: () => _showAppSettings(context, ref),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommandCenter(
-    BuildContext context,
-    WidgetRef ref,
-    bool faderOnRight,
-  ) {
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
-
-    return Container(
-      color: const Color(0xFF1E2024),
-      child: Column(
-        children: [
-          // Compact Header Strip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Icon(
-                  Icons.settings_input_component,
-                  color: Color(0xFFA6C9F8),
-                  size: 20,
-                ),
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Flexible(
-                        child: _ConnectionStatusButton(
-                          onTap: () => _showMidiSettings(context, ref),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'Toggle Transport',
-                        child: IconButton(
-                          key: const ValueKey('transport_toggle_button_panel'),
-                          icon: Icon(
-                            faderOnRight
-                                ? Icons.keyboard_double_arrow_left
-                                : Icons.keyboard_double_arrow_right,
-                            color: const Color(0xFFC3C7CA),
-                            size: 20,
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => ref
-                              .read(transportVisibleProvider.notifier)
-                              .toggle(),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        icon: Icon(
-                          isLocked ? Icons.lock : Icons.lock_open,
-                          color: isLocked ? Colors.redAccent : Colors.white,
-                          size: 20,
-                        ),
-                        tooltip: 'Lock Performance Interface',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => ref
-                            .read(layoutStateProvider.notifier)
-                            .togglePerformanceLock(),
-                      ),
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'App Settings',
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.more_vert,
-                            color: Color(0xFFC3C7CA),
-                            size: 20,
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => _showAppSettings(context, ref),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Status Row (Tempo/TC)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
-                ),
-                Expanded(
-                  child: _StatusDisplay(
-                    label: "TIMECODE",
-                    value: "001:01:000",
-                    alignRight: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Transport Grid (Full bleed)
-          Expanded(
-            child: Container(
-              color: const Color(0xFF111318),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_up,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.fiber_manual_record,
-                            bgColor: Color(0xFFFFB59E),
-                            iconColor: Color(0xFF690005),
-                            isSolid: true,
-                            shadowColor: Color(0xFFFFB59E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_left,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.stop,
-                            bgColor: Color(0xFF33353A),
-                            iconColor: Colors.white,
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_right,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: const [
-                        Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.keyboard_arrow_down,
-                            bgColor: Color(0xFF282A2E),
-                          ),
-                        ),
-                        Expanded(
-                          child: _GridButton(
-                            icon: Icons.play_arrow,
-                            bgColor: Color(0xFFA6C9F8),
-                            iconColor: Color(0xFF033258),
-                            isSolid: true,
-                            shadowColor: Color(0xFFA6C9F8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPerformanceZone(WidgetRef ref) {
-    return PerformanceZone(key: _performanceZoneKey, isMobile: true);
-  }
-}
-
-// ===========================================================================
-// DESKTOP / TABLET LANDSCAPE LAYOUT
-// ===========================================================================
-class _DesktopLandscapeLayout extends ConsumerWidget {
-  const _DesktopLandscapeLayout();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final faderOnRight =
-        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
-    final isVisible = ref.watch(transportVisibleProvider);
-    final size = MediaQuery.sizeOf(context);
-    final panelWidth = size.width * 0.40;
+    final panelWidth = size.width * (isMobile ? 0.38 : 0.40);
 
     return Column(
       children: [
-        _buildLandscapeHeader(context, ref),
+        _buildLandscapeHeader(context, ref, isMobile),
         Expanded(
           child: Row(
             children: [
               if (faderOnRight)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: isVisible ? panelWidth : 0,
-                  decoration: const BoxDecoration(),
-                  clipBehavior: Clip.hardEdge,
-                  child: Visibility(
-                    visible: isVisible,
-                    maintainState: false,
-                    child: _buildCommandCenter(context, ref, faderOnRight),
-                  ),
+                _buildAnimatedSidePanel(
+                  context,
+                  ref,
+                  isVisible,
+                  panelWidth,
+                  faderOnRight,
                 ),
               Expanded(
                 child: PerformanceZone(
                   key: _performanceZoneKey,
-                  isMobile: false,
+                  isMobile: isMobile,
                 ),
               ),
               if (!faderOnRight)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: isVisible ? panelWidth : 0,
-                  decoration: const BoxDecoration(),
-                  clipBehavior: Clip.hardEdge,
-                  child: Visibility(
-                    visible: isVisible,
-                    maintainState: true,
-                    child: _buildCommandCenter(context, ref, faderOnRight),
-                  ),
+                _buildAnimatedSidePanel(
+                  context,
+                  ref,
+                  isVisible,
+                  panelWidth,
+                  faderOnRight,
                 ),
             ],
           ),
@@ -831,7 +365,32 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildLandscapeHeader(BuildContext context, WidgetRef ref) {
+  Widget _buildAnimatedSidePanel(
+    BuildContext context,
+    WidgetRef ref,
+    bool isVisible,
+    double panelWidth,
+    bool faderOnRight,
+  ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      width: isVisible ? panelWidth : 0,
+      decoration: const BoxDecoration(),
+      clipBehavior: Clip.hardEdge,
+      child: Visibility(
+        visible: isVisible,
+        maintainState: false,
+        child: _buildCommandCenter(context, ref, faderOnRight),
+      ),
+    );
+  }
+
+  Widget _buildLandscapeHeader(
+    BuildContext context,
+    WidgetRef ref,
+    bool isMobile,
+  ) {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
     final isVisible = ref.watch(transportVisibleProvider);
@@ -841,55 +400,54 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
 
     return Container(
       color: const Color(0xFF111318),
-      padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, 8, 12, 8),
       child: Row(
         children: [
           Text(
-            "OPENMIDI",
-            style: AppText.performance(
+            "OpenMIDIControl",
+            style: AppText.system(
               color: const Color(0xFFA6C9F8),
               fontWeight: FontWeight.w900,
-              fontSize: 24,
-              letterSpacing: -0.5,
+              fontSize: isMobile ? 18 : 24,
             ),
           ),
           const Spacer(),
-          _ConnectionStatusButton(onTap: () => _showMidiSettings(context, ref)),
+          Flexible(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _ConnectionStatusButton(
+                onTap: () => _showMidiSettings(context, ref),
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
           // Transport Toggle Button
-          Tooltip(
-            message: isVisible ? 'Hide Transport' : 'Show Transport',
-            child: IconButton(
-              key: const ValueKey('transport_toggle_button_desktop'),
-              icon: Icon(
-                isVisible
-                    ? (faderOnRight
-                          ? Icons.keyboard_double_arrow_left
-                          : Icons.keyboard_double_arrow_right)
-                    : (faderOnRight
-                          ? Icons.keyboard_double_arrow_right
-                          : Icons.keyboard_double_arrow_left),
-                color: const Color(0xFFA6C9F8),
-              ),
-              onPressed: () {
-                ref.read(transportVisibleProvider.notifier).toggle();
-              },
-            ),
+          _HeaderIconButton(
+            key: const ValueKey('transport_toggle_button_landscape'),
+            icon: isVisible
+                ? (faderOnRight
+                      ? Icons.keyboard_double_arrow_left
+                      : Icons.keyboard_double_arrow_right)
+                : (faderOnRight
+                      ? Icons.keyboard_double_arrow_right
+                      : Icons.keyboard_double_arrow_left),
+            tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
+            onPressed: () =>
+                ref.read(transportVisibleProvider.notifier).toggle(),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           // Lock/Unlock Button
-          IconButton(
-            icon: Icon(
-              isLocked ? Icons.lock : Icons.lock_open,
-              color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
-            ),
+          _HeaderIconButton(
+            icon: isLocked ? Icons.lock : Icons.lock_open,
+            color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
             tooltip: 'Lock Performance Interface',
-            onPressed: () {
-              ref.read(layoutStateProvider.notifier).togglePerformanceLock();
-            },
+            onPressed: () =>
+                ref.read(layoutStateProvider.notifier).togglePerformanceLock(),
           ),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFFC3C7CA)),
+          const SizedBox(width: 4),
+          _HeaderIconButton(
+            icon: Icons.more_vert,
+            tooltip: 'App Settings',
             onPressed: () => _showAppSettings(context, ref),
           ),
         ],
@@ -904,131 +462,256 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
   ) {
     return Container(
       color: const Color(0xFF1A1C20),
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-      child: Center(
-        child: SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 32,
+        vertical: isMobile ? 8 : 16,
+      ),
+      child: const MidiTransportGrid(square: true),
+    );
+  }
+}
+
+// ===========================================================================
+// MIDI TRANSPORT GRID
+// ===========================================================================
+class MidiTransportGrid extends StatelessWidget {
+  const MidiTransportGrid({super.key, this.square = false});
+
+  final bool square;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!square) {
+      return Container(
+        color: Colors.transparent,
+        child: Center(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
             children: [
-              // Status displays
-
-              // Status displays
-              Row(
-                children: const [
-                  Expanded(
-                    child: _StatusDisplay(label: "TEMPO", value: "120 BPM"),
-                  ),
-                  Expanded(
-                    child: _StatusDisplay(
-                      label: "TIMECODE",
-                      value: "001:01:000",
+              Expanded(
+                child: Row(
+                  children: const [
+                    Expanded(child: _GridButton(icon: Icons.fast_rewind)),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.keyboard_arrow_up,
+                        bgColor: Color(0xFF282A2E),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Track name
-              SizedBox(
-                width: double.infinity,
-                child: Text(
-                  "01 - Cinematic Violins",
-                  style: AppText.performance(
-                    color: const Color(0xFFA6C9F8),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.fiber_manual_record,
+                        bgColor: Color(0xFFFFB59E),
+                        iconColor: Color(0xFF690005),
+                        isSolid: true,
+                        shadowColor: Color(0xFFFFB59E),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // 3×3 grid
-              AspectRatio(
-                aspectRatio: 1,
-                child: Container(
-                  color: const Color(0xFF111318),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: const [
-                            Expanded(
-                              child: _GridButton(icon: Icons.fast_rewind),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_up,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.fiber_manual_record,
-                                bgColor: Color(0xFFFFB59E),
-                                iconColor: Color(0xFF690005),
-                                isSolid: true,
-                                shadowColor: Color(0xFFFFB59E),
-                              ),
-                            ),
-                          ],
-                        ),
+              Expanded(
+                child: Row(
+                  children: const [
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.keyboard_arrow_left,
+                        bgColor: Color(0xFF282A2E),
                       ),
-                      Expanded(
-                        child: Row(
-                          children: const [
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_left,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.stop,
-                                bgColor: Color(0xFF33353A),
-                                iconColor: Colors.white,
-                              ),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_right,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.stop,
+                        bgColor: Color(0xFF33353A),
+                        iconColor: Colors.white,
                       ),
-                      Expanded(
-                        child: Row(
-                          children: const [
-                            Expanded(
-                              child: _GridButton(icon: Icons.fast_forward),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_down,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                            Expanded(
-                              child: _GridButton(
-                                icon: Icons.play_arrow,
-                                bgColor: Color(0xFFA6C9F8),
-                                iconColor: Color(0xFF033258),
-                                isSolid: true,
-                                shadowColor: Color(0xFFA6C9F8),
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.keyboard_arrow_right,
+                        bgColor: Color(0xFF282A2E),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  children: const [
+                    Expanded(child: _GridButton(icon: Icons.fast_forward)),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.keyboard_arrow_down,
+                        bgColor: Color(0xFF282A2E),
+                      ),
+                    ),
+                    Expanded(
+                      child: _GridButton(
+                        icon: Icons.play_arrow,
+                        bgColor: Color(0xFFA6C9F8),
+                        iconColor: Color(0xFF033258),
+                        isSolid: true,
+                        shadowColor: Color(0xFFA6C9F8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gridSize =
+            constraints.hasBoundedWidth && constraints.hasBoundedHeight
+            ? math.min(constraints.maxWidth, constraints.maxHeight)
+            : constraints.maxWidth;
+
+        return Container(
+          color: Colors.transparent,
+          child: Center(
+            child: SizedBox(
+              width: gridSize,
+              height: gridSize,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(icon: Icons.fast_rewind),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.keyboard_arrow_up,
+                              bgColor: Color(0xFF282A2E),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.fiber_manual_record,
+                              bgColor: Color(0xFFFFB59E),
+                              iconColor: Color(0xFF690005),
+                              isSolid: true,
+                              shadowColor: Color(0xFFFFB59E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.keyboard_arrow_left,
+                              bgColor: Color(0xFF282A2E),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.stop,
+                              bgColor: Color(0xFF33353A),
+                              iconColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.keyboard_arrow_right,
+                              bgColor: Color(0xFF282A2E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: const [
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(icon: Icons.fast_forward),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.keyboard_arrow_down,
+                              bgColor: Color(0xFF282A2E),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _GridButton(
+                              icon: Icons.play_arrow,
+                              bgColor: Color(0xFFA6C9F8),
+                              iconColor: Color(0xFF033258),
+                              isSolid: true,
+                              shadowColor: Color(0xFFA6C9F8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color color;
+
+  const _HeaderIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color = const Color(0xFFA6C9F8),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(icon, color: color, size: 20),
         ),
       ),
     );
@@ -1080,7 +763,7 @@ class _ConnectionStatusButton extends ConsumerWidget {
     };
 
     final buttonContent = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
         color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
@@ -1118,49 +801,6 @@ class _ConnectionStatusButton extends ConsumerWidget {
   }
 }
 
-class _StatusDisplay extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool alignRight;
-
-  const _StatusDisplay({
-    required this.label,
-    required this.value,
-    this.alignRight = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: alignRight
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppText.system(
-            color: Colors.white60,
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2.0,
-          ),
-        ),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: AppText.performance(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _GridButton extends StatelessWidget {
   final IconData icon;
   final Color bgColor;
@@ -1178,26 +818,37 @@ class _GridButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: Border.all(
-          color: const Color(0xFF111318).withValues(alpha: 0.2),
-          width: 0.5,
-        ),
-        boxShadow: isSolid
-            ? [
-                BoxShadow(
-                  color: shadowColor.withValues(alpha: 0.4),
-                  blurRadius: 20,
-                  blurStyle: BlurStyle.inner,
-                ),
-              ]
-            : null,
-      ),
-      child: Center(
-        child: Icon(icon, color: iconColor, size: isSolid ? 36 : 24),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final baseSize = constraints.smallest.shortestSide;
+        final iconSize = isSolid ? baseSize * 0.38 : baseSize * 0.30;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            border: Border.all(
+              color: const Color(0xFF111318).withValues(alpha: 0.2),
+              width: 0.5,
+            ),
+            boxShadow: isSolid
+                ? [
+                    BoxShadow(
+                      color: shadowColor.withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      blurStyle: BlurStyle.inner,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: iconSize.clamp(35.0, 50.0),
+            ),
+          ),
+        );
+      },
     );
   }
 }
