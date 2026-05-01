@@ -53,12 +53,11 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
     }
 
     if (widget.secondaryIdentifierLabel != null) {
-      final xyConfig = ref.read(xyPadConfigProvider)[widget.controlId];
       _secondaryIdentifierController = TextEditingController(
-        text: xyConfig?.ccY.toString() ?? '',
+        text: control?.secondaryCc?.toString() ?? '',
       );
-      _invertX = xyConfig?.invertX ?? false;
-      _invertY = xyConfig?.invertY ?? true;
+      _invertX = control?.invertX ?? false;
+      _invertY = control?.invertY ?? false;
     }
   }
 
