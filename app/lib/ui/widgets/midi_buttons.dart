@@ -93,12 +93,8 @@ class _TriggerState extends ConsumerState<Trigger>
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
-    final config = ref.watch(
-      utilityGridConfigProvider.select((c) => c[control.id]),
-    );
-
-    final channel = config?.channel ?? control.channel;
-    final identifier = config?.cc ?? control.defaultCc;
+    final channel = control.channel;
+    final identifier = control.defaultCc;
     final isUnassigned = identifier == -1;
     final label = control.displayName;
 
@@ -328,12 +324,8 @@ class _ToggleState extends ConsumerState<Toggle>
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
-    final config = ref.watch(
-      utilityGridConfigProvider.select((c) => c[control.id]),
-    );
-
-    final channel = config?.channel ?? control.channel;
-    final identifier = config?.cc ?? control.defaultCc;
+    final channel = control.channel;
+    final identifier = control.defaultCc;
     final isUnassigned = identifier == -1;
     final label = control.displayName;
 
