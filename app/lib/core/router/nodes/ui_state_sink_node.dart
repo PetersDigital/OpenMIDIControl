@@ -14,6 +14,14 @@ class UiStateSinkNode extends SinkNode {
     return '$channel:$cc';
   }, growable: false);
 
+  static final List<String> _noteAddressKeys = List<String>.generate(2048, (
+    index,
+  ) {
+    final channel = index ~/ 128;
+    final note = index % 128;
+    return 'note:$channel:$note';
+  }, growable: false);
+
   final void Function(Map<String, dynamic>) onStateUpdate;
 
   // 16 channels * 128 CCs = 2048
@@ -22,7 +30,8 @@ class UiStateSinkNode extends SinkNode {
 
   // For discrete Note On/Off tracking and Button states
   final Map<int, Set<int>> _noteStates = {};
-  final Map<String, bool> _buttonStates = {};
+  final Map<int, Set<int>> _buttonNoteStates = {};
+  final Set<int> _activeCcButtons = {};
 
   bool _hasNoteUpdates = false;
   bool _hasButtonUpdates = false;
@@ -51,7 +60,19 @@ class UiStateSinkNode extends SinkNode {
     }
 
     if (_hasButtonUpdates) {
-      payload['buttons'] = Map<String, bool>.from(_buttonStates);
+      final buttonMap = <String, bool>{};
+      // Note buttons
+      for (final entry in _buttonNoteStates.entries) {
+        final channel = entry.key;
+        for (final note in entry.value) {
+          buttonMap[_noteAddressKeys[(channel * 128) + note]] = true;
+        }
+      }
+      // CC buttons
+      for (final index in _activeCcButtons) {
+        buttonMap[_addressKeys[index]] = true;
+      }
+      payload['buttons'] = buttonMap;
       _hasButtonUpdates = false;
     }
 
@@ -103,11 +124,14 @@ class UiStateSinkNode extends SinkNode {
         _dirtyCcIndices.add(index);
 
         // Update button state (>= 64 is active)
-        final buttonKey = _addressKeys[index];
-        final bool buttonActive = value >= 64;
-        if (_buttonStates[buttonKey] != buttonActive) {
-          _buttonStates[buttonKey] = buttonActive;
-          _hasButtonUpdates = true;
+        if (value >= 64) {
+          if (_activeCcButtons.add(index)) {
+            _hasButtonUpdates = true;
+          }
+        } else {
+          if (_activeCcButtons.remove(index)) {
+            _hasButtonUpdates = true;
+          }
         }
       }
     } else if (event.legacyStatusByte >= 0x90 &&
@@ -118,36 +142,31 @@ class UiStateSinkNode extends SinkNode {
       final velocity = event.data2;
 
       if (velocity > 0) {
-        if (_noteStates.putIfAbsent(channel, () => {}).add(note)) {
+        if (_noteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
           _hasNoteUpdates = true;
+        }
+        if (_buttonNoteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
+          _hasButtonUpdates = true;
         }
       } else {
         // Note On with 0 velocity acts as Note Off
         if (_noteStates[channel]?.remove(note) ?? false) {
           _hasNoteUpdates = true;
         }
-      }
-
-      // Update button state (Note On with velocity > 0 is active)
-      final buttonKey = 'note:$channel:$note';
-      final bool buttonActive = velocity > 0;
-      if (_buttonStates[buttonKey] != buttonActive) {
-        _buttonStates[buttonKey] = buttonActive;
-        _hasButtonUpdates = true;
+        if (_buttonNoteStates[channel]?.remove(note) ?? false) {
+          _hasButtonUpdates = true;
+        }
       }
     } else if (event.legacyStatusByte >= 0x80 &&
         event.legacyStatusByte <= 0x8F) {
       // Note Off Event
       final channel = event.channel;
       final note = event.data1;
+
       if (_noteStates[channel]?.remove(note) ?? false) {
         _hasNoteUpdates = true;
       }
-
-      // Update button state (Note Off is inactive)
-      final buttonKey = 'note:$channel:$note';
-      if (_buttonStates[buttonKey] ?? false) {
-        _buttonStates[buttonKey] = false;
+      if (_buttonNoteStates[channel]?.remove(note) ?? false) {
         _hasButtonUpdates = true;
       }
     }
