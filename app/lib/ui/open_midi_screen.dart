@@ -232,28 +232,51 @@ class _MobilePortraitLayout extends ConsumerWidget {
           color: Theme.of(context).colorScheme.surfaceContainerLowest,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.settings_input_component,
-                color: Color(0xFFA6C9F8),
-                size: 26,
-              ),
-              Flexible(
+              // LEFT ZONE: App Icon + Lock
+              Expanded(
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ConnectionStatusButton(
-                      onTap: () => _showMidiSettings(context, ref),
+                    const Icon(
+                      Icons.settings_input_component,
+                      color: Color(0xFFA6C9F8),
+                      size: 26,
                     ),
                     const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(
+                        isLocked ? Icons.lock : Icons.lock_open,
+                        color: isLocked ? Colors.redAccent : Colors.white,
+                      ),
+                      tooltip: 'Lock Performance Interface',
+                      onPressed:
+                          () => ref
+                              .read(layoutStateProvider.notifier)
+                              .togglePerformanceLock(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // CENTER ZONE: Connection Status Badge
+              _ConnectionStatusButton(
+                onTap: () => _showMidiSettings(context, ref),
+              ),
+
+              // RIGHT ZONE: Transport + Settings
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
                     Tooltip(
                       message: 'Toggle Transport',
                       child: GestureDetector(
                         key: const ValueKey('transport_toggle_button_portrait'),
-                        onTap: () => ref
-                            .read(transportVisibleProvider.notifier)
-                            .toggle(),
+                        onTap:
+                            () => ref
+                                .read(transportVisibleProvider.notifier)
+                                .toggle(),
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
@@ -264,17 +287,6 @@ class _MobilePortraitLayout extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        isLocked ? Icons.lock : Icons.lock_open,
-                        color: isLocked ? Colors.redAccent : Colors.white,
-                      ),
-                      tooltip: 'Lock Performance Interface',
-                      onPressed: () => ref
-                          .read(layoutStateProvider.notifier)
-                          .togglePerformanceLock(),
                     ),
                     const SizedBox(width: 4),
                     Tooltip(
