@@ -14,6 +14,7 @@ import 'midi_settings_screen.dart';
 import 'providers/config_ui_provider.dart';
 import 'design_system.dart';
 import 'layout_state.dart';
+import 'side_panel_state.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -88,21 +89,35 @@ final performancePageIndexProvider =
       PerformancePageIndexNotifier.new,
     );
 
+// (SidePanelNotifier was moved to side_panel_state.dart)
+
 // ---------------------------------------------------------------------------
 // Navigation helpers
 // ---------------------------------------------------------------------------
-void _showMidiSettings(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const MidiSettingsScreen()),
-  );
+void _showMidiSettings(BuildContext context, WidgetRef ref) {
+  final isLandscape =
+      MediaQuery.orientationOf(context) == Orientation.landscape;
+  if (isLandscape) {
+    ref.read(sidePanelProvider.notifier).show(SidePanelType.midiSettings);
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MidiSettingsScreen()),
+    );
+  }
 }
 
-void _showAppSettings(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-  );
+void _showAppSettings(BuildContext context, WidgetRef ref) {
+  final isLandscape =
+      MediaQuery.orientationOf(context) == Orientation.landscape;
+  if (isLandscape) {
+    ref.read(sidePanelProvider.notifier).show(SidePanelType.appSettings);
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +200,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
               },
             ),
             const DeviceOfflineOverlay(),
+            if (isLandscape) const _SidePanelOverlay(),
           ],
         ),
       ),
@@ -228,7 +244,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ConnectionStatusButton(
-                      onTap: () => _showMidiSettings(context),
+                      onTap: () => _showMidiSettings(context, ref),
                     ),
                     const SizedBox(width: 4),
                     Tooltip(
@@ -264,7 +280,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     Tooltip(
                       message: 'App Settings',
                       child: GestureDetector(
-                        onTap: () => _showAppSettings(context),
+                        onTap: () => _showAppSettings(context, ref),
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
@@ -515,7 +531,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+          _ConnectionStatusButton(onTap: () => _showMidiSettings(context, ref)),
           Tooltip(
             message: 'Toggle Transport',
             child: IconButton(
@@ -551,7 +567,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                 color: Color(0xFFC3C7CA),
                 size: 20,
               ),
-              onPressed: () => _showAppSettings(context),
+              onPressed: () => _showAppSettings(context, ref),
             ),
           ),
         ],
@@ -587,7 +603,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ConnectionStatusButton(
-                      onTap: () => _showMidiSettings(context),
+                      onTap: () => _showMidiSettings(context, ref),
                     ),
                     const SizedBox(width: 8),
                     Tooltip(
@@ -633,7 +649,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                         ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        onPressed: () => _showAppSettings(context),
+                        onPressed: () => _showAppSettings(context, ref),
                       ),
                     ),
                   ],
@@ -833,7 +849,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
             ),
           ),
           const Spacer(),
-          _ConnectionStatusButton(onTap: () => _showMidiSettings(context)),
+          _ConnectionStatusButton(onTap: () => _showMidiSettings(context, ref)),
           const SizedBox(width: 8),
           // Transport Toggle Button
           Tooltip(
@@ -869,7 +885,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Color(0xFFC3C7CA)),
-            onPressed: () => _showAppSettings(context),
+            onPressed: () => _showAppSettings(context, ref),
           ),
         ],
       ),
@@ -1342,103 +1358,214 @@ class DeviceOfflineOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(midiStatusProvider);
-    if (status != MidiStatus.connectionLost) return const SizedBox.shrink();
+    final isConnectionLost = ref.watch(
+      connectedMidiDeviceProvider.select((s) => s.isConnectionLost),
+    );
+
+    if (!isConnectionLost) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: () =>
           ref.read(connectedMidiDeviceProvider.notifier).clearConnectionLost(),
       child: Container(
-        color: Colors.black.withValues(alpha: 0.85),
+        color: Colors.black.withValues(alpha: 0.8),
         width: double.infinity,
         height: double.infinity,
+        padding: const EdgeInsets.all(24),
         child: Center(
-          child: GestureDetector(
-            onTap: () {}, // Consume taps inside the content area
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Color(0xFFFFB59E),
-                  size: 80,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  "DEVICE OFFLINE",
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFFB59E),
-                    letterSpacing: 3.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: GestureDetector(
+              onTap:
+                  () {}, // Consume tap to prevent background dismissal when touching the content
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E2024),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.5),
+                    width: 2,
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "HARDWARE CONNECTION SEVERED",
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    color: Colors.white54,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 48),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton(
-                      onPressed: () => _showMidiSettings(context),
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E2024),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Colors.white10),
-                        ),
-                      ),
-                      child: const Text(
-                        "OPEN MIDI SETTINGS",
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: Color(0xFFA6C9F8),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    TextButton(
-                      onPressed: () => ref
-                          .read(connectedMidiDeviceProvider.notifier)
-                          .clearConnectionLost(),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
-                      ),
-                      child: const Text(
-                        "DISMISS",
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: Colors.white54,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.redAccent.withValues(alpha: 0.2),
+                      blurRadius: 30,
+                      spreadRadius: 10,
                     ),
                   ],
                 ),
-              ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.usb_off_rounded,
+                      color: Colors.redAccent,
+                      size: 80,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      "DEVICE OFFLINE",
+                      style: AppText.performance(
+                        color: Colors.redAccent,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Connection was physically lost. Please reconnect the hardware to continue.",
+                      textAlign: TextAlign.center,
+                      style: AppText.system(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white60,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () => ref
+                                .read(connectedMidiDeviceProvider.notifier)
+                                .clearConnectionLost(),
+                            child: const Text(
+                              "DISMISS",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              ref
+                                  .read(connectedMidiDeviceProvider.notifier)
+                                  .disconnect();
+                              ref.invalidate(midiDevicesProvider);
+                            },
+                            child: const Text(
+                              "RESET PORTS",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SETTINGS FLYOUT (Landscape)
+// ---------------------------------------------------------------------------
+class _SidePanelOverlay extends ConsumerWidget {
+  const _SidePanelOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final panelState = ref.watch(sidePanelProvider);
+    final panelType = panelState.type;
+    final isVisible = panelType != SidePanelType.none;
+    final isLeft = panelState.side == SidePanelSide.left;
+
+    return Stack(
+      children: [
+        // Scrim
+        AnimatedOpacity(
+          opacity: isVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: IgnorePointer(
+            ignoring: !isVisible,
+            child: GestureDetector(
+              onTap: () => ref.read(sidePanelProvider.notifier).hide(),
+              child: Container(color: Colors.black54),
+            ),
+          ),
+        ),
+
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          left: isLeft ? (isVisible ? 0 : -450) : null,
+          right: !isLeft ? (isVisible ? 0 : -450) : null,
+          top: 0,
+          bottom: 0,
+          child: Container(
+            width: 450,
+            decoration: BoxDecoration(
+              color: const Color(0xFF111318),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 40,
+                  offset: Offset(isLeft ? 10 : -10, 0),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Content - Screens handle their own headers/AppBars
+                Expanded(
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      // Ensure AppBars look consistent in the panel
+                      appBarTheme: AppBarTheme(
+                        backgroundColor: const Color(0xFF1E2024),
+                        elevation: 0,
+                        titleTextStyle: AppText.system(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    child: _buildPanelContent(panelType),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanelContent(SidePanelType type) {
+    switch (type) {
+      case SidePanelType.appSettings:
+        return const SettingsScreen();
+      case SidePanelType.midiSettings:
+        return const MidiSettingsScreen();
+      case SidePanelType.none:
+        return const SizedBox.shrink();
+    }
   }
 }

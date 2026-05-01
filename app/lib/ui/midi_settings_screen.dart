@@ -8,6 +8,7 @@ import 'midi_service.dart';
 import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
 import 'design_system.dart';
+import 'side_panel_state.dart';
 
 class MidiSettingsScreen extends ConsumerWidget {
   const MidiSettingsScreen({super.key});
@@ -22,10 +23,20 @@ class MidiSettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+        automaticallyImplyLeading: false,
+        leading: MediaQuery.of(context).orientation == Orientation.landscape
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => ref.read(sidePanelProvider.notifier).hide(),
+              )
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
         title: Text(
           'MIDI Ports Configuration',
           style: AppText.system(
-            color: const Color(0xFFC3C7CA),
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),
