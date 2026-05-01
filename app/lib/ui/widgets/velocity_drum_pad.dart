@@ -146,11 +146,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     final isPerformanceLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
-    final config = ref.watch(
-      drumPadConfigProvider.select((c) => c[control.id]),
-    );
-    final note = config?.note ?? control.defaultCc;
-    final channel = config?.channel ?? control.channel;
+    final note = control.defaultCc;
+    final channel = control.channel;
     final displayLabel = control.displayName;
 
     return RepaintBoundary(
