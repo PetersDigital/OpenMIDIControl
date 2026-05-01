@@ -8,6 +8,7 @@ import 'config_gesture_wrapper.dart';
 
 import '../midi_service.dart';
 import '../layout_state.dart';
+import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
 import '../panels/utility_grid_panel.dart';
 
@@ -31,8 +32,24 @@ class Trigger extends ConsumerStatefulWidget {
   ConsumerState<Trigger> createState() => _TriggerState();
 }
 
-class _TriggerState extends ConsumerState<Trigger> {
+class _TriggerState extends ConsumerState<Trigger>
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    initPerformanceMixin();
+  }
+
+  @override
+  void dispose() {
+    disposePerformanceMixin();
+    super.dispose();
+  }
 
   void _handlePointerDown(PointerEvent event, int identifier, int channel) {
     if (_isPressed) return;
@@ -253,9 +270,25 @@ class Toggle extends ConsumerStatefulWidget {
   ConsumerState<Toggle> createState() => _ToggleState();
 }
 
-class _ToggleState extends ConsumerState<Toggle> {
+class _ToggleState extends ConsumerState<Toggle>
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   bool _isActive = false;
   bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    initPerformanceMixin();
+  }
+
+  @override
+  void dispose() {
+    disposePerformanceMixin();
+    super.dispose();
+  }
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
