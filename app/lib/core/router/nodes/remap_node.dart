@@ -55,7 +55,10 @@ class RemapNode extends TransformerNode {
       final int finalData1 = destCc.clamp(0, 127);
       final int finalData2 = mappedVal.clamp(0, 127);
       int newUmp =
-          (umpWithoutData | (finalData1 << 8) | finalData2) & 0xFFFFFFFF;
+          ((umpWithoutData |
+              ((finalData1 & 0xFF) << 8) |
+              (finalData2 & 0xFF))) &
+          0xFFFFFFFF;
 
       return MidiEvent(
         newUmp,
@@ -120,7 +123,10 @@ class RemapNode extends TransformerNode {
         final int finalData2 = mappedVal.clamp(0, 127);
 
         int newUmp =
-            (umpWithoutData | (finalData1 << 8) | finalData2) & 0xFFFFFFFF;
+            ((umpWithoutData |
+                ((finalData1 & 0xFF) << 8) |
+                (finalData2 & 0xFF))) &
+            0xFFFFFFFF;
 
         remapped.add(
           MidiEvent(
