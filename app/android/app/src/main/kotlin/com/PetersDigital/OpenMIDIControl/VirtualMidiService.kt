@@ -6,22 +6,25 @@ import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver
 import android.util.Log
 import java.io.IOException
+import kotlinx.coroutines.*
 
 class VirtualMidiService : MidiDeviceService() {
     // Track dead receivers locally since Android's outputPortReceivers array cannot be mutated.
     // This prevents IOExceptions from leaking memory or causing infinite error loops during rapid USB hotplugging.
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val deadReceivers = mutableSetOf<MidiReceiver>()
-
+ 
     companion object {
         var activeInstance: VirtualMidiService? = null
     }
-
+ 
     override fun onCreate() {
         super.onCreate()
         activeInstance = this
     }
-
+ 
     override fun onDestroy() {
+        serviceScope.cancel()
         deadReceivers.clear()
         activeInstance = null
         super.onDestroy()
@@ -58,7 +61,11 @@ class VirtualMidiService : MidiDeviceService() {
                     // This maintains UI responsiveness and prevents infinite exception loops.
                     receiver?.let { 
                         deadReceivers.add(it)
-                        MidiSystemManager.onPortFailure("virtual_daw")
+                        // Phase 1: Safely notify failure on Main Thread to prevent background channel crashes.
+                        // Using service-level scope to ensure lifecycle-bound execution.
+                        serviceScope.launch(Dispatchers.Main) {
+                            MidiSystemManager.onPortFailure("virtual_daw")
+                        }
                     }
                 } catch (e: Exception) {
                     // Ignore other broad exceptions related to closed virtual receivers.

@@ -6,12 +6,12 @@ import android.media.midi.MidiDeviceService
 import android.media.midi.MidiReceiver
 import android.util.Log
 import java.io.IOException
+import kotlinx.coroutines.*
 
 class PeripheralMidiService : MidiDeviceService() {
-    // Track dead receivers locally since Android's outputPortReceivers array cannot be mutated.
-    // This prevents IOExceptions from leaking memory or causing infinite error loops during rapid USB hotplugging.
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val deadReceivers = mutableSetOf<MidiReceiver>()
-
+ 
     companion object {
         var activeInstance: PeripheralMidiService? = null
     }
@@ -30,6 +30,7 @@ class PeripheralMidiService : MidiDeviceService() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         deadReceivers.clear()
         activeInstance = null
         super.onDestroy()
@@ -65,8 +66,11 @@ class PeripheralMidiService : MidiDeviceService() {
                 // This prevents memory leaks and avoids continuous Binder crashes during rapid hotplugging.
                 receiver?.let { 
                     deadReceivers.add(it)
-                    // Notify system of fatal failure for peripheral host connection
-                    MidiSystemManager.onPortFailure("peripheral_host")
+                    // Phase 1: Safely notify failure on Main Thread to prevent background channel crashes.
+                    // Using service-level scope to ensure lifecycle-bound execution.
+                    serviceScope.launch(Dispatchers.Main) {
+                        MidiSystemManager.onPortFailure("peripheral_host")
+                    }
                 }
             } catch (e: Exception) {
                 // Ignore other broad exceptions related to closed receivers or Binder issues.
