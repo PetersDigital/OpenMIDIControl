@@ -12,7 +12,7 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), **Dynamic Connection Island**, Side Panel docking, O(1) rendering, and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
+- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), **PerformanceTickerMixin**, orientation-driven layout hardening, **Utility Grid Clear/Reset UX**, and **Dynamic Connection Island**. Finalized **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
 - **v0.2.2** (Previous) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
 - **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.

@@ -62,15 +62,20 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - **Thermal Priority**: `appCategory="game"` for OS-level scheduler prioritization.
   - **State Reliability**: CC state replay, lazy-init map allocations, and fixed UMP word alignment for multi-word packets.
 
-### ✅ v0.3.0: Core Routing Engine, UMP, & UI Modernization
+### ✅ v0.3.0: Core Routing Engine, UMP, & Performance Hardening
 
 - **DAG Routing Ecosystem**: Full integration of transformer nodes (`SplitNode`, `RemapNode`, `FilterNode`) allowing modular N-to-N manipulations inside the `MidiRouter`.
 - **Universal MIDI Packets (UMP) Migration**: Finalized transition to 32-bit `MidiEvent` architecture internally to secure MIDI 2.0 readiness.
-- **Dynamic Connection Island**: Introduced an animated, adaptive status indicator that handles all 7 MIDI states and guards configuration via double-tap-hold gestures.
+- **Dynamic Connection Island**: Introduced an animated, adaptive status indicator (using `SizeTransition` to eliminate layout jank) that handles all 7 MIDI states and guards configuration via double-tap-hold gestures.
+- **PerformanceTickerMixin**: Centralized lifecycle management for interactive widgets with managed disposal and background recovery.
+- **Utility Grid Clear/Reset UX**: Disambiguated hard unbind from factory restore. Controls visually reflect "UNASSIGNED" states with interaction guards.
 - **Side Panel Docking**: Implemented a side-agnostic flyout system for landscape orientations, supporting Left/Right docking.
+- **Layout Hardening**: Eradicated build-phase orientation mutations; migrated to `didChangeMetrics`.
 - **O(1) Rendering Engine**: Optimized the UI grid with index-based leaf subscriptions and decoupled render pulls to handle extreme automation density without frame drops.
 - **Native Android Resilience**: Hardened `MidiSystemManager` with callback tracking per transport and physical disconnect handling.
-- **Snapshot & Preset Manager**: Integrated a robust architecture capable of dynamic state loading, saving complex multi-fader layouts and configurations.
+- **Zero-Allocation Hot-path**: Primitive-indexed state maps and bounded object pooling (`_MAX_POOL_SIZE = 256`) in the routing engine.
+- **Monotonic Timing Guards**: Replaced `DateTime.now()` with `Stopwatch` for all gesture and rate-limiting logic.
+- **Snapshot & Preset Manager**: Robust architecture for dynamic state persistence, supporting saving/loading of complex multi-fader layouts.
 
 ### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 

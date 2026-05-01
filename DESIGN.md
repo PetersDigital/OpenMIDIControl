@@ -90,6 +90,11 @@ To prevent accidental simultaneous activation in high-stakes environments:
 ### Buttons & Inputs
 
 * **Buttons:** Use `rounded-md` (0.375rem). Primary buttons use a solid `primary_container` fill. Tertiary buttons should be "Ghost" style (no fill, subtle `outline_variant` hover state).
+### Unassigned State (The "Blank Slate")
+To maintain the technical precision of the console while allowing for modular growth:
+- **Visuals**: Unassigned MIDI controls (CC -1) must be visually dimmed to **30% opacity** (`surface_variant`).
+- **Readout**: The primary data label must display **"UNASSIGNED"** in `label-sm` (Space Grotesk) all-caps.
+- **Interaction**: Pointer events and MIDI transmission are suppressed for unassigned controls to prevent accidental data noise.
 * **Input Fields:** Recess inputs using `surface_container_lowest`. Use `on_surface_variant` for placeholder text to maintain the moody, low-light aesthetic.
 * **No Dividers:** Forbid the use of divider lines in lists. Use vertical white space (`spacing-4` or `1.4rem`) or a subtle shift to `surface_container_low` on hover to separate items.
 

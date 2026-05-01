@@ -258,10 +258,31 @@ State machine must be explicit and testable.
 - **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
 - **C++ Audio Layer (Conditional v0.5.0+):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
+### G. Lifecycle & Performance Hardening (v0.3.0)
+
+#### 1. PerformanceTickerMixin
+Standardized lifecycle management for high-frequency interactive widgets (`HybridTouchFader`, `HybridXYPad`, `EndlessEncoder`).
+- **Managed Disposal**: Automatically cancels `ProviderSubscription` and stops `Ticker` instances when widgets are unmounted or the app enters the background.
+- **Resource Recovery**: Centralizes `WidgetsBindingObserver` to pause heavy UI logic during background suspension, significantly reducing idle battery drain.
+- **Disposal Guards**: Enforces mandatory `_disposed` checks in all asynchronous callbacks (`addPostFrameCallback`, `scheduleFrameCallback`) to prevent state mutations on unmounted widgets.
+
+#### 2. Monotonic Timing Guards
+- **Stopwatch Reliance**: All gesture detection (Double-tap, Long-press) and MIDI rate-limiting must use `Stopwatch.elapsedMilliseconds`. 
+- **NTP Immunity**: By avoiding `DateTime.now()`, the system is immune to "wall clock" jumps during Network Time Protocol syncs, ensuring deterministic interaction timing.
+
+#### 3. Bounded Object Pooling
+The `MidiRouter` DAG implements strictly bounded object pools for `WorkItem` and `MidiEvent` envelopes.
+- **Allocation Cap**: `_MAX_POOL_SIZE = 256`. 
+- **Determinism**: By capping the pool, the engine prevents memory inflation during high-frequency MIDI bursts while maintaining near-zero GC churn on the hot-path.
+
+---
+
 ## 9. Error Handling & Stability
 
 - **Native Layer Hardened**: Centralized all unsafe Android MIDI operations (connect, disconnect, send) into a global `safeExecute` wrapper in `Utils.kt`. This ensures that `IOException` or `IllegalStateException` during rapid hot-plugging are logged via the diagnostics system rather than crashing the application.
 - **Dead Receiver Quarantine:** Catch `IOException` on hardware writes and isolate disconnected receivers in a quarantine set to prevent infinite Binder crash loops during rapid hotplugging.
+- **Zero Build-Phase Mutations**: UI state updates driven by layout changes (e.g., orientation) must be performed in `didChangeMetrics` or `didUpdateWidget`, never inside `build()`. This prevents 1-frame layout "shimmer" caused by double-rebuilds.
+- **Capped Work Queues**: The routing engine must process packets in O(1) time relative to the number of nodes. Avoid recursive traversal; use the pre-allocated BFS queue.
 - **Invalid MIDI frames:** ignore and continue.
 - **Unknown SysEx commands:** log and ignore.
 - **Port loss:** preserve UI state, signal disconnected mode, retry connection.
