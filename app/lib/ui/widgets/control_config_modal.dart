@@ -2,68 +2,70 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../design_system.dart';
 import 'scrollable_dialog_content.dart';
 import '../../core/midi_utils.dart';
+import '../layout_state.dart';
 
-class ControlConfigResult {
-  final int channel;
-  final int identifier;
-  final String? displayName;
-
-  const ControlConfigResult({
-    required this.channel,
-    required this.identifier,
-    this.displayName,
-  });
-}
-
-class ControlConfigModal extends StatefulWidget {
-  final int initialChannel;
-  final int initialIdentifier;
+class ControlConfigModal extends ConsumerStatefulWidget {
+  final String controlId;
   final String identifierLabel;
-  final String? initialDisplayName;
+  final String? secondaryIdentifierLabel;
   final String displayNameLabel;
-  final VoidCallback? onClear;
-  final VoidCallback? onReset;
 
   const ControlConfigModal({
     super.key,
-    this.initialChannel = 0,
-    this.initialIdentifier = 0,
+    required this.controlId,
     this.identifierLabel = 'MIDI ID (e.g., C3 or 60)',
-    this.initialDisplayName,
+    this.secondaryIdentifierLabel,
     this.displayNameLabel = 'Display Name',
-    this.onClear,
-    this.onReset,
   });
 
   @override
-  State<ControlConfigModal> createState() => _ControlConfigModalState();
+  ConsumerState<ControlConfigModal> createState() => _ControlConfigModalState();
 }
 
-class _ControlConfigModalState extends State<ControlConfigModal> {
+class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   late int _selectedChannel;
   late TextEditingController _identifierController;
+  TextEditingController? _secondaryIdentifierController;
   TextEditingController? _displayNameController;
+  bool _invertX = false;
+  bool _invertY = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedChannel = widget.initialChannel;
+    final control = ref
+        .read(layoutStateProvider)
+        .getControlById(widget.controlId);
+
+    _selectedChannel = control?.channel ?? 0;
     _identifierController = TextEditingController(
-      text: widget.initialIdentifier.toString(),
+      text: control?.defaultCc == -1 ? '' : control?.defaultCc.toString() ?? '',
     );
-    if (widget.initialDisplayName != null) {
-      _displayNameController = TextEditingController(
-        text: widget.initialDisplayName,
+
+    if (control?.customName != null && control?.customName != 'Unassigned') {
+      _displayNameController = TextEditingController(text: control!.customName);
+    } else {
+      _displayNameController = TextEditingController();
+    }
+
+    if (widget.secondaryIdentifierLabel != null) {
+      final xyConfig = ref.read(xyPadConfigProvider)[widget.controlId];
+      _secondaryIdentifierController = TextEditingController(
+        text: xyConfig?.ccY.toString() ?? '',
       );
+      _invertX = xyConfig?.invertX ?? false;
+      _invertY = xyConfig?.invertY ?? true;
     }
   }
 
   @override
   void dispose() {
     _identifierController.dispose();
+    _secondaryIdentifierController?.dispose();
     _displayNameController?.dispose();
     super.dispose();
   }
@@ -72,32 +74,43 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
     final identifier = MidiUtils.parseNoteIdentifier(
       _identifierController.text,
     );
-    if (identifier == null) return;
+    final secondaryIdentifier = _secondaryIdentifierController != null
+        ? MidiUtils.parseNoteIdentifier(_secondaryIdentifierController!.text)
+        : null;
 
-    // Clamp values just to be safe
-    final clampedIdentifier = identifier;
+    if (identifier == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid MIDI identifier')));
+      return;
+    }
 
-    Navigator.of(context).pop(
-      ControlConfigResult(
-        channel: _selectedChannel,
-        identifier: clampedIdentifier,
-        displayName: _displayNameController?.text.trim(),
-      ),
-    );
+    ref
+        .read(layoutStateProvider.notifier)
+        .updateControl(
+          widget.controlId,
+          channel: _selectedChannel,
+          identifier: identifier,
+          name: _displayNameController?.text,
+          secondaryIdentifier: secondaryIdentifier,
+          invertX: _invertX,
+          invertY: _invertY,
+        );
+
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Configure Control'),
-      titlePadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
       backgroundColor: const Color(0xFF1E2024),
-      titleTextStyle: const TextStyle(
-        fontFamily: 'Space Grotesk',
-        color: Colors.white,
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
+      title: Text(
+        'Configure Control',
+        style: AppText.performance(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       content: ScrollableDialogContent(
         child: Column(
@@ -114,7 +127,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
-              initialValue: _selectedChannel,
+              initialValue: _selectedChannel < 0 ? 0 : _selectedChannel,
               dropdownColor: const Color(0xFF282A2E),
               decoration: const InputDecoration(
                 filled: true,
@@ -148,7 +161,7 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               widget.identifierLabel,
               style: const TextStyle(
@@ -162,7 +175,6 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
               controller: _identifierController,
               keyboardType: TextInputType.text,
               style: const TextStyle(color: Colors.white),
-              inputFormatters: const [], // Allow letters for note names
               decoration: const InputDecoration(
                 filled: true,
                 fillColor: Color(0xFF111318),
@@ -178,22 +190,11 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                   vertical: 8,
                 ),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a number';
-                }
-                final parsed = MidiUtils.parseNoteIdentifier(value);
-                if (parsed == null) {
-                  return 'Enter a number (0-127) or note (e.g., C3)';
-                }
-                return null;
-              },
-              autovalidateMode: AutovalidateMode.onUserInteraction,
             ),
-            if (_displayNameController != null) ...[
+            if (widget.secondaryIdentifierLabel != null) ...[
               const SizedBox(height: 16),
               Text(
-                widget.displayNameLabel,
+                widget.secondaryIdentifierLabel!,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   color: Color(0xFFC3C7CA),
@@ -202,8 +203,8 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _displayNameController,
-                textInputAction: TextInputAction.done,
+                controller: _secondaryIdentifierController,
+                keyboardType: TextInputType.text,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
                   filled: true,
@@ -221,36 +222,85 @@ class _ControlConfigModalState extends State<ControlConfigModal> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                title: const Text(
+                  'Invert X',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: _invertX,
+                onChanged: (v) => setState(() => _invertX = v ?? false),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                title: const Text(
+                  'Invert Y',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: _invertY,
+                onChanged: (v) => setState(() => _invertY = v ?? false),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
+            const SizedBox(height: 16),
+            Text(
+              widget.displayNameLabel,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                color: Color(0xFFC3C7CA),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _displayNameController,
+              textInputAction: TextInputAction.done,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Color(0xFF111318),
+                border: OutlineInputBorder(),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFF282A2E)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+            ),
           ],
         ),
       ),
       actions: [
-        if (widget.onClear != null)
-          TextButton(
-            onPressed: () {
-              widget.onClear!();
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              'Clear',
-              style: AppText.system(color: Colors.redAccent),
-            ),
-          ),
-        if (widget.onReset != null)
-          TextButton(
-            onPressed: () {
-              widget.onReset!();
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              'Reset',
-              style: AppText.system(color: const Color(0xFFA6C9F8)),
-            ),
-          ),
-        const Spacer(),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(null),
+          onPressed: () {
+            ref
+                .read(layoutStateProvider.notifier)
+                .clearControl(widget.controlId);
+            Navigator.of(context).pop();
+          },
+          child: Text('Clear', style: AppText.system(color: Colors.redAccent)),
+        ),
+        TextButton(
+          onPressed: () {
+            ref
+                .read(layoutStateProvider.notifier)
+                .resetControl(widget.controlId);
+            Navigator.of(context).pop();
+          },
+          child: Text(
+            'Reset',
+            style: AppText.system(color: const Color(0xFFA6C9F8)),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
             style: AppText.system(color: const Color(0xFFC3C7CA)),
