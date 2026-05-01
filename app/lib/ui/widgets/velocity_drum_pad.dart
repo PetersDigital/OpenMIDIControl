@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
+import '../performance_ticker_mixin.dart';
 import 'config_gesture_wrapper.dart';
 import 'control_config_modal.dart';
 import '../layout_state.dart';
@@ -73,7 +74,10 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 }
 
 class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
-    with TickerProviderStateMixin {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        PerformanceTickerMixin {
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
@@ -83,6 +87,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   @override
   void initState() {
     super.initState();
+    initPerformanceMixin();
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 50),
@@ -94,8 +99,20 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Suspend the scale animation while the app is backgrounded to free
+    // the animation thread and prevent resource drain on suspended views.
+    if (state != AppLifecycleState.resumed) {
+      _scaleController.stop();
+    }
+    // Delegate to the mixin to handle any registered tickers as well.
+    super.didChangeAppLifecycleState(state);
+  }
+
+  @override
   void dispose() {
     _scaleController.dispose();
+    disposePerformanceMixin();
     super.dispose();
   }
 
