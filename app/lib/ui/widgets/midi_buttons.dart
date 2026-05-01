@@ -100,116 +100,130 @@ class _TriggerState extends ConsumerState<Trigger>
 
     final channel = config?.channel ?? control.channel;
     final identifier = config?.cc ?? control.defaultCc;
+    final isUnassigned = identifier == -1;
     final label = control.displayName;
 
     return Listener(
-      onPointerDown: (e) => _handlePointerDown(e, identifier, channel),
-      onPointerUp: (e) => _handlePointerUp(e, identifier, channel),
-      onPointerCancel: (e) => _handlePointerUp(e, identifier, channel),
+      onPointerDown: isUnassigned
+          ? null
+          : (e) => _handlePointerDown(e, identifier, channel),
+      onPointerUp: isUnassigned
+          ? null
+          : (e) => _handlePointerUp(e, identifier, channel),
+      onPointerCancel: isUnassigned
+          ? null
+          : (e) => _handlePointerUp(e, identifier, channel),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 50),
-        decoration: BoxDecoration(
-          color: _isPressed ? widget.activeColor : widget.inactiveColor,
-          borderRadius: BorderRadius.zero,
-          border: Border.all(
-            color: _isPressed ? widget.activeColor : const Color(0xFF111318),
-            width: 2.0,
+      child: Opacity(
+        opacity: isUnassigned ? 0.3 : 1.0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 50),
+          decoration: BoxDecoration(
+            color: _isPressed ? widget.activeColor : widget.inactiveColor,
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: _isPressed ? widget.activeColor : const Color(0xFF111318),
+              width: 2.0,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              child: ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_trigger_${control.id}'),
-                id: 'trigger_${control.id}',
-                onConfigRequested: isLocked
-                    ? null
-                    : () => showUtilityConfigModal(
-                        context,
-                        ref,
-                        control.id,
-                        channel,
-                        identifier,
-                        label,
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                child: ConfigGestureWrapper(
+                  key: ValueKey('config_wrapper_trigger_${control.id}'),
+                  id: 'trigger_${control.id}',
+                  onConfigRequested: isLocked
+                      ? null
+                      : () => showUtilityConfigModal(
+                          context,
+                          ref,
+                          control.id,
+                          channel,
+                          identifier,
+                          label,
+                        ),
+                  child: Container(
+                    padding: const EdgeInsets.only(
+                      top: 4,
+                      left: 6,
+                      bottom: 20,
+                      right: 20,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 64,
+                      minHeight: 60,
+                    ),
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
+                      style: AppText.performance(
+                        color: _isPressed
+                            ? const Color(0xFF033258).withValues(alpha: 0.6)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    top: 4,
-                    left: 6,
-                    bottom: 20,
-                    right: 20,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 64,
-                    minHeight: 60,
-                  ),
-                  alignment: Alignment.topLeft,
-                  child: Text(
-                    'CC $identifier',
-                    style: AppText.performance(
-                      color: _isPressed
-                          ? const Color(0xFF033258).withValues(alpha: 0.6)
-                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-            ),
-            Center(
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: AppText.performance(
-                    color: _isPressed
-                        ? const Color(0xFF033258)
-                        : const Color(0xFFC3C7CA),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: AppText.performance(
+                      color: _isPressed
+                          ? const Color(0xFF033258)
+                          : const Color(0xFFC3C7CA),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Status (Bottom Left)
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Text(
-                _isPressed ? 'ON' : 'OFF',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              // Status (Bottom Left)
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Text(
+                  _isPressed ? 'ON' : 'OFF',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isPressed
+                        ? const Color(0xFF033258)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            // Channel (Bottom Right)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Text(
-                'CH${channel + 1}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: isUnassigned
+                    ? const SizedBox.shrink()
+                    : Text(
+                        'CH${channel + 1}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: _isPressed
+                              ? const Color(0xFF033258).withValues(alpha: 0.6)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -224,6 +238,15 @@ Future<void> showUtilityConfigModal(
   int currentCc,
   String currentName,
 ) async {
+  // Utility page is index 3 in the default layout
+  const int pageIndex = 3;
+  final layoutState = ref.read(layoutStateProvider);
+  final controlIndex = layoutState.pages[pageIndex].controls.indexWhere(
+    (c) => c.id == id,
+  );
+
+  if (controlIndex == -1) return;
+
   final result = await showDialog<ControlConfigResult>(
     context: context,
     builder: (context) => ControlConfigModal(
@@ -232,6 +255,22 @@ Future<void> showUtilityConfigModal(
       identifierLabel: 'CC Number',
       initialDisplayName: currentName,
       displayNameLabel: 'Control Name',
+      onClear: () {
+        ref
+            .read(layoutStateProvider.notifier)
+            .clearControl(pageIndex, controlIndex);
+        // Sync the config override to unassigned as well
+        ref
+            .read(utilityGridConfigProvider.notifier)
+            .setConfig(id, const UtilityGridConfig(channel: -1, cc: -1));
+      },
+      onReset: () {
+        ref
+            .read(layoutStateProvider.notifier)
+            .resetControlToDefault(pageIndex, controlIndex);
+        // Wipe the manual override so it pulls from the newly reset factory state
+        ref.read(utilityGridConfigProvider.notifier).removeConfig(id);
+      },
     ),
   );
 
@@ -349,116 +388,128 @@ class _ToggleState extends ConsumerState<Toggle>
 
     final channel = config?.channel ?? control.channel;
     final identifier = config?.cc ?? control.defaultCc;
+    final isUnassigned = identifier == -1;
     final label = control.displayName;
 
     return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerUp: (e) => _handlePointerUp(e, identifier, channel),
-      onPointerCancel: (e) => _handlePointerUp(e, identifier, channel),
+      onPointerDown: isUnassigned ? null : _handlePointerDown,
+      onPointerUp: isUnassigned
+          ? null
+          : (e) => _handlePointerUp(e, identifier, channel),
+      onPointerCancel: isUnassigned
+          ? null
+          : (e) => _handlePointerUp(e, identifier, channel),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: _isActive ? widget.activeColor : widget.inactiveColor,
-          borderRadius: BorderRadius.zero,
-          border: Border.all(
-            color: _isActive ? widget.activeColor : const Color(0xFF111318),
-            width: 2.0,
+      child: Opacity(
+        opacity: isUnassigned ? 0.3 : 1.0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isActive ? widget.activeColor : widget.inactiveColor,
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: _isActive ? widget.activeColor : const Color(0xFF111318),
+              width: 2.0,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              child: ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_toggle_${control.id}'),
-                id: 'toggle_${control.id}',
-                onConfigRequested: isLocked
-                    ? null
-                    : () => showUtilityConfigModal(
-                        context,
-                        ref,
-                        control.id,
-                        channel,
-                        identifier,
-                        label,
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                child: ConfigGestureWrapper(
+                  key: ValueKey('config_wrapper_toggle_${control.id}'),
+                  id: 'toggle_${control.id}',
+                  onConfigRequested: isLocked
+                      ? null
+                      : () => showUtilityConfigModal(
+                          context,
+                          ref,
+                          control.id,
+                          channel,
+                          identifier,
+                          label,
+                        ),
+                  child: Container(
+                    padding: const EdgeInsets.only(
+                      top: 4,
+                      left: 6,
+                      bottom: 20,
+                      right: 20,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 64,
+                      minHeight: 60,
+                    ),
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
+                      style: AppText.performance(
+                        color: _isActive
+                            ? const Color(0xFF690005).withValues(alpha: 0.6)
+                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
-                child: Container(
-                  padding: const EdgeInsets.only(
-                    top: 4,
-                    left: 6,
-                    bottom: 20,
-                    right: 20,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 64,
-                    minHeight: 60,
-                  ),
-                  alignment: Alignment.topLeft,
-                  child: Text(
-                    'CC $identifier',
-                    style: AppText.performance(
-                      color: _isActive
-                          ? const Color(0xFF690005).withValues(alpha: 0.6)
-                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-            ),
-            Center(
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: AppText.performance(
-                    color: _isActive
-                        ? const Color(0xFF690005)
-                        : const Color(0xFFC3C7CA),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: AppText.performance(
+                      color: _isActive
+                          ? const Color(0xFF690005)
+                          : const Color(0xFFC3C7CA),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Status (Bottom Left)
-            Positioned(
-              bottom: 4,
-              left: 4,
-              child: Text(
-                _isActive ? 'ON' : 'OFF',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              // Status (Bottom Left)
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Text(
+                  _isActive ? 'ON' : 'OFF',
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: _isActive
+                        ? const Color(0xFF690005)
+                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            // Channel (Bottom Right)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Text(
-                'CH${channel + 1}',
-                style: TextStyle(
-                  fontFamily: 'Space Grotesk',
-                  color: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: isUnassigned
+                    ? const SizedBox.shrink()
+                    : Text(
+                        'CH${channel + 1}',
+                        style: TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: _isActive
+                              ? const Color(0xFF690005).withValues(alpha: 0.6)
+                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
