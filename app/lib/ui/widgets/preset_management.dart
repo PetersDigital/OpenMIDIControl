@@ -75,7 +75,7 @@ class _SavePresetDialogState extends ConsumerState<SavePresetDialog> {
             );
 
             await ref.read(snapshotManagerProvider).savePreset(name, snapshot);
-            if (!mounted) return;
+            if (!context.mounted) return;
             Navigator.pop(context, name);
           },
           child: const Text('SAVE'),
