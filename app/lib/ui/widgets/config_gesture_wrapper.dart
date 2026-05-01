@@ -7,6 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_settings_state.dart';
 import '../providers/config_ui_provider.dart';
 
+const int _kMaxDoubleTapGapMs = 600;
+const int _kMaxDoubleTapSpeedMs = 400;
+const double _kMaxPanDistanceThreshold = 15.0;
+
 class ConfigGestureWrapper extends ConsumerStatefulWidget {
   final String id;
   final Widget child;
@@ -35,7 +39,8 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
   late AnimationController _progressController;
 
   // Gesture State
-  DateTime? _lastTapTime;
+  final Stopwatch _tapStopwatch = Stopwatch();
+  int _lastTapElapsedMs = 0;
   int _tapCount = 0;
   Timer? _configTimer;
   Timer? _tapResetTimer;
@@ -46,6 +51,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
   @override
   void initState() {
     super.initState();
+    _tapStopwatch.start();
     _progressController = AnimationController(vsync: this);
     _progressController.addListener(() {
       if (!mounted) return;
@@ -90,10 +96,10 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     // This stops "flams" or simultaneous performance hits from triggering the menu.
     if (_isDown || widget.isDragging) return;
 
-    final now = DateTime.now();
-    final timeSinceLastTap = _lastTapTime != null
-        ? now.difference(_lastTapTime!)
-        : const Duration(seconds: 999);
+    final currentElapsed = _tapStopwatch.elapsedMilliseconds;
+    final int timeSinceLastTap = _lastTapElapsedMs > 0
+        ? currentElapsed - _lastTapElapsedMs
+        : 999999;
 
     setState(() {
       _isDown = true;
@@ -104,12 +110,15 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     final mode = ref.read(configGestureModeProvider);
 
     // Tap sequence logic: strictly serial double-tap detection
-    if (_tapCount == 0 || (timeSinceLastTap.inMilliseconds > 600)) {
+    if (_tapCount == 0 || (timeSinceLastTap > _kMaxDoubleTapGapMs)) {
       _tapCount = 1;
       _tapResetTimer?.cancel();
-      _tapResetTimer = Timer(const Duration(milliseconds: 600), () {
-        if (mounted) setState(() => _tapCount = 0);
-      });
+      _tapResetTimer = Timer(
+        const Duration(milliseconds: _kMaxDoubleTapGapMs),
+        () {
+          if (mounted) setState(() => _tapCount = 0);
+        },
+      );
 
       // If in single-tap mode, start the timer immediately if we have a callback
       if (mode == ConfigGestureMode.tapHold &&
@@ -117,7 +126,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
               widget.onRenameRequested != null)) {
         _startConfigTimer();
       }
-    } else if (_tapCount == 1 && timeSinceLastTap.inMilliseconds < 400) {
+    } else if (_tapCount == 1 && timeSinceLastTap < _kMaxDoubleTapSpeedMs) {
       if (mode == ConfigGestureMode.doubleTapHold) {
         _tapCount = 2;
         _tapResetTimer?.cancel();
@@ -140,7 +149,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       _stopConfigTimer();
     }
 
-    _lastTapTime = now;
+    _lastTapElapsedMs = currentElapsed;
   }
 
   void _startConfigTimer() {
@@ -172,10 +181,10 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     if (event.pointer != _activePointerId || _initialPointerPos == null) return;
 
     // HARDENING: Cumulative distance threshold.
-    // If the finger moves more than 15 pixels from the INITIAL touch point,
+    // If the finger moves more than _kMaxPanDistanceThreshold pixels from the INITIAL touch point,
     // it's considered a deliberate movement (performance gesture) and cancels the config trigger.
     final distance = (event.localPosition - _initialPointerPos!).distance;
-    if (distance > 15) {
+    if (distance > _kMaxPanDistanceThreshold) {
       _stopConfigTimer();
     }
   }
