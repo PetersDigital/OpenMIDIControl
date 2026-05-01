@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'package:collection/collection.dart';
+
 class ControlState {
   final Map<String, int> ccValues;
   final Map<int, Set<int>> noteStates;
@@ -73,4 +75,20 @@ class ControlState {
       buttonStates: buttonStatesMap.map((k, v) => MapEntry(k, v as bool)),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ControlState &&
+        const DeepCollectionEquality().equals(other.ccValues, ccValues) &&
+        const DeepCollectionEquality().equals(other.noteStates, noteStates) &&
+        const DeepCollectionEquality().equals(other.buttonStates, buttonStates);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    const DeepCollectionEquality().hash(ccValues),
+    const DeepCollectionEquality().hash(noteStates),
+    const DeepCollectionEquality().hash(buttonStates),
+  );
 }

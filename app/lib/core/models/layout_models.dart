@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'package:collection/collection.dart';
 import '../midi_utils.dart';
 
 /// Enumeration of supported control types in the layout schema.
@@ -84,6 +85,20 @@ class LayoutControl {
   @override
   String toString() =>
       'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel)';
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LayoutControl &&
+        other.id == id &&
+        other.type == type &&
+        other.defaultCc == defaultCc &&
+        other.channel == channel &&
+        other.customName == customName;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, type, defaultCc, channel, customName);
 }
 
 /// Represents a single page in the layout (e.g., FADER, XY, PADS, UTILITY).
@@ -136,4 +151,17 @@ class LayoutPage {
   @override
   String toString() =>
       'LayoutPage(id: $id, name: $name, controlCount: ${controls.length})';
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LayoutPage &&
+        other.id == id &&
+        other.name == name &&
+        const ListEquality().equals(other.controls, controls);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, const ListEquality().hash(controls));
 }
