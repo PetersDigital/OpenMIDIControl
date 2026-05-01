@@ -1065,20 +1065,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
     );
   }
 
-  Widget _buildTransportButton(
-    IconData icon,
-    VoidCallback onPressed, {
-    bool isPrimary = false,
-  }) {
-    return IconButton(
-      icon: Icon(
-        icon,
-        color: isPrimary ? const Color(0xFFA6C9F8) : const Color(0xFFC3C7CA),
-        size: isPrimary ? 48 : 32,
-      ),
-      onPressed: onPressed,
-    );
-  }
+
 }
 
 // ===========================================================================
