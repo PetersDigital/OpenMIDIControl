@@ -14,13 +14,30 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ### Added
 
+- **Dynamic Connection Island**: Replaced the static connection status button with a dynamic animated island that auto-expands on status changes and collapses to a centered dot. Requires a double-tap-hold to expand manually when collapsed.
+- **Side Panel Docking**: Implemented a `SidePanel` flyout for landscape settings with a "Panel Position" toggle for side-agnostic docking (left or right).
+- **Native Android MIDI Resilience**: Added robust failure handling and connection resilience in `MidiSystemManager`, including storing MIDI callbacks per transport for safe unregistration and handling physical disconnects.
+- **Device Offline Overlay**: Added a comprehensive offline overlay to gracefully handle MIDI disconnects during active sessions.
+- **UI State Tracking**: Implemented button state tracking in `UiStateSinkNode` for better bidirectional feedback.
+- **Typography Height Support**: Added explicit line height support to the `AppText` design system.
 - **Snapshot & Preset Architecture:** Introduced `SnapshotManager` allowing complex UI states and active controls to be saved and recalled dynamically.
 - **Universal MIDI Packets (UMP) Migration:** Fully integrated a 32-bit `MidiEvent` paradigm enforcing forward compatibility with MIDI 2.0 standards across the application stack.
 - **Android Native UMP SDK Enforcement:** explicitly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` in `app/android/app/build.gradle.kts` to strictly support native UMP.
 
 ### Changed
 
+- **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across both portrait and landscape orientations, horizontally centering the connection status badge.
+- **Transport Bar Normalization**: Removed redundant transport controls in the command center, normalized the grid layout across orientations, and set transport to default visible in landscape to resolve overflow issues.
+- **Performance Lock Relocation**: Moved the performance lock icon from the top headers to the performance zone pagination bar, placing it closer to the interface it manages.
 - **Docs Consolidation:** Updated architectural and design documentation across the repository to formally reflect the v0.3.0 `MidiRouter` (DAG), thermal hardening optimizations, and UMP shift.
+
+### Optimized
+
+- **O(1) Grid Rendering**: Refactored grid rendering and implemented index-based leaf subscriptions to eliminate O(N) rebuilds during high-frequency MIDI events.
+- **Render Pull Decoupling**: Decoupled the UI Render Pull from the Data Pump, improving overall layout performance.
+- **State Equality**: Implemented value equality on `ControlState` and layout models using the `collection` package to prevent unnecessary widget rebuilds.
+- **Fader Locking**: Faders now lock immediately on touch, preventing "host fighting" when DAW automation and local touch events collide.
+- **UMP Bitwise Parsing**: Hardened UMP bitwise parsing logic for improved cross-platform stability.
 
 ## [0.2.3] - 2026-04-24
 

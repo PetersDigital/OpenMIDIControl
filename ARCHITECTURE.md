@@ -49,8 +49,10 @@ The trajectory prioritizes architectural purity and deterministic routing before
 - **MidiRouter Graph:** Implementing a software Directed Acyclic Graph (DAG) for N-to-N message distribution and logic-based remapping (`SplitNode`, `RemapNode`, `FilterNode`, `SinkNode`).
 - **Performance & Thermal Hardening:** Eliminating object allocation churn in the MIDI hot-path through primitive packing, buffer reuse (~2MB/sec allocation reduction), and coalesced state updates.
 - **Native Loop Prevention:** Implemented explicit `UsbMode` tracking in the native layer to disable `VirtualMidiService` dispatch when in Peripheral mode, eliminating internal feedback loops.
-- **Service Decoupling:** Refactored native logic into a persistent `MidiSystemManager` singleton to decouple MIDI lifecycle from `MainActivity`. This ensures that `PeripheralMidiService` remains active during background transitions and focus changes.
-- **Unique Status Identity:** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity.
+- **Service Decoupling:** Refactored native logic into a persistent `MidiSystemManager` singleton to decouple MIDI lifecycle from `MainActivity`. This ensures that `PeripheralMidiService` remains active during background transitions and focus changes, with stored callback tracking for safe unregistration during hotplugs.
+- **Unique Status Identity:** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity via the `DynamicConnectionIsland`.
+- **SidePanel Docking:** Implemented a side-agnostic flyout architecture for settings and diagnostics in landscape mode, allowing users to dock panels to the left or right of the performance surface.
+- **O(1) Rendering Engine:** Refactored the UI to use index-based leaf subscriptions and decoupled Render Pulls, ensuring that high-frequency MIDI events only rebuild specific widgets rather than the entire grid.
 - **Snapshot Manager:** Integrated an architecture capable of saving/loading complex multi-fader layouts and settings securely.
 - **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
 - **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.

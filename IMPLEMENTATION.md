@@ -62,33 +62,30 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - **Thermal Priority**: `appCategory="game"` for OS-level scheduler prioritization.
   - **State Reliability**: CC state replay, lazy-init map allocations, and fixed UMP word alignment for multi-word packets.
 
-### ✅ v0.3.0: Core Routing Engine, UMP, & Snapshot Expansion
+### ✅ v0.3.0: Core Routing Engine, UMP, & UI Modernization
 
 - **DAG Routing Ecosystem**: Full integration of transformer nodes (`SplitNode`, `RemapNode`, `FilterNode`) allowing modular N-to-N manipulations inside the `MidiRouter`.
 - **Universal MIDI Packets (UMP) Migration**: Finalized transition to 32-bit `MidiEvent` architecture internally to secure MIDI 2.0 readiness.
-- **Android UMP Requirement**: Rigidly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` to strictly utilize Android 13's UMP-native capabilities.
+- **Dynamic Connection Island**: Introduced an animated, adaptive status indicator that handles all 7 MIDI states and guards configuration via double-tap-hold gestures.
+- **Side Panel Docking**: Implemented a side-agnostic flyout system for landscape orientations, supporting Left/Right docking.
+- **O(1) Rendering Engine**: Optimized the UI grid with index-based leaf subscriptions and decoupled render pulls to handle extreme automation density without frame drops.
+- **Native Android Resilience**: Hardened `MidiSystemManager` with callback tracking per transport and physical disconnect handling.
 - **Snapshot & Preset Manager**: Integrated a robust architecture capable of dynamic state loading, saving complex multi-fader layouts and configurations.
-- **Grid & Tactile Inputs**: 3x3 pads and extended UI elements adapted to the new architecture.
 
-### ⏳ Current Focus: v0.4.x – The MCU / HUI Protocol Series
+### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 
-- **v0.4.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
-- **v0.4.1 (Handshake)**: DAW device detection and bidirectional negotiation.
-- **v0.4.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+- **v0.4.0 (Core Engine)**: Migration from hardcoded panels to a data-driven fixed-ratio grid system.
+- **v0.4.1 (Editor Mode)**: Implementation of drag-and-drop, resizing, and the widget palette.
+- **v0.4.2 (Persistence & Marketplace)**: JSON schema versioning and manifest metadata for layout sharing.
 
-### ⏳ v0.5.0 – Native DAW Scripts & Architecture Review
+### ⏳ v0.5.x – The MCU / HUI Protocol Series
+
+- **v0.5.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
+- **v0.5.1 (Handshake)**: DAW device detection and bidirectional negotiation.
+- **v0.5.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+
+### ⏳ v0.6.0 – Native DAW Scripts & Architecture Review
 
 - **Remote Scripts**: Python/JS integrations for Ableton, Cubase, and Logic.
 - **Performance Audit**: Benchmark Kotlin pipeline against native DAW integrations.
 - **NDK Fast Path (Conditional)**: C++ AMidi and Dart FFI shared memory migration.
-
-### ⏳ experimental/v0.5.x – MIDI 2.0 Native Path
-
-- **MIDI-CI Handshake**: Capability Inquiry negotiation.
-- **OS UMP Integration**: Direct UMP payload transfer for supported platforms.
-
-### ⏳ v0.6.0+: Customization & Plugins
-
-- **Full Preset Engine**: Snapshot management and schema saving.
-- **Layout Editor**: Visual drag-and-drop customization and serializable UI schema.
-- **Plugin Layer**: Extensibility hooks for custom transformers and protocol adapters.

@@ -12,7 +12,7 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), Snapshot/Preset Management, and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
+- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), **Dynamic Connection Island**, Side Panel docking, O(1) rendering, and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
 - **v0.2.2** (Previous) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
 - **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
@@ -21,9 +21,9 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Current UI & Controls
 
-- **Responsive command center:** Layout switches between a portrait-focused command center (status row, 3×3 control pad, navigation icons) on phones and a desktop landscape layout with flexible panel ordering plus a dedicated track card.
+- **Responsive command center:** Layout switches between a portrait-focused command center and a desktop landscape layout. Includes a **Dynamic Connection Island** for real-time MIDI status and a side-agnostic flyout panel for landscape settings.
 - **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
-- **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle. The MIDI settings view allows discrete port selection with active-port highlighting (Blue/Green) and automatic persistence.
+- **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a **Panel Position** toggle for landscape docking. The MIDI settings view allows discrete port selection with active-port highlighting and automatic persistence.
 - **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the [DESIGN.md](DESIGN.md) system.
 - **Snapshots & Presets:** Save and recall complex UI layouts and control states directly from the settings drawer, backed by the DAG-based routing engine.
 

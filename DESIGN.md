@@ -70,11 +70,16 @@ If contrast ratios require a boundary, use a **Ghost Border**: `outline_variant`
 
 ### Fader Ribbons (Signature Component)
 
-Faders are the heart of the Console. They must mimic physical LED strips.
-
-* **The Block:** Must be solid color blocks. Use `primary_container` (#a6c9f8) or `tertiary_container` (#a1cfce). **No gradients.**
-* **The Glow:** Apply a `4px` to `8px` outer glow (drop shadow) using the same color as the ribbon at 30% opacity. This simulates light reflecting off the "obsidian" hardware casing.
+...
 * **Corners:** All fader tracks and thumbs must use `rounded-md` (0.375rem).
+
+### Dynamic Connection Island (Signature Component)
+
+The "Heartbeat" of the console, this interactive element represents the system's live status.
+
+* **Behavior:** A pill-shaped "island" that auto-expands to reveal high-detail status and collapses into a single luminous dot.
+* **Aesthetics:** Uses a deep obsidian background (#1E2024) with a subtle tinted border. The status dot provides the primary luminous signal (Cyan for USB, Amber for Ready, Green for Active).
+* **Interaction:** Uses the `ConfigGestureWrapper` to protect critical system settings behind a double-tap-hold gesture, mimicking "guarded" hardware switches.
 
 ### Vertical Fader Gutters (The Dead-Touch Zone)
 

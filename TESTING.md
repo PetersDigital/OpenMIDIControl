@@ -1,21 +1,21 @@
 # Automated Test Suite Architecture
 
 > [!NOTE]
-> This documentation covers the multi-domain test suite for the v0.2.2 UMP transport pipeline, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and conceptual fuzzing tests.
+> This documentation covers the multi-domain test suite for the v0.3.0 Modular Layout Engine and UMP transport pipeline, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
 
-The v0.2.2 Universal MIDI Packet (UMP) transport pipeline utilizes a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
+The v0.3.0 Universal MIDI Packet (UMP) transport pipeline utilizes a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
 
 This document outlines how to execute the test suite and the specific scenarios validated.
 
 ## 1. Phase A: Kotlin Native Transport & Logic Tests
 
 **Target Directory:** `app/android/app/src/test/kotlin/com/petersdigital/openmidicontrol/`
-**Test File:** `MidiParserTest.kt`
+**Test Files:** `MidiParserTest.kt`, `MidiSystemManagerTest.kt`
 **Runner:** Gradle (JUnit 4 + Coroutines Test)
 
 The native Android byte-parsing logic is architecturally isolated in a testable static object `MidiParser.kt` (extracted from `MainActivity.kt`). This prevents tests from requiring complex Android Service lifecycles (like `MidiManager` or `MidiDeviceService`).
 
-### Scenarios Validated
+### Scenarios Validated (MidiParser)
 
 - **UMP Heuristic Validation:** Feeds legacy byte streams mixed with system real-time messages. Verifies that the internal heuristic correctly falls back to legacy parsing when the Message Type (MT) nibble fails to align with UMP definitions (MT=0x1 or MT=0x2).
 - **Legacy Byte Stream Parsing:** Simulates standard 3-byte legacy CC arrays. Asserts the parser correctly isolates the status byte and reconstructs it into a fully compliant 32-bit UMP integer using Group 0.
@@ -24,6 +24,11 @@ The native Android byte-parsing logic is architecturally isolated in a testable 
 - **Bidirectional Echo Suppression:** Tests the virtual DAW loopback prevention. Simulates an outgoing CC, then immediately receives an incoming virtual MIDI message on the same CC within the `suppressionWindowNs`. Asserts the incoming message is discarded.
 - **Batching Loop Bounds:** Simulates a coroutine channel flood (e.g., pushing 150 events into a bounding pool of 100). Asserts that the `while (count + 1 < batch.size)` logic successfully slices the batch exactly at its capacity limit without throwing an `ArrayIndexOutOfBoundsException`.
 - **Array Bounds Crash Prevention:** Validates defensive bounds checking (`offset >= 0`, `count % 4 == 0`, `offset + count <= msg.size`) prevents DoS via malformed MIDI packets.
+
+### Scenarios Validated (MidiSystemManager)
+
+- **Failure Reporting:** Validates that the native layer correctly reports port opening failures and connection errors to the Dart layer via MethodChannels.
+- **Callback Lifecycle:** Ensures that MIDI callbacks are stored per-transport and successfully unregistered when ports are closed, preventing memory leaks and orphaned receivers.
 
 ### How to Run
 
@@ -145,8 +150,18 @@ flutter test test/midi_settings_state_test.dart
 - **Fader Behavior Modes:** Tests Jump, Hybrid, and Catch-up behaviors with drag interactions.
 - **Multi-Touch Capture:** Validates pointer capture and relative movement tracking.
 - **CC Picker:** Tests long-press CC number selection dialog.
+- **Dynamic Connection Island:** Validates the double-tap-hold gesture to expand the status indicator and tap-to-navigate for MIDI settings.
 - **Value Deduplication:** Validates state updates only trigger on actual value changes.
 - **Monotonic Clock Throttling:** Validates `HybridTouchFader` uses `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for MIDI rate limiting, ensuring throttle logic is immune to system clock jumps (NTP sync).
+
+### 2.7 Responsive UI & Transport (`transport_controls_test.dart`)
+
+#### Scenarios Validated
+
+- **Three-Zone Header:** Validates centering of the dynamic island across orientations.
+- **Transport Visibility:** Asserts that transport controls auto-toggle based on orientation and manual overrides.
+- **Side Panel Docking:** Verifies flyout visibility in landscape and docking position state changes.
+- **Offline Overlay:** Confirms the modal triggers correctly on `connectionLost` status.
 
 #### How to Run
 

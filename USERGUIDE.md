@@ -25,9 +25,10 @@ Expected baseline:
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Ensure Android USB mode is set to **"MIDI"** or **"File Transfer"** (Device will automatically handshake as a Peripheral).
 3. Start OpenMIDIControl.
-4. Confirm **"USB PERIPHERAL READY"** (Orange/Yellow) or **"USB HOST CONNECTED"** (Green) banner appears in the status row.
+4. Confirm **"USB PERIPHERAL READY"** (Orange/Yellow) or **"USB HOST CONNECTED"** (Green) appears in the **Dynamic Connection Island** at the bottom of the screen.
    - **READY**: The phone is in MIDI mode and visible to the PC, but no traffic has been detected yet.
    - **CONNECTED**: The DAW is actively communicating with the app.
+   - **Interaction**: The island auto-expands on status changes. When collapsed, **Double-Tap and Hold** the island to expand it manually for settings access.
 5. In your DAW (Cubase/Ableton), select **"OpenMIDIControl"** as the MIDI Input/Output device.
 6. Move a fader and confirm MIDI data is received.
 
@@ -52,10 +53,10 @@ Expected baseline:
 
 ### 4.4 Behavior & layout settings
 
-- Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
-- The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
-- A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.3.0` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- Tap the **Settings icon** (cog) or the **more icon** (kebab) in the top bars to open the settings view.
+- **Side Panel Docking (Landscape):** In landscape mode, the settings and diagnostics appear in a flyout panel. Use the **Panel Position** toggle in App Settings to dock this panel to either the Left or Right side of the screen.
+- **Performance Lock:** The lock icon has been moved to the **Pagination Bar** (next to the FADER/XY/PADS tabs). Toggle this to prevent accidental page changes or to enable structural edits.
+- **Dynamic Connection Island:** Located at the bottom center, this island provides real-time MIDI status. A regular tap when expanded (or a double-tap-hold when collapsed) opens the MIDI Connection Settings.
 - **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
 - **Snapshots & Presets:** From the settings drawer, access the snapshot tools to save your current layout configurations and control assignments into distinct preset slots, allowing rapid recall during live performance.
