@@ -250,7 +250,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     Tooltip(
                       message: 'Toggle Transport',
                       child: GestureDetector(
-                        key: const ValueKey('transport_toggle_button'),
+                        key: const ValueKey('transport_toggle_button_portrait'),
                         onTap: () => ref
                             .read(transportVisibleProvider.notifier)
                             .toggle(),
@@ -487,7 +487,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
           width: panelWidth,
           child: Visibility(
             visible: isVisible,
-            maintainState: true,
+            maintainState: false,
             child: _buildCommandCenter(context, ref, faderOnRight),
           ),
         ),
@@ -609,7 +609,7 @@ class _MobileLandscapeLayout extends ConsumerWidget {
                     Tooltip(
                       message: 'Toggle Transport',
                       child: IconButton(
-                        key: const ValueKey('transport_toggle_button'),
+                        key: const ValueKey('transport_toggle_button_panel'),
                         icon: Icon(
                           faderOnRight
                               ? Icons.keyboard_double_arrow_left
@@ -796,7 +796,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
                   clipBehavior: Clip.hardEdge,
                   child: Visibility(
                     visible: isVisible,
-                    maintainState: true,
+                    maintainState: false,
                     child: _buildCommandCenter(context, ref, faderOnRight),
                   ),
                 ),
@@ -855,7 +855,7 @@ class _DesktopLandscapeLayout extends ConsumerWidget {
           Tooltip(
             message: isVisible ? 'Hide Transport' : 'Show Transport',
             child: IconButton(
-              key: const ValueKey('transport_toggle_button_landscape'),
+              key: const ValueKey('transport_toggle_button_desktop'),
               icon: Icon(
                 isVisible
                     ? (faderOnRight
@@ -1098,7 +1098,8 @@ class _ConnectionStatusButton extends ConsumerWidget {
     );
 
     return Tooltip(
-      message: 'MIDI Settings',
+      key: const ValueKey('connection_status_button'),
+      message: 'MIDI Connection Settings',
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
@@ -1504,6 +1505,7 @@ class _SidePanelOverlay extends ConsumerWidget {
           child: IgnorePointer(
             ignoring: !isVisible,
             child: GestureDetector(
+              key: const ValueKey('side_panel_scrim'),
               onTap: () => ref.read(sidePanelProvider.notifier).hide(),
               child: Container(color: Colors.black54),
             ),
