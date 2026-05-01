@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:math' as math;
 import '../../models/midi_event.dart';
 import '../transformer_node.dart';
 
@@ -25,31 +26,14 @@ class RemapNode extends TransformerNode {
        assert(sourceMin >= 0 && sourceMin <= 127),
        assert(sourceMax >= 0 && sourceMax <= 127),
        assert(destMin >= 0 && destMin <= 127),
-       assert(destMax >= 0 && destMax <= 127),
-       assert(sourceMin <= sourceMax),
-       assert(destMin <= destMax);
+       assert(destMax >= 0 && destMax <= 127);
 
   @override
   MidiEvent? processSingle(MidiEvent event) {
     if (event.messageType == 0x2 &&
         (event.status & 0xF0) == 0xB0 &&
         event.data1 == sourceCc) {
-      final val = event.data2;
-      int clampedVal = val < sourceMin
-          ? sourceMin
-          : (val > sourceMax ? sourceMax : val);
-
-      int mappedVal;
-      if (sourceMax == sourceMin) {
-        mappedVal = destMin;
-      } else {
-        mappedVal =
-            destMin +
-            ((clampedVal - sourceMin) * (destMax - destMin) +
-                    (sourceMax - sourceMin) ~/ 2) ~/
-                (sourceMax - sourceMin);
-        mappedVal = mappedVal.clamp(destMin, destMax);
-      }
+      final mappedVal = _remapValue(event.data2);
 
       int umpWithoutData = event.ump & 0xFFFF0000;
       final int finalData1 = destCc.clamp(0, 127);
@@ -68,6 +52,33 @@ class RemapNode extends TransformerNode {
       );
     }
     return event;
+  }
+
+  int _remapValue(int val) {
+    // 1. Resolve actual min/max for the source range to handle inverted configuration.
+    final srcMin = math.min(sourceMin, sourceMax);
+    final srcMax = math.max(sourceMin, sourceMax);
+
+    // 2. Guard input clamping against inverted source bounds.
+    final clampedVal = val.clamp(srcMin, srcMax);
+
+    // 3. Division by Zero Guard: Bypass scaling if the range is zero-width.
+    if (sourceMax == sourceMin) {
+      return destMin;
+    }
+
+    // 4. Linear mapping with integer arithmetic using rounded division.
+    final diff = (clampedVal - sourceMin) * (destMax - destMin);
+    final range = sourceMax - sourceMin;
+    final rounding = diff >= 0 ? (range ~/ 2) : -(range ~/ 2);
+
+    int mappedVal = destMin + (diff + rounding) ~/ range;
+
+    // 5. Safe Clamp: Use resolved min/max to support inverted destination ranges (e.g., 127-0).
+    final actualDestMin = math.min(destMin, destMax);
+    final actualDestMax = math.max(destMin, destMax);
+
+    return mappedVal.clamp(actualDestMin, actualDestMax);
   }
 
   @override
@@ -91,34 +102,9 @@ class RemapNode extends TransformerNode {
       if (event.messageType == 0x2 &&
           (event.status & 0xF0) == 0xB0 &&
           event.data1 == sourceCc) {
-        final val = event.data2;
-        // Clamp input value to source range
-        int clampedVal = val < sourceMin
-            ? sourceMin
-            : (val > sourceMax ? sourceMax : val);
+        final mappedVal = _remapValue(event.data2);
 
-        // Scale to destination range
-        int mappedVal;
-        if (sourceMax == sourceMin) {
-          mappedVal = destMin;
-        } else {
-          // Linear mapping with integer arithmetic using rounded division
-          mappedVal =
-              destMin +
-              ((clampedVal - sourceMin) * (destMax - destMin) +
-                      (sourceMax - sourceMin) ~/ 2) ~/
-                  (sourceMax - sourceMin);
-          mappedVal = mappedVal.clamp(destMin, destMax);
-        }
-
-        // Reconstruct the 32-bit UMP integer with the new CC number and value
-        // UMP format for MIDI 1.0 Voice:
-        // [4 bits Message Type][4 bits Group][8 bits Status][8 bits Data1][8 bits Data2]
-
-        // Clear out the old Data1 and Data2 bytes (lower 16 bits)
         int umpWithoutData = event.ump & 0xFFFF0000;
-
-        // Ensure new CC number and mapped value are within the valid MIDI 1.0 range.
         final int finalData1 = destCc.clamp(0, 127);
         final int finalData2 = mappedVal.clamp(0, 127);
 
