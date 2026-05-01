@@ -15,6 +15,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+kotlin {
+    jvmToolchain(21)
+}
+
 android {
     namespace = "com.petersdigital.openmidicontrol"
     compileSdk = 36 // Required for latest integration_test and package_info_plus.
