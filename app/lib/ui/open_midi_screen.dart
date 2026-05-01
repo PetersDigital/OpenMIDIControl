@@ -34,8 +34,8 @@ class FaderBehaviorNotifier extends Notifier<FaderBehavior> {
 
 final faderBehaviorProvider =
     NotifierProvider<FaderBehaviorNotifier, FaderBehavior>(
-      FaderBehaviorNotifier.new,
-    );
+  FaderBehaviorNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // State: Transport Visibility
@@ -50,8 +50,8 @@ class TransportVisibleNotifier extends Notifier<bool> {
 
 final transportVisibleProvider =
     NotifierProvider<TransportVisibleNotifier, bool>(
-      TransportVisibleNotifier.new,
-    );
+  TransportVisibleNotifier.new,
+);
 
 final firstLaunchCheckProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -90,8 +90,8 @@ class PerformancePageIndexNotifier extends Notifier<int> {
 
 final performancePageIndexProvider =
     NotifierProvider<PerformancePageIndexNotifier, int>(
-      PerformancePageIndexNotifier.new,
-    );
+  PerformancePageIndexNotifier.new,
+);
 
 // (SidePanelNotifier was moved to side_panel_state.dart)
 
@@ -151,14 +151,8 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
 
   @override
   void didChangeMetrics() {
-    final orientation =
-        WidgetsBinding
-                .instance
-                .platformDispatcher
-                .views
-                .first
-                .physicalSize
-                .aspectRatio >
+    final orientation = WidgetsBinding.instance.platformDispatcher.views.first
+                .physicalSize.aspectRatio >
             1
         ? Orientation.landscape
         : Orientation.portrait;
@@ -272,9 +266,8 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       message: 'Toggle Transport',
                       child: GestureDetector(
                         key: const ValueKey('transport_toggle_button_portrait'),
-                        onTap: () => ref
-                            .read(transportVisibleProvider.notifier)
-                            .toggle(),
+                        onTap: () =>
+                            ref.read(transportVisibleProvider.notifier).toggle(),
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
@@ -324,8 +317,6 @@ class _MobilePortraitLayout extends ConsumerWidget {
 }
 
 // ===========================================================================
-// MOBILE LANDSCAPE LAYOUT
-// =========================================================================== // ===========================================================================
 // UNIFIED LANDSCAPE LAYOUT
 // ===========================================================================
 class _LandscapeLayout extends ConsumerWidget {
@@ -437,11 +428,11 @@ class _LandscapeLayout extends ConsumerWidget {
                   key: const ValueKey('transport_toggle_button_landscape'),
                   icon: isVisible
                       ? (faderOnRight
-                            ? Icons.keyboard_double_arrow_left
-                            : Icons.keyboard_double_arrow_right)
+                          ? Icons.keyboard_double_arrow_left
+                          : Icons.keyboard_double_arrow_right)
                       : (faderOnRight
-                            ? Icons.keyboard_double_arrow_right
-                            : Icons.keyboard_double_arrow_left),
+                          ? Icons.keyboard_double_arrow_right
+                          : Icons.keyboard_double_arrow_left),
                   tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
                   onPressed: () =>
                       ref.read(transportVisibleProvider.notifier).toggle(),
@@ -572,8 +563,8 @@ class MidiTransportGrid extends StatelessWidget {
       builder: (context, constraints) {
         final gridSize =
             constraints.hasBoundedWidth && constraints.hasBoundedHeight
-            ? math.min(constraints.maxWidth, constraints.maxHeight)
-            : constraints.maxWidth;
+                ? math.min(constraints.maxWidth, constraints.maxHeight)
+                : constraints.maxWidth;
 
         return Container(
           color: Colors.transparent,
@@ -734,24 +725,13 @@ class DynamicConnectionIsland extends ConsumerStatefulWidget {
 }
 
 class _DynamicConnectionIslandState
-    extends ConsumerState<DynamicConnectionIsland>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
+    extends ConsumerState<DynamicConnectionIsland> {
+  bool _isExpanded = false;
   Timer? _collapseTimer;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
-
     // Start expanded briefly to show status, then collapse
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _expandTemporarily();
@@ -761,16 +741,15 @@ class _DynamicConnectionIslandState
   @override
   void dispose() {
     _collapseTimer?.cancel();
-    _controller.dispose();
     super.dispose();
   }
 
   void _expandTemporarily() {
     if (!mounted) return;
-    _controller.forward();
+    setState(() => _isExpanded = true);
     _collapseTimer?.cancel();
     _collapseTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) _controller.reverse();
+      if (mounted) setState(() => _isExpanded = false);
     });
   }
 
@@ -788,13 +767,13 @@ class _DynamicConnectionIslandState
     final (statusText, statusColor) = switch (midiStatus) {
       MidiStatus.usbActive => ("USB PERIPHERAL READY", const Color(0xFF4DD0E1)),
       MidiStatus.usbHostAwaitingPort => (
-        "USB HOST DETECTED",
-        const Color(0xFF9575CD),
-      ),
+          "USB HOST DETECTED",
+          const Color(0xFF9575CD),
+        ),
       MidiStatus.usbHostConnected => (
-        "USB HOST ACTIVE",
-        const Color(0xFF66BB6A),
-      ),
+          "USB HOST ACTIVE",
+          const Color(0xFF66BB6A),
+        ),
       MidiStatus.connected => ("DEVICE CONNECTED", const Color(0xFF42A5F5)),
       MidiStatus.available => ("MIDI READY", const Color(0xFFFFCA28)),
       MidiStatus.connectionLost => ("CONNECTION LOST", const Color(0xFFE57373)),
@@ -804,87 +783,113 @@ class _DynamicConnectionIslandState
     return ConfigGestureWrapper(
       key: const ValueKey('connection_status_island'),
       id: 'connection_status_island',
-      // Double-tap and hold to expand when collapsed
-      onConfigRequested: _controller.status == AnimationStatus.dismissed
-          ? () => _expandTemporarily()
-          : null,
+      // Step 1: Double-tap and hold to expand when collapsed
+      onConfigRequested: !_isExpanded ? () => _expandTemporarily() : null,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
-          // Regular tap to navigate only when expanded
-          if (_controller.value > 0.5) {
+          // Step 2: Regular tap to navigate only when already expanded
+          if (_isExpanded) {
             _showMidiSettings(context, ref);
           }
         },
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOutCubic,
-              height: 36,
-              // Width and constraints removed to prevent layout reflow jank.
-              // Decoration still animates border color changes.
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2024),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: statusColor.withValues(alpha: 0.3),
-                  width: 1.5,
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 10.5 + (5.5 * _animation.value),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    // The Dot
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOutCubic,
+          height: 36,
+          // Finite constraints for smooth lerp
+          constraints: BoxConstraints(
+            minWidth: 36,
+            maxWidth: _isExpanded ? 500 : 36,
+          ),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2024),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: statusColor.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer scroll view suppresses overflow errors for the whole row
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                clipBehavior: Clip.none,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: _isExpanded ? 16 : 10.5,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // The Dot
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    // Expanded content - Revealing via SizeTransition prevents text reflow
-                    SizeTransition(
-                      sizeFactor: _animation,
-                      axis: Axis.horizontal,
-                      axisAlignment: -1.0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 12),
-                          Text(
-                            statusText,
-                            style: AppText.system(
-                              color: statusColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                      // Expansion Spacer
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOutCubic,
+                        width: _isExpanded ? 12 : 0,
+                      ),
+                      // Expanded content
+                      AnimatedOpacity(
+                        opacity: _isExpanded ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOutCubic,
+                          constraints: BoxConstraints(
+                            maxWidth: _isExpanded ? 400 : 0,
+                          ),
+                          // Inner scroll view suppresses overflow errors for the text row
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const NeverScrollableScrollPhysics(),
+                            clipBehavior: Clip.none,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  statusText,
+                                  style: AppText.system(
+                                    color: statusColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.settings_ethernet,
+                                  color: statusColor.withValues(alpha: 0.7),
+                                  size: 16,
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.clip,
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.settings_ethernet,
-                            color: statusColor.withValues(alpha: 0.7),
-                            size: 16,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
