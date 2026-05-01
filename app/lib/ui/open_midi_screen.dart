@@ -134,13 +134,40 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
   ConsumerState<OpenMIDIMainScreen> createState() => _OpenMIDIMainScreenState();
 }
 
-class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
-  Orientation? _lastOrientation;
-
+class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkFirstLaunch();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    final orientation =
+        WidgetsBinding
+                .instance
+                .platformDispatcher
+                .views
+                .first
+                .physicalSize
+                .aspectRatio >
+            1
+        ? Orientation.landscape
+        : Orientation.portrait;
+
+    if (orientation == Orientation.landscape) {
+      ref.read(transportVisibleProvider.notifier).setVisible(true);
+    } else {
+      ref.read(transportVisibleProvider.notifier).setVisible(false);
+    }
   }
 
   Future<void> _checkFirstLaunch() async {
@@ -163,23 +190,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.orientationOf(context);
-
-    // Auto-toggle transport based on orientation
-    if (_lastOrientation != orientation) {
-      _lastOrientation = orientation;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          if (orientation == Orientation.landscape) {
-            ref.read(transportVisibleProvider.notifier).setVisible(true);
-          } else {
-            ref.read(transportVisibleProvider.notifier).setVisible(false);
-          }
-        }
-      });
-    }
-
     final size = MediaQuery.sizeOf(context);
-
     final isLandscape = orientation == Orientation.landscape;
     final isTablet = size.shortestSide >= 600;
 
@@ -240,9 +251,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // LEFT ZONE: App Icon
-              Expanded(
+              const Expanded(
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(
                       Icons.settings_input_component,
                       color: Color(0xFFA6C9F8),
@@ -478,13 +489,13 @@ class MidiTransportGrid extends StatelessWidget {
     if (!square) {
       return Container(
         color: Colors.transparent,
-        child: Center(
+        child: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
               Expanded(
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(child: _GridButton(icon: Icons.fast_rewind)),
                     Expanded(
                       child: _GridButton(
@@ -506,7 +517,7 @@ class MidiTransportGrid extends StatelessWidget {
               ),
               Expanded(
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(
                       child: _GridButton(
                         icon: Icons.keyboard_arrow_left,
@@ -531,7 +542,7 @@ class MidiTransportGrid extends StatelessWidget {
               ),
               Expanded(
                 child: Row(
-                  children: const [
+                  children: [
                     Expanded(child: _GridButton(icon: Icons.fast_forward)),
                     Expanded(
                       child: _GridButton(
@@ -570,11 +581,11 @@ class MidiTransportGrid extends StatelessWidget {
             child: SizedBox(
               width: gridSize,
               height: gridSize,
-              child: Column(
+              child: const Column(
                 children: [
                   Expanded(
                     child: Row(
-                      children: const [
+                      children: [
                         Expanded(
                           child: AspectRatio(
                             aspectRatio: 1,
@@ -607,7 +618,7 @@ class MidiTransportGrid extends StatelessWidget {
                   ),
                   Expanded(
                     child: Row(
-                      children: const [
+                      children: [
                         Expanded(
                           child: AspectRatio(
                             aspectRatio: 1,
@@ -641,7 +652,7 @@ class MidiTransportGrid extends StatelessWidget {
                   ),
                   Expanded(
                     child: Row(
-                      children: const [
+                      children: [
                         Expanded(
                           child: AspectRatio(
                             aspectRatio: 1,
