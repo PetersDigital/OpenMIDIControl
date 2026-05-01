@@ -334,6 +334,24 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
+    // Reactively update local state and subscriptions when global layout state changes
+    ref.listen(layoutStateProvider, (prev, next) {
+      final control = next.getControlById(widget.controlId);
+      if (control != null &&
+          (control.defaultCc != _ccNumber ||
+              control.channel != _midiChannel ||
+              control.displayName != _ccLabel)) {
+        setState(() {
+          _ccNumber = control.defaultCc;
+          _midiChannel = control.channel;
+          _ccLabel = control.displayName;
+          _lastPolledValue = null;
+        });
+        clearManagedResources();
+        _setupTicker();
+      }
+    });
+
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
     final TextStyle displayTextStyle = TextStyle(
@@ -479,33 +497,17 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   Future<void> _showConfigMenu() async {
-    final result = await showDialog<ControlConfigResult>(
+    await showDialog(
       context: context,
       builder: (context) => ControlConfigModal(
-        initialChannel: _midiChannel,
-        initialIdentifier: _ccNumber,
+        controlId: widget.controlId,
         identifierLabel: 'CC Number (0-127)',
-        initialDisplayName: _ccLabel,
         displayNameLabel: 'Fader Name',
       ),
     );
 
-    if (result != null) {
-      debugPrint("Selected CC: $result");
-      final trimmedName = (result.displayName ?? '').trim();
-      setState(() {
-        _ccNumber = result.identifier;
-        _midiChannel = result.channel;
-        if (trimmedName.isNotEmpty) {
-          _ccLabel = trimmedName;
-        }
-        _lastPolledValue = null; // Reset to force update
-      });
-      if (trimmedName.isNotEmpty) {
-        ref
-            .read(layoutStateProvider.notifier)
-            .updateControlLabel(widget.controlId, trimmedName);
-      }
-    }
+    // No need to manually update local state anymore as build() will re-pull
+    // However, HybridTouchFader currently uses initState for configuration.
+    // We should move that to build or use ref.listen.
   }
 }

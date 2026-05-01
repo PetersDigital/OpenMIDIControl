@@ -1,8 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import '../../ui/widgets/velocity_drum_pad.dart' show DrumPadConfig;
-import '../../ui/widgets/hybrid_xy_pad.dart' show XYPadConfig;
+import '../../ui/layout_state.dart' show DrumPadConfig, XYPadConfig;
 import 'control_state.dart';
 
 class PresetSnapshot {
