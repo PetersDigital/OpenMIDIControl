@@ -12,54 +12,6 @@ import '../design_system.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 
-class UtilityGridConfig {
-  final int channel;
-  final int cc;
-
-  const UtilityGridConfig({required this.channel, required this.cc});
-
-  Map<String, dynamic> toJson() => {'channel': channel, 'cc': cc};
-
-  factory UtilityGridConfig.fromJson(Map<String, dynamic> json) {
-    return UtilityGridConfig(
-      channel: json['channel'] as int,
-      cc: json['cc'] as int,
-    );
-  }
-
-  UtilityGridConfig copyWith({int? channel, int? cc}) {
-    return UtilityGridConfig(
-      channel: channel ?? this.channel,
-      cc: cc ?? this.cc,
-    );
-  }
-}
-
-class UtilityGridConfigManager
-    extends Notifier<Map<String, UtilityGridConfig>> {
-  @override
-  Map<String, UtilityGridConfig> build() => const {};
-
-  void setConfig(String id, UtilityGridConfig config) {
-    state = {...state, id: config};
-  }
-
-  void removeConfig(String id) {
-    final newState = Map<String, UtilityGridConfig>.from(state);
-    newState.remove(id);
-    state = Map.unmodifiable(newState);
-  }
-
-  void setAllConfigs(Map<String, UtilityGridConfig> configs) {
-    state = Map.unmodifiable(configs);
-  }
-}
-
-final utilityGridConfigProvider =
-    NotifierProvider<UtilityGridConfigManager, Map<String, UtilityGridConfig>>(
-      UtilityGridConfigManager.new,
-    );
-
 class UtilityGridPanel extends ConsumerWidget {
   const UtilityGridPanel({super.key});
 
@@ -71,7 +23,6 @@ class UtilityGridPanel extends ConsumerWidget {
         : 0;
 
     final isLocked = layoutState.isPerformanceLocked;
-    final configs = ref.watch(utilityGridConfigProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -106,9 +57,8 @@ class UtilityGridPanel extends ConsumerWidget {
               itemCount: controlCount,
               itemBuilder: (context, index) {
                 final control = layoutState.pages[3].controls[index];
-                final config = configs[control.id];
-                final channel = config?.channel ?? control.channel;
-                final cc = config?.cc ?? control.defaultCc;
+                final channel = control.channel;
+                final cc = control.defaultCc;
                 final displayName = control.displayName;
 
                 final bool isUnassigned = cc == -1;
@@ -300,7 +250,12 @@ class UtilityGridPanel extends ConsumerWidget {
       ],
     ).then((choice) {
       if (choice == 'reset') {
-        ref.read(utilityGridConfigProvider.notifier).setAllConfigs({});
+        final layout = ref.read(layoutStateProvider);
+        if (layout.pages.length > 3) {
+          for (final control in layout.pages[3].controls) {
+            ref.read(layoutStateProvider.notifier).clearControl(control.id);
+          }
+        }
       }
     });
   }
