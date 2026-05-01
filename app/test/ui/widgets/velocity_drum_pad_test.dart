@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/widgets/velocity_drum_pad.dart';
+import 'package:app/ui/layout_state.dart';
+import 'package:app/core/models/layout_models.dart';
 
 class FakeMidiService implements MidiService {
   int? lastNoteOn;
@@ -43,6 +45,14 @@ class FakeMidiService implements MidiService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class MockLayoutStateNotifier extends LayoutStateNotifier {
+  final LayoutState initialState;
+  MockLayoutStateNotifier(this.initialState);
+
+  @override
+  LayoutState build() => initialState;
+}
+
 void main() {
   group('VelocityDrumPad', () {
     late FakeMidiService fakeMidiService;
@@ -52,8 +62,38 @@ void main() {
     });
 
     Widget createWidgetUnderTest() {
+      // Mock layout state
+      final mockControl = LayoutControl(
+        id: 'test_pad',
+        type: ControlType.trigger,
+        channel: 9,
+        defaultCc: 36,
+        customName: 'KICK',
+      );
+
+      final mockPage = LayoutPage(
+        id: 'page1',
+        name: 'Page 1',
+        controls: [mockControl],
+      );
+
+      final mockState = LayoutState(
+        pages: [
+          LayoutPage(id: 'p0', name: 'P0', controls: []),
+          LayoutPage(id: 'p1', name: 'P1', controls: []),
+          mockPage,
+        ],
+        activePageIndex: 2,
+        isPerformanceLocked: false,
+      );
+
       return ProviderScope(
-        overrides: [midiServiceProvider.overrideWithValue(fakeMidiService)],
+        overrides: [
+          midiServiceProvider.overrideWithValue(fakeMidiService),
+          layoutStateProvider.overrideWith(
+            () => MockLayoutStateNotifier(mockState),
+          ),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: Center(
@@ -61,10 +101,7 @@ void main() {
                 width: 200,
                 height: 200,
                 child: VelocityDrumPad(
-                  id: "test_pad",
-                  note: 36,
-                  channel: 9,
-                  displayName: 'KICK',
+                  index: 0,
                   minVelocity: 30,
                   maxVelocity: 127,
                 ),
