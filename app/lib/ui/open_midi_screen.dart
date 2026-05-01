@@ -220,10 +220,6 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
-
     return Column(
       children: [
         // Top bar
@@ -234,26 +230,14 @@ class _MobilePortraitLayout extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // LEFT ZONE: App Icon + Lock
+              // LEFT ZONE: App Icon
               Expanded(
                 child: Row(
-                  children: [
-                    const Icon(
+                  children: const [
+                    Icon(
                       Icons.settings_input_component,
                       color: Color(0xFFA6C9F8),
                       size: 26,
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: Icon(
-                        isLocked ? Icons.lock : Icons.lock_open,
-                        color: isLocked ? Colors.redAccent : Colors.white,
-                      ),
-                      tooltip: 'Lock Performance Interface',
-                      onPressed:
-                          () => ref
-                              .read(layoutStateProvider.notifier)
-                              .togglePerformanceLock(),
                     ),
                   ],
                 ),
@@ -406,9 +390,6 @@ class _LandscapeLayout extends ConsumerWidget {
     final faderOnRight =
         ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
     final isVisible = ref.watch(transportVisibleProvider);
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
 
     return Container(
       color: const Color(0xFF111318),
@@ -457,17 +438,6 @@ class _LandscapeLayout extends ConsumerWidget {
                   onPressed:
                       () =>
                           ref.read(transportVisibleProvider.notifier).toggle(),
-                ),
-                const SizedBox(width: 4),
-                // Lock/Unlock Button
-                _HeaderIconButton(
-                  icon: isLocked ? Icons.lock : Icons.lock_open,
-                  color: isLocked ? Colors.redAccent : const Color(0xFFA6C9F8),
-                  tooltip: 'Lock Performance Interface',
-                  onPressed:
-                      () => ref
-                          .read(layoutStateProvider.notifier)
-                          .togglePerformanceLock(),
                 ),
                 const SizedBox(width: 4),
                 _HeaderIconButton(
@@ -720,14 +690,12 @@ class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  final Color color;
 
   const _HeaderIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.color = const Color(0xFFA6C9F8),
   });
 
   @override
@@ -739,7 +707,7 @@ class _HeaderIconButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: const Color(0xFFA6C9F8), size: 20),
         ),
       ),
     );
@@ -896,6 +864,9 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       layoutStateProvider.select((s) => s.activePageIndex),
     );
     final pages = ref.watch(layoutStateProvider.select((s) => s.pages));
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
 
     return Column(
       children: [
@@ -905,6 +876,7 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
           children: [
             Row(
               children: [
+                _buildLockButton(isLocked),
                 // Dynamically render tabs from layout schema
                 for (int i = 0; i < pages.length; i++)
                   _buildTabButton(i, pages[i].name, currentPage),
@@ -967,6 +939,23 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLockButton(bool isLocked) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(layoutStateProvider.notifier).togglePerformanceLock();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: const BoxDecoration(color: Color(0xFF1A1C20)),
+        child: Icon(
+          isLocked ? Icons.lock : Icons.lock_open,
+          color: isLocked ? Colors.redAccent : Colors.white54,
+          size: 18,
+        ),
+      ),
     );
   }
 
