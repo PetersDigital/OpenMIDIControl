@@ -34,8 +34,8 @@ class FaderBehaviorNotifier extends Notifier<FaderBehavior> {
 
 final faderBehaviorProvider =
     NotifierProvider<FaderBehaviorNotifier, FaderBehavior>(
-  FaderBehaviorNotifier.new,
-);
+      FaderBehaviorNotifier.new,
+    );
 
 // ---------------------------------------------------------------------------
 // State: Transport Visibility
@@ -50,8 +50,8 @@ class TransportVisibleNotifier extends Notifier<bool> {
 
 final transportVisibleProvider =
     NotifierProvider<TransportVisibleNotifier, bool>(
-  TransportVisibleNotifier.new,
-);
+      TransportVisibleNotifier.new,
+    );
 
 final firstLaunchCheckProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -79,23 +79,10 @@ final layoutHandProvider = NotifierProvider<LayoutHandNotifier, LayoutHand>(
   LayoutHandNotifier.new,
 );
 
-// ---------------------------------------------------------------------------
-// State: Performance Page (Fader, XY, Pads, Utility)
-// ---------------------------------------------------------------------------
-class PerformancePageIndexNotifier extends Notifier<int> {
-  @override
-  int build() => 0;
-  void setPage(int index) => state = index;
-}
-
-final performancePageIndexProvider =
-    NotifierProvider<PerformancePageIndexNotifier, int>(
-  PerformancePageIndexNotifier.new,
-);
-
 // (SidePanelNotifier was moved to side_panel_state.dart)
 
 // ---------------------------------------------------------------------------
+
 // Navigation helpers
 // ---------------------------------------------------------------------------
 void _showMidiSettings(BuildContext context, WidgetRef ref) {
@@ -151,8 +138,14 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
 
   @override
   void didChangeMetrics() {
-    final orientation = WidgetsBinding.instance.platformDispatcher.views.first
-                .physicalSize.aspectRatio >
+    final orientation =
+        WidgetsBinding
+                .instance
+                .platformDispatcher
+                .views
+                .first
+                .physicalSize
+                .aspectRatio >
             1
         ? Orientation.landscape
         : Orientation.portrait;
@@ -187,6 +180,18 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
     final size = MediaQuery.sizeOf(context);
     final isLandscape = orientation == Orientation.landscape;
     final isTablet = size.shortestSide >= 600;
+
+    // Sync transport visibility with orientation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final current = ref.read(transportVisibleProvider);
+        if (isLandscape && !current) {
+          ref.read(transportVisibleProvider.notifier).setVisible(true);
+        } else if (!isLandscape && current) {
+          ref.read(transportVisibleProvider.notifier).setVisible(false);
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
@@ -266,8 +271,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       message: 'Toggle Transport',
                       child: GestureDetector(
                         key: const ValueKey('transport_toggle_button_portrait'),
-                        onTap: () =>
-                            ref.read(transportVisibleProvider.notifier).toggle(),
+                        onTap: () => ref
+                            .read(transportVisibleProvider.notifier)
+                            .toggle(),
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
@@ -428,11 +434,11 @@ class _LandscapeLayout extends ConsumerWidget {
                   key: const ValueKey('transport_toggle_button_landscape'),
                   icon: isVisible
                       ? (faderOnRight
-                          ? Icons.keyboard_double_arrow_left
-                          : Icons.keyboard_double_arrow_right)
+                            ? Icons.keyboard_double_arrow_left
+                            : Icons.keyboard_double_arrow_right)
                       : (faderOnRight
-                          ? Icons.keyboard_double_arrow_right
-                          : Icons.keyboard_double_arrow_left),
+                            ? Icons.keyboard_double_arrow_right
+                            : Icons.keyboard_double_arrow_left),
                   tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
                   onPressed: () =>
                       ref.read(transportVisibleProvider.notifier).toggle(),
@@ -563,8 +569,8 @@ class MidiTransportGrid extends StatelessWidget {
       builder: (context, constraints) {
         final gridSize =
             constraints.hasBoundedWidth && constraints.hasBoundedHeight
-                ? math.min(constraints.maxWidth, constraints.maxHeight)
-                : constraints.maxWidth;
+            ? math.min(constraints.maxWidth, constraints.maxHeight)
+            : constraints.maxWidth;
 
         return Container(
           color: Colors.transparent,
@@ -767,13 +773,13 @@ class _DynamicConnectionIslandState
     final (statusText, statusColor) = switch (midiStatus) {
       MidiStatus.usbActive => ("USB PERIPHERAL READY", const Color(0xFF4DD0E1)),
       MidiStatus.usbHostAwaitingPort => (
-          "USB HOST DETECTED",
-          const Color(0xFF9575CD),
-        ),
+        "USB HOST DETECTED",
+        const Color(0xFF9575CD),
+      ),
       MidiStatus.usbHostConnected => (
-          "USB HOST ACTIVE",
-          const Color(0xFF66BB6A),
-        ),
+        "USB HOST ACTIVE",
+        const Color(0xFF66BB6A),
+      ),
       MidiStatus.connected => ("DEVICE CONNECTED", const Color(0xFF42A5F5)),
       MidiStatus.available => ("MIDI READY", const Color(0xFFFFCA28)),
       MidiStatus.connectionLost => ("CONNECTION LOST", const Color(0xFFE57373)),
