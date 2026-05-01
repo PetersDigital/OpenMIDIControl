@@ -22,12 +22,24 @@ class LayoutControl {
   final int channel;
   final String? customName;
 
+  /// Secondary MIDI identifier (e.g., CC for Y-axis in XY pads).
+  final int? secondaryCc;
+
+  /// Whether to invert the primary value (X-axis for XY pads).
+  final bool invertX;
+
+  /// Whether to invert the secondary value (Y-axis for XY pads).
+  final bool invertY;
+
   LayoutControl({
     required this.id,
     required this.type,
     required this.defaultCc,
     required this.channel,
     this.customName,
+    this.secondaryCc,
+    this.invertX = false,
+    this.invertY = false,
   }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
        assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15');
 
@@ -53,6 +65,9 @@ class LayoutControl {
     int? defaultCc,
     int? channel,
     String? customName,
+    int? secondaryCc,
+    bool? invertX,
+    bool? invertY,
   }) {
     return LayoutControl(
       id: id ?? this.id,
@@ -60,6 +75,9 @@ class LayoutControl {
       defaultCc: defaultCc ?? this.defaultCc,
       channel: channel ?? this.channel,
       customName: customName ?? this.customName,
+      secondaryCc: secondaryCc ?? this.secondaryCc,
+      invertX: invertX ?? this.invertX,
+      invertY: invertY ?? this.invertY,
     );
   }
 
@@ -71,6 +89,9 @@ class LayoutControl {
       'defaultCc': defaultCc,
       'channel': channel,
       'customName': customName,
+      'secondaryCc': secondaryCc,
+      'invertX': invertX,
+      'invertY': invertY,
     };
   }
 
@@ -82,12 +103,15 @@ class LayoutControl {
       defaultCc: json['defaultCc'] as int,
       channel: json['channel'] as int,
       customName: json['customName'] as String?,
+      secondaryCc: json['secondaryCc'] as int?,
+      invertX: json['invertX'] as bool? ?? false,
+      invertY: json['invertY'] as bool? ?? false,
     );
   }
 
   @override
   String toString() =>
-      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel)';
+      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel, secondaryCc: $secondaryCc, invertX: $invertX, invertY: $invertY)';
 
   @override
   bool operator ==(Object other) {
@@ -97,11 +121,23 @@ class LayoutControl {
         other.type == type &&
         other.defaultCc == defaultCc &&
         other.channel == channel &&
-        other.customName == customName;
+        other.customName == customName &&
+        other.secondaryCc == secondaryCc &&
+        other.invertX == invertX &&
+        other.invertY == invertY;
   }
 
   @override
-  int get hashCode => Object.hash(id, type, defaultCc, channel, customName);
+  int get hashCode => Object.hash(
+    id,
+    type,
+    defaultCc,
+    channel,
+    customName,
+    secondaryCc,
+    invertX,
+    invertY,
+  );
 }
 
 /// Represents a single page in the layout (e.g., FADER, XY, PADS, UTILITY).
