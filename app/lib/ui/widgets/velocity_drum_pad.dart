@@ -53,10 +53,7 @@ final drumPadConfigProvider =
     );
 
 class VelocityDrumPad extends ConsumerStatefulWidget {
-  final String id;
-  final int note;
-  final int channel;
-  final String displayName;
+  final int index;
   final Color padColor;
   final int minVelocity;
   final int maxVelocity;
@@ -64,10 +61,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 
   const VelocityDrumPad({
     super.key,
-    required this.id,
-    required this.note,
-    this.channel = 9, // Default drum channel
-    this.displayName = '',
+    required this.index,
     this.padColor = const Color(0xFF282A2E),
     this.minVelocity = 30,
     this.maxVelocity = 127,
@@ -83,14 +77,12 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
-  late String _displayLabel;
 
   late AnimationController _scaleController;
 
   @override
   void initState() {
     super.initState();
-    _displayLabel = widget.displayName;
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 50),
@@ -165,12 +157,25 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
   @override
   Widget build(BuildContext context) {
-    final isPerformanceLocked = ref
-        .watch(layoutStateProvider)
-        .isPerformanceLocked;
-    final config = ref.watch(drumPadConfigProvider)[widget.id];
-    final note = config?.note ?? widget.note;
-    final channel = config?.channel ?? widget.channel;
+    final control = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.length > 2 && widget.index < s.pages[2].controls.length
+            ? s.pages[2].controls[widget.index]
+            : null,
+      ),
+    );
+
+    if (control == null) return const SizedBox.shrink();
+
+    final isPerformanceLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+    final config = ref.watch(
+      drumPadConfigProvider.select((c) => c[control.id]),
+    );
+    final note = config?.note ?? control.defaultCc;
+    final channel = config?.channel ?? control.channel;
+    final displayLabel = control.displayName;
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -206,13 +211,19 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       left: 0,
                       child: ConfigGestureWrapper(
                         key: ValueKey(
-                          'config_wrapper_drum_pad_${widget.id}_note',
+                          'config_wrapper_drum_pad_${control.id}_note',
                         ),
-                        id: 'drum_pad_${widget.id}',
+                        id: 'drum_pad_${control.id}',
                         onConfigRequested: isPerformanceLocked
                             ? null
-                            : () =>
-                                  _showConfigModal(context, ref, note, channel),
+                            : () => _showConfigModal(
+                                context,
+                                ref,
+                                note,
+                                channel,
+                                control.id,
+                                displayLabel,
+                              ),
                         child: Container(
                           padding: const EdgeInsets.only(
                             top: 8,
@@ -302,9 +313,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          _displayLabel.isNotEmpty
-                              ? _displayLabel
-                              : 'PAD $note',
+                          displayLabel.isNotEmpty ? displayLabel : 'PAD $note',
                           textAlign: TextAlign.center,
                           style: AppText.performance(
                             color: _isPressed
@@ -331,6 +340,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     WidgetRef ref,
     int currentNote,
     int currentChannel,
+    String controlId,
+    String displayLabel,
   ) async {
     final result = await showDialog<ControlConfigResult>(
       context: context,
@@ -338,7 +349,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         initialChannel: currentChannel,
         initialIdentifier: currentNote,
         identifierLabel: 'MIDI Note (e.g., C3 or 36)',
-        initialDisplayName: _displayLabel,
+        initialDisplayName: displayLabel,
         displayNameLabel: 'Pad Name',
       ),
     );
@@ -350,17 +361,14 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
         ref
             .read(drumPadConfigProvider.notifier)
             .setConfig(
-              widget.id,
+              controlId,
               DrumPadConfig(note: result.identifier, channel: newChannel),
             );
       }
       if (trimmedName.isNotEmpty) {
-        setState(() {
-          _displayLabel = trimmedName;
-        });
         ref
             .read(layoutStateProvider.notifier)
-            .updateControlLabel(widget.id, trimmedName);
+            .updateControlLabel(controlId, trimmedName);
       }
     }
   }

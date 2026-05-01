@@ -13,12 +13,14 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
   final int cc;
   final double sensitivity;
+  final bool showChannelLabel;
 
   const EndlessEncoderWidget({
     super.key,
     this.channel = 0,
     required this.cc,
     this.sensitivity = 1.5,
+    this.showChannelLabel = true,
   });
 
   @override
@@ -204,15 +206,16 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          'CH${widget.channel + 1}',
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: effectiveSize * 0.1,
-                            fontWeight: FontWeight.bold,
+                        if (widget.showChannelLabel)
+                          Text(
+                            'CH${widget.channel + 1}',
+                            style: TextStyle(
+                              fontFamily: 'Space Grotesk',
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: effectiveSize * 0.1,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),

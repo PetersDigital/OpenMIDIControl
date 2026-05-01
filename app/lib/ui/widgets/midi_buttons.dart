@@ -7,27 +7,24 @@ import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
 import '../midi_service.dart';
+import '../layout_state.dart';
+import 'control_config_modal.dart';
+import '../panels/utility_grid_panel.dart';
 
 enum MidiButtonMode { note, cc }
 
 class Trigger extends ConsumerStatefulWidget {
-  final int identifier; // Note or CC number
-  final int channel;
+  final int index;
   final MidiButtonMode mode;
-  final String label;
   final Color activeColor;
   final Color inactiveColor;
-  final VoidCallback? onConfigRequested;
 
   const Trigger({
     super.key,
-    required this.identifier,
-    this.channel = 0,
-    this.mode = MidiButtonMode.note,
-    this.label = '',
+    required this.index,
+    this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFA6C9F8),
     this.inactiveColor = const Color(0xFF282A2E),
-    this.onConfigRequested,
   });
 
   @override
@@ -37,7 +34,7 @@ class Trigger extends ConsumerStatefulWidget {
 class _TriggerState extends ConsumerState<Trigger> {
   bool _isPressed = false;
 
-  void _handlePointerDown(PointerEvent event) {
+  void _handlePointerDown(PointerEvent event, int identifier, int channel) {
     if (_isPressed) return;
 
     setState(() {
@@ -46,50 +43,52 @@ class _TriggerState extends ConsumerState<Trigger> {
 
     final service = ref.read(midiServiceProvider);
     if (widget.mode == MidiButtonMode.note) {
-      service.sendNoteOn(
-        widget.identifier,
-        127,
-        channel: widget.channel,
-        isFinal: false,
-      );
+      service.sendNoteOn(identifier, 127, channel: channel, isFinal: false);
     } else {
-      service.sendCC(
-        widget.identifier,
-        127,
-        channel: widget.channel,
-        isFinal: false,
-      );
+      service.sendCC(identifier, 127, channel: channel, isFinal: false);
     }
   }
 
-  void _handlePointerUp(PointerEvent event) {
+  void _handlePointerUp(PointerEvent event, int identifier, int channel) {
     setState(() {
       _isPressed = false;
     });
 
     final service = ref.read(midiServiceProvider);
     if (widget.mode == MidiButtonMode.note) {
-      service.sendNoteOff(
-        widget.identifier,
-        channel: widget.channel,
-        isFinal: true,
-      );
+      service.sendNoteOff(identifier, channel: channel, isFinal: true);
     } else {
-      service.sendCC(
-        widget.identifier,
-        0,
-        channel: widget.channel,
-        isFinal: true,
-      );
+      service.sendCC(identifier, 0, channel: channel, isFinal: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final control = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.length > 3 && widget.index < s.pages[3].controls.length
+            ? s.pages[3].controls[widget.index]
+            : null,
+      ),
+    );
+
+    if (control == null) return const SizedBox.shrink();
+
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+    final config = ref.watch(
+      utilityGridConfigProvider.select((c) => c[control.id]),
+    );
+
+    final channel = config?.channel ?? control.channel;
+    final identifier = config?.cc ?? control.defaultCc;
+    final label = control.displayName;
+
     return Listener(
-      onPointerDown: _handlePointerDown,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerUp,
+      onPointerDown: (e) => _handlePointerDown(e, identifier, channel),
+      onPointerUp: (e) => _handlePointerUp(e, identifier, channel),
+      onPointerCancel: (e) => _handlePointerUp(e, identifier, channel),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 50),
@@ -107,9 +106,18 @@ class _TriggerState extends ConsumerState<Trigger> {
               top: 0,
               left: 0,
               child: ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_trigger_${widget.identifier}'),
-                id: 'trigger_${widget.identifier}',
-                onConfigRequested: () => widget.onConfigRequested?.call(),
+                key: ValueKey('config_wrapper_trigger_${control.id}'),
+                id: 'trigger_${control.id}',
+                onConfigRequested: isLocked
+                    ? null
+                    : () => showUtilityConfigModal(
+                        context,
+                        ref,
+                        control.id,
+                        channel,
+                        identifier,
+                        label,
+                      ),
                 child: Container(
                   padding: const EdgeInsets.only(
                     top: 4,
@@ -123,7 +131,7 @@ class _TriggerState extends ConsumerState<Trigger> {
                   ),
                   alignment: Alignment.topLeft,
                   child: Text(
-                    'CC ${widget.identifier}',
+                    'CC $identifier',
                     style: AppText.performance(
                       color: _isPressed
                           ? const Color(0xFF033258).withValues(alpha: 0.6)
@@ -140,7 +148,7 @@ class _TriggerState extends ConsumerState<Trigger> {
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 alignment: Alignment.center,
                 child: Text(
-                  widget.label,
+                  label,
                   textAlign: TextAlign.center,
                   style: AppText.performance(
                     color: _isPressed
@@ -173,7 +181,7 @@ class _TriggerState extends ConsumerState<Trigger> {
               bottom: 4,
               right: 4,
               child: Text(
-                'CH${widget.channel + 1}',
+                'CH${channel + 1}',
                 style: TextStyle(
                   fontFamily: 'Space Grotesk',
                   color: _isPressed
@@ -191,24 +199,54 @@ class _TriggerState extends ConsumerState<Trigger> {
   }
 }
 
+Future<void> showUtilityConfigModal(
+  BuildContext context,
+  WidgetRef ref,
+  String id,
+  int currentChannel,
+  int currentCc,
+  String currentName,
+) async {
+  final result = await showDialog<ControlConfigResult>(
+    context: context,
+    builder: (context) => ControlConfigModal(
+      initialChannel: currentChannel,
+      initialIdentifier: currentCc,
+      identifierLabel: 'CC Number',
+      initialDisplayName: currentName,
+      displayNameLabel: 'Control Name',
+    ),
+  );
+
+  if (result != null) {
+    final trimmedName = (result.displayName ?? '').trim();
+    ref
+        .read(utilityGridConfigProvider.notifier)
+        .setConfig(
+          id,
+          UtilityGridConfig(channel: result.channel, cc: result.identifier),
+        );
+
+    if (trimmedName.isNotEmpty) {
+      ref
+          .read(layoutStateProvider.notifier)
+          .updateControlLabel(id, trimmedName);
+    }
+  }
+}
+
 class Toggle extends ConsumerStatefulWidget {
-  final int identifier; // Note or CC number
-  final int channel;
+  final int index;
   final MidiButtonMode mode;
-  final String label;
   final Color activeColor;
   final Color inactiveColor;
-  final VoidCallback? onConfigRequested;
 
   const Toggle({
     super.key,
-    required this.identifier,
-    this.channel = 0,
-    this.mode = MidiButtonMode.note,
-    this.label = '',
+    required this.index,
+    this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
     this.inactiveColor = const Color(0xFF282A2E),
-    this.onConfigRequested,
   });
 
   @override
@@ -227,61 +265,63 @@ class _ToggleState extends ConsumerState<Toggle> {
     });
   }
 
-  void _handlePointerUp(PointerEvent event) {
+  void _handlePointerUp(PointerEvent event, int identifier, int channel) {
     if (!_isPressed) return;
 
-    _toggleState();
+    _toggleState(identifier, channel);
 
     setState(() {
       _isPressed = false;
     });
   }
 
-  void _toggleState() {
+  void _toggleState(int identifier, int channel) {
     setState(() => _isActive = !_isActive);
 
     final service = ref.read(midiServiceProvider);
 
     if (widget.mode == MidiButtonMode.note) {
       if (_isActive) {
-        service.sendNoteOn(
-          widget.identifier,
-          127,
-          channel: widget.channel,
-          isFinal: true,
-        );
+        service.sendNoteOn(identifier, 127, channel: channel, isFinal: true);
       } else {
-        service.sendNoteOff(
-          widget.identifier,
-          channel: widget.channel,
-          isFinal: true,
-        );
+        service.sendNoteOff(identifier, channel: channel, isFinal: true);
       }
     } else {
       if (_isActive) {
-        service.sendCC(
-          widget.identifier,
-          127,
-          channel: widget.channel,
-          isFinal: true,
-        );
+        service.sendCC(identifier, 127, channel: channel, isFinal: true);
       } else {
-        service.sendCC(
-          widget.identifier,
-          0,
-          channel: widget.channel,
-          isFinal: true,
-        );
+        service.sendCC(identifier, 0, channel: channel, isFinal: true);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final control = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.length > 3 && widget.index < s.pages[3].controls.length
+            ? s.pages[3].controls[widget.index]
+            : null,
+      ),
+    );
+
+    if (control == null) return const SizedBox.shrink();
+
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
+    final config = ref.watch(
+      utilityGridConfigProvider.select((c) => c[control.id]),
+    );
+
+    final channel = config?.channel ?? control.channel;
+    final identifier = config?.cc ?? control.defaultCc;
+    final label = control.displayName;
+
     return Listener(
       onPointerDown: _handlePointerDown,
-      onPointerUp: _handlePointerUp,
-      onPointerCancel: _handlePointerUp,
+      onPointerUp: (e) => _handlePointerUp(e, identifier, channel),
+      onPointerCancel: (e) => _handlePointerUp(e, identifier, channel),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -299,9 +339,18 @@ class _ToggleState extends ConsumerState<Toggle> {
               top: 0,
               left: 0,
               child: ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_toggle_${widget.identifier}'),
-                id: 'toggle_${widget.identifier}',
-                onConfigRequested: () => widget.onConfigRequested?.call(),
+                key: ValueKey('config_wrapper_toggle_${control.id}'),
+                id: 'toggle_${control.id}',
+                onConfigRequested: isLocked
+                    ? null
+                    : () => showUtilityConfigModal(
+                        context,
+                        ref,
+                        control.id,
+                        channel,
+                        identifier,
+                        label,
+                      ),
                 child: Container(
                   padding: const EdgeInsets.only(
                     top: 4,
@@ -315,7 +364,7 @@ class _ToggleState extends ConsumerState<Toggle> {
                   ),
                   alignment: Alignment.topLeft,
                   child: Text(
-                    'CC ${widget.identifier}',
+                    'CC $identifier',
                     style: AppText.performance(
                       color: _isActive
                           ? const Color(0xFF690005).withValues(alpha: 0.6)
@@ -332,7 +381,7 @@ class _ToggleState extends ConsumerState<Toggle> {
                 constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 alignment: Alignment.center,
                 child: Text(
-                  widget.label,
+                  label,
                   textAlign: TextAlign.center,
                   style: AppText.performance(
                     color: _isActive
@@ -365,7 +414,7 @@ class _ToggleState extends ConsumerState<Toggle> {
               bottom: 4,
               right: 4,
               child: Text(
-                'CH${widget.channel + 1}',
+                'CH${channel + 1}',
                 style: TextStyle(
                   fontFamily: 'Space Grotesk',
                   color: _isActive

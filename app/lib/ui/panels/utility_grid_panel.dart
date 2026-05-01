@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../widgets/endless_encoder.dart';
-import '../design_system.dart';
 import '../widgets/midi_buttons.dart';
-import '../widgets/control_config_modal.dart';
 import '../widgets/delayed_menu_trigger.dart';
 import '../widgets/config_gesture_wrapper.dart';
+import '../design_system.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 
@@ -58,206 +57,185 @@ final utilityGridConfigProvider =
 class UtilityGridPanel extends ConsumerWidget {
   const UtilityGridPanel({super.key});
 
-  Future<void> _showConfigModal(
-    BuildContext context,
-    WidgetRef ref,
-    String id,
-    int currentChannel,
-    int currentCc,
-    String currentName,
-  ) async {
-    final result = await showDialog<ControlConfigResult>(
-      context: context,
-      builder: (context) => ControlConfigModal(
-        initialChannel: currentChannel,
-        initialIdentifier: currentCc,
-        identifierLabel: 'CC Number',
-        initialDisplayName: currentName,
-        displayNameLabel: 'Control Name',
-      ),
-    );
-
-    if (result != null) {
-      final trimmedName = (result.displayName ?? '').trim();
-      ref
-          .read(utilityGridConfigProvider.notifier)
-          .setConfig(
-            id,
-            UtilityGridConfig(channel: result.channel, cc: result.identifier),
-          );
-
-      if (trimmedName.isNotEmpty) {
-        ref
-            .read(layoutStateProvider.notifier)
-            .updateControlLabel(id, trimmedName);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final utilityControls = ref.watch(
-      layoutStateProvider.select(
-        (s) =>
-            s.pages.length > 3 ? s.pages[3].controls : const <LayoutControl>[],
-      ),
-    );
-    final isLocked = ref.watch(
-      layoutStateProvider.select((s) => s.isPerformanceLocked),
-    );
+    final layoutState = ref.watch(layoutStateProvider);
+    final controlCount = layoutState.pages.length > 3
+        ? layoutState.pages[3].controls.length
+        : 0;
+
+    final isLocked = layoutState.isPerformanceLocked;
     final configs = ref.watch(utilityGridConfigProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         const int crossAxisCount = 2;
-        final int rows = (utilityControls.length / crossAxisCount).ceil();
+        final int rows = (controlCount / crossAxisCount).ceil();
         const double mainAxisSpacing = 2.0;
         const double crossAxisSpacing = 2.0;
-        const double topPadding = 8.0;
-        const double bottomPadding = 20.0;
 
         final double availableWidth = constraints.maxWidth - crossAxisSpacing;
-        final double padWidth = availableWidth / crossAxisCount;
+        final double itemWidth = availableWidth / crossAxisCount;
 
         final double totalMainAxisSpacing = rows > 1
             ? (rows - 1) * mainAxisSpacing
             : 0.0;
         final double availableHeight =
-            constraints.maxHeight -
-            topPadding -
-            bottomPadding -
-            totalMainAxisSpacing;
-        final double padHeight = rows > 0 ? availableHeight / rows : 1.0;
-
-        final double safePadHeight = padHeight > 0 ? padHeight : 1.0;
-        final double aspectRatio = padWidth / safePadHeight;
-
-        Widget buildEncoderFromControl(LayoutControl control) {
-          final id = control.id;
-          final config = configs[id];
-          final channel = config?.channel ?? control.channel;
-          final cc = config?.cc ?? control.defaultCc;
-
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: 4,
-                    right: 4,
-                    top: 4,
-                    bottom: 0,
-                  ),
-                  child: EndlessEncoderWidget(channel: channel, cc: cc),
-                ),
-              ),
-              ConfigGestureWrapper(
-                key: ValueKey('config_wrapper_$id'),
-                id: id,
-                onConfigRequested: () => _showConfigModal(
-                  context,
-                  ref,
-                  id,
-                  channel,
-                  cc,
-                  control.displayName,
-                ),
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 80),
-                  padding: const EdgeInsets.only(
-                    top: 2,
-                    bottom: 16,
-                    left: 4,
-                    right: 4,
-                  ),
-                  color: Colors.transparent, // Hit target expansion
-                  child: Text(
-                    '${control.displayName} | CC $cc',
-                    textAlign: TextAlign.center,
-                    style: AppText.performance(
-                      color: const Color(0xFFC3C7CA),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        Widget buildTriggerFromControl(LayoutControl control) {
-          final id = control.id;
-          final config = configs[id];
-          final channel = config?.channel ?? control.channel;
-          final cc = config?.cc ?? control.defaultCc;
-
-          return Trigger(
-            identifier: cc,
-            channel: channel,
-            mode: MidiButtonMode.cc,
-            label: control.displayName,
-            onConfigRequested: () => _showConfigModal(
-              context,
-              ref,
-              id,
-              channel,
-              cc,
-              control.displayName,
-            ),
-          );
-        }
-
-        Widget buildToggleFromControl(LayoutControl control) {
-          final id = control.id;
-          final config = configs[id];
-          final channel = config?.channel ?? control.channel;
-          final cc = config?.cc ?? control.defaultCc;
-
-          return Toggle(
-            identifier: cc,
-            channel: channel,
-            mode: MidiButtonMode.cc,
-            label: control.displayName,
-            onConfigRequested: () => _showConfigModal(
-              context,
-              ref,
-              id,
-              channel,
-              cc,
-              control.displayName,
-            ),
-          );
-        }
+            constraints.maxHeight - totalMainAxisSpacing;
+        final double itemHeight = rows > 0 ? availableHeight / rows : 1.0;
+        final double safeItemHeight = itemHeight > 0 ? itemHeight : 1.0;
+        final double aspectRatio = itemWidth / safeItemHeight;
 
         return Stack(
           children: [
             GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(top: 8.0, bottom: 20.0),
+              padding: EdgeInsets.zero,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+                crossAxisCount: crossAxisCount,
                 childAspectRatio: aspectRatio,
-                crossAxisSpacing: 2.0,
-                mainAxisSpacing: 2.0,
+                crossAxisSpacing: crossAxisSpacing,
+                mainAxisSpacing: mainAxisSpacing,
               ),
-              itemCount: utilityControls.length,
+              itemCount: controlCount,
               itemBuilder: (context, index) {
-                final control = utilityControls[index];
+                final control = layoutState.pages[3].controls[index];
+                final config = configs[control.id];
+                final channel = config?.channel ?? control.channel;
+                final cc = config?.cc ?? control.defaultCc;
+                final displayName = control.displayName;
+
                 switch (control.type) {
                   case ControlType.encoder:
-                    return buildEncoderFromControl(control);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Knob area fills all available height;
+                        // CC label overlays the top-left without consuming height
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              // Knob — fills the expanded area
+                              Center(
+                                child: AspectRatio(
+                                  aspectRatio: 1,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: EndlessEncoderWidget(
+                                      key: ValueKey('encoder_$index'),
+                                      channel: channel,
+                                      cc: cc,
+                                      showChannelLabel: false,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // CC number — overlaid top-left, ONLY this triggers config
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                child: ConfigGestureWrapper(
+                                  key: ValueKey(
+                                    'config_wrapper_encoder_${control.id}',
+                                  ),
+                                  id: 'encoder_${control.id}',
+                                  onConfigRequested: isLocked
+                                      ? null
+                                      : () => showUtilityConfigModal(
+                                          context,
+                                          ref,
+                                          control.id,
+                                          channel,
+                                          cc,
+                                          displayName,
+                                        ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 4,
+                                      left: 6,
+                                      right: 16,
+                                      bottom: 8,
+                                    ),
+                                    child: Text(
+                                      'CC $cc',
+                                      style: AppText.performance(
+                                        color: const Color(
+                                          0xFFC3C7CA,
+                                        ).withValues(alpha: 0.3),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Bottom row — fixed height, always below the knob
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            top: 2,
+                            bottom: 4,
+                            left: 4,
+                            right: 4,
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Text(
+                                displayName,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'Space Grotesk',
+                                  color: const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.3),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  'CH${channel + 1}',
+                                  style: TextStyle(
+                                    fontFamily: 'Space Grotesk',
+                                    color: const Color(
+                                      0xFFC3C7CA,
+                                    ).withValues(alpha: 0.3),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+
                   case ControlType.toggle:
-                    return buildToggleFromControl(control);
+                    return Toggle(
+                      key: ValueKey('toggle_$index'),
+                      index: index,
+                      mode: MidiButtonMode.cc,
+                    );
+
                   case ControlType.trigger:
+                    return Trigger(
+                      key: ValueKey('trigger_$index'),
+                      index: index,
+                      mode: MidiButtonMode.cc,
+                    );
+
                   default:
-                    return buildTriggerFromControl(control);
+                    return const SizedBox.shrink();
                 }
               },
             ),
 
-            // Utility Settings/Presets
+            // Settings icon — top-right, overlaid on grid
             if (!isLocked)
               Positioned(
                 top: 8,

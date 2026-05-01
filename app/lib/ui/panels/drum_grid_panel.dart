@@ -6,17 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/velocity_drum_pad.dart';
 import '../widgets/delayed_menu_trigger.dart';
 import '../layout_state.dart';
-import '../../core/models/layout_models.dart';
 
 class DrumGridPanel extends ConsumerWidget {
   const DrumGridPanel({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final padControls = ref.watch(
+    final padCount = ref.watch(
       layoutStateProvider.select(
-        (s) =>
-            s.pages.length > 2 ? s.pages[2].controls : const <LayoutControl>[],
+        (s) => s.pages.length > 2 ? s.pages[2].controls.length : 0,
       ),
     );
     final isLocked = ref.watch(
@@ -26,7 +24,7 @@ class DrumGridPanel extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const int crossAxisCount = 2;
-        final int rows = (padControls.length / crossAxisCount).ceil();
+        final int rows = (padCount / crossAxisCount).ceil();
         const double mainAxisSpacing = 2.0;
         const double crossAxisSpacing = 2.0;
 
@@ -53,15 +51,11 @@ class DrumGridPanel extends ConsumerWidget {
                 crossAxisSpacing: 2.0,
                 mainAxisSpacing: 2.0,
               ),
-              itemCount: padControls.length,
+              itemCount: padCount,
               itemBuilder: (context, index) {
-                final control = padControls[index];
-
                 return VelocityDrumPad(
-                  id: control.id,
-                  note: control.defaultCc,
-                  channel: control.channel,
-                  displayName: control.displayName,
+                  key: ValueKey('drum_pad_$index'),
+                  index: index,
                 );
               },
             ),
