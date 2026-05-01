@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,13 @@ void main() {
     late SharedPreferences prefs;
 
     setUp(() async {
+      const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'resetMidiTransport') return null;
+            return null;
+          });
+
       SharedPreferences.setMockInitialValues({});
       prefs = await SharedPreferences.getInstance();
     });
@@ -38,8 +46,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should not find the transport grid (represented by _StatusDisplay or specific icons)
-      // _StatusDisplay has label "TEMPO"
-      expect(find.text('TEMPO'), findsNothing);
+      // _StatusDisplay has label "TEMPO" - now check for play icon
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
     });
 
     testWidgets('toggling transport visibility via top bar button', (
@@ -50,7 +58,7 @@ void main() {
       await tester.pumpWidget(buildWidget(tester));
       await tester.pumpAndSettle();
 
-      expect(find.text('TEMPO'), findsNothing);
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
 
       // Find the toggle button by tooltip
       final toggleButton = find.byTooltip('Toggle Transport');
@@ -59,13 +67,13 @@ void main() {
       await tester.tap(toggleButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('TEMPO').hitTestable(), findsWidgets);
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
 
       // Toggle again to hide
       await tester.tap(toggleButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('TEMPO'), findsNothing);
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
     });
 
     testWidgets('first launch behavior: show for 2 seconds then hide', (
@@ -91,14 +99,14 @@ void main() {
 
       // Should be visible initially on first launch
       await tester.pumpAndSettle();
-      expect(find.text('TEMPO').hitTestable(), findsWidgets);
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
 
       // Wait for 2 seconds
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
 
       // Should be hidden now
-      expect(find.text('TEMPO'), findsNothing);
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
     });
 
     testWidgets('toggling transport visibility in landscape layout', (
@@ -122,33 +130,33 @@ void main() {
       await tester.pumpAndSettle();
 
       // Initially SHOWN in landscape (due to auto-toggle logic in OpenMIDIMainScreen)
-      expect(find.text('TEMPO').hitTestable(), findsWidgets);
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
       expect(
-        find.byKey(const ValueKey('transport_toggle_button_panel')),
+        find.byKey(const ValueKey('transport_toggle_button_landscape')),
         findsOneWidget,
       );
 
       // Tap panel button to hide
       await tester.tap(
-        find.byKey(const ValueKey('transport_toggle_button_panel')),
+        find.byKey(const ValueKey('transport_toggle_button_landscape')),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('TEMPO'), findsNothing);
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
       expect(
-        find.byKey(const ValueKey('transport_toggle_button_floating')),
+        find.byKey(const ValueKey('transport_toggle_button_landscape')),
         findsOneWidget,
       );
 
       // Tap floating button to show again
       await tester.tap(
-        find.byKey(const ValueKey('transport_toggle_button_floating')),
+        find.byKey(const ValueKey('transport_toggle_button_landscape')),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('TEMPO').hitTestable(), findsWidgets);
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
       expect(
-        find.byKey(const ValueKey('transport_toggle_button_panel')),
+        find.byKey(const ValueKey('transport_toggle_button_landscape')),
         findsOneWidget,
       );
     });
