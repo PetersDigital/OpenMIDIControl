@@ -7,7 +7,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'open_midi_screen.dart';
 import '../core/managers/snapshot_manager.dart';
+import '../core/models/preset_snapshot.dart';
 import 'layout_state.dart';
+import 'midi_service.dart';
 import 'midi_settings_state.dart';
 import 'design_system.dart';
 import 'side_panel_state.dart';
@@ -45,18 +47,7 @@ class SettingsScreen extends ConsumerWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            tooltip: 'Save Preset',
-            onPressed: () => _handleSavePreset(context, ref),
-          ),
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            tooltip: 'Load Preset',
-            onPressed: () => _handleLoadPreset(context, ref),
-          ),
-        ],
+        actions: const [],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -392,7 +383,7 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(color: Colors.white12),
           const SizedBox(height: 12),
           const Text(
-            'ADVANCED',
+            'OMC PRESET/TEMPLATE ECOSYSTEM',
             style: TextStyle(
               fontFamily: 'Inter',
               color: Colors.white54,
@@ -406,6 +397,129 @@ class SettingsScreen extends ConsumerWidget {
             dense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             title: const Text(
+              'SAVE TO INTERNAL LIST (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Save current configuration to the internal preset library.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.save_outlined,
+              color: Colors.white54,
+              size: 20,
+            ),
+            onTap: () => _handleSavePreset(context, ref),
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
+              'LOAD FROM INTERNAL LIST (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Load a configuration from your internal library.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.folder_open_outlined,
+              color: Colors.white54,
+              size: 20,
+            ),
+            onTap: () => _handleLoadPreset(context, ref),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(color: Colors.white10),
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
+              'EXPORT FULL PRESET (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Share your entire 4-page configuration as a file.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.share,
+              color: Color(0xFFA6C9F8),
+              size: 20,
+            ),
+            onTap: () {
+              final snapshot = PresetSnapshot(
+                controlState: ref.read(controlStateProvider),
+                pages: ref.read(layoutStateProvider).pages,
+              );
+              ref
+                  .read(snapshotManagerProvider)
+                  .exportFullPreset('OMC_Preset', snapshot);
+            },
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
+              'IMPORT FULL PRESET (.OMC)',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            subtitle: const Text(
+              'Load an entire configuration from an external .omc file.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            trailing: const Icon(
+              Icons.file_download,
+              color: Color(0xFFA6C9F8),
+              size: 20,
+            ),
+            onTap: () async {
+              final preset = await ref
+                  .read(snapshotManagerProvider)
+                  .importFullPreset();
+              if (preset != null) {
+                ref
+                    .read(controlStateProvider.notifier)
+                    .injectState(preset.controlState);
+                ref
+                    .read(layoutStateProvider.notifier)
+                    .overwriteAllPages(preset.pages);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Imported full OMC preset successfully.'),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(color: Colors.white10),
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text(
               'EXPORT ACTIVE PAGE (.OMC)',
               style: TextStyle(
                 color: Colors.white,
@@ -414,7 +528,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             subtitle: const Text(
-              'Share your current page mapping with other devices.',
+              'Share just the currently active page mapping.',
               style: TextStyle(color: Colors.white38, fontSize: 11),
             ),
             trailing: const Icon(
@@ -431,7 +545,7 @@ class SettingsScreen extends ConsumerWidget {
             dense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             title: const Text(
-              'IMPORT PAGE (.OMC)',
+              'IMPORT ACTIVE PAGE (.OMC)',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -439,7 +553,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             subtitle: const Text(
-              'Load a single page mapping from an external file.',
+              'Overwrite the active page from an external .omc file.',
               style: TextStyle(color: Colors.white38, fontSize: 11),
             ),
             trailing: const Icon(

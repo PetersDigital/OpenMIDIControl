@@ -38,7 +38,7 @@ class SnapshotManager {
   Future<void> savePreset(String name, PresetSnapshot preset) async {
     final dir = await _presetsDir;
     final sanitizedName = _sanitizeName(name);
-    final file = File('${dir.path}/$sanitizedName.json');
+    final file = File('${dir.path}/$sanitizedName.omc');
     final jsonStr = jsonEncode(preset.toJson());
     await file.writeAsString(jsonStr);
   }
@@ -47,7 +47,11 @@ class SnapshotManager {
     try {
       final dir = await _presetsDir;
       final sanitizedName = _sanitizeName(name);
-      final file = File('${dir.path}/$sanitizedName.json');
+      var file = File('${dir.path}/$sanitizedName.omc');
+      if (!await file.exists()) {
+        // Fallback to legacy .json
+        file = File('${dir.path}/$sanitizedName.json');
+      }
       if (!await file.exists()) {
         return null;
       }
@@ -63,9 +67,16 @@ class SnapshotManager {
     final dir = await _presetsDir;
     final List<String> presetNames = [];
     await for (final entity in dir.list()) {
-      if (entity is File && entity.path.endsWith('.json')) {
-        final filename = entity.uri.pathSegments.last;
-        presetNames.add(filename.substring(0, filename.length - 5));
+      if (entity is File) {
+        final path = entity.path;
+        if (path.endsWith('.omc')) {
+          final filename = entity.uri.pathSegments.last;
+          presetNames.add(filename.substring(0, filename.length - 4));
+        } else if (path.endsWith('.json')) {
+          // Include legacy JSON
+          final filename = entity.uri.pathSegments.last;
+          presetNames.add(filename.substring(0, filename.length - 5));
+        }
       }
     }
     return presetNames;
@@ -74,10 +85,10 @@ class SnapshotManager {
   Future<void> deletePreset(String name) async {
     final dir = await _presetsDir;
     final sanitizedName = _sanitizeName(name);
-    final file = File('${dir.path}/$sanitizedName.json');
-    if (await file.exists()) {
-      await file.delete();
-    }
+    final fileOmc = File('${dir.path}/$sanitizedName.omc');
+    final fileJson = File('${dir.path}/$sanitizedName.json');
+    if (await fileOmc.exists()) await fileOmc.delete();
+    if (await fileJson.exists()) await fileJson.delete();
   }
 
   Future<void> exportActiveLayout(LayoutPage page) async {
@@ -103,15 +114,65 @@ class SnapshotManager {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['omc'],
+        allowedExtensions: ['omc', 'json'],
       );
       if (result != null && result.files.single.path != null) {
         final file = File(result.files.single.path!);
         final String jsonString = await file.readAsString();
-        return LayoutPage.fromJson(jsonDecode(jsonString));
+        final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
+
+        // Simple check: LayoutPage has 'controls', PresetSnapshot has 'pages'
+        if (jsonMap.containsKey('controls')) {
+          return LayoutPage.fromJson(jsonMap);
+        } else if (jsonMap.containsKey('pages')) {
+          // User picked a full preset, maybe just return the first page?
+          // For now, let's just fail to import as layout.
+          debugPrint('File is a full Preset, not a single Page.');
+          return null;
+        }
       }
     } catch (e) {
       debugPrint('Error importing layout: $e');
+    }
+    return null;
+  }
+
+  Future<void> exportFullPreset(String name, PresetSnapshot preset) async {
+    try {
+      final String jsonString = jsonEncode(preset.toJson());
+      final directory = await getTemporaryDirectory();
+      final sanitizedFileName = _sanitizeName(name);
+      final file = File('${directory.path}/$sanitizedFileName.omc');
+
+      await file.writeAsString(jsonString);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'OpenMIDIControl Preset: $name',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error exporting preset: $e');
+    }
+  }
+
+  Future<PresetSnapshot?> importFullPreset() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['omc', 'json'],
+      );
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final String jsonString = await file.readAsString();
+        final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
+
+        if (jsonMap.containsKey('pages')) {
+          return PresetSnapshot.fromJson(jsonMap);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error importing preset: $e');
     }
     return null;
   }
