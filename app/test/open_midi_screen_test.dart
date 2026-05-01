@@ -131,6 +131,8 @@ void main() {
       await tester.pumpWidget(buildWidget());
       // Let the post-frame callback run to expand the island
       await tester.pump();
+      // Wait for the animation to actually expand
+      await tester.pumpAndSettle();
 
       // Open MIDI Settings via the dynamic connection island
       await tester.tap(find.byKey(const ValueKey('connection_status_island')));
@@ -147,6 +149,62 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.byType(MidiSettingsScreen), findsNothing);
+    });
+
+    testWidgets('dynamic island expands on double-tap and hold', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWidget());
+      // Wait for initial expansion to finish AND for it to collapse after 3s
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // Now it should be collapsed.
+      final Finder island = find.byKey(
+        const ValueKey('connection_status_island'),
+      );
+      final initialWidth = tester.getSize(island).width;
+      expect(initialWidth, lessThan(40)); // Collapsed width should be ~36
+
+      final center = tester.getCenter(island);
+
+      // Perform Double-Tap and Hold
+      // Tap 1
+      await tester.tapAt(center);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Tap 2 and Hold
+      final gesture = await tester.startGesture(center);
+      await tester.pump(const Duration(milliseconds: 100));
+      // Hold for 1.2 seconds (default safety hold is 1s)
+      await tester.pump(const Duration(milliseconds: 1200));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // Check if it's expanded.
+      final expandedWidth = tester.getSize(island).width;
+      expect(expandedWidth, greaterThan(initialWidth + 50));
+    });
+
+    testWidgets('dynamic island opens settings on tap when expanded', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(buildWidget());
+      // Let it expand initially
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // It should be expanded now.
+      final island = find.byKey(const ValueKey('connection_status_island'));
+
+      // Tap it
+      await tester.tap(island);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Should show settings
+      expect(find.byType(MidiSettingsScreen), findsOneWidget);
     });
   });
 }
