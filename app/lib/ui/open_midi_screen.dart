@@ -734,13 +734,24 @@ class DynamicConnectionIsland extends ConsumerStatefulWidget {
 }
 
 class _DynamicConnectionIslandState
-    extends ConsumerState<DynamicConnectionIsland> {
-  bool _isExpanded = false;
+    extends ConsumerState<DynamicConnectionIsland>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
   Timer? _collapseTimer;
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+
     // Start expanded briefly to show status, then collapse
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _expandTemporarily();
@@ -750,15 +761,16 @@ class _DynamicConnectionIslandState
   @override
   void dispose() {
     _collapseTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   void _expandTemporarily() {
     if (!mounted) return;
-    setState(() => _isExpanded = true);
+    _controller.forward();
     _collapseTimer?.cancel();
     _collapseTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _isExpanded = false);
+      if (mounted) _controller.reverse();
     });
   }
 
@@ -792,110 +804,87 @@ class _DynamicConnectionIslandState
     return ConfigGestureWrapper(
       key: const ValueKey('connection_status_island'),
       id: 'connection_status_island',
-      // Step 1: Double-tap and hold to expand when collapsed
-      onConfigRequested: !_isExpanded ? () => _expandTemporarily() : null,
+      // Double-tap and hold to expand when collapsed
+      onConfigRequested: _controller.status == AnimationStatus.dismissed
+          ? () => _expandTemporarily()
+          : null,
       child: GestureDetector(
         onTap: () {
-          // Step 2: Regular tap to navigate only when already expanded
-          if (_isExpanded) {
+          // Regular tap to navigate only when expanded
+          if (_controller.value > 0.5) {
             _showMidiSettings(context, ref);
           }
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOutCubic,
-          height: 36,
-          // Finite constraints for smooth lerp
-          constraints: BoxConstraints(
-            minWidth: 36,
-            maxWidth: _isExpanded ? 500 : 36,
-          ),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2024),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: statusColor.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer scroll view suppresses overflow errors for the whole row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                clipBehavior: Clip.none,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: _isExpanded ? 16 : 10.5,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      // The Dot
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      // Expansion Spacer
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeInOutCubic,
-                        width: _isExpanded ? 12 : 0,
-                      ),
-                      // Expanded content
-                      AnimatedOpacity(
-                        opacity: _isExpanded ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOutCubic,
-                          constraints: BoxConstraints(
-                            maxWidth: _isExpanded ? 400 : 0,
-                          ),
-                          // Inner scroll view suppresses overflow errors for the text row
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            clipBehavior: Clip.none,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  statusText,
-                                  style: AppText.system(
-                                    color: statusColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  maxLines: 1,
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.settings_ethernet,
-                                  color: statusColor.withValues(alpha: 0.7),
-                                  size: 16,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+              height: 36,
+              // Width and constraints removed to prevent layout reflow jank.
+              // Decoration still animates border color changes.
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2024),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: statusColor.withValues(alpha: 0.3),
+                  width: 1.5,
                 ),
               ),
-            ],
-          ),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10.5 + (5.5 * _animation.value),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    // The Dot
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    // Expanded content - Revealing via SizeTransition prevents text reflow
+                    SizeTransition(
+                      sizeFactor: _animation,
+                      axis: Axis.horizontal,
+                      axisAlignment: -1.0,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(width: 12),
+                          Text(
+                            statusText,
+                            style: AppText.system(
+                              color: statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.clip,
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.settings_ethernet,
+                            color: statusColor.withValues(alpha: 0.7),
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
