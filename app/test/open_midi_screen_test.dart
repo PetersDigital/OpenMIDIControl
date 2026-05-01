@@ -10,8 +10,19 @@ import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
 import 'package:app/ui/panels/drum_grid_panel.dart';
 import 'package:app/ui/panels/utility_grid_panel.dart';
+import 'package:app/ui/midi_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+
+class MockConnectedMidiDeviceNotifier extends ConnectedMidiDeviceNotifier {
+  final MidiConnectionState? _mockState;
+  MockConnectedMidiDeviceNotifier([this._mockState]);
+
+  @override
+  MidiConnectionState build() {
+    return _mockState ?? const MidiConnectionState();
+  }
+}
 
 void main() {
   setUp(() {
@@ -70,6 +81,34 @@ void main() {
 
       // Should show Utility Grid
       expect(find.byType(UtilityGridPanel), findsOneWidget);
+    });
+
+    testWidgets('shows DeviceOfflineOverlay when connection is lost', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            connectedMidiDeviceProvider.overrideWith(
+              () => MockConnectedMidiDeviceNotifier(
+                const MidiConnectionState(isConnectionLost: true),
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: OpenMIDIMainScreen()),
+        ),
+      );
+
+      await tester.pump();
+
+      // Should find the overlay
+      expect(find.byType(DeviceOfflineOverlay), findsOneWidget);
+      expect(find.text('DEVICE OFFLINE'), findsOneWidget);
+      expect(find.text('OPEN MIDI SETTINGS'), findsOneWidget);
     });
   });
 }
