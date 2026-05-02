@@ -5,7 +5,7 @@
   "description": "Commitlint configuration for OpenMIDIControl",
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.0.0",
+    "@commitlint/config-conventional": "^20.5.3",
     "husky": "^9.0.11"
   },
   "scripts": {
