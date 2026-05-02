@@ -68,6 +68,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Universal MIDI Packets (UMP) Migration**: Finalized transition to 32-bit `MidiEvent` architecture internally to secure MIDI 2.0 readiness.
 - **Dynamic Connection Island**: Introduced an animated, adaptive status indicator (using `SizeTransition` to eliminate layout jank) that handles all 7 MIDI states and guards configuration via double-tap-hold gestures.
 - **PerformanceTickerMixin**: Centralized lifecycle management for interactive widgets with managed disposal and background recovery.
+  - Added **safeStartTicker** guards to provide a centralized, guarded way to start tickers, preventing "already active" or "disposed" assertion crashes.
 - **Utility Grid Clear/Reset UX**: Disambiguated hard unbind from factory restore. Controls visually reflect "UNASSIGNED" states with interaction guards.
 - **Side Panel Docking**: Implemented a side-agnostic flyout system for landscape orientations, supporting Left/Right docking.
 - **Layout Hardening**: Eradicated build-phase orientation mutations; migrated to `didChangeMetrics`.
@@ -75,7 +76,10 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Native Android Resilience**: Hardened `MidiSystemManager` with callback tracking per transport and physical disconnect handling.
 - **Zero-Allocation Hot-path**: Primitive-indexed state maps and bounded object pooling (`_MAX_POOL_SIZE = 256`) in the routing engine.
 - **Monotonic Timing Guards**: Replaced `DateTime.now()` with `Stopwatch` for all gesture and rate-limiting logic.
-- **Snapshot & Preset Manager**: Robust architecture for dynamic state persistence, supporting saving/loading of complex multi-fader layouts.
+- **OMC Ecosystem Unification**: Finalized a robust architecture for full state persistence, integrating `LayoutPage` mappings into `PresetSnapshot` for atomic saving/loading of complex multi-fader layouts and settings.
+  - Standardized all preset and layout management under the `.omc` format.
+  - Refactored the `SettingsScreen` to include a centralized **"OMC ECOSYSTEM"** section for all file management tools.
+- **Unified Control SSoT**: Consolidated all performance widgets to read MIDI configurations from a single `LayoutState` source of truth, eliminating configuration drift.
 
 ### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 
