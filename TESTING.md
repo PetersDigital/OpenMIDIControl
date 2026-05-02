@@ -170,6 +170,24 @@ cd app
 flutter test test/open_midi_screen_test.dart
 ```
 
+### 2.8 Preset Persistence & Management (`preset_management_test.dart`)
+
+#### Scenarios Validated
+
+- **OMC Ecosystem Persistence**: Validates that `PresetSnapshot` correctly serializes both `ControlState` and `List<LayoutPage>` mappings to `.omc` format, ensuring full structural persistence.
+  - Tests smart content detection during imports to differentiate between full presets and single-page mappings.
+- **Ticker Stability Guards**: Asserts that `PerformanceTickerMixin.safeStartTicker` correctly handles redundant start calls or background transitions without crashing the application.
+- **Bulk Restoration Logic**: Asserts that `LayoutStateNotifier.overwriteAllPages` atomically replaces the entire active configuration and triggers a single state update.
+- **Management Dialogs**: Tests the UI flow for `SavePresetDialog` and `LoadPresetDialog`, verifying that filenames are correctly handled and existing presets can be overwritten.
+- **Async Context Safety**: Validates that `context.mounted` guards in preset management dialogs effectively prevent errors during rapid modal transitions or navigation.
+
+#### How to Run
+
+```bash
+cd app
+flutter test test/preset_management_test.dart
+```
+
 ---
 
 ## 3. Phase C: Flutter Pipeline Integration Tests
