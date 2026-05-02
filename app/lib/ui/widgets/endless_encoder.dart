@@ -39,6 +39,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   Timer? _throttleTimer;
   Ticker? _vrrTicker;
   int? _lastPolledValue;
+  double _visualRotation = 0.0;
 
   @override
   void initState() {
@@ -132,6 +133,8 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
 
       setState(() {
         _currentValue = (_currentValue + steps).clamp(0, 127);
+        // Visual rotation follows the delta dy for a physical feel
+        _visualRotation += details.delta.dy * 0.05;
       });
       _throttledSendMidiUpdate();
     }
@@ -165,20 +168,15 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Knob base
-                  Container(
-                    width: effectiveSize * 0.8,
-                    height: effectiveSize * 0.8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF1E2024),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
+                  // Knob Surface
+                  SizedBox(
+                    width: effectiveSize * 0.75,
+                    height: effectiveSize * 0.75,
+                    child: CustomPaint(
+                      painter: _KnobSurfacePainter(
+                        rotation: _visualRotation,
+                        baseColor: const Color(0xFF23262B),
+                      ),
                     ),
                   ),
 
@@ -189,7 +187,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                     child: CustomPaint(
                       painter: _LedRingPainter(
                         value: _currentValue,
-                        activeColor: const Color(0xFFA6C9F8),
                         inactiveColor: const Color(0xFF0C0E12),
                       ),
                     ),
@@ -238,20 +235,25 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
 
 class _LedRingPainter extends CustomPainter {
   final int value;
-  final Color activeColor;
   final Color inactiveColor;
 
-  _LedRingPainter({
-    required this.value,
-    required this.activeColor,
-    required this.inactiveColor,
-  });
+  _LedRingPainter({required this.value, required this.inactiveColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final strokeWidth = size.width * 0.02;
     final radius = size.width / 2 - (strokeWidth / 2 + 2.0);
+
+    // Audio dB Meter color scheme
+    Color meterColor;
+    if (value <= 88) {
+      meterColor = const Color(0xFF4CAF50); // Green (0-70%)
+    } else if (value <= 114) {
+      meterColor = const Color(0xFFFFB300); // Amber (70-90%)
+    } else {
+      meterColor = const Color(0xFFF44336); // Red (90-100%)
+    }
 
     final paintInactive = Paint()
       ..color = inactiveColor
@@ -260,7 +262,7 @@ class _LedRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final paintActive = Paint()
-      ..color = activeColor
+      ..color = meterColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -291,7 +293,50 @@ class _LedRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LedRingPainter oldDelegate) {
     return oldDelegate.value != value ||
-        oldDelegate.activeColor != activeColor ||
         oldDelegate.inactiveColor != inactiveColor;
+  }
+}
+
+class _KnobSurfacePainter extends CustomPainter {
+  final double rotation;
+  final Color baseColor;
+
+  _KnobSurfacePainter({required this.rotation, required this.baseColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // 1. Draw flat knob body
+    final bodyPaint = Paint()..color = baseColor;
+    canvas.drawCircle(center, radius, bodyPaint);
+
+    // 2. Draw radial grips (uniform flat lines)
+    final gripPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    const gripCount = 24;
+    for (int i = 0; i < gripCount; i++) {
+      final gripLength = radius * 0.15;
+
+      final angle = (i * 360 / gripCount) * math.pi / 180 + rotation;
+      final start = Offset(
+        center.dx + math.cos(angle) * (radius - gripLength),
+        center.dy + math.sin(angle) * (radius - gripLength),
+      );
+      final end = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      canvas.drawLine(start, end, gripPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KnobSurfacePainter oldDelegate) {
+    return oldDelegate.rotation != rotation;
   }
 }
