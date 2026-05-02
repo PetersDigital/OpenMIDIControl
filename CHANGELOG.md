@@ -14,50 +14,56 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ### Added
 
-- **Dynamic Connection Island**: Replaced the static connection status button with a dynamic animated island that auto-expands on status changes and collapses to a centered dot.
-  - Implemented `SizeTransition` reveal strategy to eliminate text reflow jank during expansion.
-  - Requires a double-tap-hold to expand manually when collapsed.
-- **Utility Grid Clear/Reset UX**: Disambiguated "Clear" (hard unbind) from "Reset" (factory restore) in the utility grid configuration.
-  - Controls now display "UNASSIGNED" with 0.3 opacity when unmapped.
-  - Interaction guards disable MIDI and pointer events for unassigned controls.
-- **PerformanceTickerMixin**: Centralized lifecycle and resource management for all interactive widgets.
-  - Automatically handles `WidgetsBindingObserver` and background suspension.
-  - Managed disposal of `Ticker` and `ProviderSubscription` instances to eliminate memory leaks.
-- **Side Panel Docking**: Implemented a `SidePanel` flyout for landscape settings with a side-agnostic "Panel Position" toggle (left or right).
-- **Snapshot & Preset Architecture:** Introduced `SnapshotManager` for dynamic UI state and control layout persistence, allowing complex multi-fader layouts to be saved and recalled.
-- **Native Android MIDI Resilience**: Added robust failure handling and connection resilience in `MidiSystemManager`, including storing MIDI callbacks per transport for safe unregistration and handling physical disconnects.
+- **OMC Ecosystem Unification**: Standardized all preset and layout management under the `.omc` format.
+  - Consolidated all file management into a unified "OMC ECOSYSTEM" section in settings.
+  - Implemented full-preset export/import (pages + control state) with smart content detection to differentiate between full presets and single-page mappings.
+  - Migrated internal snapshot storage to `.omc` with legacy `.json` migration support.
+- **Dynamic Connection Island**: Introduced an animated, adaptive status indicator (using `SizeTransition` to eliminate layout jank) with double-tap-hold gesture guards.
+- **Utility Grid Clear/Reset UX**: Disambiguated "Clear" (hard unbind) from "Reset" (factory restore). Controls visually reflect "UNASSIGNED" states with 0.3 opacity and interaction guards.
 - **Device Offline Overlay**: Added a comprehensive offline overlay to gracefully handle MIDI disconnects during active sessions.
 - **UI State Tracking**: Implemented button state tracking in `UiStateSinkNode` for better bidirectional feedback.
 - **Typography Height Support**: Added explicit line height support to the `AppText` design system.
-- **Universal MIDI Packets (UMP) Migration:** Fully integrated a 32-bit `MidiEvent` paradigm enforcing forward compatibility with MIDI 2.0 standards across the application stack.
-- **Android Native UMP SDK Enforcement:** explicitly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` in `app/android/app/build.gradle.kts` to strictly support native UMP.
+- **Side Panel Docking**: Implemented side-agnostic flyout system for settings and diagnostics in landscape orientations, supporting Left/Right docking.
+- **Native Android Resilience**: Hardened `MidiSystemManager` with callback tracking per transport and physical disconnect handling.
+- **Unified Control SSoT**: Consolidated all performance widgets to read from a single `LayoutState` source of truth.
+- **Android Native UMP SDK Enforcement:** explicitly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` directly in `app/android/app/build.gradle.kts` to strictly support native UMP.
+- **Tactile Encoder Grips**: Added 24-spoke rotational grips to `EndlessEncoderWidget` for physical tactile feedback.
+- **Audio dB Color Scheme**: Implemented dynamic LED ring coloring based on MIDI value thresholds (Green/Amber/Red).
 
 ### Changed
 
+- **Consolidated Layout State**: Refactored Utility Grid controls (`Trigger`, `Toggle`) to read MIDI identifiers and channels directly from the central `LayoutState` source of truth.
+- **Settings Screen Refactor**: Reorganized the Settings UI to prioritize Preset Management and the "OMC Ecosystem" workflow.
 - **Native Android MIDI Resilience**: Hardened `MidiSystemManager` with `serviceScope` lifecycle management and Main-thread dispatching for hardware notifications.
 - **Typography & Layout Hardening**:
   - Migrated orientation-driven transport visibility updates to `didChangeMetrics` to eradicate build-phase layout flickers.
   - Hardened the render tree with `const` constructors for static leaf nodes and `_GridButton`.
-- **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across both portrait and landscape orientations, horizontally centering the connection status badge.
-- **Transport Bar Normalization**: Removed redundant transport controls in the command center, normalized the grid layout across orientations, and set transport to default visible in landscape to resolve overflow issues.
-- **Performance Lock Relocation**: Moved the performance lock icon from the top headers to the performance zone pagination bar for improved accessibility and proximity to the performance zone.
-- **Docs Consolidation:** Updated architectural and design documentation across the repository to formally reflect the v0.3.0 `MidiRouter` (DAG), thermal hardening optimizations, and UMP shift.
+- **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across orientations, horizontally centering the connection status badge.
+- **Transport Bar Normalization**: Removed redundant transport controls, normalized grid layout, and set transport to default visible in landscape to resolve overflow issues.
+- **Performance Lock Relocation**: Moved the performance lock icon to the performance zone pagination bar for improved accessibility and proximity to the performance zone.
+- **Docs Consolidation**: Updated architectural and design documentation to formally reflect `MidiRouter` (DAG), thermal hardening optimizations, and the UMP shift.
+- **Flush & Flat UI System**: Migrated Drum and Utility grids to a zero-gap layout with unified 1.0px border widths.
+- **High-Density Utility Grid**: Restored the 12-control high-density grid for standard Utility page layout.
 
 ### Fixed
 
-- **64-bit Sign Extension**: Resolved bitwise corruption in the Android native layer by implementing explicit 32-bit masking (`0xFFFFFFFFL`).
-- **Bitwise & Math Safety**: Hardened UMP assembly in Dart with precedence grouping and added math guards for zero-width/inverted ranges in `RemapNode`.
-- **Config Gesture Reliability**: Refactored `ConfigGestureWrapper` to use monotonic `Stopwatch` timing, ensuring reliable double-tap detection during system clock shifts.
+- **Ticker Stability Guard**: Implemented `safeStartTicker` in `PerformanceTickerMixin` to prevent "already active" or "disposed" assertion crashes during rapid UI updates.
+- **Grid Aspect Ratio Hardening**: Added division-by-zero guards and safe clamping to grid aspect ratio calculations.
+- **Async Context Safety**: Hardened asynchronous operations (e.g., preset saves) with `context.mounted` guards and pre-captured `Navigator` instances.
+- **Monotonic Timing Guards**: Replaced `DateTime.now()` with `Stopwatch` for all gesture, rate-limiting, and throttling logic to prevent NTP sync jumps.
+- **64-bit Sign Extension**: Resolved bitwise corruption in the Android native layer with explicit 32-bit masking (`0xFFFFFFFFL`).
+- **Bitwise & Math Safety**: Hardened UMP assembly with precedence grouping and added math guards for zero-width/inverted ranges in `RemapNode`.
+- **Config Gesture Reliability**: Refactored `ConfigGestureWrapper` to use monotonic `Stopwatch` timing for reliable double-tap detection.
 - **MidiRouter Stability**: Implemented strictly bounded object pools (`_MAX_POOL_SIZE = 256`) to prevent memory inflation during high-frequency routing bursts.
 
 ### Optimized
 
-- **Zero-Allocation Processing**: Refactored `UiStateSinkNode` and `CcNotifier` to use primitive-indexed collections and pre-allocated address keys, eliminating GC churn during the MIDI hot-path.
-- **120Hz Outgoing MIDI**: Increased outgoing MIDI transmission rate to 8ms (120Hz) for expressive performance widgets.
-- **O(1) Grid Rendering**: Optimized grid rebuilds via index-based leaf subscriptions and decoupled render pulls to eliminate O(N) rebuilds during high-frequency MIDI events.
-- **Render Pull Decoupling**: Decoupled the UI Render Pull from the Data Pump, improving overall layout performance.
-- **State Equality**: Implemented value equality on `ControlState` and layout models using the `collection` package to prevent unnecessary widget rebuilds.
-- **Fader Locking**: Faders now lock immediately on touch, preventing "host fighting" when DAW automation and local touch events collide.
+- **O(1) Grid Rendering**: Optimized rebuilds via index-based leaf subscriptions and decoupled render pulls to eliminate O(N) rebuilds during automation.
+- **Zero-Allocation Processing**: Refactored `UiStateSinkNode` and `CcNotifier` to use primitive-indexed collections and pre-allocated address keys, eliminating GC churn.
+- **120Hz Outgoing MIDI**: Increased outgoing MIDI transmission rate to 8ms (120Hz) for expressive widgets.
+- **State Equality**: Implemented value equality on models using the `collection` package to prevent unnecessary widget rebuilds.
+- **Fader Locking**: Faders now lock immediately on touch to prevent host fighting during local interaction and DAW automation collision.
+- **Render Pull Decoupling**: Decoupled the UI Render Pull from the Data Pump for improved overall layout performance.
 - **UMP Bitwise Parsing**: Hardened UMP bitwise parsing logic for improved cross-platform stability.
 
 ## [0.2.3] - 2026-04-24
