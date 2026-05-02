@@ -53,9 +53,12 @@ The trajectory prioritizes architectural purity and deterministic routing before
 - **Unique Status Identity:** Refactored the connection status system to use distinct labels (READY, DETECTED, ACTIVE) and unique color tokens for all 7 MIDI states, improving user feedback clarity via the `DynamicConnectionIsland`.
 - **SidePanel Docking:** Implemented a side-agnostic flyout architecture for settings and diagnostics in landscape mode, allowing users to dock panels to the left or right of the performance surface.
 - **O(1) Rendering Engine:** Refactored the UI to use index-based leaf subscriptions and decoupled Render Pulls, ensuring that high-frequency MIDI events only rebuild specific widgets rather than the entire grid.
-- **Snapshot Manager:** Integrated an architecture capable of saving/loading complex multi-fader layouts and settings securely.
-- **Protocol & Scripting (v0.4.x - v0.5.0):** Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
-- **NDK Fast Path (v0.5.0 Conditional):** High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
+- **Snapshot Manager & Persistence**: Integrated a unified persistence architecture where `PresetSnapshot` encapsulates both volatile control values (`ControlState`) and structural layout mappings (`List<LayoutPage>`). This ensures atomic session restoration.
+  - **OMC Ecosystem Unification**: Standardized all preset and layout management under the `.omc` format for both internal snapshots and external exports.
+- **PerformanceTickerMixin Stability**: Centralized lifecycle management for interactive widgets with managed disposal, background recovery, and **safeStartTicker** guards to prevent "already active" or "disposed" assertion crashes during rapid UI updates.
+- **Single Source of Truth (SSoT)**: Migrated all UI components to read MIDI identifiers and behaviors directly from the central `LayoutState` notifier, eliminating redundant state synchronization and configuration drift.
+- **Protocol & Scripting (v0.4.x - v0.5.0)**: Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
+- **NDK Fast Path (v0.5.0 Conditional)**: High-performance C++ migration will only occur if benchmarks identify Kotlin/JVM as the absolute latency bottleneck.
 
 Connection lifecycle (text diagram):
 
