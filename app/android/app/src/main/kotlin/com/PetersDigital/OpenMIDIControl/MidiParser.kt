@@ -96,6 +96,8 @@ object MidiParser {
                 val byte4 = msg[i + 3].toInt() and 0xFF
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
+                processSingleUmp(umpInt, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
+                
                 val messageType = (umpInt ushr 28) and 0xF
                 val wordCount = when (messageType) {
                     0x0, 0x1, 0x2 -> 1
@@ -107,31 +109,7 @@ object MidiParser {
                     0xC, 0xD, 0xE, 0xF -> 4
                     else -> 1
                 }
-
-                if (messageType == 0x1) {
-                    // MT 0x1: System Real-Time / System Common
-                    val status = (umpInt ushr 16) and 0xFF
-
-                    // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
-                    if (status == 0xF8 || status == 0xFE) {
-                        // Continue to next packet
-                    } else {
-                        // Drop other MT 1 messages for now.
-                    }
-                } else if (messageType == 0x2) {
-                    // MT 0x2: MIDI 1.0 Channel Voice
-                    val group = (umpInt ushr 24) and 0xF
-                    val status = (umpInt ushr 16) and 0xFF
-                    val statusNibble = status and 0xF0
-
-                    if (statusNibble == 0x80 || statusNibble == 0x90 || statusNibble == 0xB0 || statusNibble == 0xE0) {
-                        val data1 = (umpInt ushr 8) and 0xFF
-                        val data2 = umpInt and 0xFF
-
-                        forwardMidiEvent(group, status, data1, data2, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
-                    }
-                }
-                // Silently drop other MTs or unrecognized words.
+                // Silently drop other words for multi-word messages as they are currently unsupported
                 i += wordCount * 4
             }
         } else {
@@ -156,7 +134,41 @@ object MidiParser {
                 } else {
                     // Unhandled legacy message or incomplete buffer; just advance by 1 to recover
                     i += 1
-                }
+            }
+        }
+    }
+}
+
+    /**
+     * Processes a single 32-bit UMP word.
+     * Extracts message type, group, and status to forward valid MIDI 1.0 voice messages.
+     */
+    fun processSingleUmp(
+        umpInt: Int,
+        timestamp: Long,
+        isVirtual: Boolean,
+        incomingEventsSink: IncomingEventsSink,
+        suppressionWindowNs: Long,
+        lastSentTime: LongArray
+    ) {
+        val messageType = (umpInt ushr 28) and 0xF
+        if (messageType == 0x1) {
+            // MT 0x1: System Real-Time / System Common
+            val status = (umpInt ushr 16) and 0xFF
+            // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
+            if (status == 0xF8 || status == 0xFE) {
+                return
+            }
+        } else if (messageType == 0x2) {
+            // MT 0x2: MIDI 1.0 Channel Voice
+            val group = (umpInt ushr 24) and 0xF
+            val status = (umpInt ushr 16) and 0xFF
+            val statusNibble = status and 0xF0
+
+            if (statusNibble == 0x80 || statusNibble == 0x90 || statusNibble == 0xB0 || statusNibble == 0xE0) {
+                val data1 = (umpInt ushr 8) and 0xFF
+                val data2 = umpInt and 0xFF
+                forwardMidiEvent(group, status, data1, data2, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
             }
         }
     }

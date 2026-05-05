@@ -257,14 +257,7 @@ class MainActivity : FlutterActivity() {
             MidiSystemManager.incomingEvents.collect { packedLong ->
                 val ump = (packedLong ushr 32).toInt()
                 val timestamp = packedLong and 0xFFFFFFFFL
-
-                val msg = ByteArray(4)
-                msg[0] = ((ump ushr 24) and 0xFF).toByte()
-                msg[1] = ((ump ushr 16) and 0xFF).toByte()
-                msg[2] = ((ump ushr 8) and 0xFF).toByte()
-                msg[3] = (ump and 0xFF).toByte()
-
-                handleIncomingPeripheralMidi(msg, 0, msg.size, timestamp)
+                handleIncomingPeripheralUmp(ump, timestamp)
             }
         }
 
@@ -782,6 +775,15 @@ class MainActivity : FlutterActivity() {
         val nowNs = timestamp ?: System.nanoTime()
         val buffer = getOrCreateVirtualSession(false)
         MidiParser.processMidiPayload(msg, offset, count, nowNs, true, buffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
+    }
+
+    /**
+     * Specialized entry point for packed UMP values from MidiSystemManager,
+     * avoiding intermediate ByteArray allocations.
+     */
+    private fun handleIncomingPeripheralUmp(ump: Int, timestamp: Long) {
+        val buffer = getOrCreateVirtualSession(false)
+        MidiParser.processSingleUmp(ump, timestamp, true, buffer, suppressionWindowNs, lastSentTime)
     }
 
     private fun setupMidiDeviceCallback() {
