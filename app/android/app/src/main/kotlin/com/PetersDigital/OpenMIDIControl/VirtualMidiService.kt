@@ -35,14 +35,16 @@ class VirtualMidiService : MidiDeviceService() {
         stopSelf()
     }
 
-    override fun onGetInputPortReceivers(): Array<MidiReceiver> {
-        return arrayOf(object : MidiReceiver() {
-            override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
-                if (msg == null || count == 0) return
+    private val inputReceiver = object : MidiReceiver() {
+        override fun onSend(msg: ByteArray?, offset: Int, count: Int, timestamp: Long) {
+            if (msg == null || count == 0) return
 
-                MainActivity.activeInstance?.handleIncomingVirtualMidi(msg, offset, count, timestamp)
-            }
-        })
+            MainActivity.activeInstance?.handleIncomingVirtualMidi(msg, offset, count, timestamp)
+        }
+    }
+
+    override fun onGetInputPortReceivers(): Array<MidiReceiver> {
+        return arrayOf(inputReceiver)
     }
 
     fun sendToDaw(msg: ByteArray, offset: Int, count: Int) {
