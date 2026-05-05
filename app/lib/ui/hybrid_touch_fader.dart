@@ -128,10 +128,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
-    safeStartTicker(_vrrTicker);
     setState(() {
-      _isDragging =
-          true; // Lock immediately to prevent host "yanking" the fader
+      _isDragging = true; // Lock immediately to prevent host "yank" the fader
     });
 
     if (widget.behavior == FaderBehavior.catchUp) {
@@ -149,7 +147,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
-    safeStartTicker(_vrrTicker);
     if (widget.behavior == FaderBehavior.jump) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
       return;
@@ -263,24 +260,20 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
               if (crossed) {
                 _hardwareIsCatchingUp = false;
-                _animationController
-                    .animateTo(
-                      incomingNormalized,
-                      duration: _kFaderSmoothingDuration,
-                      curve: Curves.linear,
-                    )
-                    .whenComplete(() => _vrrTicker?.stop());
+                _animationController.animateTo(
+                  incomingNormalized,
+                  duration: _kFaderSmoothingDuration,
+                  curve: Curves.linear,
+                );
               }
               _lastHardwareValue = incomingNormalized;
             } else {
               // Already caught up, track normally
-              _animationController
-                  .animateTo(
-                    incomingNormalized,
-                    duration: _kFaderSmoothingDuration,
-                    curve: Curves.linear,
-                  )
-                  .whenComplete(() => _vrrTicker?.stop());
+              _animationController.animateTo(
+                incomingNormalized,
+                duration: _kFaderSmoothingDuration,
+                curve: Curves.linear,
+              );
             }
           }
         });
@@ -388,14 +381,12 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                 setState(() {
                   _isDragging = false;
                 });
-                _vrrTicker?.stop();
                 _sendMidiUpdate(isFinal: true);
               },
               onVerticalDragEnd: (_) {
                 setState(() {
                   _isDragging = false;
                 });
-                _vrrTicker?.stop();
                 _sendMidiUpdate(isFinal: true);
               },
               behavior: HitTestBehavior.opaque,
