@@ -11,7 +11,8 @@ class DiagnosticsConsole extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logs = ref.watch(diagnosticsProvider);
+    final state = ref.watch(diagnosticsProvider);
+    final logs = state.entries;
 
     return Container(
       color: Colors.black, // Dark background
@@ -57,6 +58,7 @@ class DiagnosticsConsole extends ConsumerWidget {
                     ),
                   )
                 : ListView.builder(
+                    key: ValueKey(state.version),
                     itemCount: logs.length,
                     itemBuilder: (context, index) {
                       final entry = logs[index];

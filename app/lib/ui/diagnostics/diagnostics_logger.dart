@@ -13,15 +13,13 @@ import '../../core/midi_utils.dart';
 
 class _RingBufferList<T> extends ListBase<T> {
   final List<T?> _buffer;
-  final int _head;
-  final int _length;
+  int _head;
+  int _length;
 
   _RingBufferList(int capacity)
     : _buffer = List<T?>.filled(capacity, null, growable: false),
       _head = 0,
       _length = 0;
-
-  _RingBufferList._(this._buffer, this._head, this._length);
 
   @override
   int get length => _length;
@@ -42,18 +40,27 @@ class _RingBufferList<T> extends ListBase<T> {
     _buffer[(_head + index) % _buffer.length] = value;
   }
 
-  _RingBufferList<T> addFront(Iterable<T> elements) {
-    final newBuffer = List<T?>.of(_buffer, growable: false);
-    var newHead = _head;
-    var newLength = _length;
+  void addFrontInPlace(Iterable<T> elements) {
     for (final e in elements) {
-      newHead = (newHead - 1) % newBuffer.length;
-      if (newHead < 0) newHead += newBuffer.length;
-      newBuffer[newHead] = e;
-      if (newLength < newBuffer.length) newLength++;
+      _head = (_head - 1) % _buffer.length;
+      if (_head < 0) _head += _buffer.length;
+      _buffer[_head] = e;
+      if (_length < _buffer.length) _length++;
     }
-    return _RingBufferList<T>._(newBuffer, newHead, newLength);
   }
+
+  void clearInPlace() {
+    _head = 0;
+    _length = 0;
+    _buffer.fillRange(0, _buffer.length, null);
+  }
+}
+
+class DiagnosticsState {
+  final List<DiagnosticLogEntry> entries;
+  final int version;
+
+  DiagnosticsState({required this.entries, required this.version});
 }
 
 class DiagnosticLogEntry {
@@ -98,12 +105,15 @@ class DiagnosticLogEntry {
   }
 }
 
-class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
+class DiagnosticsLoggerNotifier extends Notifier<DiagnosticsState> {
   static const int maxLogs = 500;
   static const Duration _publishCadence = Duration(milliseconds: 100);
 
   final Queue<DiagnosticLogEntry> _pendingEvents =
       ListQueue<DiagnosticLogEntry>();
+
+  late final _RingBufferList<DiagnosticLogEntry> _buffer;
+  int _version = 0;
   bool _pendingUpdate = false;
   bool _disposed = false;
   Timer? _publishTimer;
@@ -111,7 +121,8 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
   bool _isPaused = false;
 
   @override
-  List<DiagnosticLogEntry> build() {
+  DiagnosticsState build() {
+    _buffer = _RingBufferList<DiagnosticLogEntry>(maxLogs);
     final service = ref.watch(midiServiceProvider);
 
     ref.listen(appLifecycleStateProvider, (previous, next) {
@@ -145,15 +156,13 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
         _publishTimer = Timer(_publishCadence, () {
           if (_disposed) return;
           _pendingUpdate = false;
-          if (_pendingEvents.isEmpty) return;
-
-          // Publish minimal delta by sharing the underlying ring buffer array
-          // and emitting a new wrapper. The sequential addition of events naturally
-          // prepends them in reverse chronological order since we advance the head backwards.
-          state = (state as _RingBufferList<DiagnosticLogEntry>).addFront(
-            _pendingEvents,
-          );
+          // Mutate in-place and update version ID to avoid List.of copies.
+          // This ensures that high-density MIDI logging doesn't cause GC spikes.
+          _buffer.addFrontInPlace(_pendingEvents);
           _pendingEvents.clear();
+
+          _version++;
+          state = DiagnosticsState(entries: _buffer, version: _version);
         });
       }
     });
@@ -166,17 +175,18 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
       _pendingEvents.clear();
     });
 
-    return _RingBufferList<DiagnosticLogEntry>(maxLogs);
+    return DiagnosticsState(entries: _buffer, version: 0);
   }
 
   void clear() {
     _pendingEvents.clear();
-    state = _RingBufferList<DiagnosticLogEntry>(maxLogs);
+    _buffer.clearInPlace();
+    _version++;
+    state = DiagnosticsState(entries: _buffer, version: _version);
   }
 }
 
 final diagnosticsProvider =
-    NotifierProvider.autoDispose<
-      DiagnosticsLoggerNotifier,
-      List<DiagnosticLogEntry>
-    >(DiagnosticsLoggerNotifier.new);
+    NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, DiagnosticsState>(
+      DiagnosticsLoggerNotifier.new,
+    );
