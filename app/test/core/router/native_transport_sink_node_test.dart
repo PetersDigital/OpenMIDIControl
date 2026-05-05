@@ -335,5 +335,28 @@ void main() {
 
       node.dispose();
     });
+
+    test(
+      'emergency flush when buffer exceeds safety threshold (6400)',
+      () async {
+        final node = NativeTransportSinkNode(channel: channel);
+
+        // Add 6401 events
+        final events = List.generate(6401, (i) {
+          return MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
+            0,
+          );
+        });
+
+        node.execute(events);
+
+        // Should have flushed immediately
+        expect(methodCallCount, 1);
+        expect(capturedEvents.length, 6401 * 2);
+
+        node.dispose();
+      },
+    );
   });
 }
