@@ -1056,12 +1056,14 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (!hasChanges) return;
 
     _hasPendingIncomingState = true;
-    _pendingIncomingPublishTimer ??= Timer(_incomingStatePublishInterval, () {
-      _pendingIncomingPublishTimer = null;
-      if (!_hasPendingIncomingState) return;
-      _hasPendingIncomingState = false;
-      _publishState();
-    });
+    _pendingIncomingPublishTimer ??= Timer.periodic(
+      _incomingStatePublishInterval,
+      (_) {
+        if (!_hasPendingIncomingState) return;
+        _hasPendingIncomingState = false;
+        _publishState();
+      },
+    );
   }
 
   void injectState(ControlState presetState) {
