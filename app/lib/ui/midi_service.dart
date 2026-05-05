@@ -201,6 +201,7 @@ class MidiService {
 
   SendPort? _workerSendPort;
   final List<dynamic> _queuedEvents = [];
+  static const int _maxQueuedBatches = 32;
   late final ReceivePort _workerReceivePort;
   StreamSubscription<dynamic>? _workerReceivePortSubscription;
   Isolate? _workerIsolate;
@@ -265,6 +266,9 @@ class MidiService {
         if (_workerSendPort != null) {
           _workerSendPort!.send(event);
         } else {
+          if (_queuedEvents.length >= _maxQueuedBatches) {
+            _queuedEvents.removeAt(0); // Drop oldest
+          }
           _queuedEvents.add(event);
         }
       }
