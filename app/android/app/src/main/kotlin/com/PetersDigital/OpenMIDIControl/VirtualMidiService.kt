@@ -47,29 +47,40 @@ class VirtualMidiService : MidiDeviceService() {
 
     fun sendToDaw(msg: ByteArray, offset: Int, count: Int) {
         val receivers = outputPortReceivers
-        if (receivers != null && receivers.isNotEmpty()) {
-            for (receiver in receivers) {
-                if (receiver != null && deadReceivers.contains(receiver)) continue
+        if (receivers == null || receivers.isEmpty()) {
+            if (deadReceivers.isNotEmpty()) deadReceivers.clear()
+            return
+        }
 
-                try {
-                    receiver?.send(msg, offset, count)
-                } catch (e: java.io.IOException) {
-                    // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
-                    // When a virtual DAW connection (like FL Studio Mobile) is closed or severed while sending,
-                    // attempting to send data throws an IOException. Since the receiver set is immutable,
-                    // we "quarantine" the dead receiver in our local set to skip it on subsequent messages.
-                    // This maintains UI responsiveness and prevents infinite exception loops.
-                    receiver?.let { 
-                        deadReceivers.add(it)
-                        // Phase 1: Safely notify failure on Main Thread to prevent background channel crashes.
-                        // Using service-level scope to ensure lifecycle-bound execution.
-                        serviceScope.launch(Dispatchers.Main) {
-                            MidiSystemManager.onPortFailure("virtual_daw")
-                        }
+        // DEAD RECEIVER PRUNING:
+        // Intersect our quarantine set with the current active receivers.
+        // If a receiver is no longer in outputPortReceivers, it has been removed by the OS
+        // and we no longer need to track it as dead. This prevents unbounded memory growth.
+        if (deadReceivers.isNotEmpty()) {
+            deadReceivers.retainAll(receivers.toSet())
+        }
+
+        for (receiver in receivers) {
+            if (receiver != null && deadReceivers.contains(receiver)) continue
+
+            try {
+                receiver?.send(msg, offset, count)
+            } catch (e: java.io.IOException) {
+                // DEAD RECEIVER CLEANUP / QUARANTINE LOGIC:
+                // When a virtual DAW connection (like FL Studio Mobile) is closed or severed while sending,
+                // attempting to send data throws an IOException. Since the receiver set is immutable,
+                // we "quarantine" the dead receiver in our local set to skip it on subsequent messages.
+                // This maintains UI responsiveness and prevents infinite exception loops.
+                receiver?.let { 
+                    deadReceivers.add(it)
+                    // Phase 1: Safely notify failure on Main Thread to prevent background channel crashes.
+                    // Using service-level scope to ensure lifecycle-bound execution.
+                    serviceScope.launch(Dispatchers.Main) {
+                        MidiSystemManager.onPortFailure("virtual_daw")
                     }
-                } catch (e: Exception) {
-                    // Ignore other broad exceptions related to closed virtual receivers.
                 }
+            } catch (e: Exception) {
+                // Ignore other broad exceptions related to closed virtual receivers.
             }
         }
     }

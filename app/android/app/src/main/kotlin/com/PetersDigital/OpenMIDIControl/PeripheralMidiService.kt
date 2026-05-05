@@ -49,8 +49,16 @@ class PeripheralMidiService : MidiDeviceService() {
     fun sendToHost(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
         val receivers = outputPortReceivers
         if (receivers == null || receivers.isEmpty()) {
-            // This is expected if no DAW/Host is connected or listening
+            if (deadReceivers.isNotEmpty()) deadReceivers.clear()
             return
+        }
+
+        // DEAD RECEIVER PRUNING:
+        // Intersect our quarantine set with the current active receivers.
+        // If a receiver is no longer in outputPortReceivers, it has been removed by the OS
+        // and we no longer need to track it as dead. This prevents unbounded memory growth.
+        if (deadReceivers.isNotEmpty()) {
+            deadReceivers.retainAll(receivers.toSet())
         }
 
         for (receiver in receivers) {
