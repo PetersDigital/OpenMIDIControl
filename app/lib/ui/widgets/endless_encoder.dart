@@ -4,7 +4,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../midi_service.dart';
 import '../performance_ticker_mixin.dart';
@@ -37,7 +36,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
   Timer? _throttleTimer;
-  Ticker? _vrrTicker;
   int? _lastPolledValue;
   double _visualRotation = 0.0;
 
@@ -45,9 +43,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void initState() {
     super.initState();
     initPerformanceMixin();
-    _vrrTicker = createManagedTicker(
-      (_) {},
-    ); // Used strictly for gesture lifecycle tracking
     // Initialize from current state
     final hotValue = ref
         .read(controlStateProvider)
@@ -104,13 +99,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragStart(DragStartDetails details) {
-    safeStartTicker(_vrrTicker);
     _isDragging = true;
     _accumulatedDelta = 0.0;
   }
 
   void _handleDragCancel() {
-    _vrrTicker?.stop();
     _isDragging = false;
     _accumulatedDelta = 0.0;
     _sendMidiUpdate(); // Final update
@@ -133,7 +126,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    _vrrTicker?.stop();
     _isDragging = false;
     _accumulatedDelta = 0.0;
     _sendMidiUpdate(); // Final update
