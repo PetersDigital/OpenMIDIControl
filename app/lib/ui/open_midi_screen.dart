@@ -178,6 +178,9 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
             final prefs = await SharedPreferences.getInstance();
             await prefs.setBool('hasLaunched', true);
           }
+          _launchCheckPending = false;
+        } else {
+          _launchCheckPending = false;
         }
       });
     }
@@ -201,6 +204,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
           } else if (!isLandscape && current) {
             ref.read(transportVisibleProvider.notifier).setVisible(false);
           }
+          _transportSyncPending = false;
         }
       });
     }
@@ -756,6 +760,7 @@ class _DynamicConnectionIslandState
       _transportSyncPending = true;
       SchedulerBinding.instance.addPostFrameCallback((_) {
         _expandTemporarily();
+        _transportSyncPending = false;
       });
     }
   }
