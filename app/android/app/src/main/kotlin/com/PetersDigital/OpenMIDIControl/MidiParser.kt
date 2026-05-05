@@ -18,11 +18,11 @@ object MidiParser {
         private val headPointer = AtomicLong(0)
         private val tailPointer = AtomicLong(0)
         @Volatile private var isFull = false
-        private val ringBuffer = LongArray(2048)
+        private val ringBuffer = LongArray(capacity)
 
         override fun trySend(packedEvent: Long): Boolean {
             val currentTail = tailPointer.get()
-            val nextTail = (currentTail + 1) % 2048
+            val nextTail = (currentTail + 1) % ringBuffer.size
             if (nextTail == headPointer.get()) {
                 isFull = true
                 return false
@@ -44,7 +44,7 @@ object MidiParser {
                 val packed = ringBuffer[currentHead.toInt()]
                 batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
                 batch[writeIndex++] = packed and 0xFFFFFFFFL
-                currentHead = (currentHead + 1) % 2048
+                currentHead = (currentHead + 1) % ringBuffer.size
                 usedDataLongs += 2
             }
 
