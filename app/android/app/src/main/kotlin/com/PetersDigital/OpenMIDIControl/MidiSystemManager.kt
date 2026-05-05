@@ -28,7 +28,7 @@ object MidiSystemManager {
     val usbHostConnected = _usbHostConnected.asStateFlow()
 
     // Shared flow for incoming MIDI events to be consumed by the UI (when active)
-    private val _incomingEvents = MutableSharedFlow<Pair<ByteArray, Long>>(extraBufferCapacity = 1024)
+    private val _incomingEvents = MutableSharedFlow<Long>(extraBufferCapacity = 1024)
     val incomingEvents = _incomingEvents.asSharedFlow()
 
     // Shared flow for port failures (IOExceptions, etc.)
@@ -45,11 +45,27 @@ object MidiSystemManager {
             _usbHostConnected.value = true
         }
 
-        // Create a copy of the buffer to avoid data corruption if the service reuses it
-        val copy = msg.copyOfRange(offset, offset + count)
-
         // Dispatch to observers (like MainActivity/Flutter)
-        _incomingEvents.tryEmit(Pair(copy, timestamp))
+        // Ensure count is at least 4 before processing to avoid IndexOutOfBounds
+        if (count >= 4) {
+            val byte1 = msg[offset].toInt() and 0xFF
+            val byte2 = msg[offset + 1].toInt() and 0xFF
+            val byte3 = msg[offset + 2].toInt() and 0xFF
+            val byte4 = msg[offset + 3].toInt() and 0xFF
+            val ump = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
+            val packed = ((ump.toLong() and 0xFFFFFFFFL) shl 32) or (timestamp and 0xFFFFFFFFL)
+            _incomingEvents.tryEmit(packed)
+        } else {
+            // Unlikely fallback for non-UMP byte stream logic, but since this specific request targets
+            // elimination of Pair allocations by packing UMP + timestamp, we'll try to accommodate single bytes too
+            // Actually, the instruction says: "pack event into Long: upper 32 bits = UMP, lower 32 bits = timestamp"
+            var ump = 0
+            for (i in 0 until Math.min(count, 4)) {
+                ump = ump or ((msg[offset + i].toInt() and 0xFF) shl (24 - (i * 8)))
+            }
+            val packed = ((ump.toLong() and 0xFFFFFFFFL) shl 32) or (timestamp and 0xFFFFFFFFL)
+            _incomingEvents.tryEmit(packed)
+        }
     }
 
     /**

@@ -254,7 +254,16 @@ class MainActivity : FlutterActivity() {
         // Subscribe to persistent MIDI events from the system manager.
         // This ensures events are captured even when the Activity is in the background or between focus shifts.
         coroutineScope.launch {
-            MidiSystemManager.incomingEvents.collect { (msg, timestamp) ->
+            MidiSystemManager.incomingEvents.collect { packedLong ->
+                val ump = (packedLong ushr 32).toInt()
+                val timestamp = packedLong and 0xFFFFFFFFL
+
+                val msg = ByteArray(4)
+                msg[0] = ((ump ushr 24) and 0xFF).toByte()
+                msg[1] = ((ump ushr 16) and 0xFF).toByte()
+                msg[2] = ((ump ushr 8) and 0xFF).toByte()
+                msg[3] = (ump and 0xFF).toByte()
+
                 handleIncomingPeripheralMidi(msg, 0, msg.size, timestamp)
             }
         }
