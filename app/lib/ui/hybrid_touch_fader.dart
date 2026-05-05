@@ -78,6 +78,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   void initState() {
     super.initState();
     initPerformanceMixin();
+    _vrrTicker = createManagedTicker(
+      (_) {},
+    ); // Dummy callback, ticker is only used for animateWith vsync
     _throttleStopwatch = Stopwatch()..start();
     _ccNumber = widget.ccNumber;
     _ccLabel = widget.displayName;
@@ -92,21 +95,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       vsync: this,
       value: startValue.clamp(0.0, 1.0),
     );
-
-    _setupTicker();
-  }
-
-  void _setupTicker() {
-    _vrrTicker = createManagedTicker((elapsed) {
-      if (!mounted) return;
-      final currentState = ref.read(controlStateProvider);
-      final val = currentState.ccValues["$_midiChannel:$_ccNumber"];
-      if (val != null && val != _lastPolledValue) {
-        final prev = _lastPolledValue;
-        _lastPolledValue = val;
-        _handleCcUpdate(prev, val);
-      }
-    });
 
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
@@ -348,7 +336,21 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           _lastPolledValue = null;
         });
         clearManagedResources();
-        _setupTicker();
+        addManagedSubscription(
+          ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
+            previous,
+            next,
+          ) {
+            if (next is AsyncData) {
+              final val = next.value;
+              if (val != null && val != _lastPolledValue) {
+                final prev = _lastPolledValue;
+                _lastPolledValue = val;
+                _handleCcUpdate(prev, val);
+              }
+            }
+          }),
+        );
       }
     });
 

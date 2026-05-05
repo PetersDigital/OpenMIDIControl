@@ -59,6 +59,9 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   void initState() {
     super.initState();
     initPerformanceMixin();
+    _vrrTicker = createManagedTicker(
+      (_) {},
+    ); // Dummy callback, ticker used only for gesture lifecycle
     final control = ref.read(layoutStateProvider).getControlById(widget.id);
     final channel = control?.channel ?? widget.channel;
     final ccX = control?.defaultCc ?? widget.ccX;
@@ -75,38 +78,16 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       _normalizedY = hotY / 127.0;
     }
 
-    _setupTicker();
-  }
-
-  void _setupTicker() {
-    _vrrTicker = createManagedTicker((elapsed) {
-      if (!mounted) return;
-      final control = ref.read(layoutStateProvider).getControlById(widget.id);
-      final channel = control?.channel ?? widget.channel;
-      final ccX = control?.defaultCc ?? widget.ccX;
-      final ccY = control?.secondaryCc ?? widget.ccY;
-
-      final currentState = ref.read(controlStateProvider);
-      final valX = currentState.ccValues["$channel:$ccX"];
-      final valY = currentState.ccValues["$channel:$ccY"];
-
-      if (valX != null && valX != _lastPolledX) {
-        _lastPolledX = valX;
-        _handleXUpdate(valX);
-      }
-      if (valY != null && valY != _lastPolledY) {
-        _lastPolledY = valY;
-        _handleYUpdate(valY);
-      }
-    });
-
-    final control = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channel = control?.channel ?? widget.channel;
-    final ccX = control?.defaultCc ?? widget.ccX;
-    final ccY = control?.secondaryCc ?? widget.ccY;
+    final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
+    final channelSub = controlSub?.channel ?? widget.channel;
+    final ccXSub = controlSub?.defaultCc ?? widget.ccX;
+    final ccYSub = controlSub?.secondaryCc ?? widget.ccY;
 
     addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channel:$ccX"), (previous, next) {
+      ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
+        previous,
+        next,
+      ) {
         if (next is AsyncData) {
           final valX = next.value;
           if (valX != null && valX != _lastPolledX) {
@@ -117,7 +98,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       }),
     );
     addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channel:$ccY"), (previous, next) {
+      ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
+        previous,
+        next,
+      ) {
         if (next is AsyncData) {
           final valY = next.value;
           if (valY != null && valY != _lastPolledY) {
@@ -254,7 +238,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         _lastPolledX = null;
         _lastPolledY = null;
         clearManagedResources();
-        _setupTicker();
+        final channelSub = next?.channel ?? widget.channel;
+        final ccXSub = next?.defaultCc ?? widget.ccX;
+        final ccYSub = next?.secondaryCc ?? widget.ccY;
+
+        addManagedSubscription(
+          ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
+            previous,
+            current,
+          ) {
+            if (current is AsyncData) {
+              final valX = current.value;
+              if (valX != null && valX != _lastPolledX) {
+                _lastPolledX = valX;
+                _handleXUpdate(valX);
+              }
+            }
+          }),
+        );
+        addManagedSubscription(
+          ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
+            previous,
+            current,
+          ) {
+            if (current is AsyncData) {
+              final valY = current.value;
+              if (valY != null && valY != _lastPolledY) {
+                _lastPolledY = valY;
+                _handleYUpdate(valY);
+              }
+            }
+          }),
+        );
       }
     });
 
