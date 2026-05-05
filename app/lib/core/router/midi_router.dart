@@ -82,6 +82,9 @@ class MidiRouter {
     _nodes[id] = node;
   }
 
+  /// Returns the node with the specified ID, or null if it doesn't exist.
+  TransformerNode? getNode(String id) => _nodes[id];
+
   /// Adds a directed edge from one node to another.
   /// Throws a [StateError] if adding the edge creates a cycle.
   void addEdge(String from, String to) {

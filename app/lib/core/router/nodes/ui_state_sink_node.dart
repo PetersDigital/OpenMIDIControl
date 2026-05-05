@@ -39,6 +39,7 @@ class UiStateSinkNode extends SinkNode {
   UiStateSinkNode({required this.onStateUpdate});
 
   // Debounce timing
+  bool isPaused = false;
   bool _hasPendingEmission = false;
 
   void _emitSnapshot() {
@@ -91,7 +92,7 @@ class UiStateSinkNode extends SinkNode {
       // In headless unit tests, frames are never drawn, causing scheduleFrameCallback to hang.
       try {
         final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
-        if (!isTest) {
+        if (!isTest && !isPaused) {
           SchedulerBinding.instance.scheduleFrameCallback((_) {
             if (_hasPendingEmission) {
               _emitSnapshot();

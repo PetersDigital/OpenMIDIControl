@@ -345,6 +345,13 @@ class MidiService {
     }
   }
 
+  void setPaused(bool paused) {
+    final node = outgoingRouter.getNode('uiSyncSink');
+    if (node is UiStateSinkNode) {
+      node.isPaused = paused;
+    }
+  }
+
   void _setupRouters() {
     // Add default root nodes for the DAG to process from
     outgoingRouter.addNode('source', SplitNode());
@@ -970,9 +977,11 @@ class ControlStateNotifier extends Notifier<ControlState> {
     final service = ref.watch(midiServiceProvider);
 
     ref.listen(appLifecycleStateProvider, (previous, next) {
-      _isPaused =
+      final paused =
           (next == AppLifecycleState.paused ||
           next == AppLifecycleState.hidden);
+      _isPaused = paused;
+      service.setPaused(paused);
     });
 
     final sub = service.uiStateUpdates.listen((updates) {
