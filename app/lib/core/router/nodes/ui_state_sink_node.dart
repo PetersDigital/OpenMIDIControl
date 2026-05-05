@@ -42,6 +42,10 @@ class UiStateSinkNode extends SinkNode {
   bool isPaused = false;
   bool _hasPendingEmission = false;
 
+  void setPaused(bool paused) {
+    isPaused = paused;
+  }
+
   void _emitSnapshot() {
     final ccBatch = <String, int>{};
     for (final index in _dirtyCcIndices) {
@@ -88,11 +92,16 @@ class UiStateSinkNode extends SinkNode {
     if (!_hasPendingEmission) {
       _hasPendingEmission = true;
 
+      if (isPaused) {
+        _hasPendingEmission = false;
+        return;
+      }
+
       // Sync emission with the hardware display refresh rate.
       // In headless unit tests, frames are never drawn, causing scheduleFrameCallback to hang.
       try {
         final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
-        if (!isTest && !isPaused) {
+        if (!isTest) {
           SchedulerBinding.instance.scheduleFrameCallback((_) {
             if (_hasPendingEmission) {
               _emitSnapshot();
