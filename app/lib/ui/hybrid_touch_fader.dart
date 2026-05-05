@@ -68,7 +68,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   double? _lastHardwareValue;
 
   double? _pendingIncomingNormalized;
-  bool _isIncomingUpdateScheduled = false;
+  bool _isVisualUpdateQueued = false;
 
   SpringSimulation? _springSimulation;
   Ticker? _vrrTicker;
@@ -243,6 +243,50 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _animationController.value = (1.0 - (localY / maxHeight)).clamp(0.0, 1.0);
   }
 
+  void _triggerVisualUpdate(double incomingNormalized) {
+    if (widget.behavior == FaderBehavior.jump) {
+      _animateToIncomingValue(incomingNormalized);
+    } else {
+      if (_hardwareIsCatchingUp) {
+        if (_lastHardwareValue == null) {
+          // First update after drag release, figure out direction
+          _hardwareMustCrossMovingUp =
+              incomingNormalized < _animationController.value;
+          _lastHardwareValue = incomingNormalized;
+          return;
+        }
+
+        // Check if it has crossed the threshold
+        bool crossed = false;
+        if (_hardwareMustCrossMovingUp &&
+            incomingNormalized >= _animationController.value) {
+          crossed = true;
+        }
+        if (!_hardwareMustCrossMovingUp &&
+            incomingNormalized <= _animationController.value) {
+          crossed = true;
+        }
+
+        if (crossed) {
+          _hardwareIsCatchingUp = false;
+          _animationController.animateTo(
+            incomingNormalized,
+            duration: _kFaderSmoothingDuration,
+            curve: Curves.linear,
+          );
+        }
+        _lastHardwareValue = incomingNormalized;
+      } else {
+        // Already caught up, track normally
+        _animationController.animateTo(
+          incomingNormalized,
+          duration: _kFaderSmoothingDuration,
+          curve: Curves.linear,
+        );
+      }
+    }
+  }
+
   void _handleCcUpdate(int? prev, int next) {
     if (_isDragging) {
       // De-sync: The hardware is overriding the app state, but the user is dragging.
@@ -254,59 +298,24 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
     // Always schedule standard non-physics update if the user isn't touching it.
     // Physics handles smoothing for 'FaderBehavior.jump'.
-    final incomingNormalized = (next / 127.0).clamp(0.0, 1.0);
+    _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
 
-    if (widget.behavior == FaderBehavior.jump) {
-      _animateToIncomingValue(incomingNormalized);
+    if (_isVisualUpdateQueued) return;
+
+    if (_throttleStopwatch.elapsedMilliseconds < 16) {
+      _isVisualUpdateQueued = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _isVisualUpdateQueued = false;
+        _throttleStopwatch.reset();
+        _throttleStopwatch.start();
+        if (_pendingIncomingNormalized != null && mounted) {
+          _triggerVisualUpdate(_pendingIncomingNormalized!);
+        }
+      });
     } else {
-      _pendingIncomingNormalized = incomingNormalized;
-      if (!_isIncomingUpdateScheduled) {
-        _isIncomingUpdateScheduled = true;
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          _isIncomingUpdateScheduled = false;
-          if (_pendingIncomingNormalized != null) {
-            final incomingNormalized = _pendingIncomingNormalized!;
-
-            if (_hardwareIsCatchingUp) {
-              if (_lastHardwareValue == null) {
-                // First update after drag release, figure out direction
-                _hardwareMustCrossMovingUp =
-                    incomingNormalized < _animationController.value;
-                _lastHardwareValue = incomingNormalized;
-                return;
-              }
-
-              // Check if it has crossed the threshold
-              bool crossed = false;
-              if (_hardwareMustCrossMovingUp &&
-                  incomingNormalized >= _animationController.value) {
-                crossed = true;
-              }
-              if (!_hardwareMustCrossMovingUp &&
-                  incomingNormalized <= _animationController.value) {
-                crossed = true;
-              }
-
-              if (crossed) {
-                _hardwareIsCatchingUp = false;
-                _animationController.animateTo(
-                  incomingNormalized,
-                  duration: _kFaderSmoothingDuration,
-                  curve: Curves.linear,
-                );
-              }
-              _lastHardwareValue = incomingNormalized;
-            } else {
-              // Already caught up, track normally
-              _animationController.animateTo(
-                incomingNormalized,
-                duration: _kFaderSmoothingDuration,
-                curve: Curves.linear,
-              );
-            }
-          }
-        });
-      }
+      _throttleStopwatch.reset();
+      _throttleStopwatch.start();
+      _triggerVisualUpdate(_pendingIncomingNormalized!);
     }
   }
 
