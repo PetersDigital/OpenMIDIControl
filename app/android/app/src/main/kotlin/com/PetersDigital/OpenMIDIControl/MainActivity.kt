@@ -68,6 +68,7 @@ class MainActivity : FlutterActivity() {
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
     private val emptyBuffers = Channel<LongArray>(capacity = 8)
+    private val incomingPeripheralUmpChannel = Channel<Long>(capacity = Channel.UNLIMITED)
 
     // Per-port sharded processing session state
     private class ActivePortSession(
@@ -255,6 +256,12 @@ class MainActivity : FlutterActivity() {
         // This ensures events are captured even when the Activity is in the background or between focus shifts.
         coroutineScope.launch {
             MidiSystemManager.incomingEvents.collect { packedLong ->
+                incomingPeripheralUmpChannel.send(packedLong)
+            }
+        }
+
+        coroutineScope.launch {
+            for (packedLong in incomingPeripheralUmpChannel) {
                 val ump = (packedLong ushr 32).toInt()
                 val timestamp = packedLong and 0xFFFFFFFFL
                 handleIncomingPeripheralUmp(ump, timestamp)
