@@ -238,17 +238,13 @@ class _LedRingPainter extends CustomPainter {
       meterColor = const Color(0xFFF44336); // Red (90-100%)
     }
 
-    final paintInactive = Paint()
+    _inactivePaint
       ..color = inactiveColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = strokeWidth;
 
-    final paintActive = Paint()
+    _activePaint
       ..color = meterColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = strokeWidth;
 
     const startAngle = 135 * math.pi / 180;
     const maxSweepAngle = 270 * math.pi / 180;
@@ -258,7 +254,7 @@ class _LedRingPainter extends CustomPainter {
       startAngle,
       maxSweepAngle,
       false,
-      paintInactive,
+      _inactivePaint,
     );
 
     final sweepAngle = (value / 127.0) * maxSweepAngle;
@@ -268,10 +264,18 @@ class _LedRingPainter extends CustomPainter {
         startAngle,
         sweepAngle,
         false,
-        paintActive,
+        _activePaint,
       );
     }
   }
+
+  static final _inactivePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+
+  static final _activePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
 
   @override
   bool shouldRepaint(covariant _LedRingPainter oldDelegate) {
@@ -292,14 +296,11 @@ class _KnobSurfacePainter extends CustomPainter {
     final radius = size.width / 2;
 
     // 1. Draw flat knob body
-    final bodyPaint = Paint()..color = baseColor;
-    canvas.drawCircle(center, radius, bodyPaint);
+    _bodyPaint.color = baseColor;
+    canvas.drawCircle(center, radius, _bodyPaint);
 
     // 2. Draw radial grips (uniform flat lines)
-    final gripPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+    _gripPaint.color = Colors.black.withValues(alpha: 0.4);
 
     _gripPath ??= _buildGripPath();
 
@@ -308,10 +309,12 @@ class _KnobSurfacePainter extends CustomPainter {
     canvas.rotate(rotation);
     canvas.scale(radius);
     // Draw cached path with thickness correction
-    canvas.drawPath(_gripPath!, gripPaint..strokeWidth = 1.0 / radius);
+    canvas.drawPath(_gripPath!, _gripPaint..strokeWidth = 1.0 / radius);
     canvas.restore();
   }
 
+  static final _bodyPaint = Paint();
+  static final _gripPaint = Paint()..style = PaintingStyle.stroke;
   static Path? _gripPath;
 
   static Path _buildGripPath() {
