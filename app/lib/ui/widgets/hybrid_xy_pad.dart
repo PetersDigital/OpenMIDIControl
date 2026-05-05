@@ -3,7 +3,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system.dart';
@@ -50,8 +49,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   bool _canSend = true;
   bool _hasPendingSend = false;
 
-  // Ticker for VRR sync during active interaction
-  Ticker? _vrrTicker;
   int? _lastPolledX;
   int? _lastPolledY;
 
@@ -59,9 +56,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   void initState() {
     super.initState();
     initPerformanceMixin();
-    _vrrTicker = createManagedTicker(
-      (_) {},
-    ); // Dummy callback, ticker used only for gesture lifecycle
     final control = ref.read(layoutStateProvider).getControlById(widget.id);
     final channel = control?.channel ?? widget.channel;
     final ccX = control?.defaultCc ?? widget.ccX;
@@ -288,7 +282,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
           return GestureDetector(
             onPanStart: (details) {
-              safeStartTicker(_vrrTicker);
               setState(() {
                 _isDragging = true;
               });
@@ -298,7 +291,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _updatePosition(details.localPosition, size, isFinal: false);
             },
             onPanEnd: (details) {
-              _vrrTicker?.stop();
               setState(() {
                 _isDragging = false;
               });
@@ -306,7 +298,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
               _sendMidi(isFinal: true);
             },
             onPanCancel: () {
-              _vrrTicker?.stop();
               setState(() {
                 _isDragging = false;
               });
