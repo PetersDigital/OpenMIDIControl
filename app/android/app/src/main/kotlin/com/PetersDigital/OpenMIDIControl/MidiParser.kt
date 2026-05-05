@@ -3,6 +3,7 @@
 package com.petersdigital.openmidicontrol
 
 import kotlinx.coroutines.channels.SendChannel
+import java.util.concurrent.atomic.AtomicLong
 
 object MidiParser {
 
@@ -11,47 +12,47 @@ object MidiParser {
     }
 
     class IncomingEventsBuffer(
-        capacity: Int = 1000,
+        capacity: Int = 2048,
         private val notifier: SendChannel<Unit>? = null
     ) : IncomingEventsSink {
-        private val bufferSize = capacity + 1
-        private val buffer = LongArray(bufferSize)
-        private var head = 0
-        private var tail = 0
+        private val headPointer = AtomicLong(0)
+        private val tailPointer = AtomicLong(0)
+        @Volatile private var isFull = false
+        private val ringBuffer = LongArray(2048)
 
-        private fun next(index: Int): Int = if (index + 1 == bufferSize) 0 else index + 1
-
-        @Synchronized
         override fun trySend(packedEvent: Long): Boolean {
-            val nextTail = next(tail)
-            if (nextTail == head) {
-                // Buffer full: drop oldest element and retain newest.
-                head = next(head)
+            val currentTail = tailPointer.get()
+            val nextTail = (currentTail + 1) % 2048
+            if (nextTail == headPointer.get()) {
+                isFull = true
+                return false
             }
-            buffer[tail] = packedEvent
-            tail = nextTail
+            ringBuffer[currentTail.toInt()] = packedEvent
+            tailPointer.compareAndSet(currentTail, nextTail)
             notifier?.trySend(Unit)
             return true
         }
 
-        @Synchronized
         fun drainToBatch(batch: LongArray) {
             var writeIndex = 1
             var usedDataLongs = 0
 
-            while (head != tail && writeIndex + 1 < batch.size) {
-                val packed = buffer[head]
+            var currentHead = headPointer.get()
+            val currentTail = tailPointer.get()
+
+            while (currentHead != currentTail && writeIndex + 1 < batch.size) {
+                val packed = ringBuffer[currentHead.toInt()]
                 batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
                 batch[writeIndex++] = packed and 0xFFFFFFFFL
-                head = next(head)
+                currentHead = (currentHead + 1) % 2048
                 usedDataLongs += 2
             }
 
+            headPointer.set(currentHead)
             batch[0] = usedDataLongs.toLong()
         }
 
-        @Synchronized
-        fun isEmpty(): Boolean = head == tail
+        fun isEmpty(): Boolean = headPointer.get() == tailPointer.get()
     }
 
     /**
