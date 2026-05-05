@@ -961,6 +961,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
   static const Duration _incomingStatePublishInterval = Duration(
     milliseconds: 16,
   );
+  int _stateVersion = 0;
 
   bool _isPaused = false;
 
@@ -1115,10 +1116,12 @@ class ControlStateNotifier extends Notifier<ControlState> {
   }
 
   void _publishState() {
-    state = ControlState(
-      ccValues: Map<String, int>.of(_hotCcState),
-      noteStates: Map<int, Set<int>>.of(_hotNoteStates),
-      buttonStates: Map<String, bool>.of(_hotButtonStates),
+    _stateVersion++;
+    state = ControlState.raw(
+      version: _stateVersion,
+      ccValues: _hotCcState,
+      noteStates: _hotNoteStates,
+      buttonStates: _hotButtonStates,
     );
   }
 }

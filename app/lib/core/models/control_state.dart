@@ -4,11 +4,13 @@
 import 'package:collection/collection.dart';
 
 class ControlState {
+  final int version;
   final Map<String, int> ccValues;
   final Map<int, Set<int>> noteStates;
   final Map<String, bool> buttonStates;
 
   ControlState({
+    this.version = 0,
     required Map<String, int> ccValues,
     required Map<int, Set<int>> noteStates,
     required Map<String, bool> buttonStates,
@@ -20,17 +22,20 @@ class ControlState {
 
   /// Fast-path constructor that skips defensive copying.
   const ControlState.raw({
+    this.version = 0,
     required this.ccValues,
     required this.noteStates,
     required this.buttonStates,
   });
 
   ControlState copyWith({
+    int? version,
     Map<String, int>? ccValues,
     Map<int, Set<int>>? noteStates,
     Map<String, bool>? buttonStates,
   }) {
     return ControlState(
+      version: version ?? this.version,
       ccValues: ccValues ?? this.ccValues,
       noteStates: noteStates ?? this.noteStates,
       buttonStates: buttonStates ?? this.buttonStates,
@@ -51,6 +56,7 @@ class ControlState {
 
   Map<String, dynamic> toJson() {
     return {
+      'version': version,
       'ccValues': ccValues,
       'noteStates': noteStates.map(
         (k, v) => MapEntry(k.toString(), v.toList()),
@@ -60,11 +66,13 @@ class ControlState {
   }
 
   factory ControlState.fromJson(Map<String, dynamic> json) {
+    final version = json['version'] as int? ?? 0;
     final ccValuesMap = json['ccValues'] as Map<String, dynamic>? ?? {};
     final noteStatesMap = json['noteStates'] as Map<String, dynamic>? ?? {};
     final buttonStatesMap = json['buttonStates'] as Map<String, dynamic>? ?? {};
 
     return ControlState(
+      version: version,
       ccValues: ccValuesMap.map((k, v) => MapEntry(k, v as int)),
       noteStates: noteStatesMap.map(
         (k, v) => MapEntry(
@@ -80,6 +88,7 @@ class ControlState {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is ControlState &&
+        other.version == version &&
         const DeepCollectionEquality().equals(other.ccValues, ccValues) &&
         const DeepCollectionEquality().equals(other.noteStates, noteStates) &&
         const DeepCollectionEquality().equals(other.buttonStates, buttonStates);
@@ -87,6 +96,7 @@ class ControlState {
 
   @override
   int get hashCode => Object.hash(
+    version,
     const DeepCollectionEquality().hash(ccValues),
     const DeepCollectionEquality().hash(noteStates),
     const DeepCollectionEquality().hash(buttonStates),
