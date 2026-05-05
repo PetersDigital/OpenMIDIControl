@@ -98,7 +98,7 @@ class MainActivity : FlutterActivity() {
                 // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
                 // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
                 // until the UI thread has acknowledged the message, preventing queue flooding.
-                withContext(Dispatchers.Main) {
+                withContext(Dispatchers.Main.immediate) {
                     try {
                         eventSink?.success(payload)
                     } finally {
