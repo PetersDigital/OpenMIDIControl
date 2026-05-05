@@ -985,6 +985,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
       for (final controller in _hotCcControllers.values) {
         controller.close();
       }
+      _hotCcControllers.clear();
     });
 
     final current = service.currentState;
