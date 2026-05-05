@@ -258,6 +258,18 @@ State machine must be explicit and testable.
 - **Thermal Priority Scheduling:** By flagging the app as an `audio` category, we minimize OS-level background task interference and prevent the Android thermal manager from aggressively down-clocking the CPU during high-frequency MIDI bursts.
 - **Lazy-Init Map Allocation:** `CcNotifier.updateMultipleCCs()` uses single-pass iteration with lazy `Map` initialization — only allocates new state when actual changes are detected, avoiding double-pass and full-map copy overhead during MIDI bursts.
 - **Diagnostics Disposal Guard:** `DiagnosticsLoggerNotifier` uses `_disposed` flag to prevent state-write errors when `scheduleFrameCallback` fires after auto-dispose. Also resets `_pendingUpdate` in `onDispose` to prevent stale state on re-mount.
+- **Headless Compositor Suppression**: `UiStateSinkNode` suppresses all frame callbacks and visual
+  update requests when the application is in the background (`isPaused`), preventing GPU/CPU
+  wake-ups during inactivity.
+- **Lock-Free Native Pipeline**: Native `MidiParser` utilizes `AtomicLong` bit-packing to implement
+  a lock-free SPSC ring buffer for 32-bit UMP events, eliminating JNI synchronization overhead.
+- **Main.immediate Scheduling**: All native-to-UI notifications leverage `Dispatchers.Main.immediate`
+  to skip redundant thread dispatching if already executing on the Android Main Looper.
+- **Memory-Efficient Diagnostics**: The diagnostics logging system utilizes a version-tracked ring buffer, avoiding full list re-allocations for UI updates.
+- **Paint & Path Caching**: Performance widgets (`EndlessEncoder`, `XYPad`) cache `Paint` and `Path` objects
+  to eliminate garbage collection churn during 120Hz UI updates.
+- **On-Demand Ticker Lifecycle**: Tickers are strictly lifecycle-bound and only active during physical
+  animations (e.g., fader springs), preventing idle CPU consumption.
 - **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
 - **C++ Audio Layer (Conditional v0.5.0+):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
