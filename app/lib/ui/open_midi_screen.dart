@@ -122,15 +122,13 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
   ConsumerState<OpenMIDIMainScreen> createState() => _OpenMIDIMainScreenState();
 }
 
-class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
-    with WidgetsBindingObserver {
+class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
   bool _launchCheckPending = false;
   bool _transportSyncPending = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _checkFirstLaunch();
   }
 
@@ -138,29 +136,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
   void dispose() {
     _launchCheckPending = false;
     _transportSyncPending = false;
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    final orientation =
-        WidgetsBinding
-                .instance
-                .platformDispatcher
-                .views
-                .first
-                .physicalSize
-                .aspectRatio >
-            1
-        ? Orientation.landscape
-        : Orientation.portrait;
-
-    if (orientation == Orientation.landscape) {
-      ref.read(transportVisibleProvider.notifier).setVisible(true);
-    } else {
-      ref.read(transportVisibleProvider.notifier).setVisible(false);
-    }
   }
 
   Future<void> _checkFirstLaunch() async {
