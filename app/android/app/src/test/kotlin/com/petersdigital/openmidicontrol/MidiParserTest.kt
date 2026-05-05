@@ -161,4 +161,26 @@ class MidiParserTest {
         // The buffer should be empty now
         assertTrue(buffer.isEmpty())
     }
+
+    @Test
+    fun testRingBufferWrapAround() = runBlocking {
+        val buffer = MidiParser.IncomingEventsBuffer(2048, null)
+
+        // 1. Fill almost to the end
+        for (i in 0 until 2000) {
+            assertTrue(buffer.trySend(i.toLong()))
+        }
+        buffer.drainToBatch(LongArray(5000)) // Clears it, head/tail now at 2000
+
+        // 2. Push 100 more events to trigger wrap-around
+        // Tail is at 2000, next 48 will be at 2000-2047, then wrap to 0-51
+        for (i in 0 until 100) {
+            assertTrue("Should successfully send event $i during wrap-around", buffer.trySend(9999L + i))
+        }
+
+        val drainResult = LongArray(256)
+        buffer.drainToBatch(drainResult)
+        assertEquals(200L, drainResult[0]) // 100 events * 2 longs
+        assertTrue("Buffer should be empty after wrap-around drain", buffer.isEmpty())
+    }
 }
