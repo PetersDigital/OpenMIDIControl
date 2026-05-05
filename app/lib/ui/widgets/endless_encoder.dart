@@ -45,6 +45,9 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void initState() {
     super.initState();
     initPerformanceMixin();
+    _vrrTicker = createManagedTicker(
+      (_) {},
+    ); // Used strictly for gesture lifecycle tracking
     // Initialize from current state
     final hotValue = ref
         .read(controlStateProvider)
@@ -53,24 +56,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       _currentValue = hotValue;
       _lastPolledValue = hotValue;
     }
-
-    _setupTicker();
-  }
-
-  void _setupTicker() {
-    _vrrTicker = createManagedTicker((elapsed) {
-      if (!mounted || _isDragging) return;
-      final currentState = ref.read(controlStateProvider);
-      final val = currentState.ccValues["${widget.channel}:${widget.cc}"];
-      if (val != null && val != _lastPolledValue) {
-        _lastPolledValue = val;
-        if (val != _currentValue) {
-          setState(() {
-            _currentValue = val;
-          });
-        }
-      }
-    });
 
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
@@ -124,6 +109,13 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
     _accumulatedDelta = 0.0;
   }
 
+  void _handleDragCancel() {
+    _vrrTicker?.stop();
+    _isDragging = false;
+    _accumulatedDelta = 0.0;
+    _sendMidiUpdate(); // Final update
+  }
+
   void _handleDragUpdate(DragUpdateDetails details) {
     _accumulatedDelta -= details.delta.dy;
 
@@ -159,8 +151,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
             onPanStart: _handleDragStart,
             onPanUpdate: _handleDragUpdate,
             onPanEnd: _handleDragEnd,
-            onPanCancel: () =>
-                _handleDragEnd(DragEndDetails(velocity: Velocity.zero)),
+            onPanCancel: _handleDragCancel,
             behavior: HitTestBehavior.opaque,
             child: SizedBox(
               width: effectiveSize,
