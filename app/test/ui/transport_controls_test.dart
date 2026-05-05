@@ -160,5 +160,53 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('syncing transport visibility on multiple rotations', (
+      WidgetTester tester,
+    ) async {
+      await prefs.setBool('hasLaunched', true);
+
+      // 1. Start in Portrait
+      tester.view.physicalSize = const Size(600, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            firstLaunchCheckProvider.overrideWith((ref) => Future.value(false)),
+          ],
+          child: const MaterialApp(home: OpenMIDIMainScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially hidden in portrait
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
+
+      // 2. Rotate to Landscape
+      tester.view.physicalSize = const Size(1100, 550);
+      await tester.pump(); // Trigger build
+      await tester.pumpAndSettle(); // Allow post-frame callback
+
+      // Should be visible in landscape
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
+
+      // 3. Rotate back to Portrait
+      tester.view.physicalSize = const Size(600, 800);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Should be hidden in portrait again
+      expect(find.byIcon(Icons.play_arrow), findsNothing);
+
+      // 4. Rotate to Landscape AGAIN (Verifies flag reset)
+      tester.view.physicalSize = const Size(1100, 550);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Should be visible in landscape again
+      expect(find.byIcon(Icons.play_arrow).hitTestable(), findsWidgets);
+    });
   });
 }
