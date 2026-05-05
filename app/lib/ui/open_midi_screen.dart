@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets/hybrid_xy_pad.dart';
 import 'panels/drum_grid_panel.dart';
@@ -123,6 +124,9 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
 
 class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
     with WidgetsBindingObserver {
+  bool _launchCheckPending = false;
+  bool _transportSyncPending = false;
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +136,8 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
 
   @override
   void dispose() {
+    _launchCheckPending = false;
+    _transportSyncPending = false;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -158,20 +164,23 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
   }
 
   Future<void> _checkFirstLaunch() async {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final isFirstLaunch = await ref.read(firstLaunchCheckProvider.future);
-      if (isFirstLaunch) {
-        ref.read(transportVisibleProvider.notifier).setVisible(true);
+    if (!_launchCheckPending) {
+      SchedulerBinding.instance.addPostFrameCallback((_) async {
+        _launchCheckPending = true;
+        final isFirstLaunch = await ref.read(firstLaunchCheckProvider.future);
+        if (isFirstLaunch) {
+          ref.read(transportVisibleProvider.notifier).setVisible(true);
 
-        await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(seconds: 2));
 
-        if (mounted) {
-          ref.read(transportVisibleProvider.notifier).setVisible(false);
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('hasLaunched', true);
+          if (mounted) {
+            ref.read(transportVisibleProvider.notifier).setVisible(false);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('hasLaunched', true);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -182,16 +191,19 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
     final isTablet = size.shortestSide >= 600;
 
     // Sync transport visibility with orientation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final current = ref.read(transportVisibleProvider);
-        if (isLandscape && !current) {
-          ref.read(transportVisibleProvider.notifier).setVisible(true);
-        } else if (!isLandscape && current) {
-          ref.read(transportVisibleProvider.notifier).setVisible(false);
+    if (!_transportSyncPending) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _transportSyncPending = true;
+        if (mounted) {
+          final current = ref.read(transportVisibleProvider);
+          if (isLandscape && !current) {
+            ref.read(transportVisibleProvider.notifier).setVisible(true);
+          } else if (!isLandscape && current) {
+            ref.read(transportVisibleProvider.notifier).setVisible(false);
+          }
         }
-      }
-    });
+      });
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF111318),
@@ -734,18 +746,23 @@ class _DynamicConnectionIslandState
     extends ConsumerState<DynamicConnectionIsland> {
   bool _isExpanded = false;
   Timer? _collapseTimer;
+  bool _transportSyncPending = false;
 
   @override
   void initState() {
     super.initState();
     // Start expanded briefly to show status, then collapse
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _expandTemporarily();
-    });
+    if (!_transportSyncPending) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _transportSyncPending = true;
+        _expandTemporarily();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _transportSyncPending = false;
     _collapseTimer?.cancel();
     super.dispose();
   }
