@@ -80,6 +80,10 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - Standardized all preset and layout management under the `.omc` format.
   - Refactored the `SettingsScreen` to include a centralized **"OMC ECOSYSTEM"** section for all file management tools.
 - **Unified Control SSoT**: Consolidated all performance widgets to read MIDI configurations from a single `LayoutState` source of truth, eliminating configuration drift.
+- **Headless Compositor Guard**: Implemented `isPaused` lifecycle guard in `UiStateSinkNode` to prevent the Flutter compositor from waking up when backgrounded.
+- **Lock-Free Native Pipeline**: Replaced `@Synchronized` locks with an `AtomicLong`-based SPSC ring buffer in the native ingress pipeline.
+- **Zero-Copy State Logic**: Added `ControlState.raw` constructor to bypass defensive copying in the state hot-path.
+- **Memory-Efficient Logging**: Migrated diagnostics log to a version-tracked ring buffer, reducing heap churn during high-frequency monitoring.
 
 ### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 
