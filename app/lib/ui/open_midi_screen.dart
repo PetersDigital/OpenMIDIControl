@@ -165,8 +165,8 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
 
   Future<void> _checkFirstLaunch() async {
     if (!_launchCheckPending) {
+      _launchCheckPending = true;
       SchedulerBinding.instance.addPostFrameCallback((_) async {
-        _launchCheckPending = true;
         final isFirstLaunch = await ref.read(firstLaunchCheckProvider.future);
         if (isFirstLaunch) {
           ref.read(transportVisibleProvider.notifier).setVisible(true);
@@ -192,8 +192,8 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen>
 
     // Sync transport visibility with orientation
     if (!_transportSyncPending) {
+      _transportSyncPending = true;
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        _transportSyncPending = true;
         if (mounted) {
           final current = ref.read(transportVisibleProvider);
           if (isLandscape && !current) {
@@ -753,8 +753,8 @@ class _DynamicConnectionIslandState
     super.initState();
     // Start expanded briefly to show status, then collapse
     if (!_transportSyncPending) {
+      _transportSyncPending = true;
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        _transportSyncPending = true;
         _expandTemporarily();
       });
     }
