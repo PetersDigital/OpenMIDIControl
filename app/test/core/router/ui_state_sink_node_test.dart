@@ -308,5 +308,36 @@ void main() {
         expect(received[2]["ccs"], equals({"0:11": 32}));
       },
     );
+
+    test('does not emit updates when paused', () async {
+      var updateCount = 0;
+      final node = UiStateSinkNode(
+        onStateUpdate: (_) {
+          updateCount++;
+        },
+      );
+
+      node.setPaused(true);
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+          0,
+        ),
+      ]);
+
+      await Future.delayed(const Duration(milliseconds: 32));
+      expect(updateCount, 0);
+
+      node.setPaused(false);
+      node.execute([
+        MidiEvent(
+          buildUmp(messageType: 0x2, status: 0xB0, data1: 7, data2: 64),
+          0,
+        ),
+      ]);
+
+      await Future.delayed(const Duration(milliseconds: 32));
+      expect(updateCount, 1);
+    });
   });
 }
