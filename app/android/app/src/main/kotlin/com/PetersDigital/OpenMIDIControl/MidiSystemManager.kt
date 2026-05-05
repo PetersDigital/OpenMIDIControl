@@ -4,10 +4,6 @@
 package com.petersdigital.openmidicontrol
 
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -20,8 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object MidiSystemManager {
     private const val TAG = "MidiSystemManager"
-    
-    private val managerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     
     // Persistent state for USB Host connection (DAW/PC port open status)
     private val _usbHostConnected = MutableStateFlow(false)
@@ -88,6 +82,5 @@ object MidiSystemManager {
      */
     fun teardown() {
         Log.i(TAG, "Tearing down MidiSystemManager")
-        managerScope.cancel()
     }
 }
