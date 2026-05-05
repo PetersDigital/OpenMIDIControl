@@ -11,6 +11,7 @@ import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
 import 'config_gesture_wrapper.dart';
 import '../layout_state.dart';
+import '../../core/models/layout_models.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -52,6 +53,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   // No ticker needed for idle interaction
   int? _lastPolledX;
   int? _lastPolledY;
+
+  LayoutControl? _cachedControl;
 
   @override
   void initState() {
@@ -153,6 +156,14 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     });
   }
 
+  void _handleDragStart(DragStartDetails details, Size size) {
+    setState(() {
+      _isDragging = true;
+    });
+    _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
+    _updatePosition(details.localPosition, size, isFinal: false);
+  }
+
   void _updatePosition(
     Offset localPosition,
     Size size, {
@@ -192,12 +203,11 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       },
     );
 
-    final control = ref.read(layoutStateProvider).getControlById(widget.id);
-    final effectiveCcX = control?.defaultCc ?? widget.ccX;
-    final effectiveCcY = control?.secondaryCc ?? widget.ccY;
-    final effectiveChannel = control?.channel ?? widget.channel;
-    final effectiveInvertX = control?.invertX ?? widget.invertX;
-    final effectiveInvertY = control?.invertY ?? widget.invertY;
+    final effectiveCcX = _cachedControl?.defaultCc ?? widget.ccX;
+    final effectiveCcY = _cachedControl?.secondaryCc ?? widget.ccY;
+    final effectiveChannel = _cachedControl?.channel ?? widget.channel;
+    final effectiveInvertX = _cachedControl?.invertX ?? widget.invertX;
+    final effectiveInvertY = _cachedControl?.invertY ?? widget.invertY;
 
     final effectiveX = effectiveInvertX ? 1.0 - _normalizedX : _normalizedX;
     final effectiveY = effectiveInvertY ? 1.0 - _normalizedY : _normalizedY;
@@ -229,6 +239,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       prev,
       next,
     ) {
+      _cachedControl = next;
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
@@ -282,12 +293,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
           final size = Size(constraints.maxWidth, constraints.maxHeight);
 
           return GestureDetector(
-            onPanStart: (details) {
-              setState(() {
-                _isDragging = true;
-              });
-              _updatePosition(details.localPosition, size, isFinal: false);
-            },
+            onPanStart: (details) => _handleDragStart(details, size),
             onPanUpdate: (details) {
               _updatePosition(details.localPosition, size, isFinal: false);
             },
