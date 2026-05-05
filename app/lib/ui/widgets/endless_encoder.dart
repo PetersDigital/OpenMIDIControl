@@ -301,21 +301,29 @@ class _KnobSurfacePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
+    _gripPath ??= _buildGripPath();
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+    canvas.scale(radius);
+    // Draw cached path with thickness correction
+    canvas.drawPath(_gripPath!, gripPaint..strokeWidth = 1.0 / radius);
+    canvas.restore();
+  }
+
+  static Path? _gripPath;
+
+  static Path _buildGripPath() {
+    final path = Path();
     const gripCount = 24;
     for (int i = 0; i < gripCount; i++) {
-      final gripLength = radius * 0.15;
-
-      final angle = (i * 360 / gripCount) * math.pi / 180 + rotation;
-      final start = Offset(
-        center.dx + math.cos(angle) * (radius - gripLength),
-        center.dy + math.sin(angle) * (radius - gripLength),
-      );
-      final end = Offset(
-        center.dx + math.cos(angle) * radius,
-        center.dy + math.sin(angle) * radius,
-      );
-      canvas.drawLine(start, end, gripPaint);
+      final angle = (i * 360 / gripCount) * math.pi / 180;
+      // Use unit coordinates (0.85 to 1.0 radial)
+      path.moveTo(math.cos(angle) * 0.85, math.sin(angle) * 0.85);
+      path.lineTo(math.cos(angle), math.sin(angle));
     }
+    return path;
   }
 
   @override
