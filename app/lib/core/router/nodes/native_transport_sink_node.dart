@@ -15,7 +15,9 @@ class NativeTransportSinkNode extends SinkNode {
   static const int _maxBufferSize = 10;
   static const Duration _flushInterval = Duration(milliseconds: 16);
 
-  static Int64List _sharedBuffer = Int64List(0);
+  static final Int64List _sharedBuffer = Int64List(
+    16000,
+  ); // 8000 events slots (2 entries per event)
 
   @visibleForTesting
   static int get sharedBufferCapacity => _sharedBuffer.length;
@@ -24,6 +26,16 @@ class NativeTransportSinkNode extends SinkNode {
   Timer? _flushTimer;
 
   NativeTransportSinkNode({required this.channel});
+
+  void _queue(MidiEvent event) {
+    _eventBuffer.add(event);
+    if (_eventBuffer.length > 6400) {
+      _flush();
+      if (_eventBuffer.length > 6400) {
+        throw StateError('Event buffer overflow');
+      }
+    }
+  }
 
   @override
   void executeSingle(MidiEvent event) {
@@ -34,7 +46,7 @@ class NativeTransportSinkNode extends SinkNode {
             statusNibble == 0x90 ||
             statusNibble == 0xB0 ||
             statusNibble == 0xE0)) {
-      _eventBuffer.add(event);
+      _queue(event);
 
       if (_flushTimer == null || !_flushTimer!.isActive) {
         _flushTimer = Timer(_flushInterval, () => _flush());
@@ -59,7 +71,7 @@ class NativeTransportSinkNode extends SinkNode {
               statusNibble == 0x90 ||
               statusNibble == 0xB0 ||
               statusNibble == 0xE0)) {
-        _eventBuffer.add(event);
+        _queue(event);
       }
     }
 
@@ -86,10 +98,6 @@ class NativeTransportSinkNode extends SinkNode {
 
     final int count = _eventBuffer.length;
     final int requiredCapacity = count * 2;
-
-    if (_sharedBuffer.length < requiredCapacity) {
-      _sharedBuffer = Int64List(requiredCapacity);
-    }
 
     for (int i = 0; i < count; i++) {
       _sharedBuffer[i * 2] = _eventBuffer[i].ump;
