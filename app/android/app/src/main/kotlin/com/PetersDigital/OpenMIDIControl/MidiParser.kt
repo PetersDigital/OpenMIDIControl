@@ -97,7 +97,7 @@ object MidiParser {
 
                 val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
                 processSingleUmp(umpInt, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
-                
+
                 val messageType = (umpInt ushr 28) and 0xF
                 val wordCount = when (messageType) {
                     0x0, 0x1, 0x2 -> 1

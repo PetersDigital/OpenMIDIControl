@@ -74,6 +74,36 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   Ticker? _vrrTicker;
   int? _lastPolledValue;
 
+  Timer? _stateDebounceTimer;
+  final Map<String, dynamic> _pendingStateChanges = {};
+
+  void _batchStateUpdate(Map<String, dynamic> changes) {
+    _pendingStateChanges.addAll(changes);
+    _stateDebounceTimer?.cancel();
+    _stateDebounceTimer = Timer(const Duration(milliseconds: 8), () {
+      if (mounted) {
+        setState(() {
+          if (_pendingStateChanges.containsKey('isDragging')) {
+            _isDragging = _pendingStateChanges['isDragging'];
+          }
+          if (_pendingStateChanges.containsKey('ccNumber')) {
+            _ccNumber = _pendingStateChanges['ccNumber'];
+          }
+          if (_pendingStateChanges.containsKey('midiChannel')) {
+            _midiChannel = _pendingStateChanges['midiChannel'];
+          }
+          if (_pendingStateChanges.containsKey('ccLabel')) {
+            _ccLabel = _pendingStateChanges['ccLabel'];
+          }
+          if (_pendingStateChanges.containsKey('lastPolledValue')) {
+            _lastPolledValue = _pendingStateChanges['lastPolledValue'];
+          }
+        });
+        _pendingStateChanges.clear();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +145,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   void dispose() {
+    _stateDebounceTimer?.cancel();
     _animationController.dispose();
     disposePerformanceMixin();
     super.dispose();
@@ -128,9 +159,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
-    setState(() {
-      _isDragging = true; // Lock immediately to prevent host "yank" the fader
-    });
+    _batchStateUpdate({'isDragging': true});
 
     if (widget.behavior == FaderBehavior.catchUp) {
       final handleY =
@@ -200,7 +229,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     if (!mounted) return;
 
     if (!_isDragging) {
-      setState(() => _isDragging = true);
+      _batchStateUpdate({'isDragging': true});
     }
 
     final nowMs = _throttleStopwatch.elapsedMilliseconds;
@@ -322,11 +351,11 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           (control.defaultCc != _ccNumber ||
               control.channel != _midiChannel ||
               control.displayName != _ccLabel)) {
-        setState(() {
-          _ccNumber = control.defaultCc;
-          _midiChannel = control.channel;
-          _ccLabel = control.displayName;
-          _lastPolledValue = null;
+        _batchStateUpdate({
+          'ccNumber': control.defaultCc,
+          'midiChannel': control.channel,
+          'ccLabel': control.displayName,
+          'lastPolledValue': null,
         });
         clearManagedResources();
         addManagedSubscription(
@@ -378,109 +407,104 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
               onVerticalDragStart: (d) => _handleDragStart(d, constraints),
               onVerticalDragUpdate: (d) => _handleDragUpdate(d, constraints),
               onVerticalDragCancel: () {
-                setState(() {
-                  _isDragging = false;
-                });
+                _batchStateUpdate({'isDragging': false});
                 _sendMidiUpdate(isFinal: true);
               },
               onVerticalDragEnd: (_) {
-                setState(() {
-                  _isDragging = false;
-                });
+                _batchStateUpdate({'isDragging': false});
                 _sendMidiUpdate(isFinal: true);
               },
               behavior: HitTestBehavior.opaque,
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: const Color(0xFF111318),
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    // Filled active track
-                    AnimatedBuilder(
-                      animation: _animationController,
-                      child: activeTrack,
-                      builder: (context, child) {
-                        return FractionallySizedBox(
-                          heightFactor: _animationController.value,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  final double animValue = _animationController.value;
+                  final int ccValue = (animValue * 127).round();
+
+                  return Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: const Color(0xFF111318),
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        // Filled active track
+                        FractionallySizedBox(
+                          heightFactor: animValue,
                           widthFactor: 1.0,
                           alignment: Alignment.bottomCenter,
-                          child: child,
-                        );
-                      },
-                    ),
+                          child: activeTrack,
+                        ),
 
-                    // Full-width TM1637 Display pinned at top with visible gap
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      right: 16,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Black readout box — full width, top-padded
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                            color: const Color(0xFF0C0E12),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // Ghost segments — very faint
-                                Text(
-                                  "888",
-                                  textAlign: TextAlign.center,
-                                  style: ghostDisplayTextStyle,
+                        // Full-width TM1637 Display pinned at top with visible gap
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          right: 16,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Black readout box — full width, top-padded
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  12,
+                                  12,
+                                  12,
                                 ),
-                                // Active value
-                                AnimatedBuilder(
-                                  animation: _animationController,
-                                  builder: (context, child) {
-                                    final int ccValue =
-                                        (_animationController.value * 127)
-                                            .round();
-                                    return Text(
+                                color: const Color(0xFF0C0E12),
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Ghost segments — very faint
+                                    Text(
+                                      "888",
+                                      textAlign: TextAlign.center,
+                                      style: ghostDisplayTextStyle,
+                                    ),
+                                    // Active value
+                                    Text(
                                       ccValue.toString().padLeft(3, ' '),
                                       textAlign: TextAlign.center,
                                       style: displayTextStyle,
-                                    );
-                                  },
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
 
-                          // CC Name Label (long-press to open CC picker, double-tap to rename)
-                          const SizedBox(height: 8),
-                          ConfigGestureWrapper(
-                            id: widget.controlId,
-                            isDragging: _isDragging,
-                            onConfigRequested: _showConfigMenu,
-                            onRenameRequested: null,
-                            child: Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 64,
-                                minHeight: 44,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                _ccLabel,
-                                textAlign: TextAlign.center,
-                                style: AppText.performance(
-                                  color: Colors.white,
-                                  fontSize: labelFontSize,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.0,
+                              // CC Name Label (long-press to open CC picker, double-tap to rename)
+                              const SizedBox(height: 8),
+                              ConfigGestureWrapper(
+                                id: widget.controlId,
+                                isDragging: _isDragging,
+                                onConfigRequested: _showConfigMenu,
+                                onRenameRequested: null,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 64,
+                                    minHeight: 44,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    _ccLabel,
+                                    textAlign: TextAlign.center,
+                                    style: AppText.performance(
+                                      color: Colors.white,
+                                      fontSize: labelFontSize,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           );
