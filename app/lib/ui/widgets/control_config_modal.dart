@@ -277,53 +277,61 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
         ),
       ),
       actions: [
-        Row(
-          children: [
-            TextButton(
-              onPressed: () {
-                ref
-                    .read(layoutStateProvider.notifier)
-                    .clearControl(widget.controlId);
-                Navigator.of(context).pop();
-              },
-              child:
-                  Text('Clear', style: AppText.system(color: Colors.redAccent)),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () {
-                ref
-                    .read(layoutStateProvider.notifier)
-                    .resetControl(widget.controlId);
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                'Reset',
-                style: AppText.system(color: const Color(0xFFA6C9F8)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            children: [
+              TextButton(
+                onPressed: () {
+                  ref
+                      .read(layoutStateProvider.notifier)
+                      .clearControl(widget.controlId);
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'Clear',
+                  style: AppText.system(color: Colors.redAccent),
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: AppText.system(color: const Color(0xFFC3C7CA)),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  ref
+                      .read(layoutStateProvider.notifier)
+                      .resetControl(widget.controlId);
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'Reset',
+                  style: AppText.system(color: const Color(0xFFA6C9F8)),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFA6C9F8),
-                foregroundColor: const Color(0xFF0C0E12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  'Cancel',
+                  style: AppText.system(color: const Color(0xFFC3C7CA)),
+                ),
               ),
-              child: Text(
-                'Save',
-                style: AppText.system(fontWeight: FontWeight.bold),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFA6C9F8),
+                  foregroundColor: const Color(0xFF0C0E12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: Text(
+                  'Save',
+                  style: AppText.system(fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
