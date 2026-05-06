@@ -37,6 +37,11 @@ import java.util.concurrent.ConcurrentHashMap
 class MainActivity : FlutterActivity() {
     companion object {
         var activeInstance: MainActivity? = null
+        
+        // Pre-allocated static events to reduce GC pressure
+        private val EVENT_USB_AVAILABLE = mapOf("type" to "usb_state", "state" to "AVAILABLE")
+        private val EVENT_USB_DISCONNECTED = mapOf("type" to "usb_state", "state" to "DISCONNECTED")
+        private val EVENT_USB_CONNECTED = mapOf("type" to "usb_state", "state" to "CONNECTED")
     }
 
     private val mainScope = CoroutineScope(Dispatchers.Main + Job())
@@ -178,24 +183,16 @@ class MainActivity : FlutterActivity() {
                     cachedDevicesList = null // Invalidate cache on USB state transition
                     if (!lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = true
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "AVAILABLE"
-                        )
                         mainThreadHandler.post {
-                            systemEventSink?.success(event)
+                            systemEventSink?.success(EVENT_USB_AVAILABLE)
                         }
                     }
                 } else if (!connected) {
                     cachedDevicesList = null // Invalidate cache on USB state transition
                     if (lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = false
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "DISCONNECTED"
-                        )
                         mainThreadHandler.post {
-                            systemEventSink?.success(event)
+                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
                         }
                     }
                 }
@@ -271,7 +268,7 @@ class MainActivity : FlutterActivity() {
         coroutineScope.launch(Dispatchers.Main) {
             MidiSystemManager.usbHostConnected.collect { connected ->
                 if (connected) {
-                    sendSystemEvent("usb_state", mapOf("state" to "CONNECTED"))
+                    sendSystemEvent("usb_state", EVENT_USB_CONNECTED)
                 }
             }
         }
@@ -321,21 +318,13 @@ class MainActivity : FlutterActivity() {
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
                             lastUsbHostConnectedState = false
-                            val initEvent = mapOf(
-                                "type" to "usb_state",
-                                "state" to "AVAILABLE"
-                            )
-                            systemEventSink?.success(initEvent)
+                            systemEventSink?.success(EVENT_USB_AVAILABLE)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
                             cachedDevicesList = null
-                            sendSystemEvent("usb_state", mapOf("state" to "DISCONNECTED"))
+                            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
 
-                            val initEvent = mapOf(
-                                "type" to "usb_state",
-                                "state" to "DISCONNECTED"
-                            )
-                            systemEventSink?.success(initEvent)
+                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
                         }
                     }
                 }
@@ -689,7 +678,7 @@ class MainActivity : FlutterActivity() {
         if (portId == "peripheral_host") {
             // Special handling for USB Peripheral (OTG) disconnects
             MidiSystemManager.setUsbHostConnected(false)
-            sendSystemEvent("usb_state", mapOf("state" to "DISCONNECTED"))
+            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
         } else if (portId == "virtual_daw") {
             // Cleanup virtual session if needed
             activeSessions[portId]?.job?.cancel()
