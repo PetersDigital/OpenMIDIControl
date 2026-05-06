@@ -16,7 +16,6 @@ class ConfigGestureWrapper extends ConsumerStatefulWidget {
   final Widget child;
   final VoidCallback? onConfigRequested;
   final VoidCallback? onRenameRequested;
-  final bool isDragging;
   final HitTestBehavior behavior;
 
   const ConfigGestureWrapper({
@@ -25,7 +24,6 @@ class ConfigGestureWrapper extends ConsumerStatefulWidget {
     required this.child,
     this.onConfigRequested,
     this.onRenameRequested,
-    this.isDragging = false,
     this.behavior = HitTestBehavior.translucent,
   });
 
@@ -68,15 +66,6 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
   }
 
   @override
-  void didUpdateWidget(covariant ConfigGestureWrapper oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.isDragging && widget.isDragging) {
-      // If we started dragging performance controls, immediately cancel any pending config
-      _stopConfigTimer();
-    }
-  }
-
-  @override
   void dispose() {
     _progressController.dispose();
     _configTimer?.cancel();
@@ -94,7 +83,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
     // HARDENING: Prevent multi-touch interference.
     // If a finger is already down, ignore new touches for configuration triggers.
     // This stops "flams" or simultaneous performance hits from triggering the menu.
-    if (_isDown || widget.isDragging) return;
+    if (_isDown) return;
 
     // If no callbacks are provided, don't track taps at all to avoid stealing gestures
     if (widget.onConfigRequested == null && widget.onRenameRequested == null) {
@@ -166,9 +155,9 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
 
     _configTimer?.cancel();
     _configTimer = Timer(duration, () {
-      // Final validation before triggering: finger must still be down,
-      // and we must not be dragging a performance control.
-      if (!_isDown || widget.isDragging || !mounted) return;
+      // Final validation before triggering: finger must still be down.
+      // (The max pan distance threshold handles preventing trigger on drag).
+      if (!_isDown || !mounted) return;
 
       setState(() {
         _isDown = false;
@@ -232,6 +221,12 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       onTap: shouldIntercept ? () {} : null,
       onDoubleTap: shouldIntercept ? () {} : null,
       onLongPress: shouldIntercept ? () {} : null,
+      // Intercept pan gestures to prevent the underlying fader from moving
+      // while the user is attempting a double-tap-and-hold config gesture.
+      onPanStart: shouldIntercept ? (_) {} : null,
+      onPanUpdate: shouldIntercept ? (_) {} : null,
+      onPanEnd: shouldIntercept ? (_) {} : null,
+      onPanCancel: shouldIntercept ? () {} : null,
       behavior: shouldIntercept
           ? HitTestBehavior.opaque
           : HitTestBehavior.translucent,
