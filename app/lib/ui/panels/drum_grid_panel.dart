@@ -8,7 +8,8 @@ import '../widgets/delayed_menu_trigger.dart';
 import '../layout_state.dart';
 
 class DrumGridPanel extends ConsumerWidget {
-  const DrumGridPanel({super.key});
+  final bool isActive;
+  const DrumGridPanel({super.key, this.isActive = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -64,6 +65,7 @@ class DrumGridPanel extends ConsumerWidget {
                 return VelocityDrumPad(
                   key: ValueKey('drum_pad_$index'),
                   index: index,
+                  isActive: isActive,
                 );
               },
             ),

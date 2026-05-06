@@ -26,7 +26,10 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
     this.minVelocity = 30,
     this.maxVelocity = 127,
     this.showVelocityGhost = true,
+    this.isActive = true,
   });
+
+  final bool isActive;
 
   @override
   ConsumerState<VelocityDrumPad> createState() => _VelocityDrumPadState();
@@ -55,6 +58,14 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       upperBound: 1.0,
       value: 1.0,
     );
+  }
+
+  @override
+  void didUpdateWidget(VelocityDrumPad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive && !widget.isActive) {
+      _scaleController.stop();
+    }
   }
 
   @override

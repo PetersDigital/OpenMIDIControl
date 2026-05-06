@@ -36,7 +36,10 @@ class HybridTouchFader extends ConsumerStatefulWidget {
     this.initialValue = 0.0,
     this.isMobile = true,
     this.behavior = FaderBehavior.jump,
+    this.isActive = true,
   });
+
+  final bool isActive;
 
   @override
   ConsumerState<HybridTouchFader> createState() => _HybridTouchFaderState();
@@ -142,11 +145,19 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       }
     });
 
+    if (widget.isActive) {
+      _setupMidiListeners();
+    }
+  }
+
+  void _setupMidiListeners() {
+    clearManagedResources();
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
         previous,
         next,
       ) {
+        if (!widget.isActive) return;
         if (next is AsyncData) {
           final val = next.value;
           if (val != null && val != _lastPolledValue) {
@@ -157,6 +168,33 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         }
       }),
     );
+  }
+
+  @override
+  void didUpdateWidget(HybridTouchFader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      if (widget.isActive) {
+        // Re-setup listeners
+        _setupMidiListeners();
+        // Re-sync value when coming back to foreground
+        final hotValue = ref
+            .read(controlStateProvider)
+            .ccValues["$_midiChannel:$_ccNumber"];
+        if (hotValue != null) {
+          final target = hotValue / 127.0;
+          if ((_animationController.value - target).abs() > 0.001) {
+            _animationController.value = target;
+          }
+        }
+      } else {
+        // Suspend heavy resources
+        clearManagedResources();
+        _animationController.stop();
+        _vrrTicker?.stop();
+        _stateDebounceTimer?.cancel();
+      }
+    }
   }
 
   @override

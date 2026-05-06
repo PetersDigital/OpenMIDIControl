@@ -921,37 +921,39 @@ class _GridButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final baseSize = constraints.smallest.shortestSide;
-        final iconSize = isSolid ? baseSize * 0.38 : baseSize * 0.30;
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final baseSize = constraints.smallest.shortestSide;
+          final iconSize = isSolid ? baseSize * 0.38 : baseSize * 0.30;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: bgColor,
-            border: Border.all(
-              color: const Color(0xFF111318).withValues(alpha: 0.2),
-              width: 0.5,
+          return Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              border: Border.all(
+                color: const Color(0xFF111318).withValues(alpha: 0.2),
+                width: 0.5,
+              ),
+              boxShadow: isSolid
+                  ? [
+                      BoxShadow(
+                        color: shadowColor.withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        blurStyle: BlurStyle.normal,
+                      ),
+                    ]
+                  : null,
             ),
-            boxShadow: isSolid
-                ? [
-                    BoxShadow(
-                      color: shadowColor.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      blurStyle: BlurStyle.normal,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: iconSize.clamp(35.0, 50.0),
+            child: Center(
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: iconSize.clamp(35.0, 50.0),
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -1012,6 +1014,7 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                       initialValue: 1.0,
                       isMobile: widget.isMobile,
                       behavior: ref.watch(faderBehaviorProvider),
+                      isActive: currentPage == 0,
                     ),
                   ),
                   Expanded(
@@ -1025,20 +1028,29 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                       initialValue: 64 / 127.0,
                       isMobile: widget.isMobile,
                       behavior: ref.watch(faderBehaviorProvider),
+                      isActive: currentPage == 0,
                     ),
                   ),
                 ],
               ),
 
               // Page 1: Single High-Precision XY Pad
-              const Padding(
-                key: ValueKey('page_xy'),
-                padding: EdgeInsets.all(16),
-                child: HybridXYPad(id: "xy_main", ccX: 1, ccY: 11),
+              Padding(
+                key: const ValueKey('page_xy'),
+                padding: const EdgeInsets.all(16),
+                child: HybridXYPad(
+                  id: "xy_main",
+                  ccX: 1,
+                  ccY: 11,
+                  isActive: currentPage == 1,
+                ),
               ),
 
               // Page 2: Drum Grid Panel
-              const DrumGridPanel(key: ValueKey('page_drums')),
+              DrumGridPanel(
+                key: const ValueKey('page_drums'),
+                isActive: currentPage == 2,
+              ),
 
               // Page 3: Utility Grid Panel
               const UtilityGridPanel(key: ValueKey('page_utility')),

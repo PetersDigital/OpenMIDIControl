@@ -31,7 +31,10 @@ class HybridXYPad extends ConsumerStatefulWidget {
     this.invertX = false,
     this.invertY = true, // By default, Y=0 is usually bottom in audio software
     this.padColor = const Color(0xFF282A2E),
+    this.isActive = true,
   });
+
+  final bool isActive;
 
   @override
   ConsumerState<HybridXYPad> createState() => _HybridXYPadState();
@@ -76,6 +79,13 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       _normalizedY = hotY / 127.0;
     }
 
+    if (widget.isActive) {
+      _setupMidiListeners();
+    }
+  }
+
+  void _setupMidiListeners() {
+    clearManagedResources();
     final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
     final channelSub = controlSub?.channel ?? widget.channel;
     final ccXSub = controlSub?.defaultCc ?? widget.ccX;
@@ -86,6 +96,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         previous,
         next,
       ) {
+        if (!widget.isActive) return;
         if (next is AsyncData) {
           final valX = next.value;
           if (valX != null && valX != _lastPolledX) {
@@ -100,6 +111,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         previous,
         next,
       ) {
+        if (!widget.isActive) return;
         if (next is AsyncData) {
           final valY = next.value;
           if (valY != null && valY != _lastPolledY) {
@@ -109,6 +121,42 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         }
       }),
     );
+  }
+
+  @override
+  void didUpdateWidget(HybridXYPad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      if (widget.isActive) {
+        // Re-setup listeners
+        _setupMidiListeners();
+        // Re-sync values when coming back to foreground
+        final control = ref.read(layoutStateProvider).getControlById(widget.id);
+        final channel = control?.channel ?? widget.channel;
+        final ccX = control?.defaultCc ?? widget.ccX;
+        final ccY = control?.secondaryCc ?? widget.ccY;
+        final invertX = control?.invertX ?? widget.invertX;
+        final invertY = control?.invertY ?? widget.invertY;
+
+        final controlState = ref.read(controlStateProvider);
+        final hotX = controlState.ccValues["$channel:$ccX"];
+        final hotY = controlState.ccValues["$channel:$ccY"];
+
+        setState(() {
+          if (hotX != null) {
+            final normX = hotX / 127.0;
+            _normalizedX = invertX ? 1.0 - normX : normX;
+          }
+          if (hotY != null) {
+            final normY = hotY / 127.0;
+            _normalizedY = invertY ? 1.0 - normY : normY;
+          }
+        });
+      } else {
+        // Suspend resources
+        _throttleTimer?.cancel();
+      }
+    }
   }
 
   @override
