@@ -968,6 +968,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
   final Map<String, bool> _hotButtonStates = {};
 
   final Map<String, StreamController<int>> _hotCcControllers = {};
+  final Set<String> _pendingCcUpdates = {};
   Timer? _pendingIncomingPublishTimer;
   static const Duration _incomingStatePublishInterval = Duration(
     milliseconds: 16,
@@ -1089,7 +1090,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
     _hotCcState.clear();
     for (final entry in presetState.ccValues.entries) {
       _hotCcState[entry.key] = entry.value;
-      _hotCcControllers[entry.key]?.add(entry.value);
+      _pendingCcUpdates.add(entry.key);
     }
 
     _publishState();
@@ -1121,12 +1122,19 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (_hotCcState[address] == value) return false;
 
     _hotCcState[address] = value;
-    _hotCcControllers[address]?.add(value);
+    _pendingCcUpdates.add(address);
     return true;
   }
 
   void _publishState() {
     _pendingIncomingPublishTimer?.cancel();
+
+    // Publish pending individual CC updates
+    for (final address in _pendingCcUpdates) {
+      _hotCcControllers[address]?.add(_hotCcState[address]!);
+    }
+    _pendingCcUpdates.clear();
+
     _stateVersion++;
     state = ControlState.raw(
       version: _stateVersion,
