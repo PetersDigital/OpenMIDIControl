@@ -220,7 +220,9 @@ class MidiService {
 
   final Map<String, dynamic> _cachedState = {};
 
-  MidiService() {
+  final bool useBackgroundWorker;
+
+  MidiService({this.useBackgroundWorker = true}) {
     _uiStateController = StreamController<Map<String, dynamic>>.broadcast(
       onListen: () {
         if (_cachedState.isNotEmpty) {
@@ -359,7 +361,10 @@ class MidiService {
     // Set up the NativeTransportSinkNode here
     outgoingRouter.addNode(
       'nativeSink',
-      NativeTransportSinkNode(channel: _channel),
+      NativeTransportSinkNode(
+        channel: _channel,
+        useBackgroundWorker: useBackgroundWorker,
+      ),
     );
 
     // Loopback for local UI synchronization (e.g. Fader -> XY Pad)
