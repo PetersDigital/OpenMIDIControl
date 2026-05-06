@@ -29,6 +29,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Android Native UMP SDK Enforcement:** explicitly hardcoded `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` directly in `app/android/app/build.gradle.kts` to strictly support native UMP.
 - **Tactile Encoder Grips**: Added 24-spoke rotational grips to `EndlessEncoderWidget` for physical tactile feedback.
 - **Audio dB Color Scheme**: Implemented dynamic LED ring coloring based on MIDI value thresholds (Green/Amber/Red).
+- **Interactive Developer CLI**: Enhanced `run_app.py` with an interactive mode supporting device selection, release builds, and APK signing workflows.
+- **Thermal Hardening**: Implemented visibility-aware resource management across all performance widgets. Background widgets now suspend MIDI listeners and tickers to eliminate CPU churn in `IndexedStack`.
 
 ### Changed
 
@@ -39,6 +41,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
   - Migrated orientation-driven transport visibility updates to `didChangeMetrics` to eradicate build-phase layout flickers.
   - Hardened the render tree with `const` constructors for static leaf nodes and `_GridButton`.
 - **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across orientations, horizontally centering the connection status badge.
+- **Control Config UX**: Standardized the action button row in `ControlConfigModal` with consistent horizontal padding and pill-shaped 'Save' buttons for improved ergonomics.
 - **Transport Bar Normalization**: Removed redundant transport controls, normalized grid layout, and set transport to default visible in landscape to resolve overflow issues.
 - **Performance Lock Relocation**: Moved the performance lock icon to the performance zone pagination bar for improved accessibility and proximity to the performance zone.
 - **Docs Consolidation**: Updated architectural and design documentation to formally reflect `MidiRouter` (DAG), thermal hardening optimizations, and the UMP shift.
@@ -55,10 +58,17 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Bitwise & Math Safety**: Hardened UMP assembly with precedence grouping and added math guards for zero-width/inverted ranges in `RemapNode`.
 - **Config Gesture Reliability**: Refactored `ConfigGestureWrapper` to use monotonic `Stopwatch` timing for reliable double-tap detection.
 - **MidiRouter Stability**: Implemented strictly bounded object pools (`_MAX_POOL_SIZE = 256`) to prevent memory inflation during high-frequency routing bursts.
+- **Timer Leak Fix**: Replaced runaway `Timer.periodic` with a self-canceling one-off timer in the worker isolate fallback to prevent idle CPU leaks.
+- **Orientation Memory Leak**: Tracked orientation changes via `didChangeDependencies` to prevent redundant `addPostFrameCallback` registration during build cycles.
+- **Riverpod-Based Lifecycle Observation**: Replaced `WidgetsBindingObserver` in `PerformanceTickerMixin` with `appLifecycleStateProvider` to reduce high-frequency notification overhead.
+- **Zero-Copy Isolate Transport**: Implemented `TransferableTypedData` for background transport isolate to eliminate memory copying between the main thread and MIDI worker.
+- **Native Object Pooling**: Introduced reusable `LongArray` buffer pools for native-to-Dart transport to eliminate GC pressure at 120Hz.
+- **Native Event Suppression**: Added intelligent deduplication for USB state broadcasts and MIDI device discovery events in `MainActivity.kt`.
 
 ### Optimized
 
 - **O(1) Grid Rendering**: Optimized rebuilds via index-based leaf subscriptions and decoupled render pulls to eliminate O(N) rebuilds during automation.
+- **Blur Shadow GPU Optimization**: Replaced `_GridButton` `BlurStyle.inner` with `BlurStyle.normal` to avoid hardware-accelerated rendering bottlenecks and improve frame performance.
 - **Zero-Allocation Processing**: Refactored `UiStateSinkNode` and `CcNotifier` to use primitive-indexed collections and pre-allocated address keys, eliminating GC churn.
 - **120Hz Outgoing MIDI**: Increased outgoing MIDI transmission rate to 8ms (120Hz) for expressive widgets.
 - **State Equality**: Implemented value equality on models using the `collection` package to prevent unnecessary widget rebuilds.
@@ -73,6 +83,10 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Headless Compositor Guard**: Implemented `isPaused` lifecycle guard in `UiStateSinkNode` to prevent the Flutter compositor from waking up when the application is backgrounded.
 - **Zero-Copy Performance Models**: Added `ControlState.raw` constructor to bypass defensive map copying during high-frequency MIDI automation.
 - **Atomic Ring Buffer (Native)**: Replaced standard synchronized buffers in `MidiParser` with an `AtomicLong`-based SPSC (Single Producer Single Consumer) ring buffer for lock-free 32-bit event reconstruction.
+- **Transport Isolate Decoupling**: Migrated native MIDI transport logic to a dedicated background isolate, reducing JNI overhead and preventing UI thread stuttering during high-density bursts.
+- **Stream Throttling**: Implemented per-CC stream throttling in `ControlStateNotifier` to deduplicate redundant updates before they reach the UI bridge.
+- **Zero-Copy Optimization**: Removed defensive `UnmodifiableMapView` wrapping in `ControlState.copyWith` to eliminate redundant object allocations in the hot-path.
+- **Native Map Pre-allocation**: Standardized on pre-allocated object maps for Android USB events to avoid heap churn during device hot-plugging.
 
 ### Hardening & Resilience
 - **Ticker Lifecycle Optimization**: Restriced ticker usage to active spring simulations in `HybridTouchFader`. Removed redundant tickers from `XYPad` and `EndlessEncoder`.
@@ -82,6 +96,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Scheduling Guardrails**: Reset frame callback guards strictly inside scheduler callbacks to prevent frame drop spirals during thermal throttling.
 - **Pre-allocated JNI Buffers**: Pre-allocated `Int64List` transit buffers in `MidiRouter` to eliminate per-event array allocations.
 - **Debounced Interaction**: Standardized on 8ms (120Hz) batching for `setState` in the touch hot-path, preventing UI thread saturation.
+- **Gesture System Decoupling**: Hardened `ConfigGestureWrapper` by decoupling interaction state from performance widgets. Implemented internal pan interception to prevent configuration timeouts from being triggered by performance gestures.
+- **Render Isolation**: Strategic implementation of `RepaintBoundary` on high-complexity leaf nodes (e.g., `_GridButton`) to minimize GPU repaint costs during header updates.
 
 ## [0.2.3] - 2026-04-24
 

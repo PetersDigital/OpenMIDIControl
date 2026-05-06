@@ -270,6 +270,14 @@ State machine must be explicit and testable.
   to eliminate garbage collection churn during 120Hz UI updates.
 - **On-Demand Ticker Lifecycle**: Tickers are strictly lifecycle-bound and only active during physical
   animations (e.g., fader springs), preventing idle CPU consumption.
+- **Visibility-Aware Resource Suspension**: Performance widgets (`HybridTouchFader`, `HybridXYPad`, `DrumGridPanel`) explicitly stop MIDI stream listeners, AnimationControllers, and debouncing timers when moved to the background (e.g., inside an `IndexedStack`). This ensures that complex tabbed layouts do not consume CPU/GPU resources for non-visible components.
+- **Background Transport Isolate**: Native MIDI transport is decoupled from the main Dart isolate using a dedicated worker isolate. This prevents high-density MIDI bursts from saturating the UI thread and ensures jitter-free processing of native 32-bit UMP packets.
+- **Zero-Copy Isolate Communication**: Utilizes `TransferableTypedData` to move MIDI event batches between isolates without memory copying or garbage collection pressure.
+- **Persistent MIDI System Manager**: Native MIDI events are captured by a singleton `MidiSystemManager` using Kotlin `StateFlow`, allowing the MIDI transport to persist during Android Activity reconstruction (e.g., orientation changes).
+- **Native Object Pooling**: Implements a reusable pool of `LongArray` buffers for native-to-Dart event transit, eliminating allocation churn and reducing peak memory usage during 120Hz automation streams.
+- **Stream Throttling**: The `ControlStateNotifier` implements a throttled per-CC update stream, deduplicating high-frequency redundant MIDI events before they are dispatched to the UI bridge.
+- **O(1) State Equality**: The `ControlState` model implements equality checks based strictly on a monotonically increasing `version` counter, eliminating $O(N)$ collection comparisons during Riverpod state transitions.
+- **Native Deduplication Buffers**: `MainActivity.kt` maintains 16k-entry `IntArray` and `LongArray` buffers to perform O(1) deduplication and rate-limiting for every possible MIDI CC/Channel combination at the native boundary.
 - **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
 - **C++ Audio Layer (Conditional v0.5.0+):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
@@ -278,7 +286,8 @@ State machine must be explicit and testable.
 #### 1. PerformanceTickerMixin
 Standardized lifecycle management for high-frequency interactive widgets (`HybridTouchFader`, `HybridXYPad`, `EndlessEncoder`).
 - **Managed Disposal**: Automatically cancels `ProviderSubscription` and stops `Ticker` instances when widgets are unmounted or the app enters the background.
-- **Resource Recovery**: Centralizes `WidgetsBindingObserver` to pause heavy UI logic during background suspension, significantly reducing idle battery drain.
+- **Riverpod Lifecycle Bridge**: Now utilizes `appLifecycleStateProvider` via Riverpod `listenManual` instead of native `WidgetsBindingObserver`, consolidating lifecycle management and reducing the number of global observers.
+- **Resource Recovery**: Centralizes background suspension to pause heavy UI logic during inactivity, significantly reducing idle battery drain.
 - **Disposal Guards**: Enforces mandatory `_disposed` checks in all asynchronous callbacks (`addPostFrameCallback`, `scheduleFrameCallback`) to prevent state mutations on unmounted widgets.
 
 #### 2. Monotonic Timing Guards

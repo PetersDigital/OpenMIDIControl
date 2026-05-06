@@ -84,6 +84,14 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Lock-Free Native Pipeline**: Replaced `@Synchronized` locks with an `AtomicLong`-based SPSC ring buffer in the native ingress pipeline.
 - **Zero-Copy State Logic**: Added `ControlState.raw` constructor to bypass defensive copying in the state hot-path.
 - **Memory-Efficient Logging**: Migrated diagnostics log to a version-tracked ring buffer, reducing heap churn during high-frequency monitoring.
+- **Thermal Hardening**: Implemented visibility-aware resource management. Performance widgets now suspend MIDI listeners and tickers when backgrounded in `IndexedStack`.
+- **Gesture System Hardening**: Decoupled `ConfigGestureWrapper` from widget-level interaction state to eliminate gesture noise and ensure reliable configuration trigger timings.
+- **UI UX Normalization**: Standardized action buttons in `ControlConfigModal` with consistent layout and pill-shaped aesthetics.
+- **Developer Experience CLI**: Enhanced `run_app.py` with an interactive mode for device management and release workflows.
+- **Riverpod-Based Lifecycle Bridge**: Migrated `PerformanceTickerMixin` to use `appLifecycleStateProvider` via Riverpod `listenManual`, consolidating lifecycle management and eliminating native observer overhead.
+- **Background Transport Isolate**: Implemented a dedicated worker isolate for native MIDI transport, utilizing `TransferableTypedData` for zero-copy communication to eliminate UI thread saturation.
+- **Native Object Pooling**: Introduced reusable `LongArray` pools for native-to-Dart transit to eliminate garbage collection churn during automation bursts.
+- **Orientation Memory Leak Fix**: Tracked orientation changes via `didChangeDependencies` to prevent redundant `addPostFrameCallback` registration.
 
 ### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 
