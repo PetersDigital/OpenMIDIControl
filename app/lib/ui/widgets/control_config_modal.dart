@@ -103,13 +103,25 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF1E2024),
-      title: Text(
-        'Configure Control',
-        style: AppText.performance(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Configure Control',
+            style: AppText.performance(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Color(0xFFC3C7CA)),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            splashRadius: 20,
+          ),
+        ],
       ),
       content: ScrollableDialogContent(
         child: Column(
@@ -278,7 +290,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0),
           child: Row(
             children: [
               TextButton(
@@ -293,7 +305,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   style: AppText.system(color: Colors.redAccent),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               TextButton(
                 onPressed: () {
                   ref
@@ -306,21 +318,14 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   style: AppText.system(color: const Color(0xFFA6C9F8)),
                 ),
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  'Cancel',
-                  style: AppText.system(color: const Color(0xFFC3C7CA)),
-                ),
-              ),
-              const SizedBox(width: 12),
+              const Spacer(),
               ElevatedButton(
                 onPressed: _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFA6C9F8),
                   foregroundColor: const Color(0xFF0C0E12),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
+                    horizontal: 32,
                     vertical: 12,
                   ),
                   shape: RoundedRectangleBorder(
