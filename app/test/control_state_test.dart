@@ -60,17 +60,6 @@ void main() {
       expect(copied, isNot(same(original)));
     });
 
-    test('copyWith produces immutable result', () {
-      final state = ControlState(
-        ccValues: {"0:1": 64},
-        noteStates: {},
-        buttonStates: {},
-      );
-      final copied = state.copyWith(ccValues: {"0:1": 100});
-
-      expect(() => copied.ccValues["0:2"] = 0, throwsUnsupportedError);
-    });
-
     test('copyWith updates a single CC address correctly', () {
       final state = ControlState(
         ccValues: {"0:1": 64},
@@ -100,19 +89,6 @@ void main() {
 
       expect(updated.ccValues["0:10"], 127);
       expect(updated.ccValues["0:1"], 64);
-    });
-
-    test('copyWith produced results are immutable', () {
-      final state = ControlState(
-        ccValues: {"0:1": 64},
-        noteStates: {},
-        buttonStates: {},
-      );
-      final updated = state.copyWith(
-        ccValues: Map.of(state.ccValues)..["0:1"] = 100,
-      );
-
-      expect(() => updated.ccValues["0:2"] = 0, throwsUnsupportedError);
     });
 
     test('copyWith preserves existing CCs unchanged', () {

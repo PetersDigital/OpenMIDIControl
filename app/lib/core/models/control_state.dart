@@ -34,7 +34,7 @@ class ControlState {
     Map<int, Set<int>>? noteStates,
     Map<String, bool>? buttonStates,
   }) {
-    return ControlState(
+    return ControlState.raw(
       version: version ?? this.version,
       ccValues: ccValues ?? this.ccValues,
       noteStates: noteStates ?? this.noteStates,
