@@ -92,12 +92,15 @@ def get_flutter_devices(flutter_project_dir: Path) -> List[Dict[str, Any]]:
         List of device dictionaries with id, name, and targetPlatform
     """
     try:
+        # Use shell=True on Windows to correctly find flutter.bat
+        is_windows = os.name == 'nt'
         result = subprocess.run(
             ['flutter', 'devices', '--machine'],
             cwd=flutter_project_dir,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            shell=is_windows
         )
         
         devices = json.loads(result.stdout)
@@ -118,7 +121,6 @@ def select_device(devices: List[Dict[str, Any]]) -> Optional[str]:
     Interactive device selection.
     
     Returns:
-        Selected device ID or None if no selection
     """
     if not devices:
         return None
@@ -133,7 +135,11 @@ def select_device(devices: List[Dict[str, Any]]) -> Optional[str]:
     print()
     try:
         selection = input(f"{Colors.CYAN}Select a device [0-{len(devices) - 1}]: {Colors.RESET}")
-        selected_index = int(selection.strip())
+        selection = selection.strip()
+        if not selection:
+            return None
+            
+        selected_index = int(selection)
         
         if 0 <= selected_index < len(devices):
             device_id = devices[selected_index].get('id')
@@ -232,6 +238,34 @@ storeFile=upload-keystore.jks
     return True
 
 
+def build_flutter_app(
+    flutter_project_dir: Path,
+    build_type: str,
+    release_mode: bool = False
+) -> int:
+    """
+    Build the Flutter app.
+    
+    Returns:
+        Exit code from flutter build command
+    """
+    cmd = ['flutter', 'build', build_type]
+    
+    if release_mode:
+        cmd.append('--release')
+        print(f"\n{Colors.GREEN}📦 Building {Colors.BOLD}{build_type.upper()}{Colors.RESET}{Colors.GREEN} in {Colors.BOLD}RELEASE{Colors.RESET}{Colors.GREEN} mode...{Colors.RESET}")
+    else:
+        cmd.append('--debug')
+        print(f"\n{Colors.GREEN}📦 Building {Colors.BOLD}{build_type.upper()}{Colors.RESET}{Colors.GREEN} in {Colors.BOLD}DEBUG{Colors.RESET}{Colors.GREEN} mode...{Colors.RESET}")
+    
+    try:
+        is_windows = os.name == 'nt'
+        return subprocess.call(cmd, cwd=flutter_project_dir, shell=is_windows)
+    except Exception as e:
+        print_error(f"Failed to build Flutter app: {e}")
+        return 1
+
+
 def run_flutter_app(
     flutter_project_dir: Path,
     device_id: str,
@@ -252,9 +286,13 @@ def run_flutter_app(
         print(f"\n{Colors.GREEN}🚀 Launching in {Colors.BOLD}DEBUG{Colors.RESET}{Colors.GREEN} mode...{Colors.RESET}")
     
     try:
-        # Use os.execvp to replace the current process (better for interactive output)
         os.chdir(flutter_project_dir)
-        os.execvp('flutter', cmd)
+        if os.name == 'nt':
+            # On Windows, subprocess.call with shell=True is more reliable for .bat files
+            return subprocess.call(cmd, shell=True)
+        else:
+            # On Unix, os.execvp is fine and replaces the process
+            os.execvp('flutter', cmd)
     except Exception as e:
         print_error(f"Failed to run Flutter app: {e}")
         return 1
@@ -263,76 +301,115 @@ def run_flutter_app(
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Launch OpenMIDIControl Flutter app",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python scripts/run_app.py              # Debug mode
-  python scripts/run_app.py --release    # Release mode (requires keystore)
-  python scripts/run_app.py -r           # Release mode (short form)
-        """
+        description="OpenMIDIControl Development Utility",
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument(
         '-r', '--release',
         action='store_true',
-        help='Launch in release mode (requires keystore configuration)'
+        help='Use release mode'
+    )
+    
+    parser.add_argument(
+        '-b', '--build',
+        choices=['apk', 'appbundle'],
+        help='Build the app instead of running it'
     )
     
     args = parser.parse_args()
     
-    print_header("OpenMIDIControl Launcher")
+    print_header("OpenMIDIControl Tool")
     
     # Find Flutter project
     flutter_project_dir = find_flutter_project_root()
     
     if not flutter_project_dir:
         print_error("Could not find Flutter project (pubspec.yaml)")
-        print_info("Make sure you're running this from the repository root")
         return 1
     
-    print_success(f"Found Flutter project: {flutter_project_dir}")
+    print_success(f"Project root: {flutter_project_dir}")
     
-    # If release mode, check for .env.ps1
-    if args.release:
+    # Interaction flow
+    action = None
+    release_mode = args.release
+    
+    if args.build:
+        action = 'build'
+        build_target = args.build
+    elif args.release:
+        action = 'run'
+    else:
+        # Show interactive menu if no flags or just run
+        print(f"\n{Colors.YELLOW}What would you like to do?{Colors.RESET}")
+        print(f"  [{Colors.BOLD}1{Colors.RESET}] Run App (Debug)")
+        print(f"  [{Colors.BOLD}2{Colors.RESET}] Run App (Release)")
+        print(f"  [{Colors.BOLD}3{Colors.RESET}] Build APK (Release)")
+        print(f"  [{Colors.BOLD}4{Colors.RESET}] Build App Bundle (Release)")
+        print(f"  [{Colors.BOLD}5{Colors.RESET}] Build APK (Debug)")
+        print(f"  [{Colors.BOLD}q{Colors.RESET}] Quit")
+        
+        choice = input(f"\n{Colors.CYAN}Selection: {Colors.RESET}").strip().lower()
+        
+        if choice == '1':
+            action = 'run'
+            release_mode = False
+        elif choice == '2':
+            action = 'run'
+            release_mode = True
+        elif choice == '3':
+            action = 'build'
+            build_target = 'apk'
+            release_mode = True
+        elif choice == '4':
+            action = 'build'
+            build_target = 'appbundle'
+            release_mode = True
+        elif choice == '5':
+            action = 'build'
+            build_target = 'apk'
+            release_mode = False
+        else:
+            return 0
+
+    # If release mode or build, check for signing
+    if release_mode:
         script_dir = Path(__file__).parent
         env_path = script_dir / ".env.ps1"
         
         if not env_path.exists():
             print_error("Secrets file not found: scripts/.env.ps1")
-            print_info("Copy scripts/.env.example.ps1 to scripts/.env.ps1 and add your keystore secrets")
+            print_info("Release builds require signing credentials.")
             return 1
         
         print_info("Loading release signing configuration...")
         env_vars = load_env_file(env_path)
         
-        if not env_vars:
-            print_error("Failed to load environment variables from .env.ps1")
-            return 1
-        
-        if not setup_release_signing(flutter_project_dir, env_vars):
+        if not env_vars or not setup_release_signing(flutter_project_dir, env_vars):
             print_error("Failed to set up release signing")
             return 1
         
         print_success("Release signing configured!")
+
+    if action == 'run':
+        # Get available devices
+        print("\nFetching available Flutter devices...")
+        devices = get_flutter_devices(flutter_project_dir)
+        
+        if not devices:
+            print_error("No Flutter devices found")
+            return 1
+        
+        device_id = select_device(devices)
+        if not device_id:
+            return 1
+        
+        return run_flutter_app(flutter_project_dir, device_id, release_mode)
     
-    # Get available devices
-    print("\nFetching available Flutter devices...")
-    devices = get_flutter_devices(flutter_project_dir)
+    elif action == 'build':
+        return build_flutter_app(flutter_project_dir, build_target, release_mode)
     
-    if not devices:
-        print_error("No Flutter devices found")
-        print_info("Make sure a physical device is connected via USB/Wireless ADB")
-        return 1
-    
-    # Select device
-    device_id = select_device(devices)
-    
-    if not device_id:
-        return 1
-    
-    # Run the app
-    return run_flutter_app(flutter_project_dir, device_id, args.release)
+    return 0
 
 
 if __name__ == "__main__":
