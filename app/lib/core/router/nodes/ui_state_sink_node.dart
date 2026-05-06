@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:async';
 import 'dart:io' as io;
 import 'dart:typed_data';
 import 'package:flutter/scheduler.dart';
@@ -115,8 +116,12 @@ class UiStateSinkNode extends SinkNode {
         }
       } catch (_) {
         // Fallback for isolated contexts
-        _emitSnapshot();
-        _hasPendingEmission = false;
+        Timer(const Duration(milliseconds: 16), () {
+          if (_hasPendingEmission) {
+            _emitSnapshot();
+            _hasPendingEmission = false;
+          }
+        });
       }
     }
   }
