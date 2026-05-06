@@ -125,6 +125,7 @@ class OpenMIDIMainScreen extends ConsumerStatefulWidget {
 class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
   bool _launchCheckPending = false;
   bool _transportSyncPending = false;
+  Orientation? _lastOrientation;
 
   @override
   void initState() {
@@ -169,20 +170,23 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
     final isLandscape = orientation == Orientation.landscape;
     final isTablet = size.shortestSide >= 600;
 
-    // Sync transport visibility with orientation
-    if (!_transportSyncPending) {
-      _transportSyncPending = true;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          final current = ref.read(transportVisibleProvider);
-          if (isLandscape && !current) {
-            ref.read(transportVisibleProvider.notifier).setVisible(true);
-          } else if (!isLandscape && current) {
-            ref.read(transportVisibleProvider.notifier).setVisible(false);
+    // Sync transport visibility with orientation only when orientation changes
+    if (_lastOrientation != orientation) {
+      _lastOrientation = orientation;
+      if (!_transportSyncPending) {
+        _transportSyncPending = true;
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final current = ref.read(transportVisibleProvider);
+            if (isLandscape && !current) {
+              ref.read(transportVisibleProvider.notifier).setVisible(true);
+            } else if (!isLandscape && current) {
+              ref.read(transportVisibleProvider.notifier).setVisible(false);
+            }
+            _transportSyncPending = false;
           }
-          _transportSyncPending = false;
-        }
-      });
+        });
+      }
     }
 
     return Scaffold(
