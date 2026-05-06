@@ -319,8 +319,10 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFA6C9F8),
                   foregroundColor: const Color(0xFF0C0E12),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
