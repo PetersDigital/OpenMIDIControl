@@ -8,6 +8,7 @@
 name: "CD: Manual Hotfix Release"
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*-patch.*'
