@@ -258,19 +258,23 @@ class UtilityGridPanel extends ConsumerWidget {
         const PopupMenuItem(
           value: 'reset',
           child: Text(
-            'Reset All Assignments',
-            style: TextStyle(color: Colors.white),
+            'Reset to Default',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'clear',
+          child: Text(
+            'Clear Assignments',
+            style: TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),
       ],
     ).then((choice) {
       if (choice == 'reset') {
-        final layout = ref.read(layoutStateProvider);
-        if (layout.pages.length > 3) {
-          for (final control in layout.pages[3].controls) {
-            ref.read(layoutStateProvider.notifier).clearControl(control.id);
-          }
-        }
+        ref.read(layoutStateProvider.notifier).resetPage(3);
+      } else if (choice == 'clear') {
+        ref.read(layoutStateProvider.notifier).clearPage(3);
       }
     });
   }

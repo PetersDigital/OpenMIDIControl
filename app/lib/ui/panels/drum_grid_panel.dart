@@ -129,10 +129,29 @@ class DrumGridPanel extends ConsumerWidget {
             style: TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),
+        const PopupMenuDivider(height: 1),
+        const PopupMenuItem(
+          value: 'reset',
+          child: Text(
+            'Reset to Default',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'clear',
+          child: Text(
+            'Clear Assignments',
+            style: TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
       ],
     ).then((choice) {
-      if (choice != null) {
-        ref.read(layoutStateProvider.notifier).applyDrumPreset(choice);
+      if (choice == 'MPC' || choice == 'Ableton') {
+        ref.read(layoutStateProvider.notifier).applyDrumPreset(choice!);
+      } else if (choice == 'reset') {
+        ref.read(layoutStateProvider.notifier).resetPage(2);
+      } else if (choice == 'clear') {
+        ref.read(layoutStateProvider.notifier).clearPage(2);
       }
     });
   }
