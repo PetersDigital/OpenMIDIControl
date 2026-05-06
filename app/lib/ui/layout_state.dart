@@ -359,6 +359,35 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  void resetPage(int pageIndex) {
+    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+    final defaultPages = _buildDefaultPages();
+    final defaultPage = defaultPages[pageIndex];
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = defaultPage;
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  void clearPage(int pageIndex) {
+    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+    final page = state.pages[pageIndex];
+    final updatedControls = page.controls.map((control) {
+      return control.copyWith(
+        defaultCc: -1,
+        secondaryCc: -1,
+        channel: -1,
+        customName: 'Unassigned',
+        invertX: false,
+        invertY: false,
+      );
+    }).toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+    state = state.copyWith(pages: updatedPages);
+  }
+
   void clearControl(String controlId) {
     final updatedPages = state.pages.map((page) {
       final updatedControls = page.controls.map((control) {
