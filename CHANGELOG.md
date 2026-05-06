@@ -41,7 +41,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
   - Migrated orientation-driven transport visibility updates to `didChangeMetrics` to eradicate build-phase layout flickers.
   - Hardened the render tree with `const` constructors for static leaf nodes and `_GridButton`.
 - **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across orientations, horizontally centering the connection status badge.
-- **Control Config UX**: Standardized the action button row in `ControlConfigModal` with consistent horizontal padding and pill-shaped 'Save' buttons for improved ergonomics.
+- **Control Config UX**: Standardized the action button row in `ControlConfigModal` by moving 'Cancel' to a top-right 'X' icon, grouping utility buttons (Clear, Reset) on the left, and positioning the primary 'Save' button on the right to eliminate overflow and improve ergonomics.
 - **Transport Bar Normalization**: Removed redundant transport controls, normalized grid layout, and set transport to default visible in landscape to resolve overflow issues.
 - **Performance Lock Relocation**: Moved the performance lock icon to the performance zone pagination bar for improved accessibility and proximity to the performance zone.
 - **Docs Consolidation**: Updated architectural and design documentation to formally reflect `MidiRouter` (DAG), thermal hardening optimizations, and the UMP shift.
