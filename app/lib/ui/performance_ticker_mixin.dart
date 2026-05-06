@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/lifecycle/app_lifecycle_manager.dart';
+
 /// A mixin for [ConsumerState] that standardises the performance hardening
 /// boilerplate shared across all interactive MIDI widgets:
 ///
@@ -34,14 +36,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// **Note**: The state must also mix in [TickerProviderStateMixin] so that
 /// [createManagedTicker] has a [TickerProvider] to call through to.
 mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
-    on ConsumerState<T>, WidgetsBindingObserver {
+    on ConsumerState<T> {
   final List<Ticker> _managedTickers = [];
   final List<ProviderSubscription<dynamic>> _managedSubscriptions = [];
 
   /// Must be called at the top of [State.initState] (after `super.initState()`)
-  /// to register this widget as a [WidgetsBindingObserver].
+  /// to register this widget for app lifecycle changes.
   void initPerformanceMixin() {
-    WidgetsBinding.instance.addObserver(this);
+    addManagedSubscription(
+      ref.listenManual(
+        appLifecycleStateProvider,
+        (_, state) => _handleAppLifecycleState(state),
+      ),
+    );
   }
 
   /// Creates a [Ticker] and registers it for centralised lifecycle management.
@@ -84,11 +91,10 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   }
 
   // ---------------------------------------------------------------------------
-  // WidgetsBindingObserver
+  // App Lifecycle Management
   // ---------------------------------------------------------------------------
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void _handleAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       // Suspend all tickers to eliminate render-loop drain while backgrounded.
       for (final ticker in _managedTickers) {
@@ -107,7 +113,6 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   /// **Must** be called from the widget's [State.dispose] *before*
   /// `super.dispose()`.
   void disposePerformanceMixin() {
-    WidgetsBinding.instance.removeObserver(this);
     for (final ticker in _managedTickers) {
       ticker.dispose();
     }
