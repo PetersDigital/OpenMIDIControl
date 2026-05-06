@@ -42,6 +42,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
   - Hardened the render tree with `const` constructors for static leaf nodes and `_GridButton`.
 - **Three-Zone Header Layout**: Unified top bar layout into three zones (Left, Center, Right) across orientations, horizontally centering the connection status badge.
 - **Control Config UX**: Standardized the action button row in `ControlConfigModal` by moving 'Cancel' to a top-right 'X' icon, grouping utility buttons (Clear, Reset) on the left, and positioning the primary 'Save' button on the right to eliminate overflow and improve ergonomics.
+- **Batch Grid Management**: Added "Reset to Default" and "Clear Assignments" options to Utility and Drum grid settings menus, backed by new O(1) page-level state methods.
 - **Transport Bar Normalization**: Removed redundant transport controls, normalized grid layout, and set transport to default visible in landscape to resolve overflow issues.
 - **Performance Lock Relocation**: Moved the performance lock icon to the performance zone pagination bar for improved accessibility and proximity to the performance zone.
 - **Docs Consolidation**: Updated architectural and design documentation to formally reflect `MidiRouter` (DAG), thermal hardening optimizations, and the UMP shift.
