@@ -938,7 +938,7 @@ class _GridButton extends StatelessWidget {
                     BoxShadow(
                       color: shadowColor.withValues(alpha: 0.4),
                       blurRadius: 20,
-                      blurStyle: BlurStyle.inner,
+                      blurStyle: BlurStyle.normal,
                     ),
                   ]
                 : null,
