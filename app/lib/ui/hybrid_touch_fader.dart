@@ -499,7 +499,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                           const SizedBox(height: 8),
                           ConfigGestureWrapper(
                             id: widget.controlId,
-                            isDragging: _isDragging,
                             onConfigRequested: _showConfigMenu,
                             onRenameRequested: null,
                             child: Container(

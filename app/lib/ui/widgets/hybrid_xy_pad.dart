@@ -383,7 +383,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                       right: 8,
                       child: ConfigGestureWrapper(
                         id: '${widget.id}_x_readout',
-                        isDragging: _isDragging,
                         onConfigRequested: _showConfigMenu,
                         child: Container(
                           constraints: const BoxConstraints(
@@ -427,7 +426,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                       left: 8,
                       child: ConfigGestureWrapper(
                         id: '${widget.id}_y_readout',
-                        isDragging: _isDragging,
                         onConfigRequested: _showConfigMenu,
                         child: Container(
                           constraints: const BoxConstraints(
