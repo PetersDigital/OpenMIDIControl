@@ -964,7 +964,6 @@ class ControlStateNotifier extends Notifier<ControlState> {
 
   final Map<String, StreamController<int>> _hotCcControllers = {};
   Timer? _pendingIncomingPublishTimer;
-  bool _hasPendingIncomingState = false;
   static const Duration _incomingStatePublishInterval = Duration(
     milliseconds: 16,
   );
@@ -1065,15 +1064,12 @@ class ControlStateNotifier extends Notifier<ControlState> {
 
     if (!hasChanges) return;
 
-    _hasPendingIncomingState = true;
-    _pendingIncomingPublishTimer ??= Timer.periodic(
-      _incomingStatePublishInterval,
-      (_) {
-        if (!_hasPendingIncomingState) return;
-        _hasPendingIncomingState = false;
-        _publishState();
-      },
-    );
+    if (!(_pendingIncomingPublishTimer?.isActive ?? false)) {
+      _pendingIncomingPublishTimer = Timer(
+        _incomingStatePublishInterval,
+        _publishState,
+      );
+    }
   }
 
   void injectState(ControlState presetState) {
@@ -1125,6 +1121,7 @@ class ControlStateNotifier extends Notifier<ControlState> {
   }
 
   void _publishState() {
+    _pendingIncomingPublishTimer?.cancel();
     _stateVersion++;
     state = ControlState.raw(
       version: _stateVersion,
