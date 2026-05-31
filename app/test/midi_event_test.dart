@@ -50,17 +50,17 @@ void main() {
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
-        final ccNotifier = container.read(ccValuesProvider.notifier);
+        final ccNotifier = container.read(controlStateProvider.notifier);
 
         // Initial state update
-        ccNotifier.updateMultipleCCs({10: 127});
-        final firstState = container.read(ccValuesProvider);
+        ccNotifier.updateMultipleCCs({"0:10": 127});
+        final firstState = container.read(controlStateProvider);
 
-        expect(firstState.ccValues[10], 127);
+        expect(firstState.ccValues["0:10"], 127);
 
         // Redundant batch update
-        ccNotifier.updateMultipleCCs({10: 127});
-        final secondState = container.read(ccValuesProvider);
+        ccNotifier.updateMultipleCCs({"0:10": 127});
+        final secondState = container.read(controlStateProvider);
 
         // Verify reference equality is maintained (preventing widget rebuilds)
         expect(identical(firstState, secondState), isTrue);
@@ -73,21 +73,25 @@ void main() {
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
-        final notifier = container.read(ccValuesProvider.notifier);
+        final notifier = container.read(controlStateProvider.notifier);
         int globalPublishCount = 0;
 
         final hotValueFuture = notifier
-            .watchHotCc(10)
+            .watchHotCc("0:10")
             .firstWhere((value) => value == 65);
         final globalSub = container.listen<ControlState>(
-          ccValuesProvider,
+          controlStateProvider,
           (previous, next) => globalPublishCount++,
           fireImmediately: false,
         );
         addTearDown(globalSub.close);
 
-        notifier.ingestIncomingUpdates({10: 64});
-        notifier.ingestIncomingUpdates({10: 65});
+        notifier.ingestIncomingUpdates({
+          "ccs": {"0:10": 64},
+        });
+        notifier.ingestIncomingUpdates({
+          "ccs": {"0:10": 65},
+        });
 
         expect(await hotValueFuture.timeout(const Duration(seconds: 1)), 65);
         // Global state updates are coalesced to bounded cadence.
@@ -96,8 +100,8 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 25));
 
         expect(globalPublishCount, 1);
-        final finalState = container.read(ccValuesProvider);
-        expect(finalState.ccValues[10], 65);
+        final finalState = container.read(controlStateProvider);
+        expect(finalState.ccValues["0:10"], 65);
       },
     );
   });
@@ -109,14 +113,14 @@ void main() {
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
-        final notifier = container.read(ccValuesProvider.notifier);
+        final notifier = container.read(controlStateProvider.notifier);
 
         // Seed a known value before subscribing
-        notifier.updateCC(7, 64);
+        notifier.updateCC("0:7", 64);
 
         final received = <int>[];
         final sub = container.listen<AsyncValue<int>>(
-          hotCcValueProvider(7),
+          hotCcValueProvider("0:7"),
           (_, next) => next.whenData(received.add),
           fireImmediately: true,
         );
@@ -127,7 +131,7 @@ void main() {
         expect(received, contains(64));
 
         // Subsequent update arrives through the same single provider
-        notifier.updateCC(7, 100);
+        notifier.updateCC("0:7", 100);
         await Future<void>.delayed(Duration.zero);
         expect(received.last, 100);
       },
@@ -139,7 +143,7 @@ void main() {
 
       final received = <int>[];
       final sub = container.listen<AsyncValue<int>>(
-        hotCcValueProvider(99),
+        hotCcValueProvider("0:99"),
         (_, next) => next.whenData(received.add),
         fireImmediately: true,
       );

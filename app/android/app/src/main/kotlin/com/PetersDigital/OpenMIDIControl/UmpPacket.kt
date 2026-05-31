@@ -8,7 +8,11 @@ fun buildUmpCcPacket(cc: Int, value: Int, group: Int = 0, status: Int = 0xB0): B
     require(group in 0..0x0F) { "UMP group must be 0..15" }
     require(status in 0xB0..0xBF) { "Status must be a Control Change status byte" }
 
-    val ump = (0x2 shl 28) or (group shl 24) or (status shl 16) or (cc shl 8) or value
+    val ump = ((0x2 and 0x0F) shl 28) or 
+              ((group and 0x0F) shl 24) or 
+              ((status and 0xFF) shl 16) or 
+              ((cc and 0x7F) shl 8) or 
+              (value and 0x7F)
     return byteArrayOf(
         (ump ushr 24).toByte(),
         (ump ushr 16).toByte(),

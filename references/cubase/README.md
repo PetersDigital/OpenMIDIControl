@@ -3,10 +3,12 @@
 This directory contains vendor-specific Cubase controller scripts and mapping notes. Use them as examples when building optional host adapters without altering the DAW-agnostic core.
 
 ## Structure
+
 - `vendor/model/` folders contain script snippets or mapping tables for that device.
 - Keep additions isolated; do not change core app behavior or MIDI policies here.
 
 ## Contribution guidelines
+
 - **DAW Handshake**: Document any required initialization messages (SysEx or Note/CC) sent in `mOnActivate` to put your "host adapter" in the correct mode.
 - **Per-Control Mapping**: Detail CC/Channel/PitchBend usage. Use **Pitch Bend** for 14-bit fader resolution when UMP is not yet active.
 - **Relative Controls**: Specify if encoders use `RelativeSignedBit` or other modes.

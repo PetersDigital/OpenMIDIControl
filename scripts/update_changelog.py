@@ -560,6 +560,12 @@ def main() -> int:
     except subprocess.CalledProcessError:
         all_tags = []
     
+    # Determine if links should be included
+    include_links = "--links" in sys.argv
+    if include_links:
+        sys.argv.remove("--links")
+        print_success("Commit links will be included (--links flag detected)")
+
     # Determine version
     if len(sys.argv) > 1:
         version = sys.argv[1].lstrip('v')
@@ -634,8 +640,18 @@ def main() -> int:
         except Exception:
             pass
     
+    # Ask about links if not already specified via CLI
+    if not include_links:
+        print(f"\n{Colors.BOLD}Formatting Options:{Colors.RESET}")
+        link_choice = input(f"{Colors.CYAN}Include GitHub commit links? (y/N) [default: n]: {Colors.RESET}").strip().lower()
+        include_links = link_choice == 'y'
+        if include_links:
+            print_success("Links will be included.")
+        else:
+            print_warn("Links will be omitted.")
+    
     # Update changelog
-    if update_changelog(version, include_links=True):
+    if update_changelog(version, include_links=include_links):
         print_header("Success!")
         print(f"\nTip: Review and commit the updated CHANGELOG.md:")
         print(f"  {Colors.BOLD}git add CHANGELOG.md{Colors.RESET}")

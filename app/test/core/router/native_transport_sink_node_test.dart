@@ -57,7 +57,10 @@ void main() {
     });
 
     test('buffers events and flushes on timer', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final event1 = MidiEvent(
         buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
@@ -79,10 +82,7 @@ void main() {
       node.execute([event2]);
       node.execute([event3]);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // event3 has isFinal: true, which triggers an immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 6);
 
@@ -90,7 +90,10 @@ void main() {
     });
 
     test('flushes single CC event through executeSingle fast path', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final event = MidiEvent(
         buildUmp(messageType: 0x2, status: 0xB0, data1: 5, data2: 55),
@@ -100,10 +103,7 @@ void main() {
 
       node.executeSingle(event);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // isFinal: true triggers immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 2);
       expect(capturedEvents[0], event.ump);
@@ -113,7 +113,10 @@ void main() {
     });
 
     test('flushes single CC event using single-CC buffer', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final event = MidiEvent(
         buildUmp(messageType: 0x2, status: 0xB0, data1: 4, data2: 42),
@@ -123,10 +126,7 @@ void main() {
 
       node.execute([event]);
 
-      expect(methodCallCount, 0);
-
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-
+      // isFinal: true triggers immediate flush
       expect(methodCallCount, 1);
       expect(capturedEvents.length, 2);
       expect(capturedEvents[0], event.ump);
@@ -138,7 +138,10 @@ void main() {
     test(
       'reuses existing buffer for repeated single-CC flushes without growing',
       () async {
-        final node = NativeTransportSinkNode(channel: channel);
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
 
         final event1 = MidiEvent(
           buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 1),
@@ -185,7 +188,10 @@ void main() {
     test(
       'repeated execute calls before timer flush still produce one batch',
       () async {
-        final node = NativeTransportSinkNode(channel: channel);
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
 
         final event = MidiEvent(
           buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
@@ -211,7 +217,10 @@ void main() {
     test(
       'dispose cancels pending batch flush and frees timer resources',
       () async {
-        final node = NativeTransportSinkNode(channel: channel);
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
 
         final event = MidiEvent(
           buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
@@ -230,7 +239,10 @@ void main() {
     );
 
     test('flushes immediately when buffer max size is reached', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       // Max buffer size is 10
       for (int i = 0; i < 10; i++) {
@@ -253,7 +265,10 @@ void main() {
     test(
       'flushes dynamic batch when execute receives more than max buffer size at once',
       () async {
-        final node = NativeTransportSinkNode(channel: channel);
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
 
         final events = List.generate(11, (i) {
           return MidiEvent(
@@ -278,7 +293,10 @@ void main() {
     );
 
     test('forwards isFinal values for CC events', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final ccOff = MidiEvent(
         buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
@@ -304,7 +322,10 @@ void main() {
     });
 
     test('forwards CC events from non-zero MIDI channels', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final ccCh2 = MidiEvent(
         buildUmp(messageType: 0x2, status: 0xB2, data1: 7, data2: 100),
@@ -328,7 +349,10 @@ void main() {
     });
 
     test('ignores non-CC events', () async {
-      final node = NativeTransportSinkNode(channel: channel);
+      final node = NativeTransportSinkNode(
+        channel: channel,
+        useBackgroundWorker: false,
+      );
 
       final nonCc = MidiEvent(
         buildUmp(messageType: 0x1, status: 0xF8, data1: 0, data2: 0),
@@ -344,5 +368,31 @@ void main() {
 
       node.dispose();
     });
+
+    test(
+      'emergency flush when buffer exceeds safety threshold (6400)',
+      () async {
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
+
+        // Add 6401 events
+        final events = List.generate(6401, (i) {
+          return MidiEvent(
+            buildUmp(messageType: 0x2, status: 0xB0, data1: 0, data2: 0),
+            0,
+          );
+        });
+
+        node.execute(events);
+
+        // Should have flushed immediately
+        expect(methodCallCount, 1);
+        expect(capturedEvents.length, 6401 * 2);
+
+        node.dispose();
+      },
+    );
   });
 }

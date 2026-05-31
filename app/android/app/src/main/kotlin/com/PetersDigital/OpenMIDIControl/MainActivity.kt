@@ -17,6 +17,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
+import android.util.Log
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -36,7 +37,14 @@ import java.util.concurrent.ConcurrentHashMap
 class MainActivity : FlutterActivity() {
     companion object {
         var activeInstance: MainActivity? = null
+        
+        // Pre-allocated static events to reduce GC pressure
+        private val EVENT_USB_AVAILABLE = mapOf("type" to "usb_state", "state" to "AVAILABLE")
+        private val EVENT_USB_DISCONNECTED = mapOf("type" to "usb_state", "state" to "DISCONNECTED")
+        private val EVENT_USB_CONNECTED = mapOf("type" to "usb_state", "state" to "CONNECTED")
     }
+
+    private val mainScope = CoroutineScope(Dispatchers.Main + Job())
 
     private val CHANNEL = "com.petersdigital.openmidicontrol/midi"
     private val EVENTS_CHANNEL = "com.petersdigital.openmidicontrol/midi_events"
@@ -49,7 +57,7 @@ class MainActivity : FlutterActivity() {
 
     private var eventSink: EventChannel.EventSink? = null
     private var systemEventSink: EventChannel.EventSink? = null
-    private var deviceCallback: MidiManager.DeviceCallback? = null
+    private val deviceCallbacks = mutableListOf<MidiManager.DeviceCallback>()
 
     private val mainThreadHandler = Handler(Looper.getMainLooper())
     private var currentUsbMode = "peripheral" // Default to peripheral as per AGENTS.md priorities
@@ -57,14 +65,15 @@ class MainActivity : FlutterActivity() {
     private var cachedDevicesList: List<Map<String, Any>>? = null
 
     // Rate-limiting and Deduplication state
-    private val lastSentValue = IntArray(2048) { -1 }
-    private val lastSentTime = LongArray(2048)
+    private val lastSentValue = IntArray(16384) { -1 }
+    private val lastSentTime = LongArray(16384)
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
 
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
     private val emptyBuffers = Channel<LongArray>(capacity = 8)
+    private val incomingPeripheralUmpChannel = Channel<Long>(capacity = Channel.UNLIMITED)
 
     // Per-port sharded processing session state
     private class ActivePortSession(
@@ -92,7 +101,10 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             if (payload[0] > 0) {
-                mainThreadHandler.post {
+                // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
+                // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
+                // until the UI thread has acknowledged the message, preventing queue flooding.
+                withContext(Dispatchers.Main.immediate) {
                     try {
                         eventSink?.success(payload)
                     } finally {
@@ -171,24 +183,16 @@ class MainActivity : FlutterActivity() {
                     cachedDevicesList = null // Invalidate cache on USB state transition
                     if (!lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = true
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "AVAILABLE"
-                        )
                         mainThreadHandler.post {
-                            systemEventSink?.success(event)
+                            systemEventSink?.success(EVENT_USB_AVAILABLE)
                         }
                     }
                 } else if (!connected) {
                     cachedDevicesList = null // Invalidate cache on USB state transition
                     if (lastUsbStateIsConnected) {
                         lastUsbStateIsConnected = false
-                        val event = mapOf(
-                            "type" to "usb_state",
-                            "state" to "DISCONNECTED"
-                        )
                         mainThreadHandler.post {
-                            systemEventSink?.success(event)
+                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
                         }
                     }
                 }
@@ -248,16 +252,30 @@ class MainActivity : FlutterActivity() {
         // Subscribe to persistent MIDI events from the system manager.
         // This ensures events are captured even when the Activity is in the background or between focus shifts.
         coroutineScope.launch {
-            MidiSystemManager.incomingEvents.collect { (msg, timestamp) ->
-                handleIncomingPeripheralMidi(msg, 0, msg.size, timestamp)
+            MidiSystemManager.incomingEvents.collect { packedLong ->
+                incomingPeripheralUmpChannel.send(packedLong)
             }
         }
 
         coroutineScope.launch {
+            for (packedLong in incomingPeripheralUmpChannel) {
+                val ump = (packedLong ushr 32).toInt()
+                val timestamp = packedLong and 0xFFFFFFFFL
+                handleIncomingPeripheralUmp(ump, timestamp)
+            }
+        }
+
+        coroutineScope.launch(Dispatchers.Main) {
             MidiSystemManager.usbHostConnected.collect { connected ->
                 if (connected) {
-                    sendSystemEvent("usb_state", mapOf("state" to "CONNECTED"))
+                    sendSystemEvent("usb_state", EVENT_USB_CONNECTED)
                 }
+            }
+        }
+
+        coroutineScope.launch(Dispatchers.Main) {
+            MidiSystemManager.portFailures.collect { portId ->
+                handlePortFailure(portId)
             }
         }
 
@@ -300,21 +318,13 @@ class MainActivity : FlutterActivity() {
                         if (isMidiConnected) {
                             lastUsbStateIsConnected = true
                             lastUsbHostConnectedState = false
-                            val initEvent = mapOf(
-                                "type" to "usb_state",
-                                "state" to "AVAILABLE"
-                            )
-                            systemEventSink?.success(initEvent)
+                            systemEventSink?.success(EVENT_USB_AVAILABLE)
                         } else if (!connected) {
                             lastUsbStateIsConnected = false
                             cachedDevicesList = null
-                            sendSystemEvent("usb_state", mapOf("state" to "DISCONNECTED"))
+                            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
 
-                            val initEvent = mapOf(
-                                "type" to "usb_state",
-                                "state" to "DISCONNECTED"
-                            )
-                            systemEventSink?.success(initEvent)
+                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
                         }
                     }
                 }
@@ -340,6 +350,12 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARGUMENT", "Mode is required", null)
                     }
+                }
+                "resetMidiTransport" -> {
+                    lastSentValue.fill(-1)
+                    lastSentTime.fill(0)
+                    Log.i("MainActivity", "MIDI Transport state reset (deduplication buffers cleared)")
+                    result.success(true)
                 }
                 "getMidiDevices" -> {
                     result.success(getMidiDevices())
@@ -372,10 +388,14 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGUMENT", "CC and value must be in the range 0..127", null)
                         } else {
                             try {
-                                val safeCc = cc and 0xFF
-                                val safeValue = value and 0xFF
-                                val umpInt = (0x2 shl 28) or (0x0 shl 24) or (0xB0 shl 16) or (safeCc shl 8) or safeValue
-                                processMidiCcEvent(umpInt, isFinal, System.nanoTime())
+                                val safeCc = cc and 0x7F
+                                val safeValue = value and 0x7F
+                                val umpInt = ((0x2 and 0x0F) shl 28) or 
+                                             ((0x0 and 0x0F) shl 24) or 
+                                             ((0xB0 and 0xFF) shl 16) or 
+                                             (safeCc shl 8) or 
+                                             safeValue
+                                processMidiEvent(umpInt, isFinal, System.nanoTime())
                                 result.success(true)
                             } catch (e: Exception) {
                                 result.error("SEND_FAILED", "Failed to send MIDI CC: ${e.message}", null)
@@ -389,25 +409,15 @@ class MainActivity : FlutterActivity() {
                     val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
-                            val nowNs = System.nanoTime()
-                            val seen = java.util.BitSet(2048)
-                            
-                            // Optimization: iterate backwards to implement "latest wins" in O(N)
-                            for (i in events.size - 2 downTo 0 step 2) {
+                            for (i in 0 until events.size step 2) {
                                 val umpInt = events[i].toInt()
-                                val status = (umpInt ushr 16) and 0xFF
-                                val cc = (umpInt ushr 8) and 0xFF
-                                val index = ((status and 0x0F) shl 7) or cc
-                                
-                                if (!seen.get(index)) {
-                                    seen.set(index)
-                                    val isFinal = events[i + 1] != 0L
-                                    processMidiCcEvent(umpInt, isFinal, nowNs)
-                                }
+                                val isFinal = events[i + 1] != 0L
+                                // Use individual timestamp per event to maintain order and length
+                                processMidiEvent(umpInt, isFinal, System.nanoTime())
                             }
                             result.success(true)
                         } catch (e: Exception) {
-                            result.error("BATCH_SEND_FAILED", "Failed to send MIDI CC batch: ${e.message}", null)
+                            result.error("BATCH_SEND_FAILED", "Failed to send MIDI batch: ${e.message}", null)
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "Events batch is required", null)
@@ -444,15 +454,23 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun processMidiCcEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
+    private fun processMidiEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
         val group = (umpInt ushr 24) and 0xF
         val status = (umpInt ushr 16) and 0xFF
-        val cc = (umpInt ushr 8) and 0xFF
-        val value = umpInt and 0xFF
+        val data1 = (umpInt ushr 8) and 0xFF
+        val data2 = umpInt and 0xFF
 
-        if (cc !in 0..127) return
+        if (data1 !in 0..127) return
 
-        val index = ((status and 0x0F) shl 7) or cc
+        // Unique index per message type + channel + data1
+        val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
+        
+        if (index < 0 || index >= 16384) {
+            // Send immediately if out of voice message range (unlikely for MT 0x2)
+            sendToBackends(umpInt, status, data1, data2, nowNs)
+            return
+        }
+
         val lastTime = lastSentTime[index]
         val timeDiff = nowNs - lastTime
 
@@ -460,7 +478,7 @@ class MainActivity : FlutterActivity() {
         var shouldSend = true
         if (!isFinal) {
             // Deduplication: if value hasn't changed and within suppression window, drop it
-            if (lastSentValue[index] == value && timeDiff < suppressionWindowNs) {
+            if (lastSentValue[index] == data2 && timeDiff < suppressionWindowNs) {
                 shouldSend = false
             }
             // Rate Limiting: ensure we don't send faster than ~120Hz
@@ -470,29 +488,44 @@ class MainActivity : FlutterActivity() {
         }
 
         if (shouldSend) {
-            lastSentValue[index] = value
+            lastSentValue[index] = data2
             lastSentTime[index] = nowNs
+            sendToBackends(umpInt, status, data1, data2, nowNs)
+        }
+    }
 
-            legacyMsgBuffer[0] = status.toByte()
-            legacyMsgBuffer[1] = cc.toByte()
-            legacyMsgBuffer[2] = value.toByte()
+    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long) {
+        legacyMsgBuffer[0] = status.toByte()
+        legacyMsgBuffer[1] = data1.toByte()
+        legacyMsgBuffer[2] = data2.toByte()
 
-            umpMsgBuffer[0] = (umpInt ushr 24).toByte()
-            umpMsgBuffer[1] = (umpInt ushr 16).toByte()
-            umpMsgBuffer[2] = (umpInt ushr 8).toByte()
-            umpMsgBuffer[3] = umpInt.toByte()
+        umpMsgBuffer[0] = (umpInt ushr 24).toByte()
+        umpMsgBuffer[1] = (umpInt ushr 16).toByte()
+        umpMsgBuffer[2] = (umpInt ushr 8).toByte()
+        umpMsgBuffer[3] = umpInt.toByte()
 
-            // Send to physically connected hardware (if any)
-            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, nowNs)
-            
-            // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
-            if (currentUsbMode != "peripheral") {
-                // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
-                VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
+        // Send to physically connected hardware (if any)
+        if (hostMidiBackend != null) {
+            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        }
+        
+        // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
+        if (currentUsbMode != "peripheral") {
+            // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
+            VirtualMidiService.activeInstance?.sendToDaw(legacyMsgBuffer, 0, legacyMsgBuffer.size)
+        }
+        
+        // Send to Host PC/Mac via USB over UMP transport
+        // Use real monotonic timestamp at point of transmission for accurate
+        // event timing on the Windows host (some DAWs use packet timestamps).
+        val peripheral = PeripheralMidiService.activeInstance
+        if (peripheral != null) {
+            peripheral.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, System.nanoTime())
+        } else {
+            // Only log if we expect to be connected to help debug host-reconnect issues
+            if (MidiSystemManager.usbHostConnected.value) {
+                Log.w("MainActivity", "Attempted to send to host but PeripheralMidiService is null")
             }
-            
-            // Send to Host PC/Mac via USB over UMP transport
-            PeripheralMidiService.activeInstance?.sendToHost(umpMsgBuffer, 0, umpMsgBuffer.size, nowNs)
         }
     }
 
@@ -636,6 +669,32 @@ class MainActivity : FlutterActivity() {
         hostMidiBackend = null
     }
 
+    /**
+     * Handles fatal hardware or stream failures reported by backends or services.
+     */
+    private fun handlePortFailure(portId: String) {
+        android.util.Log.e("MainActivity", "Handling fatal port failure: $portId")
+        
+        if (portId == "peripheral_host") {
+            // Special handling for USB Peripheral (OTG) disconnects
+            MidiSystemManager.setUsbHostConnected(false)
+            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
+        } else if (portId == "virtual_daw") {
+            // Cleanup virtual session if needed
+            activeSessions[portId]?.job?.cancel()
+            activeSessions.remove(portId)
+            sendSystemEvent("DISCONNECT", mapOf("portId" to portId))
+        } else {
+            // For hardware devices, if the failing port is our active one, tear it down.
+            if (hostMidiBackend?.portId == portId) {
+                mainThreadHandler.post {
+                    disconnectDevice()
+                    sendSystemEvent("DISCONNECT", mapOf("portId" to portId))
+                }
+            }
+        }
+    }
+
     private fun setupMidiReceiver() {
         val backend = hostMidiBackend ?: return
         val backendId = backend.portId
@@ -714,9 +773,18 @@ class MainActivity : FlutterActivity() {
         MidiParser.processMidiPayload(msg, offset, count, nowNs, true, buffer, suppressionWindowNs, lastSentTime, BuildConfig.DEBUG)
     }
 
+    /**
+     * Specialized entry point for packed UMP values from MidiSystemManager,
+     * avoiding intermediate ByteArray allocations.
+     */
+    private fun handleIncomingPeripheralUmp(ump: Int, timestamp: Long) {
+        val buffer = getOrCreateVirtualSession(false)
+        MidiParser.processSingleUmp(ump, timestamp, true, buffer, suppressionWindowNs, lastSentTime)
+    }
+
     private fun setupMidiDeviceCallback() {
-        if (deviceCallback == null) {
-            deviceCallback = object : MidiManager.DeviceCallback() {
+        if (deviceCallbacks.isEmpty()) {
+            val callback = object : MidiManager.DeviceCallback() {
                 override fun onDeviceAdded(device: MidiDeviceInfo) {
                     val id = device.id.toString()
                     if (shouldSuppressDuplicateDeviceEvent("added", id)) {
@@ -744,33 +812,46 @@ class MainActivity : FlutterActivity() {
 
                     // Disconnect if the removed device ID matches the current host backend portId.
                     if (hostMidiBackend?.portId == id) {
-                        disconnectDevice()
-                    }
-                    val event = mapOf(
-                        "type" to "removed",
-                        "id" to id
-                    )
-                    mainThreadHandler.post {
-                        systemEventSink?.success(event)
+                        mainThreadHandler.post {
+                            disconnectDevice()
+                            // Instantly signal disconnect to Flutter to prevent ghost states
+                            sendSystemEvent("DISCONNECT", mapOf("portId" to id))
+                        }
+                    } else {
+                        val event = mapOf(
+                            "type" to "removed",
+                            "id" to id
+                        )
+                        mainThreadHandler.post {
+                            systemEventSink?.success(event)
+                        }
                     }
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), deviceCallback!!)
-                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), deviceCallback!!)
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS, ContextCompat.getMainExecutor(this), callback)
+                deviceCallbacks.add(callback)
+
+                // Create a distinct instance for the second transport to ensure unregister succeeds for both
+                val callback2 = object : MidiManager.DeviceCallback() {
+                    override fun onDeviceAdded(device: MidiDeviceInfo) { callback.onDeviceAdded(device) }
+                    override fun onDeviceRemoved(device: MidiDeviceInfo) { callback.onDeviceRemoved(device) }
+                }
+                midiManager?.registerDeviceCallback(MidiManager.TRANSPORT_MIDI_BYTE_STREAM, ContextCompat.getMainExecutor(this), callback2)
+                deviceCallbacks.add(callback2)
             } else {
                 @Suppress("DEPRECATION")
-                midiManager?.registerDeviceCallback(deviceCallback, mainThreadHandler)
+                midiManager?.registerDeviceCallback(callback, mainThreadHandler)
+                deviceCallbacks.add(callback)
             }
         }
     }
 
     private fun teardownMidiDeviceCallback() {
-        deviceCallback?.let {
-            // Single call removes callback from all transports (UMP + byte-stream).
-            midiManager?.unregisterDeviceCallback(it)
-            deviceCallback = null
+        deviceCallbacks.forEach { callback ->
+            midiManager?.unregisterDeviceCallback(callback)
         }
+        deviceCallbacks.clear()
     }
 
     private fun sendSystemEvent(type: String, data: Map<String, Any>) {
@@ -811,7 +892,12 @@ class MainActivity : FlutterActivity() {
             unregisterReceiver(usbStateReceiver)
         } catch (e: Exception) { }
         disconnectDevice()
+        VirtualMidiService.activeInstance?.onDestroy()
+        PeripheralMidiService.activeInstance?.onDestroy()
+        MidiSystemManager.teardown()
         activeInstance = null
         super.onDestroy()
     }
+
+
 }

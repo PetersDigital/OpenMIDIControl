@@ -56,7 +56,7 @@ void main() {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      expect(container.read(diagnosticsProvider), isEmpty);
+      expect(container.read(diagnosticsProvider).entries, isEmpty);
     });
 
     test('clear resets state to empty list', () {
@@ -64,11 +64,11 @@ void main() {
       addTearDown(container.dispose);
 
       // Initial state is empty
-      expect(container.read(diagnosticsProvider), isEmpty);
+      expect(container.read(diagnosticsProvider).entries, isEmpty);
 
       // Clear is idempotent on empty state
       container.read(diagnosticsProvider.notifier).clear();
-      expect(container.read(diagnosticsProvider), isEmpty);
+      expect(container.read(diagnosticsProvider).entries, isEmpty);
     });
 
     testWidgets(
@@ -84,7 +84,7 @@ void main() {
         });
 
         int updateCount = 0;
-        container.listen<List<DiagnosticLogEntry>>(diagnosticsProvider, (
+        container.listen<DiagnosticsState>(diagnosticsProvider, (
           previous,
           next,
         ) {
@@ -99,7 +99,7 @@ void main() {
         );
 
         expect(updateCount, 0);
-        expect(container.read(diagnosticsProvider), isEmpty);
+        expect(container.read(diagnosticsProvider).entries, isEmpty);
 
         final event1 = MidiEvent(
           (0x2 << 28) | (0xB0 << 16) | (7 << 8) | 10,
@@ -129,7 +129,7 @@ void main() {
           reason:
               'Diagnostics provider state should update only once per frame',
         );
-        expect(container.read(diagnosticsProvider), hasLength(3));
+        expect(container.read(diagnosticsProvider).entries, hasLength(3));
       },
     );
 
@@ -146,7 +146,7 @@ void main() {
         });
 
         int updateCount = 0;
-        container.listen<List<DiagnosticLogEntry>>(diagnosticsProvider, (
+        container.listen<DiagnosticsState>(diagnosticsProvider, (
           previous,
           next,
         ) {
@@ -174,12 +174,12 @@ void main() {
         fakeService.addEvents([event1]);
         await tester.pump(const Duration(milliseconds: 150));
         expect(updateCount, 1);
-        expect(container.read(diagnosticsProvider), hasLength(1));
+        expect(container.read(diagnosticsProvider).entries, hasLength(1));
 
         fakeService.addEvents([event2]);
         await tester.pump(const Duration(milliseconds: 150));
         expect(updateCount, 2);
-        expect(container.read(diagnosticsProvider), hasLength(2));
+        expect(container.read(diagnosticsProvider).entries, hasLength(2));
       },
     );
 
@@ -203,13 +203,13 @@ void main() {
         );
 
         int updateCount = 0;
-        container.listen<List<DiagnosticLogEntry>>(
+        container.listen<DiagnosticsState>(
           diagnosticsProvider,
           (_, value) => updateCount++,
           fireImmediately: false,
         );
 
-        expect(container.read(diagnosticsProvider), isEmpty);
+        expect(container.read(diagnosticsProvider).entries, isEmpty);
 
         final events = List.generate(DiagnosticsLoggerNotifier.maxLogs + 5, (
           index,
@@ -224,7 +224,7 @@ void main() {
         fakeService.addEvents(events);
         await tester.pump(const Duration(milliseconds: 150));
 
-        final state = container.read(diagnosticsProvider);
+        final state = container.read(diagnosticsProvider).entries;
         expect(state, hasLength(DiagnosticsLoggerNotifier.maxLogs));
         expect(state.first.rawEvent, equals(events.last));
         expect(state.last.rawEvent, equals(events[5]));

@@ -11,7 +11,7 @@ This project uses a dual-licensing model:
 
 All source files must include the following SPDX identifier:
 
-```
+```text
 SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
@@ -40,10 +40,12 @@ package com.petersdigital.openmidicontrol
 ## CI/CD Enforcement
 
 A GitHub Actions workflow (`.github/workflows/validate_auto_license.yml`) runs on:
+
 - Push to `main` or `develop` branches
 - All pull requests targeting `main`
 
 The workflow:
+
 1. Checks out the code
 2. Runs `check_license_headers.sh` on Ubuntu (faster, cost-effective)
 3. Fails the build if any files are missing headers
@@ -89,27 +91,34 @@ grep -R "Copyright.*Peters Digital" \
 The license header system covers:
 
 ### Dart Source Files
+
 - `app/lib/**/*.dart` - Application source code
 - `app/test/**/*.dart` - Test files
 
 ### Kotlin Source Files
+
 - `app/android/app/src/main/kotlin/**/*.kt` - Native Android layer
 - `app/android/app/src/test/kotlin/**/*.kt` - Native tests
 
 ### Python Scripts
+
 - `scripts/**/*.py` - Build, deployment, and development scripts (preferred cross-platform format)
 
 ### PowerShell Scripts
+
 - `scripts/**/*.ps1` - Legacy build/deploy scripts (being migrated to `.py`)
 
 ### Shell Scripts
+
 - `scripts/**/*.sh` - Unix/Linux/macOS build/deploy scripts (if added)
 
 ### YAML Configuration Files
+
 - `.github/workflows/*.yml` - GitHub Actions workflows
 - `.github/actions/**/*.yml` - Reusable GitHub Actions
 
 ### Excluded Files
+
 - Generated files (`.g.dart`, `.freezed.dart`)
 - Build output directories (`build/`)
 - Dart tool directories (`.dart_tool/`)
@@ -125,6 +134,7 @@ The license header system covers:
 Contributors retain full copyright to their contributions. By submitting code, you grant Peters Digital a perpetual, worldwide, royalty-free, non-exclusive license to use, reproduce, modify, distribute, and sublicense your contribution under both the GPLv3 and Commercial License terms.
 
 If you use, modify, or distribute this software under GPLv3:
+
 - You must maintain all copyright notices
 - You must include the SPDX identifier in any derivative works
 - You must distribute under GPLv3 terms
@@ -132,9 +142,10 @@ If you use, modify, or distribute this software under GPLv3:
 ### For Commercial Licensees
 
 If you have a commercial license:
+
 - The `LicenseRef-Commercial` identifier applies
 - Terms are defined in your signed agreement
-- Contact: dencelbabu@gmail.com
+- Contact: <dencelbabu@gmail.com>
 
 ## Enforcement Rationale
 
@@ -156,6 +167,7 @@ Always ensure new source files include the license header. The CI check will cat
 ### Headers Not Detected
 
 If the check script reports missing headers when they exist:
+
 - Verify the SPDX identifier matches exactly
 - Check for encoding issues (should be UTF-8 without BOM)
 - Ensure no extra characters before the header
@@ -163,6 +175,7 @@ If the check script reports missing headers when they exist:
 ### Headers Added in Wrong Location
 
 If headers appear after package/import statements:
+
 - This is a script bug - report it
 - Manually move the header to the top of the file
 - The header must be the very first content (after shebang if present)

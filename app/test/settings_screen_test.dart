@@ -29,6 +29,10 @@ Future<void> _pumpSettings(WidgetTester tester) async {
   final container = _createContainer();
   addTearDown(container.dispose);
 
+  tester.view.physicalSize = const Size(600, 1200);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -85,11 +89,14 @@ void main() {
       );
     });
 
-    testWidgets('renders layout hand toggle', (tester) async {
+    testWidgets('renders layout hand and panel position toggles', (
+      tester,
+    ) async {
       await _pumpSettings(tester);
 
       expect(find.textContaining('FADER ON'), findsOneWidget);
-      expect(find.byType(SwitchListTile), findsOneWidget);
+      expect(find.textContaining('DOCK ON'), findsOneWidget);
+      expect(find.byType(SwitchListTile), findsNWidgets(2));
     });
 
     testWidgets('toggling layout hand flips state', (tester) async {
@@ -105,11 +112,29 @@ void main() {
       await tester.pumpAndSettle();
 
       final initialHand = container.read(layoutHandProvider);
-      final switchWidget = find.byType(SwitchListTile);
-      await tester.tap(switchWidget);
+      // Tap first SwitchListTile (Layout Hand)
+      await tester.tap(find.byType(SwitchListTile).at(0));
       await tester.pumpAndSettle();
 
       expect(container.read(layoutHandProvider), isNot(initialHand));
+    });
+
+    testWidgets('renders layout hand toggle', (WidgetTester tester) async {
+      await _pumpSettings(tester);
+
+      expect(find.text('LAYOUT'), findsOneWidget);
+      expect(find.textContaining('FADER ON'), findsOneWidget);
+    });
+
+    testWidgets('renders panel position toggle', (tester) async {
+      await _pumpSettings(tester);
+
+      // Scroll to ensure it's in view
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(find.text('PANEL POSITION'), findsOneWidget);
+      expect(find.textContaining('DOCK ON'), findsOneWidget);
     });
   });
 }

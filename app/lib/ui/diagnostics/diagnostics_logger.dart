@@ -4,21 +4,22 @@
 import 'dart:async';
 import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
+import '../../core/lifecycle/app_lifecycle_manager.dart';
 
 import '../../core/models/midi_event.dart';
 import '../midi_service.dart';
+import '../../core/midi_utils.dart';
 
 class _RingBufferList<T> extends ListBase<T> {
   final List<T?> _buffer;
-  final int _head;
-  final int _length;
+  int _head;
+  int _length;
 
   _RingBufferList(int capacity)
     : _buffer = List<T?>.filled(capacity, null, growable: false),
       _head = 0,
       _length = 0;
-
-  _RingBufferList._(this._buffer, this._head, this._length);
 
   @override
   int get length => _length;
@@ -39,18 +40,27 @@ class _RingBufferList<T> extends ListBase<T> {
     _buffer[(_head + index) % _buffer.length] = value;
   }
 
-  _RingBufferList<T> addFront(Iterable<T> elements) {
-    final newBuffer = List<T?>.of(_buffer, growable: false);
-    var newHead = _head;
-    var newLength = _length;
+  void addFrontInPlace(Iterable<T> elements) {
     for (final e in elements) {
-      newHead = (newHead - 1) % newBuffer.length;
-      if (newHead < 0) newHead += newBuffer.length;
-      newBuffer[newHead] = e;
-      if (newLength < newBuffer.length) newLength++;
+      _head = (_head - 1) % _buffer.length;
+      if (_head < 0) _head += _buffer.length;
+      _buffer[_head] = e;
+      if (_length < _buffer.length) _length++;
     }
-    return _RingBufferList<T>._(newBuffer, newHead, newLength);
   }
+
+  void clearInPlace() {
+    _head = 0;
+    _length = 0;
+    _buffer.fillRange(0, _buffer.length, null);
+  }
+}
+
+class DiagnosticsState {
+  final List<DiagnosticLogEntry> entries;
+  final int version;
+
+  DiagnosticsState({required this.entries, required this.version});
 }
 
 class DiagnosticLogEntry {
@@ -80,29 +90,49 @@ class DiagnosticLogEntry {
         ? 'Port ${event.sourceId} | '
         : '';
 
-    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
+    final status = event.legacyStatusByte;
+    if (status >= 0xB0 && status <= 0xBF) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
+    } else if (status >= 0x90 && status <= 0x9F) {
+      final noteName = MidiUtils.getNoteName(event.data1);
+      return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Note On $noteName (${event.data1}) | Vel ${event.data2}';
+    } else if (status >= 0x80 && status <= 0x8F) {
+      final noteName = MidiUtils.getNoteName(event.data1);
+      return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Note Off $noteName (${event.data1}) | Vel ${event.data2}';
     } else {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
     }
   }
 }
 
-class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
-  static const int maxLogs = 200;
+class DiagnosticsLoggerNotifier extends Notifier<DiagnosticsState> {
+  static const int maxLogs = 500;
   static const Duration _publishCadence = Duration(milliseconds: 100);
 
   final Queue<DiagnosticLogEntry> _pendingEvents =
       ListQueue<DiagnosticLogEntry>();
+
+  late final _RingBufferList<DiagnosticLogEntry> _buffer;
+  int _version = 0;
   bool _pendingUpdate = false;
   bool _disposed = false;
   Timer? _publishTimer;
 
+  bool _isPaused = false;
+
   @override
-  List<DiagnosticLogEntry> build() {
+  DiagnosticsState build() {
+    _buffer = _RingBufferList<DiagnosticLogEntry>(maxLogs);
     final service = ref.watch(midiServiceProvider);
 
+    ref.listen(appLifecycleStateProvider, (previous, next) {
+      _isPaused =
+          (next == AppLifecycleState.paused ||
+          next == AppLifecycleState.hidden);
+    });
+
     final sub = service.midiEventsStream.listen((midiEvents) {
+      if (_isPaused) return;
       if (midiEvents.isEmpty) return;
 
       // Prevent excessive instantiation by limiting the batch to maxLogs
@@ -126,15 +156,13 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
         _publishTimer = Timer(_publishCadence, () {
           if (_disposed) return;
           _pendingUpdate = false;
-          if (_pendingEvents.isEmpty) return;
-
-          // Publish minimal delta by sharing the underlying ring buffer array
-          // and emitting a new wrapper. The sequential addition of events naturally
-          // prepends them in reverse chronological order since we advance the head backwards.
-          state = (state as _RingBufferList<DiagnosticLogEntry>).addFront(
-            _pendingEvents,
-          );
+          // Mutate in-place and update version ID to avoid List.of copies.
+          // This ensures that high-density MIDI logging doesn't cause GC spikes.
+          _buffer.addFrontInPlace(_pendingEvents);
           _pendingEvents.clear();
+
+          _version++;
+          state = DiagnosticsState(entries: _buffer, version: _version);
         });
       }
     });
@@ -147,17 +175,18 @@ class DiagnosticsLoggerNotifier extends Notifier<List<DiagnosticLogEntry>> {
       _pendingEvents.clear();
     });
 
-    return _RingBufferList<DiagnosticLogEntry>(maxLogs);
+    return DiagnosticsState(entries: _buffer, version: 0);
   }
 
   void clear() {
     _pendingEvents.clear();
-    state = _RingBufferList<DiagnosticLogEntry>(maxLogs);
+    _buffer.clearInPlace();
+    _version++;
+    state = DiagnosticsState(entries: _buffer, version: _version);
   }
 }
 
 final diagnosticsProvider =
-    NotifierProvider.autoDispose<
-      DiagnosticsLoggerNotifier,
-      List<DiagnosticLogEntry>
-    >(DiagnosticsLoggerNotifier.new);
+    NotifierProvider.autoDispose<DiagnosticsLoggerNotifier, DiagnosticsState>(
+      DiagnosticsLoggerNotifier.new,
+    );

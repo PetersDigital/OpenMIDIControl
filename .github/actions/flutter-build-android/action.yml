@@ -1,59 +1,59 @@
 # Copyright (c) 2026 Peters Digital
 # SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ---
-name: 'CD: Flutter Build Android'
-description: 'Configure keystore and build Flutter Android APK'
+name: "CD: Flutter Build Android"
+description: "Configure keystore and build Flutter Android APK"
 
 inputs:
   working-directory:
-    description: 'Path to the Flutter project'
+    description: "Path to the Flutter project"
     required: true
-    default: 'app'
+    default: "app"
   keystore-base64:
-    description: 'Base64-encoded Android keystore'
+    description: "Base64-encoded Android keystore"
     required: false
   key-password:
-    description: 'Android key password'
+    description: "Android key password"
     required: false
   key-alias:
-    description: 'Android key alias'
+    description: "Android key alias"
     required: false
   store-password:
-    description: 'Android store password'
+    description: "Android store password"
     required: false
   build-type:
-    description: 'Build type: release, debug, or profile'
+    description: "Build type: release, debug, or profile"
     required: false
-    default: 'release'
+    default: "release"
   split-per-abi:
-    description: 'Build separate APKs per ABI'
+    description: "Build separate APKs per ABI"
     required: false
-    default: 'false'
+    default: "false"
   artifact-name:
-    description: 'Custom name for the output APK (without .apk extension)'
+    description: "Custom name for the output APK (without .apk extension)"
     required: false
 
 outputs:
   apk-path:
-    description: 'Path to the built APK'
+    description: "Path to the built APK"
     value: ${{ steps.build.outputs.apk-path }}
   apk-name:
-    description: 'Name of the built APK file'
+    description: "Name of the built APK file"
     value: ${{ steps.build.outputs.apk-name }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
-        distribution: 'temurin'
-        java-version: '17'
+        distribution: "temurin"
+        java-version: "21"
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
       with:
         gradle-version: wrapper
-        cache-cleanup: 'on-success'
+        cache-cleanup: "on-success"
         cache-provider: basic
 
     - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0

@@ -12,19 +12,20 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Release Status
 
-- **v0.2.3** (Current) Core Routing Engine (DAG-based `MidiRouter`) and **Extreme Thermal Hardening** (primitive packing, buffer reuse, ~2MB/sec allocation reduction).
+- **v0.3.0** (Current) Core Routing Engine (DAG-based `MidiRouter`), **OMC Ecosystem Unification** (Standardized `.omc` persistence for presets and layouts), **PerformanceTickerMixin** (with `safeStartTicker` guards), orientation-driven layout hardening, and **Dynamic Connection Island**. Finalized **Extreme Thermal Hardening** (primitive packing, buffer reuse, lock-free native pipeline, headless compositor suppression, ~2MB/sec allocation reduction).
 - **v0.2.2** (Previous) Native UMP backend migration with comprehensive automated test suite, MidiParser extraction, thermal stabilization, and Dart layer UMP integration.
 - **v0.2.1** Canonical 32-bit `MidiEvent` model, `ControlState` immutability, `MidiPortBackend` abstraction, and high-precision native Diagnostics Logger.
 - **v0.2.0** Advanced USB MIDI Peripheral Mode with native OS routing and performance batching.
 - **v0.1.5** ships the original Flutter UI baseline plus MIDI bridge, auto reconnect, and metadata + mobile orientation improvements.
-- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.2.3 implementation.
+- Design + state guidance (see DESIGN.md and IMPLEMENTATION.md) now reflect the v0.3.0 implementation.
 
 ## Current UI & Controls
 
-- **Responsive command center:** Layout switches between a portrait-focused command center (status row, 3×3 control pad, navigation icons) on phones and a desktop landscape layout with flexible panel ordering plus a dedicated track card.
+- **Responsive command center:** Layout switches between a portrait-focused command center and a desktop landscape layout. Includes a **Dynamic Connection Island** for real-time MIDI status and a side-agnostic flyout panel for landscape settings.
 - **HybridTouchFader controls:** Each fader uses `DSEG7Modern` readouts, per-control color cues, and a long-press CC picker so the UI can stay expressive while remaining MIDI-agnostic.
-- **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a hand-orientation toggle. The MIDI settings view allows discrete port selection with active-port highlighting (Blue/Green) and automatic persistence.
+- **Settings & MIDI Configuration:** A settings drawer exposes fader-behavior modes (`jump`, `hybrid`, `catch-up`) and a **Panel Position** toggle for landscape docking. The MIDI settings view allows discrete port selection with active-port highlighting and automatic persistence.
 - **Material 3 theming:** M3 dark theme with `GoogleFonts.spaceGrotesk` / `Inter` text plus the obsidian surface palette keeps the interface consistent with the [DESIGN.md](DESIGN.md) system.
+- **Snapshots & Presets:** Save and recall complex UI layouts and control states directly from the settings drawer, backed by the DAG-based routing engine.
 
 ## Getting Started
 
@@ -32,7 +33,6 @@ This repository currently documents the new direction, design constraints, and i
 2. Run `flutter pub get` inside the `app/` folder to fetch Riverpod, `google_fonts`, and other dependencies.
 3. Use `flutter run -d <device>` to start the UI; the command center and fader layout automatically adapt to the screen width.
 4. Launch the settings or MIDI settings screens from the top-right icons or the connection status text (e.g. "AVAILABLE", "DISCONNECTED") to configure your MIDI ports.
-
 
 ## Project Direction
 
@@ -43,10 +43,10 @@ This repository currently documents the new direction, design constraints, and i
 
 ## Platform & Stack (baseline)
 
-- Android 10+ (API 29+), scaling to tablets (iPadOS/Android) and Windows touch displays
+- Android 13+ (API 33+), scaling to tablets (iPadOS/Android) and Windows touch displays (enforced for UMP support)
 - Flutter UI (Dart) for high-performance, cross-platform Material 3 rendering
 - Core app is isolated in a subdirectory (e.g., `app/`) to maintain modularity for future host adapters and desktop bridges
-- Target transport: wired USB-MIDI (v0.1.0 to v0.3.0); WebSockets/OSC (v0.4.0+) for advanced macro integration
+- Target transport: Universal MIDI Packets (UMP), wired USB-MIDI (v0.1.0 to v0.3.0); WebSockets/OSC (v0.4.0+) for advanced macro integration
 - Build variants: debug (verbose logging, test harness) and release (reduced logging)
 
 ## Project Goals
@@ -69,6 +69,8 @@ This repository currently documents the new direction, design constraints, and i
 - **Virtual MIDI Port**: Exposes the app as a native MIDI source/sink for other mobile DAWs.
 - **Metadata Persistence**: Uses device name and manufacturer fingerprints to maintain connections across USB hot-plugs.
 - Rate limiting/coalescing to protect battery and thermal stability
+- **DAG Routing:** Advanced node-based graph processing (`MidiRouter`) allowing modular splitting, remapping, filtering, and state syncing.
+- **Universal MIDI Packets (UMP):** Fully migrated to a 32-bit `MidiEvent` architecture ensuring forward compatibility with MIDI 2.0 standards.
 
 ## Version Roadmap
 
@@ -111,11 +113,12 @@ Full attributions: [CREDITS.md](CREDITS.md)
 
 This project is dual-licensed under:
 
-* GNU General Public License v3.0 (GPLv3)
-* Commercial License (LicenseRef-Commercial)
+- GNU General Public License v3.0 (GPLv3)
+- Commercial License (LicenseRef-Commercial)
 
 All source files include the SPDX identifier:
-```
+
+```text
 SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 ```
 
@@ -136,7 +139,7 @@ For licensing inquiries, contact: [dencelbabu@gmail.com](mailto:dencelbabu@gmail
 
 ### License Header Enforcement
 
-License headers are automatically checked by CI. 
+License headers are automatically checked by CI.
 
 See [docs/LICENSING.md](docs/LICENSING.md) for details.
 
@@ -146,8 +149,7 @@ Prior to version 0.2.2, this project used a custom dual-license notice.
 
 As of version 0.2.2, the project has been formally licensed under:
 
-* GNU General Public License v3.0 (GPLv3)
-* Commercial License (LicenseRef-Commercial)
+- GNU General Public License v3.0 (GPLv3)
+- Commercial License (LicenseRef-Commercial)
 
 This change clarifies and standardizes the licensing terms. Contributors retain full copyright to their contributions and are credited in Git history. By contributing, you grant Peters Digital a broad license to use your work under both the GPLv3 and Commercial License terms, enabling the project's dual-licensing model.
-

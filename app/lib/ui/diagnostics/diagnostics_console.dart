@@ -4,13 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'diagnostics_logger.dart';
+import '../design_system.dart';
 
 class DiagnosticsConsole extends ConsumerWidget {
   const DiagnosticsConsole({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logs = ref.watch(diagnosticsProvider);
+    final state = ref.watch(diagnosticsProvider);
+    final logs = state.entries;
 
     return Container(
       color: Colors.black, // Dark background
@@ -21,9 +23,9 @@ class DiagnosticsConsole extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'DIAGNOSTICS LOGGER',
-                style: TextStyle(
+                style: AppText.system(
                   color: Colors.greenAccent,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
@@ -56,6 +58,7 @@ class DiagnosticsConsole extends ConsumerWidget {
                     ),
                   )
                 : ListView.builder(
+                    key: ValueKey(state.version),
                     itemCount: logs.length,
                     itemBuilder: (context, index) {
                       final entry = logs[index];

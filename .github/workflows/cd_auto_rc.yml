@@ -8,6 +8,7 @@
 name: "CD: Auto RC Branch"
 
 on:
+  workflow_dispatch:
   push:
     branches: [rc]
     paths:

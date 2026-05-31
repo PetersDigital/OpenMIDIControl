@@ -25,9 +25,10 @@ Expected baseline:
 1. Connect Android device to Windows 11 PC via USB-C.
 2. Ensure Android USB mode is set to **"MIDI"** or **"File Transfer"** (Device will automatically handshake as a Peripheral).
 3. Start OpenMIDIControl.
-4. Confirm **"USB PERIPHERAL READY"** (Orange/Yellow) or **"USB HOST CONNECTED"** (Green) banner appears in the status row.
+4. Confirm **"USB PERIPHERAL READY"** (Orange/Yellow) or **"USB HOST CONNECTED"** (Green) appears in the **Dynamic Connection Island** at the bottom of the screen.
    - **READY**: The phone is in MIDI mode and visible to the PC, but no traffic has been detected yet.
    - **CONNECTED**: The DAW is actively communicating with the app.
+   - **Interaction**: The island auto-expands on status changes. When collapsed, **Double-Tap and Hold** the island to expand it manually for settings access.
 5. In your DAW (Cubase/Ableton), select **"OpenMIDIControl"** as the MIDI Input/Output device.
 6. Move a fader and confirm MIDI data is received.
 
@@ -52,12 +53,13 @@ Expected baseline:
 
 ### 4.4 Behavior & layout settings
 
-- Tap the **kebab icon** in the top bars of any layout to open the `Settings` screen.
-- The screen exposes three fader-behavior modes (Jump, Hybrid, Catch-Up) that immediately affect whether the fader snaps to your finger, moves relatively, or waits to cross the ribbon before updating host values.
-- A layout toggle lets you switch which side of the command center the faders sit on so you can mirror the UI for your dominant hand.
-- The version + build metadata at the top helps confirm you are on the `v0.2.3` UI, and this screen will later house pick-up, smoothing, and transport preferences.
+- Tap the **Settings icon** (cog) or the **more icon** (kebab) in the top bars to open the settings view.
+- **Side Panel Docking (Landscape):** In landscape mode, the settings and diagnostics appear in a flyout panel. Use the **Panel Position** toggle in App Settings to dock this panel to either the Left or Right side of the screen.
+- **Performance Lock:** The lock icon has been moved to the **Pagination Bar** (next to the FADER/XY/PADS tabs). Toggle this to prevent accidental page changes or to enable structural edits.
+- **Dynamic Connection Island:** Located at the bottom center, this island provides real-time MIDI status. A regular tap when expanded (or a double-tap-hold when collapsed) opens the MIDI Connection Settings.
 - **Manual Port Selection:** Toggle this on to forcefully show internal Android ports (including physical Port 0) in the device list. Use this only for advanced debugging of routing collisions.
 - Long-press any fader label to open the CC picker: the same overlay is used on both mobile and desktop layouts so you can reassign each fader without leaving the performance view.
+- **Snapshots & Presets:** From the settings drawer, access the snapshot tools to save your current layout configurations and control assignments into distinct preset slots, allowing rapid recall during live performance.
 
 ### 4.5 Configuring MIDI Ports
 
@@ -69,11 +71,13 @@ Expected baseline:
 
 ## 5. MIDI Mapping Reference (Initial)
 
-### Current Implementation (MIDI 1.0 / 14-bit):
+### Current Implementation (MIDI 1.0 / 14-bit)
+
 - Fader A: CC11/CC43 (14-bit LSB/MSB pair)
 - Fader B: CC1/CC33 (14-bit LSB/MSB pair)
 
-### Future Proposal (Native MIDI 2.0):
+### Future Proposal (Native MIDI 2.0)
+
 - Native 32-bit UMP CC values (v0.2.2+)
 
 Notes:
@@ -108,18 +112,23 @@ Notes:
 3. Verify automatic recovery without restarting the app.
 
 ### 6.5 Rate-limit verification
+
 1. Sweep a fader rapidly for 5 seconds.
 2. Confirm outbound MIDI rate caps at the configured limit (target 60–120 Hz per control) and still emits final value on release.
 
 ## 7. Cubase Mapping Appendix (Initial)
+
 - Purpose: document how core controls map when using Cubase host adapters.
-### Current Mappings (v0.2.3):
+
+### Current Mappings (v0.3.0)
+
 - Fader A: CC11/CC43 (14-bit pair), Channel 1.
 - Fader B: CC1/CC33 (14-bit pair), Channel 1.
 - Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup via reconstructed UMP.
 
-### Target Architecture (v0.2.2+):
-- Native UMP High-Res CC without legacy byte-stitching.
+### Target Architecture (v0.3.0+)
+
+- Native UMP High-Res CC without legacy byte-stitching. The DAG router strictly works with 32-bit messages, meaning it expects full resolution natively.
 - See reference scripts and mappings under [references/cubase](references/cubase) for vendor-specific examples.
 
 ## 8. Troubleshooting
@@ -145,25 +154,32 @@ Notes:
 ## 9. Debugging & Testing (v0.2.0+)
 
 ### 9.1 Diagnostics Console (NEW)
+
 Open the **MIDI Connection Settings** screen and tap the **bug icon** (labeled with a "View Diagnostics" tooltip) in the top bar. This reveals a real-time, terminal-style MIDI event logger directly on the device.
+
 - **Auto-Dispose**: The logging subscription is automatically terminated when you close the modal to preserve CPU cycles.
 - **Parsed Events**: View incoming `MidiEvent` data, including high-precision native timestamps, CC numbers, and values.
 
 ### 9.2 Native Logging (ADB)
+
 To monitor the internal MIDI dispatcher and USB handshake events, use `adb`:
+
 ```powershell
 # Windows PowerShell
 adb -s <devicename> logcat -c; adb -s <devicename> logcat | Select-String "OpenMIDIControl|flutter"
 ```
 
 ### 9.2 Sending Test MIDI
+
 Use the [Windows MIDI Services](https://microsoft.github.io/MIDI/tools/) CLI to send test messages to the app:
+
 ```bash
 # Send CC 1 Value 33 to Channel 1
 midi endpoint send-message 0x20B00121
 ```
 
 ## 10. Design References
+
 - Architecture and event model: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Change history: [CHANGELOG.md](CHANGELOG.md)

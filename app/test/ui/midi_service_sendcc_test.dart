@@ -38,7 +38,7 @@ void main() {
     });
 
     test('propagates isFinal through sendCC and native transport', () async {
-      final service = MidiService();
+      final service = MidiService(useBackgroundWorker: false);
 
       await service.sendCC(10, 64, isFinal: true);
       await callCompleter.future;
@@ -49,7 +49,7 @@ void main() {
     });
 
     test('sends non-final CC through sendCC and native transport', () async {
-      final service = MidiService();
+      final service = MidiService(useBackgroundWorker: false);
 
       await service.sendCC(20, 32, isFinal: false);
       await callCompleter.future;

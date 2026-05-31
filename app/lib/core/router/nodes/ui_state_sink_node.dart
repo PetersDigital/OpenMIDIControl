@@ -1,215 +1,203 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'dart:collection';
+import 'dart:async';
+import 'dart:io' as io;
 import 'dart:typed_data';
+import 'package:flutter/scheduler.dart';
 import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
-class _CcBatchContainer extends MapBase<int, int> {
-  final List<int> _values = List<int>.filled(128, -1);
-  final List<int> _keys = [];
-
-  @override
-  int? operator [](Object? key) {
-    if (key is int && key >= 0 && key < 128) {
-      final val = _values[key];
-      if (val != -1) return val;
-    }
-    return null;
-  }
-
-  @override
-  void operator []=(int key, int value) {
-    if (key >= 0 && key < 128) {
-      if (_values[key] == -1) {
-        _keys.add(key);
-      }
-      _values[key] = value;
-    }
-  }
-
-  @override
-  void clear() {
-    for (final k in _keys) {
-      _values[k] = -1;
-    }
-    _keys.clear();
-  }
-
-  @override
-  Iterable<int> get keys => _keys;
-
-  @override
-  int? remove(Object? key) {
-    if (key is int && key >= 0 && key < 128) {
-      final val = _values[key];
-      if (val != -1) {
-        _values[key] = -1;
-        _keys.remove(key);
-        return val;
-      }
-    }
-    return null;
-  }
-}
-
-class _CcSnapshotBuffer {
-  final List<int> _values = List<int>.filled(128, -1);
-  // Bitmap tracks which slots are active — avoids List.of copy on every publish()
-  final Uint8List _activeBitmap = Uint8List(128);
-  final List<int> _keys = [];
-  _CcBatchSnapshot? _activeSnapshot;
-  int _generation = 0;
-
-  void freezeActiveSnapshot() {
-    _activeSnapshot?._freezeFromBuffer();
-  }
-
-  void loadFrom(_CcBatchContainer source) {
-    for (final key in _keys) {
-      _values[key] = -1;
-      _activeBitmap[key] = 0;
-    }
-    _keys.clear();
-
-    for (final key in source._keys) {
-      _keys.add(key);
-      _values[key] = source._values[key];
-      _activeBitmap[key] = 1;
-    }
-  }
-
-  _CcBatchSnapshot publish(int generation) {
-    _generation = generation;
-    // No List.of copy — snapshot reads keys lazily from bitmap via buffer reference
-    final snapshot = _CcBatchSnapshot._(buffer: this, generation: generation);
-    _activeSnapshot = snapshot;
-    return snapshot;
-  }
-}
-
-class _CcBatchSnapshot extends MapBase<int, int> {
-  final _CcSnapshotBuffer _buffer;
-  final int _generation;
-  Map<int, int>? _frozenEntries;
-
-  _CcBatchSnapshot._({
-    required _CcSnapshotBuffer buffer,
-    required int generation,
-  }) : _buffer = buffer,
-       _generation = generation;
-
-  void _freezeFromBuffer() {
-    if (_frozenEntries != null) return;
-
-    final frozen = <int, int>{};
-    for (final key in _buffer._keys) {
-      frozen[key] = _buffer._values[key];
-    }
-    _frozenEntries = Map.unmodifiable(frozen);
-  }
-
-  @override
-  int? operator [](Object? key) {
-    if (key is! int || key < 0 || key >= 128) {
-      return null;
-    }
-
-    final frozen = _frozenEntries;
-    if (frozen != null) {
-      return frozen[key];
-    }
-
-    if (_buffer._generation != _generation) {
-      return null;
-    }
-
-    final val = _buffer._values[key];
-    if (val != -1) {
-      return val;
-    }
-
-    return null;
-  }
-
-  @override
-  void operator []=(int key, int value) {
-    throw UnsupportedError('Snapshot is immutable');
-  }
-
-  @override
-  void clear() {
-    throw UnsupportedError('Snapshot is immutable');
-  }
-
-  @override
-  Iterable<int> get keys {
-    final frozen = _frozenEntries;
-    if (frozen != null) return frozen.keys;
-    // Read keys lazily from bitmap — no list allocation
-    if (_buffer._generation != _generation) return const [];
-    return _buffer._keys;
-  }
-
-  @override
-  int? remove(Object? key) {
-    throw UnsupportedError('Snapshot is immutable');
-  }
-}
-
 class UiStateSinkNode extends SinkNode {
-  final void Function(Map<int, int>) onUpdateCCs;
-  final _CcBatchContainer _reusableBatch = _CcBatchContainer();
-  final List<_CcSnapshotBuffer> _snapshotBuffers = [
-    _CcSnapshotBuffer(),
-    _CcSnapshotBuffer(),
-  ];
-  int _nextSnapshotBufferIndex = 0;
-  int _snapshotGeneration = 0;
+  static final List<String> _addressKeys = List<String>.generate(2048, (index) {
+    final channel = index ~/ 128;
+    final cc = index % 128;
+    return '$channel:$cc';
+  }, growable: false);
 
-  UiStateSinkNode({required this.onUpdateCCs});
+  static final List<String> _noteAddressKeys = List<String>.generate(2048, (
+    index,
+  ) {
+    final channel = index ~/ 128;
+    final note = index % 128;
+    return 'note:$channel:$note';
+  }, growable: false);
+
+  final void Function(Map<String, dynamic>) onStateUpdate;
+
+  // 16 channels * 128 CCs = 2048
+  final Int32List _ccBuffer = Int32List(2048)..fillRange(0, 2048, -1);
+  final Set<int> _dirtyCcIndices = {};
+
+  // For discrete Note On/Off tracking and Button states
+  final Map<int, Set<int>> _noteStates = {};
+  final Map<int, Set<int>> _buttonNoteStates = {};
+  final Set<int> _activeCcButtons = {};
+
+  bool _hasNoteUpdates = false;
+  bool _hasButtonUpdates = false;
+
+  UiStateSinkNode({required this.onStateUpdate});
+
+  // Debounce timing
+  bool isPaused = false;
+  bool _hasPendingEmission = false;
+
+  void setPaused(bool paused) {
+    isPaused = paused;
+  }
 
   void _emitSnapshot() {
-    final buffer = _snapshotBuffers[_nextSnapshotBufferIndex];
+    final ccBatch = <String, int>{};
+    for (final index in _dirtyCcIndices) {
+      ccBatch[_addressKeys[index]] = _ccBuffer[index];
+    }
+    _dirtyCcIndices.clear();
 
-    // Preserve immutability of a previously published snapshot before reusing
-    // this backing buffer for a new generation.
-    buffer.freezeActiveSnapshot();
-    buffer.loadFrom(_reusableBatch);
+    final payload = <String, dynamic>{'ccs': ccBatch};
 
-    _snapshotGeneration++;
-    final snapshot = buffer.publish(_snapshotGeneration);
-    _nextSnapshotBufferIndex = (_nextSnapshotBufferIndex + 1) % 2;
+    if (_hasNoteUpdates) {
+      final noteBatch = <int, List<int>>{};
+      for (final entry in _noteStates.entries) {
+        noteBatch[entry.key] = entry.value.toList();
+      }
+      payload['notes'] = noteBatch;
+      _hasNoteUpdates = false;
+    }
 
-    onUpdateCCs(snapshot);
+    if (_hasButtonUpdates) {
+      final buttonMap = <String, bool>{};
+      // Note buttons
+      for (final entry in _buttonNoteStates.entries) {
+        final channel = entry.key;
+        for (final note in entry.value) {
+          buttonMap[_noteAddressKeys[(channel * 128) + note]] = true;
+        }
+      }
+      // CC buttons
+      for (final index in _activeCcButtons) {
+        buttonMap[_addressKeys[index]] = true;
+      }
+      payload['buttons'] = buttonMap;
+      _hasButtonUpdates = false;
+    }
+
+    onStateUpdate(payload);
+  }
+
+  void _throttledEmit() {
+    if (_dirtyCcIndices.isEmpty && !_hasNoteUpdates && !_hasButtonUpdates) {
+      return;
+    }
+
+    if (!_hasPendingEmission) {
+      _hasPendingEmission = true;
+
+      if (isPaused) {
+        _hasPendingEmission = false;
+        return;
+      }
+
+      // Sync emission with the hardware display refresh rate.
+      // In headless unit tests, frames are never drawn, causing scheduleFrameCallback to hang.
+      try {
+        final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
+        if (!isTest) {
+          SchedulerBinding.instance.scheduleFrameCallback((_) {
+            if (_hasPendingEmission) {
+              _emitSnapshot();
+              _hasPendingEmission = false;
+            }
+          });
+          SchedulerBinding.instance.ensureVisualUpdate();
+        } else {
+          _emitSnapshot();
+          _hasPendingEmission = false;
+        }
+      } catch (_) {
+        // Fallback for isolated contexts
+        Timer(const Duration(milliseconds: 16), () {
+          if (_hasPendingEmission) {
+            _emitSnapshot();
+            _hasPendingEmission = false;
+          }
+        });
+      }
+    }
+  }
+
+  void _processEvent(MidiEvent event) {
+    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
+      // CC Event
+      final channel = event.channel;
+      final cc = event.data1;
+      final value = event.data2;
+      final index = (channel * 128) + cc;
+
+      if (_ccBuffer[index] != value) {
+        _ccBuffer[index] = value;
+        _dirtyCcIndices.add(index);
+
+        // Update button state (>= 64 is active)
+        if (value >= 64) {
+          if (_activeCcButtons.add(index)) {
+            _hasButtonUpdates = true;
+          }
+        } else {
+          if (_activeCcButtons.remove(index)) {
+            _hasButtonUpdates = true;
+          }
+        }
+      }
+    } else if (event.legacyStatusByte >= 0x90 &&
+        event.legacyStatusByte <= 0x9F) {
+      // Note On Event
+      final channel = event.channel;
+      final note = event.data1;
+      final velocity = event.data2;
+
+      if (velocity > 0) {
+        if (_noteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
+          _hasNoteUpdates = true;
+        }
+        if (_buttonNoteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
+          _hasButtonUpdates = true;
+        }
+      } else {
+        // Note On with 0 velocity acts as Note Off
+        if (_noteStates[channel]?.remove(note) ?? false) {
+          _hasNoteUpdates = true;
+        }
+        if (_buttonNoteStates[channel]?.remove(note) ?? false) {
+          _hasButtonUpdates = true;
+        }
+      }
+    } else if (event.legacyStatusByte >= 0x80 &&
+        event.legacyStatusByte <= 0x8F) {
+      // Note Off Event
+      final channel = event.channel;
+      final note = event.data1;
+
+      if (_noteStates[channel]?.remove(note) ?? false) {
+        _hasNoteUpdates = true;
+      }
+      if (_buttonNoteStates[channel]?.remove(note) ?? false) {
+        _hasButtonUpdates = true;
+      }
+    }
   }
 
   @override
   void executeSingle(MidiEvent event) {
-    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
-      _reusableBatch.clear();
-      _reusableBatch[event.data1] = event.data2;
-      _emitSnapshot();
-    }
+    _processEvent(event);
+    _throttledEmit();
   }
 
   @override
   void execute(List<MidiEvent> events) {
-    bool hasUpdates = false;
-
-    for (var event in events) {
-      if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
-        if (!hasUpdates) {
-          _reusableBatch.clear();
-          hasUpdates = true;
-        }
-        _reusableBatch[event.data1] = event.data2;
-      }
+    for (final event in events) {
+      _processEvent(event);
     }
-
-    if (hasUpdates) {
-      _emitSnapshot();
-    }
+    _throttledEmit();
   }
 }

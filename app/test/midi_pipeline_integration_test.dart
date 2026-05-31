@@ -244,7 +244,7 @@ void main() {
 
         // Force instantiation of providers that hook into the midi events stream
         container.read(connectedMidiDeviceProvider);
-        container.read(ccValuesProvider); // Initialize CcNotifier listener
+        container.read(controlStateProvider); // Initialize CcNotifier listener
 
         // Create a large batch payload with 10000 events mimicking rapid ping-ponging CC values
         final largeBatch = Int64List(20001);
@@ -262,15 +262,18 @@ void main() {
 
         // Poll until the state is updated or timeout (since Isolate spawn can take variable time)
         int attempts = 0;
-        while (container.read(ccValuesProvider).ccValues[7] == null &&
+        while (container.read(controlStateProvider).ccValues["0:7"] == null &&
             attempts < 50) {
           await Future.delayed(const Duration(milliseconds: 50));
           attempts++;
         }
 
         // Assert the ControlState processed the batch updates correctly and reflects the final value
-        final finalState = container.read(ccValuesProvider);
-        expect(finalState.ccValues[7], 9999 % 128); // The last processed value
+        final finalState = container.read(controlStateProvider);
+        expect(
+          finalState.ccValues["0:7"],
+          9999 % 128,
+        ); // The last processed value
 
         streamController.close();
       },
@@ -497,5 +500,70 @@ void main() {
         systemStreamController.close();
       },
     );
+
+    test('DISCONNECT event triggers connectionLost state', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final systemStreamController = StreamController<dynamic>();
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockStreamHandler(
+            const EventChannel(
+              'com.petersdigital.openmidicontrol/system_events',
+            ),
+            MockStreamHandler.inline(
+              onListen: (Object? arguments, MockStreamHandlerEventSink events) {
+                systemStreamController.stream.listen((event) {
+                  events.success(event);
+                });
+              },
+            ),
+          );
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.petersdigital.openmidicontrol/midi'),
+            (call) async {
+              if (call.method == 'connectToDevice') return true;
+              return null;
+            },
+          );
+
+      // Initialize notifier listeners.
+      container.read(connectedMidiDeviceProvider);
+
+      // Set an initial connected device
+      final device = MidiDevice(
+        id: 'dev-1',
+        name: 'Test Device',
+        manufacturer: 'Test',
+        inputPorts: [MidiPort(number: 0, name: 'In')],
+        outputPorts: [MidiPort(number: 0, name: 'Out')],
+      );
+      await container
+          .read(connectedMidiDeviceProvider.notifier)
+          .connect(device, inputPort: 0, outputPort: 0);
+
+      expect(
+        container.read(connectedMidiDeviceProvider).connectedDevice,
+        isNotNull,
+      );
+      expect(
+        container.read(connectedMidiDeviceProvider).isConnectionLost,
+        isFalse,
+      );
+
+      // Trigger DISCONNECT event
+      systemStreamController.add({'type': 'DISCONNECT', 'portId': 'dev-1'});
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final state = container.read(connectedMidiDeviceProvider);
+      expect(state.isConnectionLost, isTrue);
+      // Device and ports are preserved for auto-reconnect
+      expect(state.connectedDevice?.id, 'dev-1');
+
+      systemStreamController.close();
+    });
   });
 }

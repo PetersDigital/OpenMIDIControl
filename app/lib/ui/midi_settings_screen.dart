@@ -7,6 +7,8 @@ import 'diagnostics/diagnostics_console.dart';
 import 'midi_service.dart';
 import 'midi_settings_state.dart'
     show manualPortSelectionProvider, usbModeProvider, UsbMode;
+import 'design_system.dart';
+import 'side_panel_state.dart';
 
 class MidiSettingsScreen extends ConsumerWidget {
   const MidiSettingsScreen({super.key});
@@ -21,11 +23,20 @@ class MidiSettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-        title: const Text(
+        automaticallyImplyLeading: false,
+        leading: MediaQuery.of(context).orientation == Orientation.landscape
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => ref.read(sidePanelProvider.notifier).hide(),
+              )
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+        title: Text(
           'MIDI Ports Configuration',
-          style: TextStyle(
-            fontFamily: 'Space Grotesk',
-            color: Color(0xFFC3C7CA),
+          style: AppText.system(
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -63,11 +74,10 @@ class MidiSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // --- MOVED CONNECTIONS SETTINGS ---
-          const Text(
+          Text(
             'CONNECTIONS',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Color(0xFFC3C7CA),
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.0,
@@ -351,8 +361,7 @@ class MidiSettingsScreen extends ConsumerWidget {
               Flexible(
                 child: Text(
                   titleText,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
+                  style: AppText.system(
                     color: titleColor,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -482,8 +491,7 @@ class _DeviceExpansionTileState extends ConsumerState<_DeviceExpansionTile> {
           ),
           title: Text(
             widget.device.name,
-            style: TextStyle(
-              fontFamily: 'Inter',
+            style: AppText.system(
               color: widget.isThisDeviceConnected
                   ? Colors.white
                   : Colors.white70,

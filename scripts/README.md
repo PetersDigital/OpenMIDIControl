@@ -5,13 +5,14 @@ This folder contains organizational, build-assistance, and development workflow 
 ## Prerequisites
 
 All scripts require:
+
 - **Python 3.9+** (tested with 3.11+)
 - **Git** (for git-dependent scripts)
 
 Some scripts have additional dependencies:
 
 | Script | Additional Dependencies |
-|--------|------------------------|
+| -------- | ------------------------ |
 | `commit.py` | commitlint (optional) — `npm install` or available via `npx`/`pnpm`/`yarn` |
 | `validate_workflows.py` | actionlint, yamllint (optional, validates without them too) |
 | `run_app.py` | Flutter SDK |
@@ -19,6 +20,7 @@ Some scripts have additional dependencies:
 | All other scripts | None (stdlib only) |
 
 Install Node.js dependencies for full commitlint validation:
+
 ```bash
 npm install  # Installs @commitlint/cli, @commitlint/config-conventional, husky
 ```
@@ -30,6 +32,7 @@ npm install  # Installs @commitlint/cli, @commitlint/config-conventional, husky
 Guides users through creating valid conventional commit messages with type/scope selection, local validation, and auto-commit. Ensures 100% commitlint compliance for automated changelog and release notes generation.
 
 **Features:**
+
 - Interactive mode with numbered lists for type and scope selection
 - Auto-suggest scope based on staged file paths
 - Custom scope entry with lowercase validation
@@ -42,6 +45,7 @@ Guides users through creating valid conventional commit messages with type/scope
 - Full parity with `commitlint.config.js` types and scopes
 
 **Usage:**
+
 ```bash
 python scripts/commit.py                    # Interactive mode
 python scripts/commit.py "feat(ui): add button"  # Direct mode
@@ -57,12 +61,14 @@ python scripts/commit.py --no-verify        # Bypass git hooks
 Unified Flutter app launcher replacing legacy PowerShell scripts. Works on Windows, macOS, and Linux without PowerShell dependency.
 
 **Features:**
+
 - Automatic `pubspec.yaml` discovery in root or subdirectories
 - Interactive device selection via `flutter devices --machine`
 - Android release signing with `.env.ps1` keystore configuration
 - Colored terminal output with clear error messages
 
 **Usage:**
+
 ```bash
 python scripts/run_app.py                   # Debug mode (default)
 python scripts/run_app.py --release         # Release mode with signing
@@ -78,6 +84,7 @@ python scripts/run_app.py --help            # Show all options
 Generates or updates `CHANGELOG.md` from git log using conventional commit format. Uses path-based routing to keep infrastructure changes separate from app development changes.
 
 **Features:**
+
 - Interactive mode with tag selection
 - Auto-detects version from git tags
 - Path-based routing: `.github/` → CI/CD Infrastructure, `scripts/` → Development Tools, everything else → type-based sections
@@ -85,6 +92,7 @@ Generates or updates `CHANGELOG.md` from git log using conventional commit forma
 - Footnote link management for version comparisons
 
 **Usage:**
+
 ```bash
 python scripts/update_changelog.py           # Interactive mode
 python scripts/update_changelog.py 0.2.3     # Specific version
@@ -97,6 +105,7 @@ python scripts/update_changelog.py 0.2.3     # Specific version
 Unit tests for release notes generation logic. Validates conventional commit parsing, changelog section grouping, path-based routing (CI/CD vs Development Tools vs App), and edge cases.
 
 **Usage:**
+
 ```bash
 python scripts/test_release_notes.py
 ```
@@ -110,12 +119,14 @@ python scripts/test_release_notes.py
 Validates and auto-fixes GitHub Actions YAML files. Runs actionlint for schema validation and yamllint for syntax checking.
 
 **Features:**
+
 - Auto-fixes CRLF → LF line endings
 - Auto-fixes trailing spaces
 - Removes emojis from YAML (causes parsing issues)
 - Supports glob patterns: `validate_workflows.py .github/workflows/ci_*.yml`
 
 **Usage:**
+
 ```bash
 python scripts/validate_workflows.py .github/workflows/*.yml
 python scripts/validate_workflows.py --fix .github/workflows/*.yml  # Auto-fix issues
@@ -130,6 +141,7 @@ Adds SPDX dual-license headers to all source files missing them.
 **Supported file types:** Dart, Kotlin, PowerShell, YAML, Python, Shell
 
 **Usage:**
+
 ```bash
 python scripts/add_license_headers.py
 ```
@@ -139,6 +151,7 @@ python scripts/add_license_headers.py
 Validates all source files have proper license headers. Returns exit code 1 if any files missing headers (CI enforcement).
 
 **Usage:**
+
 ```bash
 python scripts/check_license_headers.py
 ```
@@ -150,6 +163,7 @@ python scripts/check_license_headers.py
 Deletes all workflow runs from repository. Useful for cleaning up test runs.
 
 **Usage:**
+
 ```bash
 python scripts/wipe_github_actions.py          # Preview (dry-run)
 python scripts/wipe_github_actions.py --confirm # Execute deletion
@@ -162,6 +176,7 @@ python scripts/wipe_github_actions.py --confirm # Execute deletion
 Deletes all Actions cache entries to free up storage quota.
 
 **Usage:**
+
 ```bash
 python scripts/wipe_github_actions_cache.py
 ```
@@ -183,8 +198,8 @@ Copy-Item scripts/.env.example.ps1 scripts/.env.ps1
 ## Migration Notes
 
 **Legacy PowerShell scripts removed:**
+
 - `run_debug.ps1` → Replaced by `run_app.py`
 - `run_release.ps1` → Replaced by `run_app.py`
 
 All scripts now use Python 3 for environment-agnostic execution across Windows, macOS, and Linux.
-
