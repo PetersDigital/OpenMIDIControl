@@ -72,11 +72,27 @@ void main() {
       fakeMidiService = FakeMidiService();
       mockState = LayoutState(
         pages: [
-          LayoutPage(id: 'p0', name: 'P1', controls: []),
-          LayoutPage(id: 'p1', name: 'P2', controls: []),
-          LayoutPage(id: 'p2', name: 'P3', controls: []),
+          LayoutPage(
+            id: 'p0',
+            type: PageType.utility,
+            name: 'P1',
+            controls: [],
+          ),
+          LayoutPage(
+            id: 'p1',
+            type: PageType.utility,
+            name: 'P2',
+            controls: [],
+          ),
+          LayoutPage(
+            id: 'p2',
+            type: PageType.utility,
+            name: 'P3',
+            controls: [],
+          ),
           LayoutPage(
             id: 'p3',
+            type: PageType.utility,
             name: 'UTILITY',
             controls: [
               LayoutControl(

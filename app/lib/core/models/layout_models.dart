@@ -7,6 +7,9 @@ import '../midi_utils.dart';
 /// Enumeration of supported control types in the layout schema.
 enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
 
+/// Enumeration of supported page types in the layout schema.
+enum PageType { fader, xyPad, drumPad, utility }
+
 /// Represents a single control within a layout page.
 ///
 /// Fields:
@@ -144,23 +147,32 @@ class LayoutControl {
 ///
 /// Fields:
 /// - [id]: Unique identifier (e.g., "page_0", "page_faders")
+/// - [type]: The type of the page (e.g., fader, xyPad, drumPad, utility)
 /// - [name]: Display name (e.g., "FADER", "XY", "PADS", "UTILITY")
 /// - [controls]: List of controls on this page
 class LayoutPage {
   final String id;
+  final PageType type;
   final String name;
   final List<LayoutControl> controls;
 
-  LayoutPage({required this.id, required this.name, required this.controls});
+  LayoutPage({
+    required this.id,
+    required this.type,
+    required this.name,
+    required this.controls,
+  });
 
   /// Create a copy with optional field overrides.
   LayoutPage copyWith({
     String? id,
+    PageType? type,
     String? name,
     List<LayoutControl>? controls,
   }) {
     return LayoutPage(
       id: id ?? this.id,
+      type: type ?? this.type,
       name: name ?? this.name,
       controls: controls ?? this.controls,
     );
@@ -170,6 +182,7 @@ class LayoutPage {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'type': type.name,
       'name': name,
       'controls': controls.map((c) => c.toJson()).toList(),
     };
@@ -179,6 +192,9 @@ class LayoutPage {
   factory LayoutPage.fromJson(Map<String, dynamic> json) {
     return LayoutPage(
       id: json['id'] as String,
+      type:
+          PageType.values.firstWhereOrNull((e) => e.name == json['type']) ??
+          PageType.utility,
       name: json['name'] as String,
       controls: (json['controls'] as List<dynamic>)
           .cast<Map<String, dynamic>>()
@@ -189,18 +205,19 @@ class LayoutPage {
 
   @override
   String toString() =>
-      'LayoutPage(id: $id, name: $name, controlCount: ${controls.length})';
+      'LayoutPage(id: $id, type: ${type.name}, name: $name, controlCount: ${controls.length})';
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is LayoutPage &&
         other.id == id &&
+        other.type == type &&
         other.name == name &&
         const ListEquality().equals(other.controls, controls);
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, name, const ListEquality().hash(controls));
+      Object.hash(id, type, name, const ListEquality().hash(controls));
 }
