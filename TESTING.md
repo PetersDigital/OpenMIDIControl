@@ -1,9 +1,9 @@
 # Automated Test Suite Architecture
 
 > [!NOTE]
-> This documentation covers the multi-domain test suite for the v0.3.0 Modular Layout Engine and UMP transport pipeline, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
+> This documentation covers the multi-domain test suite for the v0.3.0 routing/state foundation and the remaining modular-layout work, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
 
-The v0.3.0 Universal MIDI Packet (UMP) transport pipeline utilizes a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
+The v0.3.0 Universal MIDI Packet (UMP) transport pipeline and layout-state foundation utilize a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
 
 This document outlines how to execute the test suite and the specific scenarios validated.
 
@@ -356,10 +356,10 @@ void main() {
 
 ---
 
-## 6. Conceptual: UMP Fuzzing Tests (v0.3.0+)
+## 6. Conceptual: UMP Fuzzing Tests (future)
 
 > [!NOTE]
-> Fuzzing tests are planned for v0.3.0. The following describes the intended structure.
+> Fuzzing tests are a future addition for stress-testing the UMP parser and transport pipeline once the remaining modular-layout work lands. The following describes the intended structure.
 
 **Target Directory:** `app/android/app/src/androidTest/kotlin/com/petersdigital/openmidicontrol/`
 **Test File:** `UmpFuzzTest.kt`
@@ -432,7 +432,11 @@ fun umpFuzzTest() {
 
 ---
 
-## 7. Continuous Integration
+## 7. Layout Roadmap Coverage (v0.4.x)
+
+When the modular layout editor lands, add tests for drag-and-drop placement, resize interactions, palette insertion, and persistence round-trips so the new editor path stays deterministic.
+
+## 8. Continuous Integration
 
 All tests run automatically on pull requests via GitHub Actions:
 
@@ -444,7 +448,7 @@ Tests must pass before PRs can be merged.
 
 ---
 
-## 8. Hardware-in-the-Loop (HITL) Testing
+## 9. Hardware-in-the-Loop (HITL) Testing
 
 Automated tests cannot replace real hardware validation. The following manual tests are required:
 

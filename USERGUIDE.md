@@ -126,7 +126,7 @@ Notes:
 - Fader B: CC1/CC33 (14-bit pair), Channel 1.
 - Feedback policy: host automation updates UI when control not touched; full 14-bit value used for dedup via reconstructed UMP.
 
-### Target Architecture (v0.3.0+)
+### Target Architecture (v0.4.x+)
 
 - Native UMP High-Res CC without legacy byte-stitching. The DAG router strictly works with 32-bit messages, meaning it expects full resolution natively.
 - See reference scripts and mappings under [references/cubase](references/cubase) for vendor-specific examples.

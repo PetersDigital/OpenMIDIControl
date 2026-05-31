@@ -67,11 +67,14 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **DAG Routing Ecosystem**: Full integration of transformer nodes (`SplitNode`, `RemapNode`, `FilterNode`) allowing modular N-to-N manipulations inside the `MidiRouter`.
 - **Universal MIDI Packets (UMP) Migration**: Finalized transition to 32-bit `MidiEvent` architecture internally to secure MIDI 2.0 readiness.
 - **Dynamic Connection Island**: Introduced an animated, adaptive status indicator (using `SizeTransition` to eliminate layout jank) that handles all 7 MIDI states and guards configuration via double-tap-hold gestures.
+- **Hybrid Touch Engine**: Finalized the touch capture model so touch-anywhere, catch-up, and hybrid fader behavior stay consistent across direct UI gestures and MIDI feedback.
 - **PerformanceTickerMixin**: Centralized lifecycle management for interactive widgets with managed disposal and background recovery.
   - Added **safeStartTicker** guards to provide a centralized, guarded way to start tickers, preventing "already active" or "disposed" assertion crashes.
 - **Utility Grid Clear/Reset UX**: Disambiguated hard unbind from factory restore. Controls visually reflect "UNASSIGNED" states with interaction guards.
 - **Side Panel Docking**: Implemented a side-agnostic flyout system for landscape orientations, supporting Left/Right docking.
 - **Layout Hardening**: Eradicated build-phase orientation mutations; migrated to `didChangeMetrics`.
+- **Unified Layout State**: Consolidated page, control, and persistence state behind `LayoutState` so the performance surface and settings screen consume the same source of truth.
+- **Performance Architecture**: Standardized index-based subscriptions, lazy state updates, and visibility-aware disposal so layout rendering remains deterministic under automation load.
 - **O(1) Rendering Engine**: Optimized the UI grid with index-based leaf subscriptions and decoupled render pulls to handle extreme automation density without frame drops.
 - **Native Android Resilience**: Hardened `MidiSystemManager` with callback tracking per transport and physical disconnect handling.
 - **Zero-Allocation Hot-path**: Primitive-indexed state maps and bounded object pooling (`_MAX_POOL_SIZE = 256`) in the routing engine.
@@ -96,7 +99,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
 
-- **v0.4.0 (Core Engine)**: Migration from hardcoded panels to a data-driven fixed-ratio grid system.
+- **v0.4.0 (Core Engine Foundation)**: Complete the fixed-ratio grid core, layout editor scaffolding, and control palette plumbing for modular panels.
 - **v0.4.1 (Editor Mode)**: Implementation of drag-and-drop, resizing, and the widget palette.
 - **v0.4.2 (Persistence & Marketplace)**: JSON schema versioning and manifest metadata for layout sharing.
 
