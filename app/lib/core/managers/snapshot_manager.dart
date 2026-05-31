@@ -112,7 +112,7 @@ class SnapshotManager {
 
   Future<LayoutPage?> importLayout() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['omc', 'json'],
       );
@@ -158,7 +158,7 @@ class SnapshotManager {
 
   Future<PresetSnapshot?> importFullPreset() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['omc', 'json'],
       );
