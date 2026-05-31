@@ -73,14 +73,25 @@ void main() {
 
       final mockPage = LayoutPage(
         id: 'page1',
+        type: PageType.drumPad,
         name: 'Page 1',
         controls: [mockControl],
       );
 
       final mockState = LayoutState(
         pages: [
-          LayoutPage(id: 'p0', name: 'P0', controls: []),
-          LayoutPage(id: 'p1', name: 'P1', controls: []),
+          LayoutPage(
+            id: 'p0',
+            type: PageType.utility,
+            name: 'P0',
+            controls: [],
+          ),
+          LayoutPage(
+            id: 'p1',
+            type: PageType.utility,
+            name: 'P1',
+            controls: [],
+          ),
           mockPage,
         ],
         activePageIndex: 2,

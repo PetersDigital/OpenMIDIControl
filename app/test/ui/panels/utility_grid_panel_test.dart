@@ -50,6 +50,7 @@ void main() {
   Widget buildTestSubject() {
     final mockUtilityPage = LayoutPage(
       id: 'page_3',
+      type: PageType.utility,
       name: 'UTILITY',
       controls: [
         // 4 Encoders
@@ -90,9 +91,9 @@ void main() {
 
     final mockState = LayoutState(
       pages: [
-        LayoutPage(id: 'p0', name: 'P0', controls: []),
-        LayoutPage(id: 'p1', name: 'P1', controls: []),
-        LayoutPage(id: 'p2', name: 'P2', controls: []),
+        LayoutPage(id: 'p0', type: PageType.utility, name: 'P0', controls: []),
+        LayoutPage(id: 'p1', type: PageType.utility, name: 'P1', controls: []),
+        LayoutPage(id: 'p2', type: PageType.utility, name: 'P2', controls: []),
         mockUtilityPage,
       ],
       activePageIndex: 3,
