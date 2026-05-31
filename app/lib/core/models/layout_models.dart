@@ -192,9 +192,9 @@ class LayoutPage {
   factory LayoutPage.fromJson(Map<String, dynamic> json) {
     return LayoutPage(
       id: json['id'] as String,
-      type: json['type'] != null
-          ? PageType.values.byName(json['type'] as String)
-          : PageType.utility,
+      type:
+          PageType.values.firstWhereOrNull((e) => e.name == json['type']) ??
+          PageType.utility,
       name: json['name'] as String,
       controls: (json['controls'] as List<dynamic>)
           .cast<Map<String, dynamic>>()
