@@ -69,6 +69,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   static LayoutPage _buildFaderPage() {
     return LayoutPage(
       id: 'page_0',
+      type: PageType.fader,
       name: 'FADER',
       controls: [
         LayoutControl(
@@ -134,6 +135,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   static LayoutPage _buildXyPage() {
     return LayoutPage(
       id: 'page_1',
+      type: PageType.xyPad,
       name: 'XY',
       controls: [
         LayoutControl(
@@ -163,6 +165,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     ];
     return LayoutPage(
       id: 'page_2',
+      type: PageType.drumPad,
       name: 'PADS',
       controls: List.generate(8, (index) {
         return LayoutControl(
@@ -179,6 +182,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   static LayoutPage _buildUtilityPage() {
     return LayoutPage(
       id: 'page_3',
+      type: PageType.utility,
       name: 'UTILITY',
       controls: [
         // Encoders (Row 0 & 1)
