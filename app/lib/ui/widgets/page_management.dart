@@ -67,12 +67,16 @@ class PageManagementSection extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
-                          color: Colors.white54,
+                          color: pages.length > 1
+                              ? Colors.white54
+                              : Colors.white12,
                         ),
-                        onPressed: () =>
-                            _confirmDelete(context, ref, index, page.name),
+                        onPressed: pages.length > 1
+                            ? () =>
+                                  _confirmDelete(context, ref, index, page.name)
+                            : null,
                       ),
                       const Icon(Icons.drag_handle, color: Colors.white24),
                     ],
