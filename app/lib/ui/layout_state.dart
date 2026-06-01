@@ -537,11 +537,15 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     if (oldIndex < 0 || oldIndex >= state.pages.length) return;
     if (newIndex < 0 || newIndex > state.pages.length) return;
 
-    final updatedPages = [...state.pages];
+    // Adjust newIndex when dragging down the list (ReorderableListView behaviour)
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
 
+    // If the item was dropped back to its original position, do nothing.
+    if (oldIndex == newIndex) return;
+
+    final updatedPages = [...state.pages];
     final page = updatedPages.removeAt(oldIndex);
     updatedPages.insert(newIndex, page);
 
