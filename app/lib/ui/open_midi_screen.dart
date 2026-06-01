@@ -1014,33 +1014,29 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
 
                     switch (page.type) {
                       case PageType.fader:
-                        final controls = page.controls
-                            .where((c) => c.type == ControlType.fader)
-                            .toList();
-                        final maxControls = math.min(controls.length, 4);
                         return Row(
                           key: key,
-                          children: [
-                            for (int i = 0; i < maxControls; i++)
-                              Expanded(
-                                child: HybridTouchFader(
-                                  key: ValueKey('${page.id}_fader_$i'),
-                                  controlId: controls[i].id,
-                                  ccNumber: controls[i].defaultCc,
-                                  displayName: controls[i].displayName,
-                                  activeColor: i % 2 == 0
-                                      ? const Color(0xFFA6C9F8)
-                                      : const Color(0xFFA1CFCE),
-                                  labelColor: i % 2 == 0
-                                      ? const Color(0xFF033258)
-                                      : const Color(0xFF013737),
-                                  initialValue: i % 2 == 0 ? 1.0 : 64 / 127.0,
-                                  isMobile: widget.isMobile,
-                                  behavior: ref.watch(faderBehaviorProvider),
-                                  isActive: isActive,
-                                ),
+                          children: page.controls.map((control) {
+                            final i = page.controls.indexOf(control);
+                            return Expanded(
+                              child: HybridTouchFader(
+                                key: ValueKey(control.id),
+                                controlId: control.id,
+                                ccNumber: control.defaultCc,
+                                displayName: control.displayName,
+                                activeColor: i % 2 == 0
+                                    ? const Color(0xFFA6C9F8)
+                                    : const Color(0xFFA1CFCE),
+                                labelColor: i % 2 == 0
+                                    ? const Color(0xFF033258)
+                                    : const Color(0xFF013737),
+                                initialValue: i % 2 == 0 ? 1.0 : 64 / 127.0,
+                                isMobile: widget.isMobile,
+                                behavior: ref.watch(faderBehaviorProvider),
+                                isActive: isActive,
                               ),
-                          ],
+                            );
+                          }).toList(),
                         );
 
                       case PageType.xyPad:

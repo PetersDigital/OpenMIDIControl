@@ -174,48 +174,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           channel: 0,
           customName: 'CC11\nEXPRESSION',
         ),
-        LayoutControl(
-          id: 'fader_2',
-          type: ControlType.fader,
-          defaultCc: 7,
-          channel: 0,
-          customName: 'CC7\nVOLUME',
-        ),
-        LayoutControl(
-          id: 'fader_3',
-          type: ControlType.fader,
-          defaultCc: 10,
-          channel: 0,
-          customName: 'CC10\nPAN',
-        ),
-        LayoutControl(
-          id: 'fader_4',
-          type: ControlType.fader,
-          defaultCc: 12,
-          channel: 0,
-          customName: 'CC12\nCUSTOM1',
-        ),
-        LayoutControl(
-          id: 'fader_5',
-          type: ControlType.fader,
-          defaultCc: 13,
-          channel: 0,
-          customName: 'CC13\nCUSTOM2',
-        ),
-        LayoutControl(
-          id: 'fader_6',
-          type: ControlType.fader,
-          defaultCc: 14,
-          channel: 0,
-          customName: 'CC14\nCUSTOM3',
-        ),
-        LayoutControl(
-          id: 'fader_7',
-          type: ControlType.fader,
-          defaultCc: 15,
-          channel: 0,
-          customName: 'CC15\nCUSTOM4',
-        ),
       ],
     );
   }
