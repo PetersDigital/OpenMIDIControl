@@ -34,6 +34,6 @@ void main() {
 
     // 3. Verify it builds without throwing RenderFlex overflow errors
     expect(tester.takeException(), isNull);
-    expect(find.byType(HybridTouchFader), findsNWidgets(2));
+    expect(find.byType(HybridTouchFader), findsNWidgets(4));
   });
 }
