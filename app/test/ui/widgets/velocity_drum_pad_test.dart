@@ -80,18 +80,8 @@ void main() {
 
       final mockState = LayoutState(
         pages: [
-          LayoutPage(
-            id: 'p0',
-            type: PageType.utility,
-            name: 'P0',
-            controls: [],
-          ),
-          LayoutPage(
-            id: 'p1',
-            type: PageType.utility,
-            name: 'P1',
-            controls: [],
-          ),
+          LayoutPage(id: 'p0', type: PageType.fader, name: 'P0', controls: []),
+          LayoutPage(id: 'p1', type: PageType.xyPad, name: 'P1', controls: []),
           mockPage,
         ],
         activePageIndex: 2,
