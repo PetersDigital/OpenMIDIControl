@@ -32,6 +32,7 @@ class PageManagementSection extends ConsumerWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: pages.length,
+            // ignore: deprecated_member_use
             onReorder: (oldIndex, newIndex) {
               ref
                   .read(layoutStateProvider.notifier)
