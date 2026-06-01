@@ -138,7 +138,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
-              value: _selectedChannel < 0 ? 0 : _selectedChannel,
+              initialValue: _selectedChannel < 0 ? 0 : _selectedChannel,
               dropdownColor: const Color(0xFF282A2E),
               decoration: const InputDecoration(
                 filled: true,
