@@ -14,6 +14,7 @@ import 'midi_settings_state.dart';
 import 'design_system.dart';
 import 'side_panel_state.dart';
 import 'widgets/preset_management.dart';
+import 'widgets/page_management.dart';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
   return await PackageInfo.fromPlatform();
@@ -149,6 +150,13 @@ class SettingsScreen extends ConsumerWidget {
               },
             );
           }),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white12),
+          const SizedBox(height: 12),
+
+          // Page Management Section
+          const PageManagementSection(),
 
           const SizedBox(height: 12),
           const Divider(color: Colors.white12),
