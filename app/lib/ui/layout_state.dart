@@ -66,6 +66,94 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     ];
   }
 
+  LayoutPage _buildBlankPage(PageType type, String name) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final pageId = 'page_$timestamp';
+    final List<LayoutControl> controls = [];
+
+    switch (type) {
+      case PageType.fader:
+        for (int i = 0; i < 8; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'fader_${timestamp}_$i',
+              type: ControlType.fader,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+      case PageType.xyPad:
+        controls.add(
+          LayoutControl(
+            id: 'xy_main_$timestamp',
+            type: ControlType.xyPad,
+            defaultCc: -1,
+            secondaryCc: -1,
+            channel: -1,
+            invertY: true,
+            customName: 'UNASSIGNED',
+          ),
+        );
+        break;
+      case PageType.drumPad:
+        for (int i = 0; i < 8; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'pad_${timestamp}_$i',
+              type: ControlType.drumPad,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+      case PageType.utility:
+        // Encoders
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'encoder_${timestamp}_$i',
+              type: ControlType.encoder,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        // Toggles
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'toggle_${timestamp}_$i',
+              type: ControlType.toggle,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        // Triggers
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'trigger_${timestamp}_$i',
+              type: ControlType.trigger,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+    }
+
+    return LayoutPage(id: pageId, type: type, name: name, controls: controls);
+  }
+
   static LayoutPage _buildFaderPage() {
     return LayoutPage(
       id: 'page_0',
@@ -410,6 +498,67 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       return page.copyWith(controls: updatedControls);
     }).toList();
     state = state.copyWith(pages: updatedPages);
+  }
+
+  void addPage(PageType type, String name) {
+    final newPage = _buildBlankPage(type, name);
+    final updatedPages = [...state.pages, newPage];
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: updatedPages.length - 1,
+    );
+  }
+
+  void removePage(int index) {
+    if (index < 0 || index >= state.pages.length) return;
+
+    final updatedPages = [...state.pages];
+    updatedPages.removeAt(index);
+
+    int newActiveIndex = state.activePageIndex;
+    if (updatedPages.isEmpty) {
+      newActiveIndex = -1;
+    } else if (state.activePageIndex == index) {
+      newActiveIndex = (index >= updatedPages.length)
+          ? updatedPages.length - 1
+          : index;
+    } else if (state.activePageIndex > index) {
+      newActiveIndex = state.activePageIndex - 1;
+    }
+
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: newActiveIndex,
+    );
+  }
+
+  void reorderPages(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= state.pages.length) return;
+    if (newIndex < 0 || newIndex > state.pages.length) return;
+
+    final updatedPages = [...state.pages];
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+
+    final page = updatedPages.removeAt(oldIndex);
+    updatedPages.insert(newIndex, page);
+
+    int newActiveIndex = state.activePageIndex;
+    if (state.activePageIndex == oldIndex) {
+      newActiveIndex = newIndex;
+    } else if (state.activePageIndex > oldIndex &&
+        state.activePageIndex <= newIndex) {
+      newActiveIndex = state.activePageIndex - 1;
+    } else if (state.activePageIndex < oldIndex &&
+        state.activePageIndex >= newIndex) {
+      newActiveIndex = state.activePageIndex + 1;
+    }
+
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: newActiveIndex,
+    );
   }
 
   void applyDrumPreset(String preset) {
