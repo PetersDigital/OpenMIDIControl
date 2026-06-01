@@ -219,7 +219,7 @@ class _AddPageFormState extends ConsumerState<_AddPageForm> {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<PageType>(
-            initialValue: _selectedType,
+            value: _selectedType,
             dropdownColor: const Color(0xFF1E2024),
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
