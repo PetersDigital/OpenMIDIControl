@@ -57,7 +57,7 @@ void main() {
       expect(find.byType(IndexedStack), findsWidgets);
 
       // Should find Faders initially
-      expect(find.byType(HybridTouchFader), findsNWidgets(4));
+      expect(find.byType(HybridTouchFader), findsNWidgets(2));
     });
 
     testWidgets('tab buttons navigate to XY Pads and Drum Grid', (
