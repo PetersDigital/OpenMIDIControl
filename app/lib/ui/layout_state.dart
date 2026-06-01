@@ -512,13 +512,14 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   void removePage(int index) {
     if (index < 0 || index >= state.pages.length) return;
 
+    // Prevent removing the last remaining page to avoid invalid LayoutState
+    if (state.pages.length <= 1) return;
+
     final updatedPages = [...state.pages];
     updatedPages.removeAt(index);
 
     int newActiveIndex = state.activePageIndex;
-    if (updatedPages.isEmpty) {
-      newActiveIndex = -1;
-    } else if (state.activePageIndex == index) {
+    if (state.activePageIndex == index) {
       newActiveIndex = (index >= updatedPages.length)
           ? updatedPages.length - 1
           : index;
