@@ -1016,8 +1016,9 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                       case PageType.fader:
                         return Row(
                           key: key,
-                          children: page.controls.map((control) {
-                            final i = page.controls.indexOf(control);
+                          children: page.controls.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final control = entry.value;
                             return Expanded(
                               child: HybridTouchFader(
                                 key: ValueKey(control.id),
