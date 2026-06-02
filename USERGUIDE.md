@@ -120,7 +120,7 @@ Notes:
 
 - Purpose: document how core controls map when using Cubase host adapters.
 
-### Current Mappings (v0.3.0)
+### Current Mappings (v0.4.0)
 
 - Fader A: CC11/CC43 (14-bit pair), Channel 1.
 - Fader B: CC1/CC33 (14-bit pair), Channel 1.
