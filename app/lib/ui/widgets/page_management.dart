@@ -14,100 +14,121 @@ class PageManagementSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pages = ref.watch(layoutStateProvider).pages;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'PAGE MANAGEMENT',
-          style: AppText.system(
-            color: const Color(0xFFC3C7CA),
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2.0,
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PAGE MANAGEMENT',
+                style: AppText.system(
+                  color: const Color(0xFFC3C7CA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
         if (pages.isNotEmpty)
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          SliverReorderableList(
             itemCount: pages.length,
-            // ignore: deprecated_member_use
-            onReorder: (oldIndex, newIndex) {
+            onReorderItem: (oldIndex, newIndex) {
               ref
                   .read(layoutStateProvider.notifier)
                   .reorderPages(oldIndex, newIndex);
             },
             itemBuilder: (context, index) {
               final page = pages[index];
-              return Container(
+              return ReorderableDragStartListener(
+                index: index,
                 key: ValueKey(page.id),
-                margin: const EdgeInsets.only(bottom: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E2024),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: ListTile(
-                  title: Text(
-                    page.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2024),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
                   ),
-                  subtitle: Text(
-                    page.type.name.toUpperCase(),
-                    style: const TextStyle(
-                      color: Color(0xFFA6C9F8),
-                      fontSize: 11,
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: pages.length > 1
-                              ? Colors.white54
-                              : Colors.white12,
-                        ),
-                        onPressed: pages.length > 1
-                            ? () =>
-                                  _confirmDelete(context, ref, index, page.name)
-                            : null,
+                  child: ListTile(
+                    title: Text(
+                      page.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const Icon(Icons.drag_handle, color: Colors.white24),
-                    ],
+                    ),
+                    subtitle: Text(
+                      page.type.name.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFFA6C9F8),
+                        fontSize: 11,
+                      ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            color: pages.length > 1
+                                ? Colors.white54
+                                : Colors.white12,
+                          ),
+                          onPressed: pages.length > 1
+                              ? () => _confirmDelete(
+                                  context,
+                                  ref,
+                                  index,
+                                  page.name,
+                                )
+                              : null,
+                        ),
+                        const Icon(Icons.drag_handle, color: Colors.white24),
+                      ],
+                    ),
                   ),
                 ),
               );
             },
           )
         else
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              'No pages configured.',
-              style: AppText.system(color: Colors.white54),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No pages configured.',
+                style: AppText.system(color: Colors.white54),
+              ),
             ),
           ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1E2024),
-            foregroundColor: const Color(0xFFA6C9F8),
-            side: const BorderSide(color: Colors.white12),
-            minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          onPressed: () => _showAddPageModal(context, ref),
-          child: const Text(
-            '+ ADD NEW PAGE',
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E2024),
+                  foregroundColor: const Color(0xFFA6C9F8),
+                  side: const BorderSide(color: Colors.white12),
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _showAddPageModal(context, ref),
+                child: const Text(
+                  '+ ADD NEW PAGE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

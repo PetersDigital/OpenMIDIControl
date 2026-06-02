@@ -493,12 +493,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
   void reorderPages(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.pages.length) return;
-    if (newIndex < 0 || newIndex > state.pages.length) return;
-
-    // Adjust newIndex when dragging down the list (ReorderableListView behaviour)
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (newIndex < 0 || newIndex >= state.pages.length) return;
 
     // If the item was dropped back to its original position, do nothing.
     if (oldIndex == newIndex) return;

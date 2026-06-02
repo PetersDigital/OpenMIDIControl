@@ -50,535 +50,575 @@ class SettingsScreen extends ConsumerWidget {
         ),
         actions: const [],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        children: [
-          // App Info Header — centred, compact
-          Center(
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.settings_input_component,
-                  color: Color(0xFFA6C9F8),
-                  size: 40,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'OpenMIDIControl',
-                  style: AppText.performance(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                packageInfoAsync.when(
-                  data: (info) => Text(
-                    'v${info.version}',
-                    style: AppText.system(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                  loading: () => const SizedBox(height: 14),
-                  error: (_, _) => const SizedBox(height: 14),
-                ),
-                Text(
-                  '© PetersDigital',
-                  style: AppText.system(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Fader Behavior Section
-          Text(
-            'FADER CONFIGURATION',
-            style: AppText.system(
-              color: const Color(0xFFC3C7CA),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...FaderBehavior.values.map((behavior) {
-            final isSelected = currentBehavior == behavior;
-            return ListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 0,
-              ),
-              title: Text(
-                behavior.name.toUpperCase(),
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              subtitle: Text(
-                _getBehaviorDescription(behavior),
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-              leading: Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                size: 22,
-              ),
-              onTap: () {
-                ref
-                    .read(faderBehaviorProvider.notifier)
-                    .updateBehavior(behavior);
-              },
-            );
-          }),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Page Management Section
-          const PageManagementSection(),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Layout Section
-          Text(
-            'LAYOUT',
-            style: AppText.system(
-              color: const Color(0xFFC3C7CA),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Builder(
-            builder: (ctx) {
-              final hand = ref.watch(layoutHandProvider);
-              final faderOnRight = hand == LayoutHand.faderOnRight;
-              return SwitchListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                title: Text(
-                  faderOnRight ? 'FADER ON RIGHT' : 'FADER ON LEFT',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                subtitle: Text(
-                  faderOnRight
-                      ? 'Controls on left — slide faders with right hand.'
-                      : 'Controls on right — slide faders with left hand.',
-                  style: AppText.system(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                value: faderOnRight,
-                activeThumbColor: Theme.of(
-                  context,
-                ).colorScheme.primaryContainer,
-                onChanged: (_) =>
-                    ref.read(layoutHandProvider.notifier).toggle(),
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Panel Position Section
-          Text(
-            'PANEL POSITION',
-            style: AppText.system(
-              color: const Color(0xFFC3C7CA),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Consumer(
-            builder: (context, ref, _) {
-              final panelSide = ref.watch(sidePanelProvider).side;
-              final isLeft = panelSide == SidePanelSide.left;
-              return SwitchListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                title: Text(
-                  isLeft ? 'DOCK ON LEFT' : 'DOCK ON RIGHT',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                subtitle: Text(
-                  'Choose which side the settings panel appears in landscape.',
-                  style: AppText.system(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                value: isLeft,
-                activeThumbColor: Theme.of(
-                  context,
-                ).colorScheme.primaryContainer,
-                onChanged: (val) {
-                  ref
-                      .read(sidePanelProvider.notifier)
-                      .setSide(val ? SidePanelSide.left : SidePanelSide.right);
-                },
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Safety Hold Section
-          Text(
-            'SAFETY HOLD DURATION',
-            style: AppText.system(
-              color: const Color(0xFFC3C7CA),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Consumer(
-            builder: (context, ref, _) {
-              final duration = ref.watch(safetyHoldDurationProvider);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${duration.toStringAsFixed(1)} SECONDS',
-                        style: AppText.performance(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverList(
+                  delegate: SliverChildListDelegate([
+                    // App Info Header — centred, compact
+                    Center(
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.settings_input_component,
+                            color: Color(0xFFA6C9F8),
+                            size: 40,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'OpenMIDIControl',
+                            style: AppText.performance(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          packageInfoAsync.when(
+                            data: (info) => Text(
+                              'v${info.version}',
+                              style: AppText.system(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
+                            loading: () => const SizedBox(height: 14),
+                            error: (_, _) => const SizedBox(height: 14),
+                          ),
+                          Text(
+                            '© PetersDigital',
+                            style: AppText.system(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      if (duration >= 5.0 || duration <= 1.0)
-                        Text(
-                          duration >= 5.0 ? 'MAX' : 'MIN',
+                    ),
+
+                    const SizedBox(height: 20),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+
+                    // Fader Behavior Section
+                    Text(
+                      'FADER CONFIGURATION',
+                      style: AppText.system(
+                        color: const Color(0xFFC3C7CA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...FaderBehavior.values.map((behavior) {
+                      final isSelected = currentBehavior == behavior;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 0,
+                        ),
+                        title: Text(
+                          behavior.name.toUpperCase(),
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          _getBehaviorDescription(behavior),
                           style: TextStyle(
                             fontFamily: 'Inter',
                             color: Theme.of(
                               context,
-                            ).colorScheme.primaryContainer,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            ).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
                           ),
                         ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 2,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 8,
+                        leading: Icon(
+                          isSelected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                          size: 22,
+                        ),
+                        onTap: () {
+                          ref
+                              .read(faderBehaviorProvider.notifier)
+                              .updateBehavior(behavior);
+                        },
+                      );
+                    }),
+
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+                  ]),
+                ),
+
+                // Page Management Section (Sliver)
+                const PageManagementSection(),
+
+                SliverList(
+                  delegate: SliverChildListDelegate([
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+
+                    // Layout Section
+                    Text(
+                      'LAYOUT',
+                      style: AppText.system(
+                        color: const Color(0xFFC3C7CA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
                       ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 16,
+                    ),
+                    const SizedBox(height: 4),
+                    Builder(
+                      builder: (ctx) {
+                        final hand = ref.watch(layoutHandProvider);
+                        final faderOnRight = hand == LayoutHand.faderOnRight;
+                        return SwitchListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          title: Text(
+                            faderOnRight ? 'FADER ON RIGHT' : 'FADER ON LEFT',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: Text(
+                            faderOnRight
+                                ? 'Controls on left — slide faders with right hand.'
+                                : 'Controls on right — slide faders with left hand.',
+                            style: AppText.system(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          value: faderOnRight,
+                          activeThumbColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer,
+                          onChanged: (_) =>
+                              ref.read(layoutHandProvider.notifier).toggle(),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+
+                    // Panel Position Section
+                    Text(
+                      'PANEL POSITION',
+                      style: AppText.system(
+                        color: const Color(0xFFC3C7CA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
                       ),
                     ),
-                    child: Slider(
-                      value: duration,
-                      min: 1.0,
-                      max: 5.0,
-                      divisions: 40,
-                      activeColor: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer,
-                      inactiveColor: Colors.white10,
-                      onChanged: (val) => ref
-                          .read(safetyHoldDurationProvider.notifier)
-                          .update(val),
+                    const SizedBox(height: 8),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final panelSide = ref.watch(sidePanelProvider).side;
+                        final isLeft = panelSide == SidePanelSide.left;
+                        return SwitchListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          title: Text(
+                            isLeft ? 'DOCK ON LEFT' : 'DOCK ON RIGHT',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Choose which side the settings panel appears in landscape.',
+                            style: AppText.system(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          value: isLeft,
+                          activeThumbColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer,
+                          onChanged: (val) {
+                            ref
+                                .read(sidePanelProvider.notifier)
+                                .setSide(
+                                  val
+                                      ? SidePanelSide.left
+                                      : SidePanelSide.right,
+                                );
+                          },
+                        );
+                      },
                     ),
-                  ),
-                  Text(
-                    'Adjust the time required to hold a control to enter configuration mode.',
-                    style: AppText.system(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
+
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+
+                    // Safety Hold Section
+                    Text(
+                      'SAFETY HOLD DURATION',
+                      style: AppText.system(
+                        color: const Color(0xFFC3C7CA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-
-          // Configuration Gesture Section
-          Text(
-            'CONFIGURATION GESTURE',
-            style: AppText.system(
-              color: const Color(0xFFC3C7CA),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Consumer(
-            builder: (context, ref, _) {
-              final mode = ref.watch(configGestureModeProvider);
-              return Column(
-                children: [
-                  _buildGestureOption(
-                    context,
-                    ref,
-                    'TAP-THEN-HOLD',
-                    'Hold on the second touch',
-                    mode == ConfigGestureMode.tapHold,
-                    () => ref
-                        .read(configGestureModeProvider.notifier)
-                        .update(ConfigGestureMode.tapHold),
-                  ),
-                  const SizedBox(height: 8),
-                  _buildGestureOption(
-                    context,
-                    ref,
-                    'DOUBLE-TAP-THEN-HOLD',
-                    'Hold on the third touch (Safest)',
-                    mode == ConfigGestureMode.doubleTapHold,
-                    () => ref
-                        .read(configGestureModeProvider.notifier)
-                        .update(ConfigGestureMode.doubleTapHold),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-          const Divider(color: Colors.white12),
-          const SizedBox(height: 12),
-          const Text(
-            'OMC PRESET/TEMPLATE ECOSYSTEM',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              color: Colors.white54,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'SAVE TO INTERNAL LIST (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            subtitle: const Text(
-              'Save current configuration to the internal preset library.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.save_outlined,
-              color: Colors.white54,
-              size: 20,
-            ),
-            onTap: () => _handleSavePreset(context, ref),
-          ),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'LOAD FROM INTERNAL LIST (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            subtitle: const Text(
-              'Load a configuration from your internal library.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.folder_open_outlined,
-              color: Colors.white54,
-              size: 20,
-            ),
-            onTap: () => _handleLoadPreset(context, ref),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(color: Colors.white10),
-          ),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'EXPORT FULL PRESET (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            subtitle: const Text(
-              'Share your entire 4-page configuration as a file.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.share,
-              color: Color(0xFFA6C9F8),
-              size: 20,
-            ),
-            onTap: () {
-              final snapshot = PresetSnapshot(
-                controlState: ref.read(controlStateProvider),
-                pages: ref.read(layoutStateProvider).pages,
-              );
-              ref
-                  .read(snapshotManagerProvider)
-                  .exportFullPreset('OMC_Preset', snapshot);
-            },
-          ),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'IMPORT FULL PRESET (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            subtitle: const Text(
-              'Load an entire configuration from an external .omc file.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.file_download,
-              color: Color(0xFFA6C9F8),
-              size: 20,
-            ),
-            onTap: () async {
-              final preset = await ref
-                  .read(snapshotManagerProvider)
-                  .importFullPreset();
-              if (preset != null) {
-                ref
-                    .read(controlStateProvider.notifier)
-                    .injectState(preset.controlState);
-                ref
-                    .read(layoutStateProvider.notifier)
-                    .overwriteAllPages(preset.pages);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Imported full OMC preset successfully.'),
+                    const SizedBox(height: 12),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final duration = ref.watch(safetyHoldDurationProvider);
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${duration.toStringAsFixed(1)} SECONDS',
+                                  style: AppText.performance(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (duration >= 5.0 || duration <= 1.0)
+                                  Text(
+                                    duration >= 5.0 ? 'MAX' : 'MIN',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 2,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 8,
+                                ),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 16,
+                                ),
+                              ),
+                              child: Slider(
+                                value: duration,
+                                min: 1.0,
+                                max: 5.0,
+                                divisions: 40,
+                                activeColor: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
+                                inactiveColor: Colors.white10,
+                                onChanged: (val) => ref
+                                    .read(safetyHoldDurationProvider.notifier)
+                                    .update(val),
+                              ),
+                            ),
+                            Text(
+                              'Adjust the time required to hold a control to enter configuration mode.',
+                              style: AppText.system(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  );
-                }
-              }
-            },
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(color: Colors.white10),
-          ),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'EXPORT ACTIVE PAGE (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
+
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+
+                    // Configuration Gesture Section
+                    Text(
+                      'CONFIGURATION GESTURE',
+                      style: AppText.system(
+                        color: const Color(0xFFC3C7CA),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final mode = ref.watch(configGestureModeProvider);
+                        return Column(
+                          children: [
+                            _buildGestureOption(
+                              context,
+                              ref,
+                              'TAP-THEN-HOLD',
+                              'Hold on the second touch',
+                              mode == ConfigGestureMode.tapHold,
+                              () => ref
+                                  .read(configGestureModeProvider.notifier)
+                                  .update(ConfigGestureMode.tapHold),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildGestureOption(
+                              context,
+                              ref,
+                              'DOUBLE-TAP-THEN-HOLD',
+                              'Hold on the third touch (Safest)',
+                              mode == ConfigGestureMode.doubleTapHold,
+                              () => ref
+                                  .read(configGestureModeProvider.notifier)
+                                  .update(ConfigGestureMode.doubleTapHold),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'OMC PRESET/TEMPLATE ECOSYSTEM',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'SAVE TO INTERNAL LIST (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Save current configuration to the internal preset library.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.save_outlined,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onTap: () => _handleSavePreset(context, ref),
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'LOAD FROM INTERNAL LIST (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Load a configuration from your internal library.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.folder_open_outlined,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onTap: () => _handleLoadPreset(context, ref),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(color: Colors.white10),
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'EXPORT FULL PRESET (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Share your entire 4-page configuration as a file.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.share,
+                        color: Color(0xFFA6C9F8),
+                        size: 20,
+                      ),
+                      onTap: () {
+                        final snapshot = PresetSnapshot(
+                          controlState: ref.read(controlStateProvider),
+                          pages: ref.read(layoutStateProvider).pages,
+                        );
+                        ref
+                            .read(snapshotManagerProvider)
+                            .exportFullPreset('OMC_Preset', snapshot);
+                      },
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'IMPORT FULL PRESET (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Load an entire configuration from an external .omc file.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.file_download,
+                        color: Color(0xFFA6C9F8),
+                        size: 20,
+                      ),
+                      onTap: () async {
+                        final preset = await ref
+                            .read(snapshotManagerProvider)
+                            .importFullPreset();
+                        if (preset != null) {
+                          ref
+                              .read(controlStateProvider.notifier)
+                              .injectState(preset.controlState);
+                          ref
+                              .read(layoutStateProvider.notifier)
+                              .overwriteAllPages(preset.pages);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Imported full OMC preset successfully.',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(color: Colors.white10),
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'EXPORT ACTIVE PAGE (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Share just the currently active page mapping.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.ios_share,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onTap: () {
+                        final activePage = ref
+                            .read(layoutStateProvider)
+                            .activePage;
+                        ref
+                            .read(snapshotManagerProvider)
+                            .exportActiveLayout(activePage);
+                      },
+                    ),
+                    ListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: const Text(
+                        'IMPORT ACTIVE PAGE (.OMC)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Overwrite the active page from an external .omc file.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      trailing: const Icon(
+                        Icons.file_open_outlined,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      onTap: () async {
+                        final newPage = await ref
+                            .read(snapshotManagerProvider)
+                            .importLayout();
+                        if (newPage != null) {
+                          ref
+                              .read(layoutStateProvider.notifier)
+                              .overwriteActivePage(newPage);
+                        }
+                      },
+                    ),
+                  ]),
+                ),
+              ],
             ),
-            subtitle: const Text(
-              'Share just the currently active page mapping.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.ios_share,
-              color: Colors.white54,
-              size: 20,
-            ),
-            onTap: () {
-              final activePage = ref.read(layoutStateProvider).activePage;
-              ref.read(snapshotManagerProvider).exportActiveLayout(activePage);
-            },
-          ),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            title: const Text(
-              'IMPORT ACTIVE PAGE (.OMC)',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            subtitle: const Text(
-              'Overwrite the active page from an external .omc file.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: const Icon(
-              Icons.file_open_outlined,
-              color: Colors.white54,
-              size: 20,
-            ),
-            onTap: () async {
-              final newPage = await ref
-                  .read(snapshotManagerProvider)
-                  .importLayout();
-              if (newPage != null) {
-                ref
-                    .read(layoutStateProvider.notifier)
-                    .overwriteActivePage(newPage);
-              }
-            },
           ),
         ],
       ),
