@@ -73,7 +73,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
     switch (type) {
       case PageType.fader:
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 2; i++) {
           controls.add(
             LayoutControl(
               id: 'fader_${timestamp}_$i',
