@@ -21,8 +21,14 @@ class LayoutState {
     required this.pages,
     required this.activePageIndex,
     required this.isPerformanceLocked,
-  }) : assert(activePageIndex >= 0, 'Page index cannot be negative'),
-       assert(activePageIndex < pages.length, 'Page index out of bounds');
+  }) : assert(
+         pages.isEmpty ? activePageIndex == 0 : activePageIndex >= 0,
+         'Page index cannot be negative',
+       ),
+       assert(
+         pages.isEmpty ? activePageIndex == 0 : activePageIndex < pages.length,
+         'Page index out of bounds',
+       );
 
   LayoutState copyWith({
     List<LayoutPage>? pages,
@@ -36,7 +42,7 @@ class LayoutState {
     );
   }
 
-  LayoutPage get activePage => pages[activePageIndex];
+  LayoutPage? get activePage => pages.isEmpty ? null : pages[activePageIndex];
 
   LayoutControl? getControlById(String id) {
     for (final page in pages) {
@@ -346,6 +352,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   }
 
   void overwriteActivePage(LayoutPage newPage) {
+    if (state.pages.isEmpty) return;
     final updatedPages = [...state.pages];
     updatedPages[state.activePageIndex] = newPage;
     state = state.copyWith(pages: updatedPages);
@@ -487,19 +494,20 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   void removePage(int index) {
     if (index < 0 || index >= state.pages.length) return;
 
-    // Prevent removing the last remaining page to avoid invalid LayoutState
-    if (state.pages.length <= 1) return;
-
     final updatedPages = [...state.pages];
     updatedPages.removeAt(index);
 
-    int newActiveIndex = state.activePageIndex;
-    if (state.activePageIndex == index) {
-      newActiveIndex = (index >= updatedPages.length)
-          ? updatedPages.length - 1
-          : index;
-    } else if (state.activePageIndex > index) {
-      newActiveIndex = state.activePageIndex - 1;
+    int newActiveIndex = 0;
+    if (updatedPages.isNotEmpty) {
+      if (state.activePageIndex == index) {
+        newActiveIndex = (index >= updatedPages.length)
+            ? updatedPages.length - 1
+            : index;
+      } else if (state.activePageIndex > index) {
+        newActiveIndex = state.activePageIndex - 1;
+      } else {
+        newActiveIndex = state.activePageIndex;
+      }
     }
 
     state = state.copyWith(

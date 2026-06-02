@@ -579,9 +579,11 @@ class SettingsScreen extends ConsumerWidget {
                         final activePage = ref
                             .read(layoutStateProvider)
                             .activePage;
-                        ref
-                            .read(snapshotManagerProvider)
-                            .exportActiveLayout(activePage);
+                        if (activePage != null) {
+                          ref
+                              .read(snapshotManagerProvider)
+                              .exportActiveLayout(activePage);
+                        }
                       },
                     ),
                     ListTile(
