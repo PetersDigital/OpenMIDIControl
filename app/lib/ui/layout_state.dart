@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'dart:math' as math;
 
 // All control state is now managed directly within LayoutState using the expanded LayoutControl model.
 // This removes the need for page-specific override providers and complex synchronization logic.
@@ -68,7 +69,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
   LayoutPage _buildBlankPage(PageType type, String name) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final pageId = 'page_$timestamp';
+    final randomSuffix = math.Random().nextInt(1000000);
+    final pageId = 'page_${timestamp}_$randomSuffix';
     final List<LayoutControl> controls = [];
 
     switch (type) {
@@ -76,7 +78,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         for (int i = 0; i < 2; i++) {
           controls.add(
             LayoutControl(
-              id: 'fader_${timestamp}_$i',
+              id: 'fader_${timestamp}_${randomSuffix}_$i',
               type: ControlType.fader,
               defaultCc: -1,
               channel: -1,
@@ -88,7 +90,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       case PageType.xyPad:
         controls.add(
           LayoutControl(
-            id: 'xy_main_$timestamp',
+            id: 'xy_main_${timestamp}_$randomSuffix',
             type: ControlType.xyPad,
             defaultCc: -1,
             secondaryCc: -1,
@@ -102,7 +104,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         for (int i = 0; i < 8; i++) {
           controls.add(
             LayoutControl(
-              id: 'pad_${timestamp}_$i',
+              id: 'pad_${timestamp}_${randomSuffix}_$i',
               type: ControlType.drumPad,
               defaultCc: -1,
               channel: -1,
@@ -116,7 +118,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         for (int i = 0; i < 4; i++) {
           controls.add(
             LayoutControl(
-              id: 'encoder_${timestamp}_$i',
+              id: 'encoder_${timestamp}_${randomSuffix}_$i',
               type: ControlType.encoder,
               defaultCc: -1,
               channel: -1,
@@ -128,7 +130,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         for (int i = 0; i < 4; i++) {
           controls.add(
             LayoutControl(
-              id: 'toggle_${timestamp}_$i',
+              id: 'toggle_${timestamp}_${randomSuffix}_$i',
               type: ControlType.toggle,
               defaultCc: -1,
               channel: -1,
@@ -140,7 +142,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         for (int i = 0; i < 4; i++) {
           controls.add(
             LayoutControl(
-              id: 'trigger_${timestamp}_$i',
+              id: 'trigger_${timestamp}_${randomSuffix}_$i',
               type: ControlType.trigger,
               defaultCc: -1,
               channel: -1,
