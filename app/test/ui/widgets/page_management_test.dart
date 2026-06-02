@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/ui/widgets/page_management.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'package:app/ui/layout_state.dart';
 
 void main() {
   testWidgets('PageManagementSection can add a new page', (
@@ -92,4 +93,40 @@ void main() {
     expect(find.text('Drum Page'), findsOneWidget);
     expect(find.text('DRUMPAD'), findsNWidgets(2));
   });
+
+  test(
+    'LayoutStateNotifier reorders pages correctly (onReorderItem behavior)',
+    () {
+      final container = ProviderContainer();
+
+      // Initial pages: FADERS (page_0), XYPAD (page_1), PADS (page_2), UTILITY (page_3)
+      final initialPages = container.read(layoutStateProvider).pages;
+      expect(initialPages[0].id, 'page_0');
+      expect(initialPages[1].id, 'page_1');
+      expect(initialPages[2].id, 'page_2');
+      expect(initialPages[3].id, 'page_3');
+
+      final notifier = container.read(layoutStateProvider.notifier);
+
+      // Reorder page_0 (FADERS) to index 2 (between PADS and UTILITY)
+      // with onReorderItem: oldIndex = 0, newIndex = 2
+      notifier.reorderPages(0, 2);
+
+      var pages = container.read(layoutStateProvider).pages;
+      expect(pages[0].id, 'page_1');
+      expect(pages[1].id, 'page_2');
+      expect(pages[2].id, 'page_0');
+      expect(pages[3].id, 'page_3');
+
+      // Reorder page_0 (at index 2) back to index 0
+      // with onReorderItem: oldIndex = 2, newIndex = 0
+      notifier.reorderPages(2, 0);
+
+      pages = container.read(layoutStateProvider).pages;
+      expect(pages[0].id, 'page_0');
+      expect(pages[1].id, 'page_1');
+      expect(pages[2].id, 'page_2');
+      expect(pages[3].id, 'page_3');
+    },
+  );
 }
