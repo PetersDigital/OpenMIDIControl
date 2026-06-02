@@ -46,7 +46,7 @@ OpenMIDIControl/
 
 ### Prerequisites
 
-- Flutter 3.x (SDK ^3.11.0)
+- Flutter 3.x (SDK >=3.41.0)
 - Android Studio / Android SDK
 - Android device with USB MIDI support (API 29+)
 - Python 3.9+ (for scripts)
