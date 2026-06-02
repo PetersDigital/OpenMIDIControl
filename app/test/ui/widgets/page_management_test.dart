@@ -15,7 +15,7 @@ void main() {
       const ProviderScope(
         child: MaterialApp(
           home: Scaffold(
-            body: SingleChildScrollView(child: PageManagementSection()),
+            body: CustomScrollView(slivers: [PageManagementSection()]),
           ),
         ),
       ),
@@ -62,7 +62,7 @@ void main() {
       const ProviderScope(
         child: MaterialApp(
           home: Scaffold(
-            body: SingleChildScrollView(child: PageManagementSection()),
+            body: CustomScrollView(slivers: [PageManagementSection()]),
           ),
         ),
       ),
