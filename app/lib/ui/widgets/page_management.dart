@@ -43,45 +43,48 @@ class PageManagementSection extends ConsumerWidget {
             },
             itemBuilder: (context, index) {
               final page = pages[index];
-              return ReorderableDragStartListener(
-                index: index,
+              return Material(
                 key: ValueKey(page.id),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E2024),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white12),
+                type: MaterialType.transparency,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2024),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: ListTile(
+                    title: Text(
+                      page.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    child: ListTile(
-                      title: Text(
-                        page.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    subtitle: Text(
+                      page.type.name.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFFA6C9F8),
+                        fontSize: 11,
                       ),
-                      subtitle: Text(
-                        page.type.name.toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFFA6C9F8),
-                          fontSize: 11,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          color: Theme.of(context).colorScheme.error,
+                          onPressed: () =>
+                              _confirmDelete(context, ref, index, page.name),
                         ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            color: Theme.of(context).colorScheme.error,
-                            onPressed: () =>
-                                _confirmDelete(context, ref, index, page.name),
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Icon(
+                            Icons.drag_handle,
+                            color: Colors.white54,
                           ),
-                          const Icon(Icons.drag_handle, color: Colors.white24),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
