@@ -73,14 +73,15 @@ void main() {
 
       final mockPage = LayoutPage(
         id: 'page1',
+        type: PageType.drumPad,
         name: 'Page 1',
         controls: [mockControl],
       );
 
       final mockState = LayoutState(
         pages: [
-          LayoutPage(id: 'p0', name: 'P0', controls: []),
-          LayoutPage(id: 'p1', name: 'P1', controls: []),
+          LayoutPage(id: 'p0', type: PageType.fader, name: 'P0', controls: []),
+          LayoutPage(id: 'p1', type: PageType.xyPad, name: 'P1', controls: []),
           mockPage,
         ],
         activePageIndex: 2,
@@ -102,6 +103,7 @@ void main() {
                 height: 200,
                 child: VelocityDrumPad(
                   index: 0,
+                  pageId: 'page1',
                   minVelocity: 30,
                   maxVelocity: 127,
                 ),

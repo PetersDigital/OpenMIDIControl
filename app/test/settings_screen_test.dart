@@ -130,7 +130,7 @@ void main() {
       await _pumpSettings(tester);
 
       // Scroll to ensure it's in view
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
       await tester.pumpAndSettle();
 
       expect(find.text('PANEL POSITION'), findsOneWidget);

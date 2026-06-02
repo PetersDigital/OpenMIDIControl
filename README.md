@@ -17,8 +17,8 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 ## Current Status
 
-- **v0.3.0** is the current implementation baseline, covering the DAG router, hybrid touch engine, unified layout state, and thermal hardening.
-- **v0.4.x** is the next active focus for the modular layout editor and related persistence work.
+- **v0.4.0** is the current implementation baseline, introducing the Dynamic Modular Layout Engine — dynamic page management, PageType routing, ID collision protection, and empty-layout safety.
+- **v0.4.1** is the next active focus for the modular layout editor (drag-and-drop, resizing, and widget palette).
 - See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed roadmap.
 
 ## Core Docs

@@ -97,17 +97,32 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Native Object Pooling**: Introduced reusable `LongArray` pools for native-to-Dart transit to eliminate garbage collection churn during automation bursts.
 - **Orientation Memory Leak Fix**: Tracked orientation changes via `didChangeDependencies` to prevent redundant `addPostFrameCallback` registration.
 
-### ⏳ Current Focus: v0.4.x – Dynamic Modular Layout Engine
+### ✅ v0.4.0 – Dynamic Modular Layout Engine (Foundation)
 
-- **v0.4.0 (Core Engine Foundation)**: Complete the fixed-ratio grid core, layout editor scaffolding, and control palette plumbing for modular panels.
-- **v0.4.1 (Editor Mode)**: Implementation of drag-and-drop, resizing, and the widget palette.
-- **v0.4.2 (Persistence & Marketplace)**: JSON schema versioning and manifest metadata for layout sharing.
+- **Dynamic Page Management UI**: Interactive add/rename/reorder/delete of layout pages at runtime.
+- **PageType Enum**: Formal `PageType` enum on `LayoutPage` for type-safe routing.
+- **Dynamic Page Context Routing**: Performance zone and grid panels route state via `pageId`, not index.
+- **ID Collision Protection**: Random suffix appended to all auto-generated page and control IDs.
+- **Empty Layout Safety**: Full support for zero-page configurations with UI guards.
+- **Page Name Validation**: In-dialog validation for empty names.
+- **Ticker & Throttle Fixes**: Dedicated per-fader outgoing throttle `Stopwatch`; `safeStartTicker` assertion guard.
+- **Min SDK Bump**: Flutter SDK constraint raised to `>=3.41.0`.
+
+### ⏳ Current Focus: v0.4.1 – Editor Mode
+
+- **Drag-and-Drop Placement**: Interactive widget positioning within the layout grid.
+- **Resizing**: Pinch/drag resize handles for controls.
+- **Widget Palette**: Control palette for adding new widgets from a browsable catalog.
+
+#### ⏱️ v0.4.2 (Persistence & Marketplace): JSON schema versioning and manifest metadata for layout sharing
 
 ### ⏳ v0.5.x – The MCU / HUI Protocol Series
 
-- **v0.5.0 (Core Logic)**: Basic MCU protocol mapping and native UMP high-resolution control.
-- **v0.5.1 (Handshake)**: DAW device detection and bidirectional negotiation.
-- **v0.5.2 (Feedback)**: LCD track naming logic and bank switching feedback.
+#### ⏱️ v0.5.0 (Core Logic): Basic MCU protocol mapping and native UMP high-resolution control
+
+#### ⏱️ v0.5.1 (Handshake): DAW device detection and bidirectional negotiation
+
+#### ⏱️ v0.5.2 (Feedback): LCD track naming logic and bank switching feedback
 
 ### ⏳ v0.6.0 – Native DAW Scripts & Architecture Review
 

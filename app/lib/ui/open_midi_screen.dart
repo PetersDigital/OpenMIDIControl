@@ -20,6 +20,7 @@ import 'widgets/config_gesture_wrapper.dart';
 import 'design_system.dart';
 import 'layout_state.dart';
 import 'side_panel_state.dart';
+import '../core/models/layout_models.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -996,66 +997,83 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
         ),
         // Performance Panels
         Expanded(
-          child: IndexedStack(
-            index: currentPage,
-            children: [
-              // Page 0: Dual Faders
-              Row(
-                key: const ValueKey('page_faders'),
-                children: [
-                  Expanded(
-                    child: HybridTouchFader(
-                      key: const ValueKey('fader_cc1'),
-                      controlId: 'fader_0',
-                      ccNumber: 1,
-                      displayName: "CC1\nDYNAMICS",
-                      activeColor: const Color(0xFFA6C9F8),
-                      labelColor: const Color(0xFF033258),
-                      initialValue: 1.0,
-                      isMobile: widget.isMobile,
-                      behavior: ref.watch(faderBehaviorProvider),
-                      isActive: currentPage == 0,
-                    ),
+          child: pages.isEmpty
+              ? Center(
+                  child: Text(
+                    'No pages configured. Go to App Settings to add a page.',
+                    style: AppText.system(color: Colors.white54),
                   ),
-                  Expanded(
-                    child: HybridTouchFader(
-                      key: const ValueKey('fader_cc11'),
-                      controlId: 'fader_1',
-                      ccNumber: 11,
-                      displayName: "CC11\nEXPRESSION",
-                      activeColor: const Color(0xFFA1CFCE),
-                      labelColor: const Color(0xFF013737),
-                      initialValue: 64 / 127.0,
-                      isMobile: widget.isMobile,
-                      behavior: ref.watch(faderBehaviorProvider),
-                      isActive: currentPage == 0,
-                    ),
-                  ),
-                ],
-              ),
+                )
+              : IndexedStack(
+                  index: currentPage,
+                  children: pages.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final page = entry.value;
+                    final isActive = currentPage == index;
+                    final key = ValueKey(page.id);
 
-              // Page 1: Single High-Precision XY Pad
-              Padding(
-                key: const ValueKey('page_xy'),
-                padding: const EdgeInsets.all(16),
-                child: HybridXYPad(
-                  id: "xy_main",
-                  ccX: 1,
-                  ccY: 11,
-                  isActive: currentPage == 1,
+                    switch (page.type) {
+                      case PageType.fader:
+                        return Row(
+                          key: key,
+                          children: page.controls.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final control = entry.value;
+                            return Expanded(
+                              child: HybridTouchFader(
+                                key: ValueKey(control.id),
+                                controlId: control.id,
+                                ccNumber: control.defaultCc,
+                                displayName: control.displayName,
+                                activeColor: i % 2 == 0
+                                    ? const Color(0xFFA6C9F8)
+                                    : const Color(0xFFA1CFCE),
+                                labelColor: i % 2 == 0
+                                    ? const Color(0xFF033258)
+                                    : const Color(0xFF013737),
+                                initialValue: i % 2 == 0 ? 1.0 : 64 / 127.0,
+                                isMobile: widget.isMobile,
+                                behavior: ref.watch(faderBehaviorProvider),
+                                isActive: isActive,
+                              ),
+                            );
+                          }).toList(),
+                        );
+
+                      case PageType.xyPad:
+                        final xyControl = page.controls.firstWhere(
+                          (c) => c.type == ControlType.xyPad,
+                          orElse: () => LayoutControl(
+                            id: '${page.id}_xy_fallback',
+                            type: ControlType.xyPad,
+                            defaultCc: 1,
+                            secondaryCc: 11,
+                            channel: 0,
+                          ),
+                        );
+                        return Padding(
+                          key: key,
+                          padding: const EdgeInsets.all(16),
+                          child: HybridXYPad(
+                            id: xyControl.id,
+                            ccX: xyControl.defaultCc,
+                            ccY: xyControl.secondaryCc ?? 11,
+                            isActive: isActive,
+                          ),
+                        );
+
+                      case PageType.drumPad:
+                        return DrumGridPanel(
+                          key: key,
+                          pageId: page.id,
+                          isActive: isActive,
+                        );
+
+                      case PageType.utility:
+                        return UtilityGridPanel(key: key, pageId: page.id);
+                    }
+                  }).toList(),
                 ),
-              ),
-
-              // Page 2: Drum Grid Panel
-              DrumGridPanel(
-                key: const ValueKey('page_drums'),
-                isActive: currentPage == 2,
-              ),
-
-              // Page 3: Utility Grid Panel
-              const UtilityGridPanel(key: ValueKey('page_utility')),
-            ],
-          ),
         ),
       ],
     );

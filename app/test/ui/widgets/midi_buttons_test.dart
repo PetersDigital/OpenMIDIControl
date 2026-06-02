@@ -72,11 +72,17 @@ void main() {
       fakeMidiService = FakeMidiService();
       mockState = LayoutState(
         pages: [
-          LayoutPage(id: 'p0', name: 'P1', controls: []),
-          LayoutPage(id: 'p1', name: 'P2', controls: []),
-          LayoutPage(id: 'p2', name: 'P3', controls: []),
+          LayoutPage(id: 'p0', type: PageType.fader, name: 'P1', controls: []),
+          LayoutPage(id: 'p1', type: PageType.xyPad, name: 'P2', controls: []),
+          LayoutPage(
+            id: 'p2',
+            type: PageType.drumPad,
+            name: 'P3',
+            controls: [],
+          ),
           LayoutPage(
             id: 'p3',
+            type: PageType.utility,
             name: 'UTILITY',
             controls: [
               LayoutControl(
@@ -133,7 +139,7 @@ void main() {
       testWidgets('sends NoteOn/Off correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Trigger(index: 0, mode: MidiButtonMode.note),
+            const Trigger(index: 0, pageId: 'p3', mode: MidiButtonMode.note),
           ),
         );
 
@@ -161,7 +167,7 @@ void main() {
       testWidgets('sends CC correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Trigger(index: 1, mode: MidiButtonMode.cc),
+            const Trigger(index: 1, pageId: 'p3', mode: MidiButtonMode.cc),
           ),
         );
 
@@ -191,7 +197,7 @@ void main() {
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Toggle(index: 2, mode: MidiButtonMode.note),
+            const Toggle(index: 2, pageId: 'p3', mode: MidiButtonMode.note),
           ),
         );
 
@@ -224,7 +230,7 @@ void main() {
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Toggle(index: 3, mode: MidiButtonMode.cc),
+            const Toggle(index: 3, pageId: 'p3', mode: MidiButtonMode.cc),
           ),
         );
 

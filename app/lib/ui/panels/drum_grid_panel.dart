@@ -9,14 +9,16 @@ import '../layout_state.dart';
 
 class DrumGridPanel extends ConsumerWidget {
   final bool isActive;
-  const DrumGridPanel({super.key, this.isActive = true});
+  final String pageId;
+  const DrumGridPanel({super.key, required this.pageId, this.isActive = true});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final padCount = ref.watch(
-      layoutStateProvider.select(
-        (s) => s.pages.length > 2 ? s.pages[2].controls.length : 0,
-      ),
+      layoutStateProvider.select((s) {
+        final pageIndex = s.pages.indexWhere((p) => p.id == pageId);
+        return pageIndex != -1 ? s.pages[pageIndex].controls.length : 0;
+      }),
     );
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
@@ -63,7 +65,8 @@ class DrumGridPanel extends ConsumerWidget {
               itemCount: padCount,
               itemBuilder: (context, index) {
                 return VelocityDrumPad(
-                  key: ValueKey('drum_pad_$index'),
+                  key: ValueKey('drum_pad_${pageId}_$index'),
+                  pageId: pageId,
                   index: index,
                   isActive: isActive,
                 );
@@ -147,11 +150,11 @@ class DrumGridPanel extends ConsumerWidget {
       ],
     ).then((choice) {
       if (choice == 'MPC' || choice == 'Ableton') {
-        ref.read(layoutStateProvider.notifier).applyDrumPreset(choice!);
+        ref.read(layoutStateProvider.notifier).applyDrumPreset(pageId, choice!);
       } else if (choice == 'reset') {
-        ref.read(layoutStateProvider.notifier).resetPage(2);
+        ref.read(layoutStateProvider.notifier).resetPage(pageId);
       } else if (choice == 'clear') {
-        ref.read(layoutStateProvider.notifier).clearPage(2);
+        ref.read(layoutStateProvider.notifier).clearPage(pageId);
       }
     });
   }

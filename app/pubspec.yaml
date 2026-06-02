@@ -22,10 +22,11 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 #
 # IMPORTANT: When updating the version below, ALSO update `.version` at the
 # project root to keep CD workflows in sync (beta/RC tag generation).
-version: 0.3.0
+version: 0.4.0
 
 environment:
   sdk: ^3.11.0
+  flutter: '>=3.41.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions

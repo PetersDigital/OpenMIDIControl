@@ -13,13 +13,15 @@ import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 
 class UtilityGridPanel extends ConsumerWidget {
-  const UtilityGridPanel({super.key});
+  final String pageId;
+  const UtilityGridPanel({super.key, required this.pageId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final layoutState = ref.watch(layoutStateProvider);
-    final controlCount = layoutState.pages.length > 3
-        ? layoutState.pages[3].controls.length
+    final pageIndex = layoutState.pages.indexWhere((p) => p.id == pageId);
+    final controlCount = pageIndex != -1
+        ? layoutState.pages[pageIndex].controls.length
         : 0;
 
     final isLocked = layoutState.isPerformanceLocked;
@@ -63,7 +65,8 @@ class UtilityGridPanel extends ConsumerWidget {
               ),
               itemCount: controlCount,
               itemBuilder: (context, index) {
-                final control = layoutState.pages[3].controls[index];
+                if (pageIndex == -1) return const SizedBox.shrink();
+                final control = layoutState.pages[pageIndex].controls[index];
                 final channel = control.channel;
                 final cc = control.defaultCc;
                 final displayName = control.displayName;
@@ -191,14 +194,16 @@ class UtilityGridPanel extends ConsumerWidget {
 
                   case ControlType.toggle:
                     return Toggle(
-                      key: ValueKey('toggle_$index'),
+                      key: ValueKey('toggle_${pageId}_$index'),
+                      pageId: pageId,
                       index: index,
                       mode: MidiButtonMode.cc,
                     );
 
                   case ControlType.trigger:
                     return Trigger(
-                      key: ValueKey('trigger_$index'),
+                      key: ValueKey('trigger_${pageId}_$index'),
+                      pageId: pageId,
                       index: index,
                       mode: MidiButtonMode.cc,
                     );
@@ -272,9 +277,9 @@ class UtilityGridPanel extends ConsumerWidget {
       ],
     ).then((choice) {
       if (choice == 'reset') {
-        ref.read(layoutStateProvider.notifier).resetPage(3);
+        ref.read(layoutStateProvider.notifier).resetPage(pageId);
       } else if (choice == 'clear') {
-        ref.read(layoutStateProvider.notifier).clearPage(3);
+        ref.read(layoutStateProvider.notifier).clearPage(pageId);
       }
     });
   }

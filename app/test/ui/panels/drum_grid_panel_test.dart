@@ -18,7 +18,7 @@ void main() {
               child: SizedBox(
                 width: size.width,
                 height: size.height,
-                child: const DrumGridPanel(),
+                child: const DrumGridPanel(pageId: 'page_2'),
               ),
             ),
           ),

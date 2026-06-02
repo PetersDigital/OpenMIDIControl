@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'dart:math' as math;
 
 // All control state is now managed directly within LayoutState using the expanded LayoutControl model.
 // This removes the need for page-specific override providers and complex synchronization logic.
@@ -20,8 +21,14 @@ class LayoutState {
     required this.pages,
     required this.activePageIndex,
     required this.isPerformanceLocked,
-  }) : assert(activePageIndex >= 0, 'Page index cannot be negative'),
-       assert(activePageIndex < pages.length, 'Page index out of bounds');
+  }) : assert(
+         pages.isEmpty ? activePageIndex == 0 : activePageIndex >= 0,
+         'Page index cannot be negative',
+       ),
+       assert(
+         pages.isEmpty ? activePageIndex == 0 : activePageIndex < pages.length,
+         'Page index out of bounds',
+       );
 
   LayoutState copyWith({
     List<LayoutPage>? pages,
@@ -35,7 +42,7 @@ class LayoutState {
     );
   }
 
-  LayoutPage get activePage => pages[activePageIndex];
+  LayoutPage? get activePage => pages.isEmpty ? null : pages[activePageIndex];
 
   LayoutControl? getControlById(String id) {
     for (final page in pages) {
@@ -66,9 +73,99 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     ];
   }
 
+  LayoutPage _buildBlankPage(PageType type, String name) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final randomSuffix = math.Random().nextInt(1000000);
+    final pageId = 'page_${timestamp}_$randomSuffix';
+    final List<LayoutControl> controls = [];
+
+    switch (type) {
+      case PageType.fader:
+        for (int i = 0; i < 2; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'fader_${timestamp}_${randomSuffix}_$i',
+              type: ControlType.fader,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+      case PageType.xyPad:
+        controls.add(
+          LayoutControl(
+            id: 'xy_main_${timestamp}_$randomSuffix',
+            type: ControlType.xyPad,
+            defaultCc: -1,
+            secondaryCc: -1,
+            channel: -1,
+            invertY: true,
+            customName: 'UNASSIGNED',
+          ),
+        );
+        break;
+      case PageType.drumPad:
+        for (int i = 0; i < 8; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'pad_${timestamp}_${randomSuffix}_$i',
+              type: ControlType.drumPad,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+      case PageType.utility:
+        // Encoders
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'encoder_${timestamp}_${randomSuffix}_$i',
+              type: ControlType.encoder,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        // Toggles
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'toggle_${timestamp}_${randomSuffix}_$i',
+              type: ControlType.toggle,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        // Triggers
+        for (int i = 0; i < 4; i++) {
+          controls.add(
+            LayoutControl(
+              id: 'trigger_${timestamp}_${randomSuffix}_$i',
+              type: ControlType.trigger,
+              defaultCc: -1,
+              channel: -1,
+              customName: 'UNASSIGNED',
+            ),
+          );
+        }
+        break;
+    }
+
+    return LayoutPage(id: pageId, type: type, name: name, controls: controls);
+  }
+
   static LayoutPage _buildFaderPage() {
     return LayoutPage(
       id: 'page_0',
+      type: PageType.fader,
       name: 'FADER',
       controls: [
         LayoutControl(
@@ -85,48 +182,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           channel: 0,
           customName: 'CC11\nEXPRESSION',
         ),
-        LayoutControl(
-          id: 'fader_2',
-          type: ControlType.fader,
-          defaultCc: 7,
-          channel: 0,
-          customName: 'CC7\nVOLUME',
-        ),
-        LayoutControl(
-          id: 'fader_3',
-          type: ControlType.fader,
-          defaultCc: 10,
-          channel: 0,
-          customName: 'CC10\nPAN',
-        ),
-        LayoutControl(
-          id: 'fader_4',
-          type: ControlType.fader,
-          defaultCc: 12,
-          channel: 0,
-          customName: 'CC12\nCUSTOM1',
-        ),
-        LayoutControl(
-          id: 'fader_5',
-          type: ControlType.fader,
-          defaultCc: 13,
-          channel: 0,
-          customName: 'CC13\nCUSTOM2',
-        ),
-        LayoutControl(
-          id: 'fader_6',
-          type: ControlType.fader,
-          defaultCc: 14,
-          channel: 0,
-          customName: 'CC14\nCUSTOM3',
-        ),
-        LayoutControl(
-          id: 'fader_7',
-          type: ControlType.fader,
-          defaultCc: 15,
-          channel: 0,
-          customName: 'CC15\nCUSTOM4',
-        ),
       ],
     );
   }
@@ -134,6 +189,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   static LayoutPage _buildXyPage() {
     return LayoutPage(
       id: 'page_1',
+      type: PageType.xyPad,
       name: 'XY',
       controls: [
         LayoutControl(
@@ -163,6 +219,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     ];
     return LayoutPage(
       id: 'page_2',
+      type: PageType.drumPad,
       name: 'PADS',
       controls: List.generate(8, (index) {
         return LayoutControl(
@@ -179,6 +236,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   static LayoutPage _buildUtilityPage() {
     return LayoutPage(
       id: 'page_3',
+      type: PageType.utility,
       name: 'UTILITY',
       controls: [
         // Encoders (Row 0 & 1)
@@ -294,6 +352,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   }
 
   void overwriteActivePage(LayoutPage newPage) {
+    if (state.pages.isEmpty) return;
     final updatedPages = [...state.pages];
     updatedPages[state.activePageIndex] = newPage;
     state = state.copyWith(pages: updatedPages);
@@ -359,18 +418,33 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
-  void resetPage(int pageIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
-    final defaultPages = _buildDefaultPages();
-    final defaultPage = defaultPages[pageIndex];
+  void resetPage(String pageId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    LayoutPage defaultPage;
+    if (pageId == 'page_0') {
+      defaultPage = _buildFaderPage();
+    } else if (pageId == 'page_1') {
+      defaultPage = _buildXyPage();
+    } else if (pageId == 'page_2') {
+      defaultPage = _buildPadsPage();
+    } else if (pageId == 'page_3') {
+      defaultPage = _buildUtilityPage();
+    } else {
+      // For custom pages, reset is equivalent to clear
+      clearPage(pageId);
+      return;
+    }
 
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = defaultPage;
     state = state.copyWith(pages: updatedPages);
   }
 
-  void clearPage(int pageIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+  void clearPage(String pageId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
     final page = state.pages[pageIndex];
     final updatedControls = page.controls.map((control) {
       return control.copyWith(
@@ -408,11 +482,73 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
-  void applyDrumPreset(String preset) {
-    final padsPageIndex = 2;
-    if (padsPageIndex >= state.pages.length) return;
+  void addPage(PageType type, String name) {
+    final newPage = _buildBlankPage(type, name);
+    final updatedPages = [...state.pages, newPage];
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: updatedPages.length - 1,
+    );
+  }
 
-    final existingPage = state.pages[padsPageIndex];
+  void removePage(int index) {
+    if (index < 0 || index >= state.pages.length) return;
+
+    final updatedPages = [...state.pages];
+    updatedPages.removeAt(index);
+
+    int newActiveIndex = 0;
+    if (updatedPages.isNotEmpty) {
+      if (state.activePageIndex == index) {
+        newActiveIndex = (index >= updatedPages.length)
+            ? updatedPages.length - 1
+            : index;
+      } else if (state.activePageIndex > index) {
+        newActiveIndex = state.activePageIndex - 1;
+      } else {
+        newActiveIndex = state.activePageIndex;
+      }
+    }
+
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: newActiveIndex,
+    );
+  }
+
+  void reorderPages(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= state.pages.length) return;
+    if (newIndex < 0 || newIndex >= state.pages.length) return;
+
+    // If the item was dropped back to its original position, do nothing.
+    if (oldIndex == newIndex) return;
+
+    final updatedPages = [...state.pages];
+    final page = updatedPages.removeAt(oldIndex);
+    updatedPages.insert(newIndex, page);
+
+    int newActiveIndex = state.activePageIndex;
+    if (state.activePageIndex == oldIndex) {
+      newActiveIndex = newIndex;
+    } else if (state.activePageIndex > oldIndex &&
+        state.activePageIndex <= newIndex) {
+      newActiveIndex = state.activePageIndex - 1;
+    } else if (state.activePageIndex < oldIndex &&
+        state.activePageIndex >= newIndex) {
+      newActiveIndex = state.activePageIndex + 1;
+    }
+
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: newActiveIndex,
+    );
+  }
+
+  void applyDrumPreset(String pageId, String preset) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final existingPage = state.pages[pageIndex];
     final updatedControls = [...existingPage.controls];
 
     if (preset == 'MPC') {
@@ -454,9 +590,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     }
 
     final updatedPages = [...state.pages];
-    updatedPages[padsPageIndex] = existingPage.copyWith(
-      controls: updatedControls,
-    );
+    updatedPages[pageIndex] = existingPage.copyWith(controls: updatedControls);
     state = state.copyWith(pages: updatedPages);
   }
 }
