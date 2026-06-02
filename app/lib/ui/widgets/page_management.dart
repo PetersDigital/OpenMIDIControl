@@ -184,6 +184,7 @@ class _AddPageForm extends ConsumerStatefulWidget {
 class _AddPageFormState extends ConsumerState<_AddPageForm> {
   final _nameController = TextEditingController();
   PageType _selectedType = PageType.utility;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -212,14 +213,27 @@ class _AddPageFormState extends ConsumerState<_AddPageForm> {
           TextField(
             controller: _nameController,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            onChanged: (val) {
+              if (_errorMessage != null && val.trim().isNotEmpty) {
+                setState(() => _errorMessage = null);
+              }
+            },
+            decoration: InputDecoration(
               labelText: 'Page Name',
-              labelStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(
+              labelStyle: const TextStyle(color: Colors.white54),
+              errorText: _errorMessage,
+              errorStyle: const TextStyle(color: Colors.redAccent),
+              enabledBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white24),
               ),
-              focusedBorder: UnderlineInputBorder(
+              focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+              ),
+              errorBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.redAccent),
+              ),
+              focusedErrorBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.redAccent),
               ),
             ),
           ),
@@ -265,6 +279,10 @@ class _AddPageFormState extends ConsumerState<_AddPageForm> {
                     .read(layoutStateProvider.notifier)
                     .addPage(_selectedType, name);
                 Navigator.pop(context);
+              } else {
+                setState(() {
+                  _errorMessage = 'Page name cannot be empty';
+                });
               }
             },
             child: const Text(
