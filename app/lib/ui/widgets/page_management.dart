@@ -36,12 +36,13 @@ class PageManagementSection extends ConsumerWidget {
         if (pages.isNotEmpty)
           SliverReorderableList(
             itemCount: pages.length,
-            onReorderItem: (oldIndex, newIndex) {
+            // ignore: deprecated_member_use
+            onReorder: (oldIndex, newIndex) {
               ref
                   .read(layoutStateProvider.notifier)
                   .reorderPages(oldIndex, newIndex);
             },
-            itemBuilder: (context, index) {
+            itemBuilder: (itemContext, index) {
               final page = pages[index];
               return Material(
                 key: ValueKey(page.id),
@@ -73,7 +74,7 @@ class PageManagementSection extends ConsumerWidget {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.delete_outline),
-                          color: Theme.of(context).colorScheme.error,
+                          color: Theme.of(itemContext).colorScheme.error,
                           onPressed: () =>
                               _confirmDelete(context, ref, index, page.name),
                         ),
@@ -156,8 +157,37 @@ class PageManagementSection extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              ref.read(layoutStateProvider.notifier).removePage(index);
+              final notifier = ref.read(layoutStateProvider.notifier);
+              final deletedPage = notifier.removePage(index);
               Navigator.pop(ctx);
+
+              if (deletedPage != null && context.mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                // Clear any existing snackbars to prevent overlapping/stacking
+                messenger.clearSnackBars();
+
+                final controller = messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('${deletedPage.name} deleted'),
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(
+                      label: 'UNDO',
+                      onPressed: () {
+                        notifier.restorePage(index, deletedPage);
+                        try {
+                          messenger.hideCurrentSnackBar();
+                        } catch (_) {}
+                      },
+                    ),
+                  ),
+                );
+
+                Future.delayed(const Duration(seconds: 4), () {
+                  try {
+                    controller.close();
+                  } catch (_) {}
+                });
+              }
             },
             child: const Text(
               'DELETE',
