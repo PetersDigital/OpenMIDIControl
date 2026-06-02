@@ -409,18 +409,33 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
-  void resetPage(int pageIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
-    final defaultPages = _buildDefaultPages();
-    final defaultPage = defaultPages[pageIndex];
+  void resetPage(String pageId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    LayoutPage defaultPage;
+    if (pageId == 'page_0') {
+      defaultPage = _buildFaderPage();
+    } else if (pageId == 'page_1') {
+      defaultPage = _buildXyPage();
+    } else if (pageId == 'page_2') {
+      defaultPage = _buildPadsPage();
+    } else if (pageId == 'page_3') {
+      defaultPage = _buildUtilityPage();
+    } else {
+      // For custom pages, reset is equivalent to clear
+      clearPage(pageId);
+      return;
+    }
 
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = defaultPage;
     state = state.copyWith(pages: updatedPages);
   }
 
-  void clearPage(int pageIndex) {
-    if (pageIndex < 0 || pageIndex >= state.pages.length) return;
+  void clearPage(String pageId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
     final page = state.pages[pageIndex];
     final updatedControls = page.controls.map((control) {
       return control.copyWith(
@@ -519,11 +534,11 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     );
   }
 
-  void applyDrumPreset(String preset) {
-    final padsPageIndex = 2;
-    if (padsPageIndex >= state.pages.length) return;
+  void applyDrumPreset(String pageId, String preset) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
 
-    final existingPage = state.pages[padsPageIndex];
+    final existingPage = state.pages[pageIndex];
     final updatedControls = [...existingPage.controls];
 
     if (preset == 'MPC') {
@@ -565,9 +580,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     }
 
     final updatedPages = [...state.pages];
-    updatedPages[padsPageIndex] = existingPage.copyWith(
-      controls: updatedControls,
-    );
+    updatedPages[pageIndex] = existingPage.copyWith(controls: updatedControls);
     state = state.copyWith(pages: updatedPages);
   }
 }

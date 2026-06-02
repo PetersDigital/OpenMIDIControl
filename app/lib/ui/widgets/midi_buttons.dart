@@ -22,10 +22,13 @@ class Trigger extends ConsumerStatefulWidget {
   const Trigger({
     super.key,
     required this.index,
+    required this.pageId,
     this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFA6C9F8),
     this.inactiveColor = const Color(0xFF282A2E),
   });
+
+  final String pageId;
 
   @override
   ConsumerState<Trigger> createState() => _TriggerState();
@@ -81,11 +84,14 @@ class _TriggerState extends ConsumerState<Trigger>
   @override
   Widget build(BuildContext context) {
     final control = ref.watch(
-      layoutStateProvider.select(
-        (s) => s.pages.length > 3 && widget.index < s.pages[3].controls.length
-            ? s.pages[3].controls[widget.index]
-            : null,
-      ),
+      layoutStateProvider.select((s) {
+        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
+        if (pageIndex == -1) return null;
+        final page = s.pages[pageIndex];
+        return widget.index < page.controls.length
+            ? page.controls[widget.index]
+            : null;
+      }),
     );
 
     if (control == null) return const SizedBox.shrink();
@@ -242,10 +248,13 @@ class Toggle extends ConsumerStatefulWidget {
   const Toggle({
     super.key,
     required this.index,
+    required this.pageId,
     this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
     this.inactiveColor = const Color(0xFF282A2E),
   });
+
+  final String pageId;
 
   @override
   ConsumerState<Toggle> createState() => _ToggleState();
@@ -312,11 +321,14 @@ class _ToggleState extends ConsumerState<Toggle>
   @override
   Widget build(BuildContext context) {
     final control = ref.watch(
-      layoutStateProvider.select(
-        (s) => s.pages.length > 3 && widget.index < s.pages[3].controls.length
-            ? s.pages[3].controls[widget.index]
-            : null,
-      ),
+      layoutStateProvider.select((s) {
+        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
+        if (pageIndex == -1) return null;
+        final page = s.pages[pageIndex];
+        return widget.index < page.controls.length
+            ? page.controls[widget.index]
+            : null;
+      }),
     );
 
     if (control == null) return const SizedBox.shrink();

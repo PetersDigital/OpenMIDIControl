@@ -22,6 +22,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
   const VelocityDrumPad({
     super.key,
     required this.index,
+    required this.pageId,
     this.padColor = const Color(0xFF282A2E),
     this.minVelocity = 30,
     this.maxVelocity = 127,
@@ -29,6 +30,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
     this.isActive = true,
   });
 
+  final String pageId;
   final bool isActive;
 
   @override
@@ -145,11 +147,14 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   @override
   Widget build(BuildContext context) {
     final control = ref.watch(
-      layoutStateProvider.select(
-        (s) => s.pages.length > 2 && widget.index < s.pages[2].controls.length
-            ? s.pages[2].controls[widget.index]
-            : null,
-      ),
+      layoutStateProvider.select((s) {
+        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
+        if (pageIndex == -1) return null;
+        final page = s.pages[pageIndex];
+        return widget.index < page.controls.length
+            ? page.controls[widget.index]
+            : null;
+      }),
     );
 
     if (control == null) return const SizedBox.shrink();

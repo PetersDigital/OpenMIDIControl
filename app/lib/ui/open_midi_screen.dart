@@ -1063,10 +1063,14 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                         );
 
                       case PageType.drumPad:
-                        return DrumGridPanel(key: key, isActive: isActive);
+                        return DrumGridPanel(
+                          key: key,
+                          pageId: page.id,
+                          isActive: isActive,
+                        );
 
                       case PageType.utility:
-                        return UtilityGridPanel(key: key);
+                        return UtilityGridPanel(key: key, pageId: page.id);
                     }
                   }).toList(),
                 ),
