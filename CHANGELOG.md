@@ -6,7 +6,45 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...HEAD)
+
+## [0.4.0] - 2026-06-02
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0)
+
+### Added
+
+- **Dynamic Page Management Interface**: Implemented a fully interactive page management UI in Settings, allowing users to add, rename, reorder, and delete layout pages at runtime without restarting the app.
+- **PageType Enum**: Added a `PageType` enum to the `LayoutPage` model to formally distinguish between Fader, Pad, and Encoder page types, enabling type-safe routing and rendering decisions.
+- **Dynamic Page Context Routing**: Performance-zone widgets and grid panels now route their state reads/writes via a `pageId` selector, fully decoupling rendering from hardcoded page indices.
+- **Empty Layout State Support**: The layout engine now fully supports and safely handles configurations with zero pages — add/delete operations respect the empty-state boundary without crashing.
+- **ID Collision Protection**: Page and control IDs now include a random integer suffix on creation, eliminating collision risk in concurrent or rapid-fire creation scenarios.
+- **Page Name Validation**: Displaying a clear validation error message when a user attempts to create a page with an empty name in the creation dialog.
+
+### Changed
+
+- **Performance Zone Migration**: Migrated the performance zone to dynamic routing — all page/control data is resolved by `pageId` rather than array index, making the zone resilient to page reordering.
+- **Default Fader Count**: New blank fader pages are now initialized with two default faders instead of a larger set, reducing visual noise on first creation.
+- **Fader Rendering**: Switched from index-based rendering to an `entries`-map pattern for dynamic fader lists, enabling correct re-renders when the underlying map keys change.
+- **Settings Scroll & Drag**: Refactored the Settings screen to resolve nested scroll and drag conflicts — the page reorder list now works correctly inside a `CustomScrollView`/sliver layout.
+
+### Fixed
+
+- **Ticker Assertion Crash**: `safeStartTicker` in `PerformanceTickerMixin` now catches and silently ignores the `'_startTime == null'` assertion that the Flutter framework throws when a ticker is restarted on a still-active animation, preventing spurious EXCEPTION CAUGHT BY RIVERPOD crashes during rapid incoming MIDI updates.
+- **Outgoing MIDI Throttle**: Replaced the shared `Stopwatch` with a dedicated per-fader `Stopwatch` for outgoing MIDI throttle in `HybridTouchFader`, fixing a regression where faders were only sending the final data point on touch release instead of streaming continuously during a drag.
+- **Page Reorder Drag Ancestor**: Wrapped the reorder list item in a `Material` widget to satisfy the `Material` ancestor requirement triggered by the drag handle, preventing a "No Material widget found" error during drag operations.
+- **Dropdown State Sync**: Fixed page-creation dropdown not reflecting state changes correctly by switching to `initialValue`-based form fields, resolving a Flutter SDK deprecation and a related sync bug.
+- **PageType Enum Parsing**: Added a safe fallback in `PageType.fromString()` to default to `PageType.fader` when an unknown string is encountered, preventing crashes on stale or externally-created layout files.
+- **Last-Page Deletion Guard**: `removePage` in `LayoutStateNotifier` now no-ops when only one page remains, and the delete button in the UI is disabled in that state, preventing an empty-layout crash.
+- **Reorder No-Op Correction**: Fixed `reorderPages` to correctly return early without mutating state when the source and destination indices are the same.
+
+### Build & Tooling
+
+- **Minimum Flutter SDK**: Bumped the minimum Flutter SDK constraint to `>=3.41.0` in `pubspec.yaml` and `AGENTS.md` to officially support the modern `ReorderableListView.onReorderItem` callback and associated APIs.
+- **Gradle Migrator Flags**: Committed Flutter migrator flags to `gradle.properties` as part of the Android build toolchain baseline.
+- **Dependency Lock**: Updated `pubspec.lock` to reflect the revised SDK constraint and any resolved transitive dependency changes.
+
+
 
 ## [0.3.0] - 2026-05-02
 
@@ -362,7 +400,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.1...v0.2.2
