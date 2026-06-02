@@ -73,7 +73,11 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   /// exceptions. This is the preferred way to start any [_vrrTicker].
   void safeStartTicker(Ticker? ticker) {
     if (ticker != null && !ticker.isActive && !ticker.muted) {
-      ticker.start();
+      try {
+        ticker.start();
+      } catch (_) {
+        // Guard against framework-level assertion errors (e.g. _startTime != null)
+      }
     }
   }
 
