@@ -139,7 +139,7 @@ void main() {
       testWidgets('sends NoteOn/Off correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Trigger(index: 0, mode: MidiButtonMode.note),
+            const Trigger(index: 0, pageId: 'p3', mode: MidiButtonMode.note),
           ),
         );
 
@@ -167,7 +167,7 @@ void main() {
       testWidgets('sends CC correctly', (WidgetTester tester) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Trigger(index: 1, mode: MidiButtonMode.cc),
+            const Trigger(index: 1, pageId: 'p3', mode: MidiButtonMode.cc),
           ),
         );
 
@@ -197,7 +197,7 @@ void main() {
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Toggle(index: 2, mode: MidiButtonMode.note),
+            const Toggle(index: 2, pageId: 'p3', mode: MidiButtonMode.note),
           ),
         );
 
@@ -230,7 +230,7 @@ void main() {
       ) async {
         await tester.pumpWidget(
           createWidgetUnderTest(
-            const Toggle(index: 3, mode: MidiButtonMode.cc),
+            const Toggle(index: 3, pageId: 'p3', mode: MidiButtonMode.cc),
           ),
         );
 

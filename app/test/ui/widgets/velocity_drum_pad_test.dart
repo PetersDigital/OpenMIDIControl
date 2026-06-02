@@ -103,6 +103,7 @@ void main() {
                 height: 200,
                 child: VelocityDrumPad(
                   index: 0,
+                  pageId: 'page1',
                   minVelocity: 30,
                   maxVelocity: 127,
                 ),

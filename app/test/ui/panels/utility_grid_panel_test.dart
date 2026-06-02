@@ -112,7 +112,11 @@ void main() {
       ],
       child: const MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 1000, height: 800, child: UtilityGridPanel()),
+          body: SizedBox(
+            width: 1000,
+            height: 800,
+            child: UtilityGridPanel(pageId: 'page_3'),
+          ),
         ),
       ),
     );
