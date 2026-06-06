@@ -40,7 +40,7 @@ jobs:
       has_windows: ${{ steps.windows_check.outputs.has_windows }}
     steps:
       - name: Checkout Repository (workflow engine code)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
           fetch-depth: 0
@@ -77,7 +77,7 @@ jobs:
         working-directory: app
     steps:
       - name: Checkout Tag Commit (source code)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
@@ -119,7 +119,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout Tag Commit (source code)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
@@ -182,7 +182,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout Tag Commit (source code)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
@@ -242,7 +242,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout Tag Commit (source code)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: ${{ needs.validate-tag.outputs.tag_commit }}
           fetch-depth: 1
@@ -296,7 +296,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout main (for modern actions)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
           fetch-depth: 0
@@ -401,7 +401,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout main (for actions)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           ref: main
           fetch-depth: 1
