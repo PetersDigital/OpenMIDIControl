@@ -12,7 +12,7 @@ class PageManagementSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pages = ref.watch(layoutStateProvider).pages;
+    final pages = ref.watch(layoutStateProvider.select((s) => s.pages));
 
     return SliverMainAxisGroup(
       slivers: [
