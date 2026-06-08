@@ -205,8 +205,8 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Builder(
-                      builder: (ctx) {
+                    Consumer(
+                      builder: (context, ref, _) {
                         final hand = ref.watch(layoutHandProvider);
                         final faderOnRight = hand == LayoutHand.faderOnRight;
                         return SwitchListTile(
