@@ -38,6 +38,8 @@ class PageManagementSection extends ConsumerWidget {
             child: ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              padding: EdgeInsets.zero,
               itemCount: pages.length,
               // ignore: deprecated_member_use
               onReorder: (oldIndex, newIndex) {
