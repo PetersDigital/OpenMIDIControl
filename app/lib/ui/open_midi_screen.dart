@@ -968,6 +968,20 @@ class PerformanceZone extends ConsumerStatefulWidget {
 }
 
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
+  late final ScrollController _tabScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _tabScrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentPage = ref.watch(
@@ -978,6 +992,27 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
 
+    ref.listen<int>(layoutStateProvider.select((s) => s.activePageIndex), (
+      previous,
+      next,
+    ) {
+      if (_tabScrollController.hasClients && pages.length > 4) {
+        final maxScroll = _tabScrollController.position.maxScrollExtent;
+        // Approximate tab width is 80. Center the active tab in viewport.
+        final targetOffset =
+            (next * 80.0) -
+            (_tabScrollController.position.viewportDimension / 2) +
+            40.0;
+        _tabScrollController.animateTo(
+          targetOffset.clamp(0.0, maxScroll),
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+
+    final isScrollable = pages.length > 4;
+
     return Column(
       children: [
         // Page Tab Bar with integrated progress
@@ -987,9 +1022,28 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
             Row(
               children: [
                 _buildLockButton(isLocked),
-                // Dynamically render tabs from layout schema
-                for (int i = 0; i < pages.length; i++)
-                  _buildTabButton(i, pages[i].name, currentPage),
+                if (isScrollable)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _tabScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (int i = 0; i < pages.length; i++)
+                            _buildTabButton(
+                              i,
+                              pages[i].name,
+                              currentPage,
+                              true,
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  for (int i = 0; i < pages.length; i++)
+                    _buildTabButton(i, pages[i].name, currentPage, false),
               ],
             ),
             const GlobalConfigProgressBar(),
@@ -1096,34 +1150,43 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
     );
   }
 
-  Widget _buildTabButton(int index, String label, int currentPage) {
+  Widget _buildTabButton(
+    int index,
+    String label,
+    int currentPage,
+    bool isScrollable,
+  ) {
     final isActive = currentPage == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          ref.read(layoutStateProvider.notifier).setPageIndex(index);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFEBC351) : const Color(0xFF212327),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-            style: TextStyle(
-              fontFamily: 'Space Grotesk',
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: isActive ? const Color(0xFF212327) : Colors.white54,
-            ),
+    final button = GestureDetector(
+      onTap: () {
+        ref.read(layoutStateProvider.notifier).setPageIndex(index);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFEBC351) : const Color(0xFF212327),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'Space Grotesk',
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: isActive ? const Color(0xFF212327) : Colors.white54,
           ),
         ),
       ),
     );
+
+    if (isScrollable) {
+      return button;
+    } else {
+      return Expanded(child: button);
+    }
   }
 }
 
