@@ -341,108 +341,55 @@ class _ToggleState extends ConsumerState<Toggle>
     final isUnassigned = identifier == -1;
     final label = control.displayName;
 
-    return Listener(
-      onPointerDown: isUnassigned ? null : _handlePointerDown,
-      onPointerUp: isUnassigned
-          ? null
-          : (e) => _handlePointerUp(e, identifier, channel),
-      onPointerCancel: isUnassigned
-          ? null
-          : (e) => _handlePointerUp(e, identifier, channel),
-      behavior: HitTestBehavior.opaque,
-      child: Opacity(
-        opacity: isUnassigned ? 0.3 : 1.0,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: _isActive ? widget.activeColor : widget.inactiveColor,
-            borderRadius: BorderRadius.zero,
-            border: Border.all(
-              color: _isActive ? widget.activeColor : const Color(0xFF111318),
-              width: 1.0,
+    return RepaintBoundary(
+      child: Listener(
+        onPointerDown: isUnassigned ? null : _handlePointerDown,
+        onPointerUp: isUnassigned
+            ? null
+            : (e) => _handlePointerUp(e, identifier, channel),
+        onPointerCancel: isUnassigned
+            ? null
+            : (e) => _handlePointerUp(e, identifier, channel),
+        behavior: HitTestBehavior.opaque,
+        child: Opacity(
+          opacity: isUnassigned ? 0.3 : 1.0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: _isActive ? widget.activeColor : widget.inactiveColor,
+              borderRadius: BorderRadius.zero,
+              border: Border.all(
+                color: _isActive ? widget.activeColor : const Color(0xFF111318),
+                width: 1.0,
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                child: ConfigGestureWrapper(
-                  key: ValueKey('config_wrapper_toggle_${control.id}'),
-                  id: 'toggle_${control.id}',
-                  onConfigRequested: isLocked
-                      ? null
-                      : () => showUtilityConfigModal(context, ref, control.id),
-                  child: Container(
-                    padding: const EdgeInsets.only(
-                      top: 4,
-                      left: 6,
-                      bottom: 20,
-                      right: 20,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 64,
-                      minHeight: 60,
-                    ),
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
-                      style: AppText.performance(
-                        color: _isActive
-                            ? const Color(0xFF690005).withValues(alpha: 0.6)
-                            : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: ConfigGestureWrapper(
+                    key: ValueKey('config_wrapper_toggle_${control.id}'),
+                    id: 'toggle_${control.id}',
+                    onConfigRequested: isLocked
+                        ? null
+                        : () =>
+                              showUtilityConfigModal(context, ref, control.id),
+                    child: Container(
+                      padding: const EdgeInsets.only(
+                        top: 4,
+                        left: 6,
+                        bottom: 20,
+                        right: 20,
                       ),
-                    ),
-                  ),
-                ),
-              ),
-              Center(
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: AppText.performance(
-                      color: _isActive
-                          ? const Color(0xFF690005)
-                          : const Color(0xFFC3C7CA),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-              // Status (Bottom Left)
-              Positioned(
-                bottom: 4,
-                left: 4,
-                child: Text(
-                  _isActive ? 'ON' : 'OFF',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    color: _isActive
-                        ? const Color(0xFF690005)
-                        : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: isUnassigned
-                    ? const SizedBox.shrink()
-                    : Text(
-                        'CH${channel + 1}',
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
+                      constraints: const BoxConstraints(
+                        minWidth: 64,
+                        minHeight: 60,
+                      ),
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
+                        style: AppText.performance(
                           color: _isActive
                               ? const Color(0xFF690005).withValues(alpha: 0.6)
                               : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
@@ -450,8 +397,66 @@ class _ToggleState extends ConsumerState<Toggle>
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-              ),
-            ],
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: AppText.performance(
+                        color: _isActive
+                            ? const Color(0xFF690005)
+                            : const Color(0xFFC3C7CA),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                // Status (Bottom Left)
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child: Text(
+                    _isActive ? 'ON' : 'OFF',
+                    style: TextStyle(
+                      fontFamily: 'Space Grotesk',
+                      color: _isActive
+                          ? const Color(0xFF690005)
+                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: isUnassigned
+                      ? const SizedBox.shrink()
+                      : Text(
+                          'CH${channel + 1}',
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: _isActive
+                                ? const Color(0xFF690005).withValues(alpha: 0.6)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.3),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
