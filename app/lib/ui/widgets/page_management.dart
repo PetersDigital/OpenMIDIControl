@@ -47,48 +47,54 @@ class PageManagementSection extends ConsumerWidget {
               },
               itemBuilder: (itemContext, index) {
                 final page = pages[index];
-                return Material(
+                return RepaintBoundary(
                   key: ValueKey(page.id),
-                  type: MaterialType.transparency,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E2024),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white12),
-                    ),
-                    child: ListTile(
-                      title: Text(
-                        page.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E2024),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white12),
                       ),
-                      subtitle: Text(
-                        page.type.name.toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFFA6C9F8),
-                          fontSize: 11,
-                        ),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            color: Theme.of(itemContext).colorScheme.error,
-                            onPressed: () =>
-                                _confirmDelete(context, ref, index, page.name),
+                      child: ListTile(
+                        title: Text(
+                          page.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          ReorderableDragStartListener(
-                            index: index,
-                            child: const Icon(
-                              Icons.drag_handle,
-                              color: Colors.white54,
+                        ),
+                        subtitle: Text(
+                          page.type.name.toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFFA6C9F8),
+                            fontSize: 11,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: Theme.of(itemContext).colorScheme.error,
+                              onPressed: () => _confirmDelete(
+                                context,
+                                ref,
+                                index,
+                                page.name,
+                              ),
                             ),
-                          ),
-                        ],
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Icon(
+                                Icons.drag_handle,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
