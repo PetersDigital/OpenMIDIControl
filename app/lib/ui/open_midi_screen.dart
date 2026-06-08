@@ -482,208 +482,212 @@ class MidiTransportGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!square) {
-      return Container(
-        color: Colors.transparent,
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_up,
-                        bgColor: Color(0xFF282A2E),
+      return RepaintBoundary(
+        child: Container(
+          color: Colors.transparent,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(child: _GridButton(icon: Icons.fast_rewind)),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_up,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.fiber_manual_record,
-                        bgColor: Color(0xFFFFB59E),
-                        iconColor: Color(0xFF690005),
-                        isSolid: true,
-                        shadowColor: Color(0xFFFFB59E),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.fiber_manual_record,
+                          bgColor: Color(0xFFFFB59E),
+                          iconColor: Color(0xFF690005),
+                          isSolid: true,
+                          shadowColor: Color(0xFFFFB59E),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_left,
-                        bgColor: Color(0xFF282A2E),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_left,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.stop,
-                        bgColor: Color(0xFF33353A),
-                        iconColor: Colors.white,
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.stop,
+                          bgColor: Color(0xFF33353A),
+                          iconColor: Colors.white,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_right,
-                        bgColor: Color(0xFF282A2E),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_right,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_down,
-                        bgColor: Color(0xFF282A2E),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(child: _GridButton(icon: Icons.fast_forward)),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_down,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.play_arrow,
-                        bgColor: Color(0xFFA6C9F8),
-                        iconColor: Color(0xFF033258),
-                        isSolid: true,
-                        shadowColor: Color(0xFFA6C9F8),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.play_arrow,
+                          bgColor: Color(0xFFA6C9F8),
+                          iconColor: Color(0xFF033258),
+                          isSolid: true,
+                          shadowColor: Color(0xFFA6C9F8),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gridSize =
-            constraints.hasBoundedWidth && constraints.hasBoundedHeight
-            ? math.min(constraints.maxWidth, constraints.maxHeight)
-            : constraints.maxWidth;
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gridSize =
+              constraints.hasBoundedWidth && constraints.hasBoundedHeight
+              ? math.min(constraints.maxWidth, constraints.maxHeight)
+              : constraints.maxWidth;
 
-        return Container(
-          color: Colors.transparent,
-          child: Center(
-            child: SizedBox(
-              width: gridSize,
-              height: gridSize,
-              child: const Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(icon: Icons.fast_rewind),
-                          ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_up,
-                              bgColor: Color(0xFF282A2E),
+          return Container(
+            color: Colors.transparent,
+            child: Center(
+              child: SizedBox(
+                width: gridSize,
+                height: gridSize,
+                child: const Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(icon: Icons.fast_rewind),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.fiber_manual_record,
-                              bgColor: Color(0xFFFFB59E),
-                              iconColor: Color(0xFF690005),
-                              isSolid: true,
-                              shadowColor: Color(0xFFFFB59E),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_up,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.fiber_manual_record,
+                                bgColor: Color(0xFFFFB59E),
+                                iconColor: Color(0xFF690005),
+                                isSolid: true,
+                                shadowColor: Color(0xFFFFB59E),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_left,
-                              bgColor: Color(0xFF282A2E),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_left,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.stop,
-                              bgColor: Color(0xFF33353A),
-                              iconColor: Colors.white,
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.stop,
+                                bgColor: Color(0xFF33353A),
+                                iconColor: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_right,
-                              bgColor: Color(0xFF282A2E),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_right,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(icon: Icons.fast_forward),
-                          ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_down,
-                              bgColor: Color(0xFF282A2E),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(icon: Icons.fast_forward),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.play_arrow,
-                              bgColor: Color(0xFFA6C9F8),
-                              iconColor: Color(0xFF033258),
-                              isSolid: true,
-                              shadowColor: Color(0xFFA6C9F8),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_down,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.play_arrow,
+                                bgColor: Color(0xFFA6C9F8),
+                                iconColor: Color(0xFF033258),
+                                isSolid: true,
+                                shadowColor: Color(0xFFA6C9F8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
