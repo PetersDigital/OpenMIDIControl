@@ -609,6 +609,14 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     updatedPages[pageIndex] = existingPage.copyWith(controls: updatedControls);
     state = state.copyWith(pages: updatedPages);
   }
+
+  void resetToDefault() {
+    state = LayoutState(
+      pages: _buildDefaultPages(),
+      activePageIndex: 0,
+      isPerformanceLocked: false,
+    );
+  }
 }
 
 final layoutStateProvider = NotifierProvider<LayoutStateNotifier, LayoutState>(

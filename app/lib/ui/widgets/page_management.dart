@@ -125,6 +125,24 @@ class PageManagementSection extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _confirmResetToDefault(context, ref),
+                child: const Text(
+                  'RESET TO DEFAULT LAYOUT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -191,6 +209,50 @@ class PageManagementSection extends ConsumerWidget {
             },
             child: const Text(
               'DELETE',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetToDefault(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text(
+          'Reset Layout',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to reset all pages to the default system layout? This will delete all custom pages and reset all control assignments.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(layoutStateProvider.notifier).resetToDefault();
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Layout reset to default'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'RESET',
               style: TextStyle(color: Colors.redAccent),
             ),
           ),
