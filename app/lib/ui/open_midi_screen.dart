@@ -1300,15 +1300,30 @@ class DeviceOfflineOverlay extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // SETTINGS FLYOUT (Landscape)
 // ---------------------------------------------------------------------------
-class _SidePanelOverlay extends ConsumerWidget {
+class _SidePanelOverlay extends ConsumerStatefulWidget {
   const _SidePanelOverlay();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SidePanelOverlay> createState() => _SidePanelOverlayState();
+}
+
+class _SidePanelOverlayState extends ConsumerState<_SidePanelOverlay> {
+  SidePanelType _lastActiveType = SidePanelType.none;
+
+  @override
+  Widget build(BuildContext context) {
     final panelState = ref.watch(sidePanelProvider);
     final panelType = panelState.type;
     final isVisible = panelType != SidePanelType.none;
     final isLeft = panelState.side == SidePanelSide.left;
+
+    if (panelType != SidePanelType.none) {
+      _lastActiveType = panelType;
+    }
+
+    final activeContent = _lastActiveType != SidePanelType.none
+        ? _buildPanelContent(_lastActiveType)
+        : const SizedBox.shrink();
 
     return Stack(
       children: [
@@ -1333,6 +1348,13 @@ class _SidePanelOverlay extends ConsumerWidget {
           right: !isLeft ? (isVisible ? 0 : -450) : null,
           top: 0,
           bottom: 0,
+          onEnd: () {
+            if (!isVisible) {
+              setState(() {
+                _lastActiveType = SidePanelType.none;
+              });
+            }
+          },
           child: Container(
             width: 450,
             decoration: BoxDecoration(
@@ -1363,7 +1385,7 @@ class _SidePanelOverlay extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    child: _buildPanelContent(panelType),
+                    child: activeContent,
                   ),
                 ),
               ],
