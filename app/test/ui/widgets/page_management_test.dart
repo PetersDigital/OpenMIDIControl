@@ -175,4 +175,53 @@ void main() {
     // Elapse any remaining SnackBar dismiss timers to avoid pending timer failure
     await tester.pump(const Duration(seconds: 5));
   });
+
+  testWidgets('PageManagementSection can reset layout to default', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(slivers: [PageManagementSection()]),
+          ),
+        ),
+      ),
+    );
+
+    // Verify initial list of pages contains 4 items
+    expect(find.text('FADER'), findsNWidgets(2));
+    expect(find.text('XY'), findsOneWidget);
+    expect(find.text('XYPAD'), findsOneWidget);
+    expect(find.text('PADS'), findsOneWidget);
+    expect(find.text('DRUMPAD'), findsOneWidget);
+    expect(find.text('UTILITY'), findsNWidgets(2));
+
+    // Delete a page to alter the layout
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DELETE'));
+    await tester.pumpAndSettle();
+
+    // Verify FADER page is removed
+    expect(find.text('FADER'), findsNothing);
+
+    // Tap "RESET TO DEFAULT LAYOUT" button
+    await tester.tap(find.text('RESET TO DEFAULT LAYOUT'));
+    await tester.pumpAndSettle();
+
+    // Verify reset confirmation dialog is shown
+    expect(find.text('Reset Layout'), findsOneWidget);
+
+    // Tap RESET button in dialog
+    await tester.tap(find.text('RESET'));
+    await tester.pumpAndSettle();
+
+    // Verify dialog is closed and FADER is restored back
+    expect(find.text('Reset Layout'), findsNothing);
+    expect(find.text('FADER'), findsNWidgets(2));
+
+    // Elapse any remaining SnackBar dismiss timers to avoid pending timer failure
+    await tester.pump(const Duration(seconds: 5));
+  });
 }
