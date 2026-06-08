@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -1242,97 +1243,119 @@ class DeviceOfflineOverlay extends ConsumerWidget {
 
     if (!isConnectionLost) return const SizedBox.shrink();
 
-    return GestureDetector(
-      onTap: () =>
-          ref.read(connectedMidiDeviceProvider.notifier).clearConnectionLost(),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.8),
-        width: double.infinity,
-        height: double.infinity,
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: GestureDetector(
-              onTap:
-                  () {}, // Consume tap to prevent background dismissal when touching the content
+    return Stack(
+      children: [
+        // Backdrop Blur & Scrim
+        Positioned.fill(
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: Colors.black.withValues(alpha: 0.65)),
+            ),
+          ),
+        ),
+        // Content Card
+        Positioned.fill(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Container(
-                padding: const EdgeInsets.all(32),
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E2024),
-                  borderRadius: BorderRadius.circular(24),
+                  color: const Color(0xFF111318), // Obsidian Base
+                  borderRadius: BorderRadius.circular(
+                    8,
+                  ), // Technical sharp corner
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.5),
-                    width: 2,
+                    color: Colors.redAccent.withValues(
+                      alpha: 0.15,
+                    ), // Red Ghost Border
+                    width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.redAccent.withValues(alpha: 0.2),
-                      blurRadius: 30,
-                      spreadRadius: 10,
+                      color: Colors.redAccent.withValues(
+                        alpha: 0.05,
+                      ), // Luminous shadow
+                      blurRadius: 40,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.usb_off_rounded,
-                      color: Colors.redAccent,
-                      size: 80,
+                      color: Colors.redAccent.withValues(alpha: 0.8),
+                      size: 64,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Text(
                       "DEVICE OFFLINE",
                       style: AppText.performance(
-                        color: Colors.redAccent,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
+                        color: Colors.redAccent.withValues(alpha: 0.9),
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Text(
                       "Connection was physically lost. Please reconnect the hardware to continue.",
                       textAlign: TextAlign.center,
                       style: AppText.system(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        height: 1.5,
+                        color: Colors.white60,
+                        fontSize: 13,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white60,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white10),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  6,
+                                ), // rounded-md
                               ),
                             ),
                             onPressed: () => ref
                                 .read(connectedMidiDeviceProvider.notifier)
                                 .clearConnectionLost(),
-                            child: const Text(
+                            child: Text(
                               "DISMISS",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: AppText.system(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
+                              backgroundColor: Colors.redAccent.withValues(
+                                alpha: 0.8,
+                              ),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  6,
+                                ), // rounded-md
                               ),
                             ),
                             onPressed: () {
@@ -1341,9 +1364,13 @@ class DeviceOfflineOverlay extends ConsumerWidget {
                                   .disconnect();
                               ref.invalidate(midiDevicesProvider);
                             },
-                            child: const Text(
+                            child: Text(
                               "RESET PORTS",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: AppText.system(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
                             ),
                           ),
                         ),
@@ -1355,7 +1382,7 @@ class DeviceOfflineOverlay extends ConsumerWidget {
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
