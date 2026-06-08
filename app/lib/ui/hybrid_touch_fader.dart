@@ -408,36 +408,38 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   @override
   Widget build(BuildContext context) {
     // Reactively update local state and subscriptions when global layout state changes
-    ref.listen(layoutStateProvider, (prev, next) {
-      final control = next.getControlById(widget.controlId);
-      if (control != null &&
-          (control.defaultCc != _ccNumber ||
-              control.channel != _midiChannel ||
-              control.displayName != _ccLabel)) {
-        _batchStateUpdate({
-          'ccNumber': control.defaultCc,
-          'midiChannel': control.channel,
-          'ccLabel': control.displayName,
-          'lastPolledValue': null,
-        });
-        clearManagedResources();
-        addManagedSubscription(
-          ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
-            previous,
-            next,
-          ) {
-            if (next is AsyncData) {
-              final val = next.value;
-              if (val != null && val != _lastPolledValue) {
-                final prev = _lastPolledValue;
-                _lastPolledValue = val;
-                _handleCcUpdate(prev, val);
+    ref.listen(
+      layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
+      (prev, next) {
+        if (next != null &&
+            (next.defaultCc != _ccNumber ||
+                next.channel != _midiChannel ||
+                next.displayName != _ccLabel)) {
+          _batchStateUpdate({
+            'ccNumber': next.defaultCc,
+            'midiChannel': next.channel,
+            'ccLabel': next.displayName,
+            'lastPolledValue': null,
+          });
+          clearManagedResources();
+          addManagedSubscription(
+            ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
+              previous,
+              nextVal,
+            ) {
+              if (nextVal is AsyncData) {
+                final val = nextVal.value;
+                if (val != null && val != _lastPolledValue) {
+                  final prevVal = _lastPolledValue;
+                  _lastPolledValue = val;
+                  _handleCcUpdate(prevVal, val);
+                }
               }
-            }
-          }),
-        );
-      }
-    });
+            }),
+          );
+        }
+      },
+    );
 
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
