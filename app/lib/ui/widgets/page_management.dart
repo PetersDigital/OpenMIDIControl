@@ -200,7 +200,7 @@ class PageManagementSection extends ConsumerWidget {
                 // Clear any existing snackbars to prevent overlapping/stacking
                 messenger.clearSnackBars();
 
-                final controller = messenger.showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('${deletedPage.name} deleted'),
                     duration: const Duration(seconds: 4),
@@ -215,12 +215,6 @@ class PageManagementSection extends ConsumerWidget {
                     ),
                   ),
                 );
-
-                Future.delayed(const Duration(seconds: 4), () {
-                  try {
-                    controller.close();
-                  } catch (_) {}
-                });
               }
             },
             child: const Text(
