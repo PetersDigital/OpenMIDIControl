@@ -24,8 +24,7 @@ runs:
         fi
         cosign sign-blob \
           --yes \
-          --output-signature "${FILE}.sig" \
-          --output-certificate "${FILE}.pem" \
+          --bundle "${FILE}.sigstore.json" \
           --oidc-issuer https://token.actions.githubusercontent.com \
           "$FILE"
 
@@ -34,8 +33,7 @@ runs:
       run: |
         FILE="${{ inputs.artifact_path }}"
         cosign verify-blob \
-          --certificate "${FILE}.pem" \
-          --signature "${FILE}.sig" \
+          --bundle "${FILE}.sigstore.json" \
           --certificate-identity-regexp "https://github.com/${{ inputs.repository }}" \
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
           "$FILE"
