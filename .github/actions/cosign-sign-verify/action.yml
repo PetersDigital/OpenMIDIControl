@@ -34,7 +34,6 @@ runs:
       run: |
         FILE="${{ inputs.artifact_path }}"
         cosign verify-blob \
-          --use-signing-config=false \
           --bundle "${FILE}.sigstore.json" \
           --certificate-identity-regexp "https://github.com/${{ inputs.repository }}" \
           --certificate-oidc-issuer https://token.actions.githubusercontent.com \
