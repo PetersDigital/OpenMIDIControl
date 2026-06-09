@@ -328,7 +328,7 @@ jobs:
           ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.id) \(.name)"' || echo "")
 
           echo "=== Deleting existing assets by name ==="
-          for ext in apk apk.sig apk.pem; do
+          for ext in apk apk.sigstore.json; do
             FILE="openmidicontrol-${TAG}-android.${ext}"
             ASSET_ID=$(echo "$ASSETS" | awk -v f="$FILE" '$2 == f { print $1 }')
             if [ -n "$ASSET_ID" ]; then
@@ -340,7 +340,7 @@ jobs:
           done
 
           if [ "$HAS_WINDOWS" = "true" ]; then
-            for ext in zip zip.sig zip.pem; do
+            for ext in zip zip.sigstore.json; do
               FILE="openmidicontrol-${TAG}-windows.${ext}"
               ASSET_ID=$(echo "$ASSETS" | awk -v f="$FILE" '$2 == f { print $1 }')
               if [ -n "$ASSET_ID" ]; then
