@@ -118,8 +118,7 @@ jobs:
           retention-days: 1
           path: |
             ${{ steps.build.outputs.apk-path }}
-            ${{ steps.build.outputs.apk-path }}.sig
-            ${{ steps.build.outputs.apk-path }}.pem
+            ${{ steps.build.outputs.apk-path }}.sigstore.json
 
   build-windows:
     runs-on: windows-latest
@@ -161,8 +160,7 @@ jobs:
           retention-days: 1
           path: |
             ${{ steps.build.outputs.zip-path }}
-            ${{ steps.build.outputs.zip-path }}.sig
-            ${{ steps.build.outputs.zip-path }}.pem
+            ${{ steps.build.outputs.zip-path }}.sigstore.json
 
   provenance:
     needs: [verify-tag-on-main, build-android, build-windows]
