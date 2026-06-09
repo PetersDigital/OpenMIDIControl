@@ -233,7 +233,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Find SingleChildScrollView in tab bar
-      expect(find.byType(SingleChildScrollView), findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byType(PerformanceZone),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }
