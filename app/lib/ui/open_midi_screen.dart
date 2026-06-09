@@ -1001,7 +1001,8 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       previous,
       next,
     ) {
-      if (_tabScrollController.hasClients && pages.length > 4) {
+      final currentPages = ref.read(layoutStateProvider).pages;
+      if (_tabScrollController.hasClients && currentPages.length > 4) {
         final maxScroll = _tabScrollController.position.maxScrollExtent;
         // Approximate tab width is 80. Center the active tab in viewport.
         final targetOffset =
