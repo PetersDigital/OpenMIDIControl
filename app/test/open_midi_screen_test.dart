@@ -217,6 +217,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       final container = ProviderContainer();
+      addTearDown(container.dispose);
       final notifier = container.read(layoutStateProvider.notifier);
 
       // Add 2 more custom pages to make total = 6 pages
