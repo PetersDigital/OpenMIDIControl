@@ -491,11 +491,11 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     );
   }
 
-  void removePage(int index) {
-    if (index < 0 || index >= state.pages.length) return;
+  LayoutPage? removePage(int index) {
+    if (index < 0 || index >= state.pages.length) return null;
 
     final updatedPages = [...state.pages];
-    updatedPages.removeAt(index);
+    final removedPage = updatedPages.removeAt(index);
 
     int newActiveIndex = 0;
     if (updatedPages.isNotEmpty) {
@@ -514,6 +514,22 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       pages: updatedPages,
       activePageIndex: newActiveIndex,
     );
+
+    return removedPage;
+  }
+
+  void restorePage(int index, LayoutPage page) {
+    final updatedPages = [...state.pages];
+
+    // Clamp the index safely
+    int safeIndex = index;
+    if (safeIndex < 0) safeIndex = 0;
+    if (safeIndex > updatedPages.length) safeIndex = updatedPages.length;
+
+    updatedPages.insert(safeIndex, page);
+
+    // Set activePageIndex to the newly restored index for immediate visual feedback
+    state = state.copyWith(pages: updatedPages, activePageIndex: safeIndex);
   }
 
   void reorderPages(int oldIndex, int newIndex) {
@@ -592,6 +608,14 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = existingPage.copyWith(controls: updatedControls);
     state = state.copyWith(pages: updatedPages);
+  }
+
+  void resetToDefault() {
+    state = LayoutState(
+      pages: _buildDefaultPages(),
+      activePageIndex: 0,
+      isPerformanceLocked: false,
+    );
   }
 }
 

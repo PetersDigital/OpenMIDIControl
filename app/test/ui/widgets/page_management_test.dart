@@ -129,4 +129,99 @@ void main() {
       expect(pages[3].id, 'page_3');
     },
   );
+
+  testWidgets('PageManagementSection can delete a page and undo it', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(slivers: [PageManagementSection()]),
+          ),
+        ),
+      ),
+    );
+
+    // Initial pages include 'FADER' (one for title, one for type subtitle)
+    expect(find.text('FADER'), findsNWidgets(2));
+
+    // Tap delete button for the first page
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+
+    // Verify dialog is shown
+    expect(find.text('Delete Page'), findsOneWidget);
+
+    // Tap DELETE in dialog
+    await tester.tap(find.text('DELETE'));
+    await tester.pumpAndSettle();
+
+    // Dialog should be closed, and 'FADER' removed from the list
+    expect(find.text('Delete Page'), findsNothing);
+    expect(find.text('FADER'), findsNothing);
+
+    // Verify SnackBar is shown with text 'FADER deleted'
+    expect(find.text('FADER deleted'), findsOneWidget);
+    expect(find.text('UNDO'), findsOneWidget);
+
+    // Tap UNDO
+    await tester.tap(find.text('UNDO'));
+    await tester.pumpAndSettle();
+
+    // Verify 'FADER' is restored
+    expect(find.text('FADER'), findsNWidgets(2));
+
+    // Elapse any remaining SnackBar dismiss timers to avoid pending timer failure
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('PageManagementSection can reset layout to default', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(slivers: [PageManagementSection()]),
+          ),
+        ),
+      ),
+    );
+
+    // Verify initial list of pages contains 4 items
+    expect(find.text('FADER'), findsNWidgets(2));
+    expect(find.text('XY'), findsOneWidget);
+    expect(find.text('XYPAD'), findsOneWidget);
+    expect(find.text('PADS'), findsOneWidget);
+    expect(find.text('DRUMPAD'), findsOneWidget);
+    expect(find.text('UTILITY'), findsNWidgets(2));
+
+    // Delete a page to alter the layout
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DELETE'));
+    await tester.pumpAndSettle();
+
+    // Verify FADER page is removed
+    expect(find.text('FADER'), findsNothing);
+
+    // Tap "RESET TO DEFAULT LAYOUT" button
+    await tester.tap(find.text('RESET TO DEFAULT LAYOUT'));
+    await tester.pumpAndSettle();
+
+    // Verify reset confirmation dialog is shown
+    expect(find.text('Reset Layout'), findsOneWidget);
+
+    // Tap RESET button in dialog
+    await tester.tap(find.text('RESET'));
+    await tester.pumpAndSettle();
+
+    // Verify dialog is closed and FADER is restored back
+    expect(find.text('Reset Layout'), findsNothing);
+    expect(find.text('FADER'), findsNWidgets(2));
+
+    // Elapse any remaining SnackBar dismiss timers to avoid pending timer failure
+    await tester.pump(const Duration(seconds: 5));
+  });
 }

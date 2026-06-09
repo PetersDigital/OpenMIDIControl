@@ -108,13 +108,21 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Ticker & Throttle Fixes**: Dedicated per-fader outgoing throttle `Stopwatch`; `safeStartTicker` assertion guard.
 - **Min SDK Bump**: Flutter SDK constraint raised to `>=3.41.0`.
 
-### ⏳ Current Focus: v0.4.1 – Editor Mode
+### ✅ v0.4.1 – Layout Engine Hardening & Performance
+
+- **Undo Page Deletion**: Added a snackbar undo action for accidental page deletes.
+- **Layout Reset**: Interactive reset-to-default-layout button in page management settings.
+- **Pagination Scaling**: Support for scrollable tab bar when layouts exceed 4 pages.
+- **Extreme UI Performance**: Leaf-level Riverpod optimization, repaint boundaries for faders/buttons/lists, and decoupled settings/compositor rebuild paths.
+- **Hardening & Fixes**: Fixed connection lost dismiss reference leaks, reorderable list layout bugs, and GPG/CI pipeline upgrades.
+
+### ⏳ Current Focus: v0.4.2 – Editor Mode
 
 - **Drag-and-Drop Placement**: Interactive widget positioning within the layout grid.
 - **Resizing**: Pinch/drag resize handles for controls.
 - **Widget Palette**: Control palette for adding new widgets from a browsable catalog.
 
-#### ⏱️ v0.4.2 (Persistence & Marketplace): JSON schema versioning and manifest metadata for layout sharing
+#### ⏱️ v0.4.3 (Persistence & Marketplace): JSON schema versioning and manifest metadata for layout sharing
 
 ### ⏳ v0.5.x – The MCU / HUI Protocol Series
 

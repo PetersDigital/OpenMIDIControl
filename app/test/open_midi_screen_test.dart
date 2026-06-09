@@ -12,6 +12,8 @@ import 'package:app/ui/panels/drum_grid_panel.dart';
 import 'package:app/ui/panels/utility_grid_panel.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
+import 'package:app/ui/layout_state.dart';
+import 'package:app/core/models/layout_models.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -205,6 +207,39 @@ void main() {
 
       // Should show settings
       expect(find.byType(MidiSettingsScreen), findsOneWidget);
+    });
+
+    testWidgets('tab bar becomes scrollable when there are > 4 pages', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(layoutStateProvider.notifier);
+
+      // Add 2 more custom pages to make total = 6 pages
+      notifier.addPage(PageType.fader, 'Custom Fader');
+      notifier.addPage(PageType.xyPad, 'Custom XY');
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: OpenMIDIMainScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find SingleChildScrollView in tab bar
+      expect(
+        find.descendant(
+          of: find.byType(PerformanceZone),
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -15,8 +15,15 @@ class MidiSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final connectionState = ref.watch(connectedMidiDeviceProvider);
-    final connectedDevice = connectionState.connectedDevice;
+    final connectedDevice = ref.watch(
+      connectedMidiDeviceProvider.select((state) => state.connectedDevice),
+    );
+    final activeInputPort = ref.watch(
+      connectedMidiDeviceProvider.select((state) => state.inputPort),
+    );
+    final activeOutputPort = ref.watch(
+      connectedMidiDeviceProvider.select((state) => state.outputPort),
+    );
     final midiStatus = ref.watch(midiStatusProvider);
     final midiDevicesAsyncValue = ref.watch(midiDevicesProvider);
 
@@ -225,10 +232,10 @@ class MidiSettingsScreen extends ConsumerWidget {
                     device: device,
                     isThisDeviceConnected: isThisDeviceConnected,
                     activeInputPort: isThisDeviceConnected
-                        ? connectionState.inputPort
+                        ? activeInputPort
                         : null,
                     activeOutputPort: isThisDeviceConnected
-                        ? connectionState.outputPort
+                        ? activeOutputPort
                         : null,
                   );
                 }).toList(),

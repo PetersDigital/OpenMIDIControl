@@ -18,13 +18,24 @@ class UtilityGridPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final layoutState = ref.watch(layoutStateProvider);
-    final pageIndex = layoutState.pages.indexWhere((p) => p.id == pageId);
-    final controlCount = pageIndex != -1
-        ? layoutState.pages[pageIndex].controls.length
-        : 0;
+    final page = ref.watch(
+      layoutStateProvider.select<LayoutPage?>((s) {
+        for (final p in s.pages) {
+          if (p.id == pageId) return p;
+        }
+        return null;
+      }),
+    );
+    final pageIndex = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.indexWhere((p) => p.id == pageId),
+      ),
+    );
+    final controlCount = page?.controls.length ?? 0;
 
-    final isLocked = layoutState.isPerformanceLocked;
+    final isLocked = ref.watch(
+      layoutStateProvider.select((s) => s.isPerformanceLocked),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -66,7 +77,7 @@ class UtilityGridPanel extends ConsumerWidget {
               itemCount: controlCount,
               itemBuilder: (context, index) {
                 if (pageIndex == -1) return const SizedBox.shrink();
-                final control = layoutState.pages[pageIndex].controls[index];
+                final control = page!.controls[index];
                 final channel = control.channel;
                 final cc = control.defaultCc;
                 final displayName = control.displayName;

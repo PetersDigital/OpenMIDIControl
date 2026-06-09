@@ -943,7 +943,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
   }
 
   void clearConnectionLost() {
-    state = state.copyWith(isConnectionLost: false);
+    state = const MidiConnectionState(isConnectionLost: false);
   }
 }
 

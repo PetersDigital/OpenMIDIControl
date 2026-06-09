@@ -12,7 +12,7 @@ class PageManagementSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pages = ref.watch(layoutStateProvider).pages;
+    final pages = ref.watch(layoutStateProvider.select((s) => s.pages));
 
     return SliverMainAxisGroup(
       slivers: [
@@ -34,62 +34,79 @@ class PageManagementSection extends ConsumerWidget {
           ),
         ),
         if (pages.isNotEmpty)
-          SliverReorderableList(
-            itemCount: pages.length,
-            onReorderItem: (oldIndex, newIndex) {
-              ref
-                  .read(layoutStateProvider.notifier)
-                  .reorderPages(oldIndex, newIndex);
-            },
-            itemBuilder: (context, index) {
-              final page = pages[index];
-              return Material(
-                key: ValueKey(page.id),
-                type: MaterialType.transparency,
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E2024),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      page.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+          SliverToBoxAdapter(
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              padding: EdgeInsets.zero,
+              itemCount: pages.length,
+              // ignore: deprecated_member_use
+              onReorder: (oldIndex, newIndex) {
+                int adjustedNewIndex = newIndex;
+                if (oldIndex < newIndex) {
+                  adjustedNewIndex -= 1;
+                }
+                ref
+                    .read(layoutStateProvider.notifier)
+                    .reorderPages(oldIndex, adjustedNewIndex);
+              },
+              itemBuilder: (itemContext, index) {
+                final page = pages[index];
+                return RepaintBoundary(
+                  key: ValueKey(page.id),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E2024),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white12),
                       ),
-                    ),
-                    subtitle: Text(
-                      page.type.name.toUpperCase(),
-                      style: const TextStyle(
-                        color: Color(0xFFA6C9F8),
-                        fontSize: 11,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: Theme.of(context).colorScheme.error,
-                          onPressed: () =>
-                              _confirmDelete(context, ref, index, page.name),
-                        ),
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: const Icon(
-                            Icons.drag_handle,
-                            color: Colors.white54,
+                      child: ListTile(
+                        title: Text(
+                          page.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
+                        subtitle: Text(
+                          page.type.name.toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFFA6C9F8),
+                            fontSize: 11,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: Theme.of(itemContext).colorScheme.error,
+                              onPressed: () => _confirmDelete(
+                                context,
+                                ref,
+                                index,
+                                page.name,
+                              ),
+                            ),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Icon(
+                                Icons.drag_handle,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           )
         else
           SliverToBoxAdapter(
@@ -118,6 +135,24 @@ class PageManagementSection extends ConsumerWidget {
                 onPressed: () => _showAddPageModal(context, ref),
                 child: const Text(
                   '+ ADD NEW PAGE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.redAccent,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _confirmResetToDefault(context, ref),
+                child: const Text(
+                  'RESET TO DEFAULT LAYOUT',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -156,11 +191,78 @@ class PageManagementSection extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              ref.read(layoutStateProvider.notifier).removePage(index);
+              final notifier = ref.read(layoutStateProvider.notifier);
+              final deletedPage = notifier.removePage(index);
               Navigator.pop(ctx);
+
+              if (deletedPage != null && context.mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                // Clear any existing snackbars to prevent overlapping/stacking
+                messenger.clearSnackBars();
+
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('${deletedPage.name} deleted'),
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(
+                      label: 'UNDO',
+                      onPressed: () {
+                        notifier.restorePage(index, deletedPage);
+                        try {
+                          messenger.hideCurrentSnackBar();
+                        } catch (_) {}
+                      },
+                    ),
+                  ),
+                );
+              }
             },
             child: const Text(
               'DELETE',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetToDefault(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2024),
+        title: const Text(
+          'Reset Layout',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to reset all pages to the default system layout? This will delete all custom pages and reset all control assignments.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(layoutStateProvider.notifier).resetToDefault();
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Layout reset to default'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'RESET',
               style: TextStyle(color: Colors.redAccent),
             ),
           ),

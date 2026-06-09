@@ -53,15 +53,15 @@ runs:
         {
           echo "files<<EOF"
 
-          # Android APK and signatures
-          for ext in apk apk.sig apk.pem; do
+          # Android APK and signature bundle
+          for ext in apk apk.sigstore.json; do
             FILE="openmidicontrol-${TAG}-android.${ext}"
             add_asset_or_warn "$FILE"
           done
 
-          # Windows ZIP and signatures (if exists)
+          # Windows ZIP and signature bundle (if exists)
           if [ "$HAS_WINDOWS" = "true" ]; then
-            for ext in zip zip.sig zip.pem; do
+            for ext in zip zip.sigstore.json; do
               FILE="openmidicontrol-${TAG}-windows.${ext}"
               add_asset_or_warn "$FILE"
             done

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -481,208 +482,212 @@ class MidiTransportGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!square) {
-      return Container(
-        color: Colors.transparent,
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_up,
-                        bgColor: Color(0xFF282A2E),
+      return RepaintBoundary(
+        child: Container(
+          color: Colors.transparent,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(child: _GridButton(icon: Icons.fast_rewind)),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_up,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.fiber_manual_record,
-                        bgColor: Color(0xFFFFB59E),
-                        iconColor: Color(0xFF690005),
-                        isSolid: true,
-                        shadowColor: Color(0xFFFFB59E),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.fiber_manual_record,
+                          bgColor: Color(0xFFFFB59E),
+                          iconColor: Color(0xFF690005),
+                          isSolid: true,
+                          shadowColor: Color(0xFFFFB59E),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_left,
-                        bgColor: Color(0xFF282A2E),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_left,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.stop,
-                        bgColor: Color(0xFF33353A),
-                        iconColor: Colors.white,
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.stop,
+                          bgColor: Color(0xFF33353A),
+                          iconColor: Colors.white,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_right,
-                        bgColor: Color(0xFF282A2E),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_right,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.keyboard_arrow_down,
-                        bgColor: Color(0xFF282A2E),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(child: _GridButton(icon: Icons.fast_forward)),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.keyboard_arrow_down,
+                          bgColor: Color(0xFF282A2E),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _GridButton(
-                        icon: Icons.play_arrow,
-                        bgColor: Color(0xFFA6C9F8),
-                        iconColor: Color(0xFF033258),
-                        isSolid: true,
-                        shadowColor: Color(0xFFA6C9F8),
+                      Expanded(
+                        child: _GridButton(
+                          icon: Icons.play_arrow,
+                          bgColor: Color(0xFFA6C9F8),
+                          iconColor: Color(0xFF033258),
+                          isSolid: true,
+                          shadowColor: Color(0xFFA6C9F8),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gridSize =
-            constraints.hasBoundedWidth && constraints.hasBoundedHeight
-            ? math.min(constraints.maxWidth, constraints.maxHeight)
-            : constraints.maxWidth;
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gridSize =
+              constraints.hasBoundedWidth && constraints.hasBoundedHeight
+              ? math.min(constraints.maxWidth, constraints.maxHeight)
+              : constraints.maxWidth;
 
-        return Container(
-          color: Colors.transparent,
-          child: Center(
-            child: SizedBox(
-              width: gridSize,
-              height: gridSize,
-              child: const Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(icon: Icons.fast_rewind),
-                          ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_up,
-                              bgColor: Color(0xFF282A2E),
+          return Container(
+            color: Colors.transparent,
+            child: Center(
+              child: SizedBox(
+                width: gridSize,
+                height: gridSize,
+                child: const Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(icon: Icons.fast_rewind),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.fiber_manual_record,
-                              bgColor: Color(0xFFFFB59E),
-                              iconColor: Color(0xFF690005),
-                              isSolid: true,
-                              shadowColor: Color(0xFFFFB59E),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_up,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.fiber_manual_record,
+                                bgColor: Color(0xFFFFB59E),
+                                iconColor: Color(0xFF690005),
+                                isSolid: true,
+                                shadowColor: Color(0xFFFFB59E),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_left,
-                              bgColor: Color(0xFF282A2E),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_left,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.stop,
-                              bgColor: Color(0xFF33353A),
-                              iconColor: Colors.white,
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.stop,
+                                bgColor: Color(0xFF33353A),
+                                iconColor: Colors.white,
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_right,
-                              bgColor: Color(0xFF282A2E),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_right,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(icon: Icons.fast_forward),
-                          ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.keyboard_arrow_down,
-                              bgColor: Color(0xFF282A2E),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(icon: Icons.fast_forward),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _GridButton(
-                              icon: Icons.play_arrow,
-                              bgColor: Color(0xFFA6C9F8),
-                              iconColor: Color(0xFF033258),
-                              isSolid: true,
-                              shadowColor: Color(0xFFA6C9F8),
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.keyboard_arrow_down,
+                                bgColor: Color(0xFF282A2E),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          Expanded(
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: _GridButton(
+                                icon: Icons.play_arrow,
+                                bgColor: Color(0xFFA6C9F8),
+                                iconColor: Color(0xFF033258),
+                                isSolid: true,
+                                shadowColor: Color(0xFFA6C9F8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -968,6 +973,20 @@ class PerformanceZone extends ConsumerStatefulWidget {
 }
 
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
+  late final ScrollController _tabScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _tabScrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentPage = ref.watch(
@@ -978,6 +997,28 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
 
+    ref.listen<int>(layoutStateProvider.select((s) => s.activePageIndex), (
+      previous,
+      next,
+    ) {
+      final currentPages = ref.read(layoutStateProvider).pages;
+      if (_tabScrollController.hasClients && currentPages.length > 4) {
+        final maxScroll = _tabScrollController.position.maxScrollExtent;
+        // Approximate tab width is 80. Center the active tab in viewport.
+        final targetOffset =
+            (next * 80.0) -
+            (_tabScrollController.position.viewportDimension / 2) +
+            40.0;
+        _tabScrollController.animateTo(
+          targetOffset.clamp(0.0, maxScroll),
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+
+    final isScrollable = pages.length > 4;
+
     return Column(
       children: [
         // Page Tab Bar with integrated progress
@@ -987,9 +1028,28 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
             Row(
               children: [
                 _buildLockButton(isLocked),
-                // Dynamically render tabs from layout schema
-                for (int i = 0; i < pages.length; i++)
-                  _buildTabButton(i, pages[i].name, currentPage),
+                if (isScrollable)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _tabScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (int i = 0; i < pages.length; i++)
+                            _buildTabButton(
+                              i,
+                              pages[i].name,
+                              currentPage,
+                              true,
+                            ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  for (int i = 0; i < pages.length; i++)
+                    _buildTabButton(i, pages[i].name, currentPage, false),
               ],
             ),
             const GlobalConfigProgressBar(),
@@ -1096,34 +1156,43 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
     );
   }
 
-  Widget _buildTabButton(int index, String label, int currentPage) {
+  Widget _buildTabButton(
+    int index,
+    String label,
+    int currentPage,
+    bool isScrollable,
+  ) {
     final isActive = currentPage == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          ref.read(layoutStateProvider.notifier).setPageIndex(index);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFEBC351) : const Color(0xFF212327),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-            style: TextStyle(
-              fontFamily: 'Space Grotesk',
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: isActive ? const Color(0xFF212327) : Colors.white54,
-            ),
+    final button = GestureDetector(
+      onTap: () {
+        ref.read(layoutStateProvider.notifier).setPageIndex(index);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFEBC351) : const Color(0xFF212327),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'Space Grotesk',
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: isActive ? const Color(0xFF212327) : Colors.white54,
           ),
         ),
       ),
     );
+
+    if (isScrollable) {
+      return button;
+    } else {
+      return Expanded(child: button);
+    }
   }
 }
 
@@ -1179,97 +1248,119 @@ class DeviceOfflineOverlay extends ConsumerWidget {
 
     if (!isConnectionLost) return const SizedBox.shrink();
 
-    return GestureDetector(
-      onTap: () =>
-          ref.read(connectedMidiDeviceProvider.notifier).clearConnectionLost(),
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.8),
-        width: double.infinity,
-        height: double.infinity,
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: GestureDetector(
-              onTap:
-                  () {}, // Consume tap to prevent background dismissal when touching the content
+    return Stack(
+      children: [
+        // Backdrop Blur & Scrim
+        Positioned.fill(
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: Colors.black.withValues(alpha: 0.65)),
+            ),
+          ),
+        ),
+        // Content Card
+        Positioned.fill(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Container(
-                padding: const EdgeInsets.all(32),
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E2024),
-                  borderRadius: BorderRadius.circular(24),
+                  color: const Color(0xFF111318), // Obsidian Base
+                  borderRadius: BorderRadius.circular(
+                    8,
+                  ), // Technical sharp corner
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.5),
-                    width: 2,
+                    color: Colors.redAccent.withValues(
+                      alpha: 0.15,
+                    ), // Red Ghost Border
+                    width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.redAccent.withValues(alpha: 0.2),
-                      blurRadius: 30,
-                      spreadRadius: 10,
+                      color: Colors.redAccent.withValues(
+                        alpha: 0.05,
+                      ), // Luminous shadow
+                      blurRadius: 40,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.usb_off_rounded,
-                      color: Colors.redAccent,
-                      size: 80,
+                      color: Colors.redAccent.withValues(alpha: 0.8),
+                      size: 64,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Text(
                       "DEVICE OFFLINE",
                       style: AppText.performance(
-                        color: Colors.redAccent,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
+                        color: Colors.redAccent.withValues(alpha: 0.9),
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Text(
                       "Connection was physically lost. Please reconnect the hardware to continue.",
                       textAlign: TextAlign.center,
                       style: AppText.system(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        height: 1.5,
+                        color: Colors.white60,
+                        fontSize: 13,
+                        height: 1.4,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white60,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              foregroundColor: Colors.white70,
+                              side: const BorderSide(color: Colors.white10),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  6,
+                                ), // rounded-md
                               ),
                             ),
                             onPressed: () => ref
                                 .read(connectedMidiDeviceProvider.notifier)
                                 .clearConnectionLost(),
-                            child: const Text(
+                            child: Text(
                               "DISMISS",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: AppText.system(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
+                              backgroundColor: Colors.redAccent.withValues(
+                                alpha: 0.8,
+                              ),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(
+                                  6,
+                                ), // rounded-md
                               ),
                             ),
                             onPressed: () {
@@ -1278,9 +1369,13 @@ class DeviceOfflineOverlay extends ConsumerWidget {
                                   .disconnect();
                               ref.invalidate(midiDevicesProvider);
                             },
-                            child: const Text(
+                            child: Text(
                               "RESET PORTS",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: AppText.system(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                              ),
                             ),
                           ),
                         ),
@@ -1292,7 +1387,7 @@ class DeviceOfflineOverlay extends ConsumerWidget {
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1300,15 +1395,30 @@ class DeviceOfflineOverlay extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // SETTINGS FLYOUT (Landscape)
 // ---------------------------------------------------------------------------
-class _SidePanelOverlay extends ConsumerWidget {
+class _SidePanelOverlay extends ConsumerStatefulWidget {
   const _SidePanelOverlay();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SidePanelOverlay> createState() => _SidePanelOverlayState();
+}
+
+class _SidePanelOverlayState extends ConsumerState<_SidePanelOverlay> {
+  SidePanelType _lastActiveType = SidePanelType.none;
+
+  @override
+  Widget build(BuildContext context) {
     final panelState = ref.watch(sidePanelProvider);
     final panelType = panelState.type;
     final isVisible = panelType != SidePanelType.none;
     final isLeft = panelState.side == SidePanelSide.left;
+
+    if (panelType != SidePanelType.none) {
+      _lastActiveType = panelType;
+    }
+
+    final activeContent = _lastActiveType != SidePanelType.none
+        ? _buildPanelContent(_lastActiveType)
+        : const SizedBox.shrink();
 
     return Stack(
       children: [
@@ -1333,6 +1443,13 @@ class _SidePanelOverlay extends ConsumerWidget {
           right: !isLeft ? (isVisible ? 0 : -450) : null,
           top: 0,
           bottom: 0,
+          onEnd: () {
+            if (!isVisible) {
+              setState(() {
+                _lastActiveType = SidePanelType.none;
+              });
+            }
+          },
           child: Container(
             width: 450,
             decoration: BoxDecoration(
@@ -1363,7 +1480,7 @@ class _SidePanelOverlay extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    child: _buildPanelContent(panelType),
+                    child: activeContent,
                   ),
                 ),
               ],

@@ -25,9 +25,6 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentBehavior = ref.watch(faderBehaviorProvider);
-    final packageInfoAsync = ref.watch(packageInfoProvider);
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -77,18 +74,25 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          packageInfoAsync.when(
-                            data: (info) => Text(
-                              'v${info.version}',
-                              style: AppText.system(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                            loading: () => const SizedBox(height: 14),
-                            error: (_, _) => const SizedBox(height: 14),
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final packageInfoAsync = ref.watch(
+                                packageInfoProvider,
+                              );
+                              return packageInfoAsync.when(
+                                data: (info) => Text(
+                                  'v${info.version}',
+                                  style: AppText.system(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                loading: () => const SizedBox(height: 14),
+                                error: (_, _) => const SizedBox(height: 14),
+                              );
+                            },
                           ),
                           Text(
                             '© PetersDigital',
@@ -118,49 +122,62 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...FaderBehavior.values.map((behavior) {
-                      final isSelected = currentBehavior == behavior;
-                      return ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 0,
-                        ),
-                        title: Text(
-                          behavior.name.toUpperCase(),
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          _getBehaviorDescription(behavior),
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                        leading: Icon(
-                          isSelected
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                          size: 22,
-                        ),
-                        onTap: () {
-                          ref
-                              .read(faderBehaviorProvider.notifier)
-                              .updateBehavior(behavior);
-                        },
-                      );
-                    }),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final currentBehavior = ref.watch(
+                          faderBehaviorProvider,
+                        );
+                        return Column(
+                          children: FaderBehavior.values.map((behavior) {
+                            final isSelected = currentBehavior == behavior;
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 0,
+                              ),
+                              title: Text(
+                                behavior.name.toUpperCase(),
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                _getBehaviorDescription(behavior),
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              leading: Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: isSelected
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                size: 22,
+                              ),
+                              onTap: () {
+                                ref
+                                    .read(faderBehaviorProvider.notifier)
+                                    .updateBehavior(behavior);
+                              },
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 12),
                     const Divider(color: Colors.white12),
@@ -188,8 +205,8 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Builder(
-                      builder: (ctx) {
+                    Consumer(
+                      builder: (context, ref, _) {
                         final hand = ref.watch(layoutHandProvider);
                         final faderOnRight = hand == LayoutHand.faderOnRight;
                         return SwitchListTile(

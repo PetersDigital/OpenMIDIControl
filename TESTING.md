@@ -1,9 +1,9 @@
 # Automated Test Suite Architecture
 
 > [!NOTE]
-> This documentation covers the multi-domain test suite for the v0.4.0 dynamic layout engine and routing/state foundation, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
+> This documentation covers the multi-domain test suite for the v0.4.1 dynamic layout engine and routing/state foundation, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
 
-The v0.4.0 Dynamic Modular Layout Engine builds on the v0.3.0 Universal MIDI Packet (UMP) transport pipeline and layout-state foundation. Both layers are validated via a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
+The v0.4.1 Dynamic Modular Layout Engine builds on the v0.3.0 Universal MIDI Packet (UMP) transport pipeline and layout-state foundation. Both layers are validated via a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
 
 This document outlines how to execute the test suite and the specific scenarios validated.
 
