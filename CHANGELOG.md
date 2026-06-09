@@ -6,7 +6,30 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...HEAD)
+
+## [0.4.1] - 2026-06-09
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...v0.4.1)
+
+### Added
+
+- **Undo Page Deletion**: Added a snackbar undo action for accidental page deletes.
+- **Layout Reset**: Interactive reset-to-default-layout button in page management settings.
+- **Pagination Scaling**: Support for scrollable tab bar when layouts exceed 4 pages.
+
+### Changed
+
+- **Extreme UI Performance**: Leaf-level Riverpod optimization, repaint boundaries for faders/buttons/lists, and decoupled settings/compositor rebuild paths to reduce render CPU overhead.
+
+### Fixed
+
+- **Connection Lost Reference Leaks**: Dismiss references are now correctly cleaned up.
+- **Reorderable List Layout Bugs**: UI layout constraints are correctly satisfied when reordering pages.
+
+### Build & Tooling
+
+- **Cosign CI/CD upgrade**: Migrated Cosign/Sigstore installation and signing pipeline to version v3/v4.
 
 ## [0.4.0] - 2026-06-02
 
@@ -43,8 +66,6 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Minimum Flutter SDK**: Bumped the minimum Flutter SDK constraint to `>=3.41.0` in `pubspec.yaml` and `AGENTS.md` to officially support the modern `ReorderableListView.onReorderItem` callback and associated APIs.
 - **Gradle Migrator Flags**: Committed Flutter migrator flags to `gradle.properties` as part of the Android build toolchain baseline.
 - **Dependency Lock**: Updated `pubspec.lock` to reflect the revised SDK constraint and any resolved transitive dependency changes.
-
-
 
 ## [0.3.0] - 2026-05-02
 
@@ -128,6 +149,7 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **Native Map Pre-allocation**: Standardized on pre-allocated object maps for Android USB events to avoid heap churn during device hot-plugging.
 
 ### Hardening & Resilience
+
 - **Ticker Lifecycle Optimization**: Restriced ticker usage to active spring simulations in `HybridTouchFader`. Removed redundant tickers from `XYPad` and `EndlessEncoder`.
 - **Render Object Caching**: Cached `Paint` objects and `Path` patterns in custom painters to eliminate per-frame allocations during high-frequency interaction.
 - **Resource Cleanup**: Hardened `onDispose` lifecycle in all performance widgets to clear `StreamController` maps and prune stale `deadReceivers`.
@@ -400,7 +422,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.2...v0.2.3
