@@ -127,7 +127,7 @@ jobs:
           artifact-name: openmidicontrol-${{ github.ref_name }}-android
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: 'CD: Cosign Sign and Verify'
         uses: ./.github/actions/cosign-sign-verify
@@ -181,7 +181,7 @@ jobs:
 
       - name: Install Cosign
         if: steps.check_windows.outputs.has_windows == 'true'
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: 'CD: Cosign Sign and Verify (Windows)'
         if: steps.check_windows.outputs.has_windows == 'true'
