@@ -43,9 +43,13 @@ class PageManagementSection extends ConsumerWidget {
               itemCount: pages.length,
               // ignore: deprecated_member_use
               onReorder: (oldIndex, newIndex) {
+                int adjustedNewIndex = newIndex;
+                if (oldIndex < newIndex) {
+                  adjustedNewIndex -= 1;
+                }
                 ref
                     .read(layoutStateProvider.notifier)
-                    .reorderPages(oldIndex, newIndex);
+                    .reorderPages(oldIndex, adjustedNewIndex);
               },
               itemBuilder: (itemContext, index) {
                 final page = pages[index];
