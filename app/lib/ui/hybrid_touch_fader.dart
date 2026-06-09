@@ -423,19 +423,19 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           });
           clearManagedResources();
           addManagedSubscription(
-            ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
-              previous,
-              nextVal,
-            ) {
-              if (nextVal is AsyncData) {
-                final val = nextVal.value;
-                if (val != null && val != _lastPolledValue) {
-                  final prevVal = _lastPolledValue;
-                  _lastPolledValue = val;
-                  _handleCcUpdate(prevVal, val);
+            ref.listenManual(
+              hotCcValueProvider("${next.channel}:${next.defaultCc}"),
+              (previous, nextVal) {
+                if (nextVal is AsyncData) {
+                  final val = nextVal.value;
+                  if (val != null && val != _lastPolledValue) {
+                    final prevVal = _lastPolledValue;
+                    _lastPolledValue = val;
+                    _handleCcUpdate(prevVal, val);
+                  }
                 }
-              }
-            }),
+              },
+            ),
           );
         }
       },
