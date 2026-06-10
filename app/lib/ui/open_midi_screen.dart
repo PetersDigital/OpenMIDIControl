@@ -20,6 +20,7 @@ import 'providers/config_ui_provider.dart';
 import 'widgets/config_gesture_wrapper.dart';
 import 'design_system.dart';
 import 'layout_state.dart';
+import 'editor_state.dart';
 import 'side_panel_state.dart';
 import '../core/models/layout_models.dart';
 
@@ -285,6 +286,25 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                     Tooltip(
+                      message: 'Toggle Editor Mode',
+                      child: GestureDetector(
+                        onTap: () =>
+                            ref.read(editorModeProvider.notifier).toggle(),
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.edit,
+                            color: ref.watch(editorModeProvider)
+                                ? const Color(0xFFA6C9F8)
+                                : const Color(0xFFC3C7CA),
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
                       message: 'App Settings',
                       child: GestureDetector(
                         onTap: () => _showAppSettings(context, ref),
@@ -440,6 +460,16 @@ class _LandscapeLayout extends ConsumerWidget {
                   tooltip: isVisible ? 'Hide Transport' : 'Show Transport',
                   onPressed: () =>
                       ref.read(transportVisibleProvider.notifier).toggle(),
+                ),
+                const SizedBox(width: 4),
+                _HeaderIconButton(
+                  icon: Icons.edit,
+                  tooltip: 'Toggle Editor Mode',
+                  color: ref.watch(editorModeProvider)
+                      ? const Color(0xFFA6C9F8)
+                      : const Color(0xFFC3C7CA),
+                  onPressed: () =>
+                      ref.read(editorModeProvider.notifier).toggle(),
                 ),
                 const SizedBox(width: 4),
                 _HeaderIconButton(
@@ -696,12 +726,14 @@ class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final Color? color;
 
   const _HeaderIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.color,
   });
 
   @override
@@ -713,7 +745,7 @@ class _HeaderIconButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Icon(icon, color: const Color(0xFFA6C9F8), size: 20),
+          child: Icon(icon, color: color ?? const Color(0xFFA6C9F8), size: 20),
         ),
       ),
     );

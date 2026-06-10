@@ -34,6 +34,11 @@ class LayoutControl {
   /// Whether to invert the secondary value (Y-axis for XY pads).
   final bool invertY;
 
+  final int x;
+  final int y;
+  final int width;
+  final int height;
+
   LayoutControl({
     required this.id,
     required this.type,
@@ -43,6 +48,10 @@ class LayoutControl {
     this.secondaryCc,
     this.invertX = false,
     this.invertY = false,
+    this.x = 0,
+    this.y = 0,
+    this.width = 1,
+    this.height = 1,
   }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
        assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15');
 
@@ -71,6 +80,10 @@ class LayoutControl {
     int? secondaryCc,
     bool? invertX,
     bool? invertY,
+    int? x,
+    int? y,
+    int? width,
+    int? height,
   }) {
     return LayoutControl(
       id: id ?? this.id,
@@ -81,6 +94,10 @@ class LayoutControl {
       secondaryCc: secondaryCc ?? this.secondaryCc,
       invertX: invertX ?? this.invertX,
       invertY: invertY ?? this.invertY,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      width: width ?? this.width,
+      height: height ?? this.height,
     );
   }
 
@@ -95,6 +112,10 @@ class LayoutControl {
       'secondaryCc': secondaryCc,
       'invertX': invertX,
       'invertY': invertY,
+      'x': x,
+      'y': y,
+      'width': width,
+      'height': height,
     };
   }
 
@@ -109,12 +130,16 @@ class LayoutControl {
       secondaryCc: json['secondaryCc'] as int?,
       invertX: json['invertX'] as bool? ?? false,
       invertY: json['invertY'] as bool? ?? false,
+      x: json['x'] as int? ?? 0,
+      y: json['y'] as int? ?? 0,
+      width: json['width'] as int? ?? 1,
+      height: json['height'] as int? ?? 1,
     );
   }
 
   @override
   String toString() =>
-      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel, secondaryCc: $secondaryCc, invertX: $invertX, invertY: $invertY)';
+      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel, secondaryCc: $secondaryCc, invertX: $invertX, invertY: $invertY, x: $x, y: $y, width: $width, height: $height)';
 
   @override
   bool operator ==(Object other) {
@@ -127,7 +152,11 @@ class LayoutControl {
         other.customName == customName &&
         other.secondaryCc == secondaryCc &&
         other.invertX == invertX &&
-        other.invertY == invertY;
+        other.invertY == invertY &&
+        other.x == x &&
+        other.y == y &&
+        other.width == width &&
+        other.height == height;
   }
 
   @override
@@ -140,6 +169,10 @@ class LayoutControl {
     secondaryCc,
     invertX,
     invertY,
+    x,
+    y,
+    width,
+    height,
   );
 }
 
