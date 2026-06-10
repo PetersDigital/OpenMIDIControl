@@ -58,6 +58,7 @@ class DynamicGridRenderer extends ConsumerWidget {
             // Controls Rendered on the Grid
             ...controls.map((control) {
               Widget child = ControlWidgetFactory.buildControl(
+                context,
                 control,
                 pageId,
                 isActive,
