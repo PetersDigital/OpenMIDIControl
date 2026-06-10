@@ -102,204 +102,221 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
     );
 
     return Container(
-      decoration: const BoxDecoration(
+      width: 280,
+      decoration: BoxDecoration(
         color: _kSurface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 24,
+            offset: const Offset(-8, 0),
+          ),
+        ],
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'PAGE SETTINGS',
-                    style: AppText.system(
-                      color: const Color(0xFFC3C7CA),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2.0,
-                    ),
-                  ),
-                  _PageTypeBadge(type: page.type),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Page Name
-              TextField(
-                controller: _nameController,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Space Grotesk',
-                  fontSize: 18,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'PAGE NAME',
-                  labelStyle: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 12,
-                    letterSpacing: 1.5,
-                  ),
-                  filled: true,
-                  fillColor: _kCardBg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _kBorderNormal),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _kBorderNormal),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: _kAccent),
-                  ),
-                ),
-                onSubmitted: (_) =>
-                    _applySettings(page.gridColumns, page.gridRows),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Grid Size Presets
-              Text(
-                'GRID SIZE',
-                style: AppText.system(
-                  color: const Color(0xFFC3C7CA),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2.0,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _GridChip(
-                    cols: 8,
-                    rows: 4,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                  _GridChip(
-                    cols: 8,
-                    rows: 6,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                  _GridChip(
-                    cols: 12,
-                    rows: 4,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                  _GridChip(
-                    cols: 16,
-                    rows: 4,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                  _GridChip(
-                    cols: 8,
-                    rows: 8,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                  _GridChip(
-                    cols: 16,
-                    rows: 8,
-                    currentCols: page.gridColumns,
-                    currentRows: page.gridRows,
-                    onSelect: _applySettings,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Custom Grid Size
-              Row(
-                children: [
-                  const Text(
-                    'Custom:',
-                    style: TextStyle(color: Colors.white60, fontSize: 14),
-                  ),
-                  const SizedBox(width: 16),
-                  _CustomNumberInput(
-                    controller: _colsController,
-                    label: 'Cols',
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      '×',
-                      style: TextStyle(color: Colors.white38, fontSize: 18),
-                    ),
-                  ),
-                  _CustomNumberInput(
-                    controller: _rowsController,
-                    label: 'Rows',
-                  ),
-                  const SizedBox(width: 16),
-                  FilledButton(
-                    onPressed: () {
-                      final cols =
-                          int.tryParse(_colsController.text) ??
-                          page.gridColumns;
-                      final rows =
-                          int.tryParse(_rowsController.text) ?? page.gridRows;
-                      _applySettings(cols, rows);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kAccent.withValues(alpha: 0.15),
-                      foregroundColor: _kAccent,
-                      shape: RoundedRectangleBorder(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0x0AFFFFFF))),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _kAccent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      child: const Icon(
+                        Icons.settings,
+                        color: _kAccent,
+                        size: 20,
+                      ),
                     ),
-                    child: const Text('APPLY'),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-              const Text(
-                '⚠ Shrinking the grid may reposition controls to fit within bounds.',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
+                    const SizedBox(width: 14),
+                    Text(
+                      'PAGE SETTINGS',
+                      style: AppText.system(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                _PageTypeBadge(type: page.type),
+              ],
+            ),
           ),
-        ),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              children: [
+                // Page Name
+                TextField(
+                  controller: _nameController,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Space Grotesk',
+                    fontSize: 18,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'PAGE NAME',
+                    labelStyle: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                    ),
+                    filled: true,
+                    fillColor: _kCardBg,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _kBorderNormal),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _kBorderNormal),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: _kAccent),
+                    ),
+                  ),
+                  onSubmitted: (_) =>
+                      _applySettings(page.gridColumns, page.gridRows),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Grid Size Presets
+                Text(
+                  'GRID SIZE',
+                  style: AppText.system(
+                    color: const Color(0xFFC3C7CA),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _GridChip(
+                      cols: 8,
+                      rows: 4,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                    _GridChip(
+                      cols: 8,
+                      rows: 6,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                    _GridChip(
+                      cols: 12,
+                      rows: 4,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                    _GridChip(
+                      cols: 16,
+                      rows: 4,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                    _GridChip(
+                      cols: 8,
+                      rows: 8,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                    _GridChip(
+                      cols: 16,
+                      rows: 8,
+                      currentCols: page.gridColumns,
+                      currentRows: page.gridRows,
+                      onSelect: _applySettings,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Custom Grid Size
+                Row(
+                  children: [
+                    const Text(
+                      'Custom:',
+                      style: TextStyle(color: Colors.white60, fontSize: 14),
+                    ),
+                    const SizedBox(width: 16),
+                    _CustomNumberInput(
+                      controller: _colsController,
+                      label: 'Cols',
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '×',
+                        style: TextStyle(color: Colors.white38, fontSize: 18),
+                      ),
+                    ),
+                    _CustomNumberInput(
+                      controller: _rowsController,
+                      label: 'Rows',
+                    ),
+                    const SizedBox(width: 16),
+                    FilledButton(
+                      onPressed: () {
+                        final cols =
+                            int.tryParse(_colsController.text) ??
+                            page.gridColumns;
+                        final rows =
+                            int.tryParse(_rowsController.text) ?? page.gridRows;
+                        _applySettings(cols, rows);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kAccent.withValues(alpha: 0.15),
+                        foregroundColor: _kAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('APPLY'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                const Text(
+                  '⚠ Shrinking the grid may reposition controls to fit within bounds.',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
