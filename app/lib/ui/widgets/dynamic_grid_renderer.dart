@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 
 import '../../core/models/layout_models.dart';
 import '../layout_state.dart';
@@ -16,10 +17,6 @@ class DynamicGridRenderer extends ConsumerWidget {
   final bool isActive;
   final bool isMobile;
 
-  // For now, these are fixed values per instructions
-  static const int defaultColumns = 8;
-  static const int defaultRows = 4;
-
   const DynamicGridRenderer({
     super.key,
     required this.controls,
@@ -31,18 +28,31 @@ class DynamicGridRenderer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isEditorMode = ref.watch(editorModeProvider);
+    final page = ref.watch(
+      layoutStateProvider.select(
+        (s) => s.pages.firstWhereOrNull((p) => p.id == pageId),
+      ),
+    );
+    final cols = page?.gridColumns ?? 8;
+    final rows = page?.gridRows ?? 4;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double cellWidth = constraints.maxWidth / defaultColumns;
-        final double cellHeight = constraints.maxHeight / defaultRows;
+        final double cellWidth = constraints.maxWidth / cols;
+        final double cellHeight = constraints.maxHeight / rows;
 
         return Stack(
           children: [
             // Background Grid (only visible in Editor Mode)
             if (isEditorMode)
               Positioned.fill(
-                child: _buildBackgroundGrid(cellWidth, cellHeight, ref),
+                child: _buildBackgroundGrid(
+                  cellWidth,
+                  cellHeight,
+                  cols,
+                  rows,
+                  ref,
+                ),
               ),
 
             // Controls Rendered on the Grid
@@ -82,12 +92,14 @@ class DynamicGridRenderer extends ConsumerWidget {
   Widget _buildBackgroundGrid(
     double cellWidth,
     double cellHeight,
+    int cols,
+    int rows,
     WidgetRef ref,
   ) {
     return Stack(
       children: [
-        for (int row = 0; row < defaultRows; row++)
-          for (int col = 0; col < defaultColumns; col++)
+        for (int row = 0; row < rows; row++)
+          for (int col = 0; col < cols; col++)
             Positioned(
               left: col * cellWidth,
               top: row * cellHeight,
