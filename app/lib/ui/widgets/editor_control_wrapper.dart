@@ -185,6 +185,48 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                 ),
               ),
             ),
+
+          // Delete Handle (top right, offset slightly outward with touch area)
+          if (isSelected)
+            Positioned(
+              right: handleOffset,
+              top: handleOffset,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  ref
+                      .read(layoutStateProvider.notifier)
+                      .deleteControl(widget.pageId, widget.control.id);
+                  ref.read(selectedControlProvider.notifier).select(null);
+                },
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  padding: EdgeInsets.all(innerPadding),
+                  color: Colors.transparent, // transparent touch area
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE57373), // Soft premium red
+                      borderRadius: BorderRadius.circular(isCompact ? 4 : 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: isCompact ? 3 : 4,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.delete,
+                        size: iconSize,
+                        color: const Color(0xFF1E2024),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
