@@ -304,6 +304,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       message: 'Page Settings',
                       child: GestureDetector(
                         onTap: () {
+                          ref.read(paletteVisibleProvider.notifier).hide();
                           final activePageId = ref
                               .read(layoutStateProvider)
                               .activePage
@@ -352,7 +353,10 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   Tooltip(
                     message: 'App Settings',
                     child: GestureDetector(
-                      onTap: () => _showAppSettings(context, ref),
+                      onTap: () {
+                        ref.read(paletteVisibleProvider.notifier).hide();
+                        _showAppSettings(context, ref);
+                      },
                       behavior: HitTestBehavior.opaque,
                       child: const Padding(
                         padding: EdgeInsets.all(8),
@@ -388,7 +392,8 @@ class _MobilePortraitLayout extends ConsumerWidget {
               if (ref.watch(paletteVisibleProvider)) ...[
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: () => ref.read(paletteVisibleProvider.notifier).toggle(),
+                    onTap: () =>
+                        ref.read(paletteVisibleProvider.notifier).toggle(),
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox.expand(),
                   ),
@@ -458,7 +463,8 @@ class _LandscapeLayout extends ConsumerWidget {
               if (ref.watch(paletteVisibleProvider)) ...[
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: () => ref.read(paletteVisibleProvider.notifier).toggle(),
+                    onTap: () =>
+                        ref.read(paletteVisibleProvider.notifier).toggle(),
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox.expand(),
                   ),
@@ -565,6 +571,7 @@ class _LandscapeLayout extends ConsumerWidget {
                     tooltip: 'Page Settings',
                     color: const Color(0xFFC3C7CA),
                     onPressed: () {
+                      ref.read(paletteVisibleProvider.notifier).hide();
                       final activePageId = ref
                           .read(layoutStateProvider)
                           .activePage
@@ -594,7 +601,10 @@ class _LandscapeLayout extends ConsumerWidget {
                 _HeaderIconButton(
                   icon: Icons.more_vert,
                   tooltip: 'App Settings',
-                  onPressed: () => _showAppSettings(context, ref),
+                  onPressed: () {
+                    ref.read(paletteVisibleProvider.notifier).hide();
+                    _showAppSettings(context, ref);
+                  },
                 ),
               ],
             ),

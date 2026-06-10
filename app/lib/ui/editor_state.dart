@@ -10,6 +10,10 @@ class PaletteVisibleNotifier extends Notifier<bool> {
   void toggle() {
     state = !state;
   }
+
+  void hide() {
+    state = false;
+  }
 }
 
 final paletteVisibleProvider = NotifierProvider<PaletteVisibleNotifier, bool>(
