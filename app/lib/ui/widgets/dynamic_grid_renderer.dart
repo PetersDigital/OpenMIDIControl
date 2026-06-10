@@ -77,6 +77,7 @@ class DynamicGridRenderer extends ConsumerWidget {
               }
 
               return Positioned(
+                key: ValueKey(control.id),
                 left: control.x * cellWidth,
                 top: control.y * cellHeight,
                 width: control.width * cellWidth,
