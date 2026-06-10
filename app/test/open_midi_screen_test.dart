@@ -14,6 +14,7 @@ import 'package:app/ui/widgets/midi_buttons.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
 import 'package:app/ui/layout_state.dart';
+import 'package:app/ui/widgets/editor_control_wrapper.dart';
 import 'package:app/core/models/layout_models.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -243,6 +244,37 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('layout editor mode wraps controls and handles selection', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWidget());
+      await tester.pumpAndSettle();
+
+      // Initially, no control wrappers should be present
+      expect(find.byType(EditorControlWrapper), findsNothing);
+
+      // Tap the Toggle Editor Mode button
+      await tester.tap(find.byTooltip('Toggle Editor Mode').first);
+      await tester.pumpAndSettle();
+
+      // Now, control wrappers should be present wrapping the faders
+      expect(find.byType(EditorControlWrapper), findsWidgets);
+
+      // Verify that no control is selected initially
+      expect(find.byIcon(Icons.zoom_out_map), findsNothing);
+
+      // Tap on the first fader to select it
+      await tester.tap(find.byType(HybridTouchFader).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      // Now, the selected fader should show the resize handle
+      expect(find.byIcon(Icons.zoom_out_map), findsOneWidget);
     });
   });
 }
