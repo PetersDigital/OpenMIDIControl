@@ -78,9 +78,13 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final randomSuffix = math.Random().nextInt(1000000);
     final pageId = 'page_${timestamp}_$randomSuffix';
     final List<LayoutControl> controls = [];
+    int gridColumns = 8;
+    int gridRows = 4;
 
     switch (type) {
       case PageType.fader:
+        gridColumns = 8;
+        gridRows = 4;
         for (int i = 0; i < 2; i++) {
           controls.add(
             LayoutControl(
@@ -89,11 +93,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: i * 4,
+              y: 0,
+              width: 4,
+              height: 4,
             ),
           );
         }
         break;
       case PageType.xyPad:
+        gridColumns = 8;
+        gridRows = 4;
         controls.add(
           LayoutControl(
             id: 'xy_main_${timestamp}_$randomSuffix',
@@ -103,11 +113,19 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
             channel: -1,
             invertY: true,
             customName: 'UNASSIGNED',
+            x: 0,
+            y: 0,
+            width: 8,
+            height: 4,
           ),
         );
         break;
       case PageType.drumPad:
+        gridColumns = 8;
+        gridRows = 4;
         for (int i = 0; i < 8; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'pad_${timestamp}_${randomSuffix}_$i',
@@ -115,13 +133,21 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         break;
       case PageType.utility:
+        gridColumns = 8;
+        gridRows = 6;
         // Encoders
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'encoder_${timestamp}_${randomSuffix}_$i',
@@ -129,11 +155,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         // Toggles
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'toggle_${timestamp}_${randomSuffix}_$i',
@@ -141,11 +173,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: 2 + row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         // Triggers
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'trigger_${timestamp}_${randomSuffix}_$i',
@@ -153,13 +191,24 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: 4 + row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         break;
     }
 
-    return LayoutPage(id: pageId, type: type, name: name, controls: controls);
+    return LayoutPage(
+      id: pageId,
+      type: type,
+      name: name,
+      controls: controls,
+      gridColumns: gridColumns,
+      gridRows: gridRows,
+    );
   }
 
   static LayoutPage _buildFaderPage() {
@@ -167,6 +216,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_0',
       type: PageType.fader,
       name: 'FADER',
+      gridColumns: 8,
+      gridRows: 4,
       controls: [
         LayoutControl(
           id: 'fader_0',
@@ -174,6 +225,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 1,
           channel: 0,
           customName: 'CC1\nDYNAMICS',
+          x: 0,
+          y: 0,
+          width: 4,
+          height: 4,
         ),
         LayoutControl(
           id: 'fader_1',
@@ -181,6 +236,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 11,
           channel: 0,
           customName: 'CC11\nEXPRESSION',
+          x: 4,
+          y: 0,
+          width: 4,
+          height: 4,
         ),
       ],
     );
@@ -191,6 +250,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_1',
       type: PageType.xyPad,
       name: 'XY',
+      gridColumns: 8,
+      gridRows: 4,
       controls: [
         LayoutControl(
           id: 'xy_main',
@@ -201,6 +262,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           invertY:
               true, // Default to true for standard DAW behavior (bottom=0, top=127)
           customName: 'XY PAD',
+          x: 0,
+          y: 0,
+          width: 8,
+          height: 4,
         ),
       ],
     );
@@ -221,13 +286,21 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_2',
       type: PageType.drumPad,
       name: 'PADS',
+      gridColumns: 8,
+      gridRows: 4,
       controls: List.generate(8, (index) {
+        final int col = index % 2;
+        final int row = index ~/ 2;
         return LayoutControl(
           id: 'pad_$index',
           type: ControlType.drumPad,
           defaultCc: 36 + index,
           channel: 9,
           customName: names[index],
+          x: col * 4,
+          y: row,
+          width: 4,
+          height: 1,
         );
       }),
     );
@@ -238,6 +311,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_3',
       type: PageType.utility,
       name: 'UTILITY',
+      gridColumns: 8,
+      gridRows: 6,
       controls: [
         // Encoders (Row 0 & 1)
         LayoutControl(
@@ -246,6 +321,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 20,
           channel: 0,
           customName: 'ENC 1',
+          x: 0,
+          y: 0,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_1',
@@ -253,6 +332,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 21,
           channel: 0,
           customName: 'ENC 2',
+          x: 4,
+          y: 0,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_2',
@@ -260,6 +343,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 22,
           channel: 0,
           customName: 'ENC 3',
+          x: 0,
+          y: 1,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_3',
@@ -267,6 +354,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 23,
           channel: 0,
           customName: 'ENC 4',
+          x: 4,
+          y: 1,
+          width: 4,
+          height: 1,
         ),
         // Toggle Buttons (Row 2 & 3)
         LayoutControl(
@@ -275,6 +366,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 24,
           channel: 0,
           customName: 'TOGGLE 1',
+          x: 0,
+          y: 2,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_1',
@@ -282,6 +377,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 25,
           channel: 0,
           customName: 'TOGGLE 2',
+          x: 4,
+          y: 2,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_2',
@@ -289,6 +388,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 26,
           channel: 0,
           customName: 'TOGGLE 3',
+          x: 0,
+          y: 3,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_3',
@@ -296,6 +399,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 27,
           channel: 0,
           customName: 'TOGGLE 4',
+          x: 4,
+          y: 3,
+          width: 4,
+          height: 1,
         ),
         // Trigger Buttons (Row 4 & 5)
         LayoutControl(
@@ -304,6 +411,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 28,
           channel: 0,
           customName: 'TRIG 1',
+          x: 0,
+          y: 4,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_1',
@@ -311,6 +422,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 29,
           channel: 0,
           customName: 'TRIG 2',
+          x: 4,
+          y: 4,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_2',
@@ -318,6 +433,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 30,
           channel: 0,
           customName: 'TRIG 3',
+          x: 0,
+          y: 5,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_3',
@@ -325,6 +444,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 31,
           channel: 0,
           customName: 'TRIG 4',
+          x: 4,
+          y: 5,
+          width: 4,
+          height: 1,
         ),
       ],
     );
@@ -442,6 +565,43 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  void updatePageGridAndName(
+    String pageId, {
+    String? name,
+    int? gridColumns,
+    int? gridRows,
+  }) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+    final int newCols = gridColumns ?? page.gridColumns;
+    final int newRows = gridRows ?? page.gridRows;
+
+    // Adjust controls to fit within the new grid dimensions
+    final updatedControls = page.controls.map((control) {
+      int newWidth = math.min(newCols, control.width);
+      int newHeight = math.min(newRows, control.height);
+      int newX = math.max(0, math.min(newCols - newWidth, control.x));
+      int newY = math.max(0, math.min(newRows - newHeight, control.y));
+      return control.copyWith(
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight,
+      );
+    }).toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(
+      name: name ?? page.name,
+      gridColumns: newCols,
+      gridRows: newRows,
+      controls: updatedControls,
+    );
+    state = state.copyWith(pages: updatedPages);
+  }
+
   void updateControlSpatialData(
     String pageId,
     String controlId, {
@@ -459,7 +619,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
     final control = page.controls[controlIndex];
 
-    // Constrain logic to 8x4 grid
+    // Constrain logic to page grid
     int newX = x ?? control.x;
     int newY = y ?? control.y;
     int newWidth = width ?? control.width;
@@ -469,13 +629,13 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     newWidth = math.max(1, newWidth);
     newHeight = math.max(1, newHeight);
 
-    // Max size is 8x4
-    newWidth = math.min(8, newWidth);
-    newHeight = math.min(4, newHeight);
+    // Max size is page grid dimensions
+    newWidth = math.min(page.gridColumns, newWidth);
+    newHeight = math.min(page.gridRows, newHeight);
 
     // Clamp coordinates to grid boundaries while taking width/height into account
-    newX = math.max(0, math.min(8 - newWidth, newX));
-    newY = math.max(0, math.min(4 - newHeight, newY));
+    newX = math.max(0, math.min(page.gridColumns - newWidth, newX));
+    newY = math.max(0, math.min(page.gridRows - newHeight, newY));
 
     final updatedControl = control.copyWith(
       x: newX,
@@ -526,8 +686,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     // Find the first available empty grid cell if x and y are not provided
     if (x == null || y == null) {
       bool found = false;
-      for (int r = 0; r <= 4 - defaultHeight && !found; r++) {
-        for (int c = 0; c <= 8 - defaultWidth && !found; c++) {
+      for (int r = 0; r <= page.gridRows - defaultHeight && !found; r++) {
+        for (int c = 0; c <= page.gridColumns - defaultWidth && !found; c++) {
           bool overlaps = false;
           for (final control in page.controls) {
             // Check intersection
@@ -555,8 +715,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     }
 
     // Clamp coordinates to grid boundaries while taking width/height into account
-    startX = math.max(0, math.min(8 - defaultWidth, startX));
-    startY = math.max(0, math.min(4 - defaultHeight, startY));
+    startX = math.max(0, math.min(page.gridColumns - defaultWidth, startX));
+    startY = math.max(0, math.min(page.gridRows - defaultHeight, startY));
 
     final newControl = LayoutControl(
       id: '${type.name}_${DateTime.now().millisecondsSinceEpoch}',
