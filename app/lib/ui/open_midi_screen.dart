@@ -20,6 +20,7 @@ import 'editor_state.dart';
 import 'side_panel_state.dart';
 import 'widgets/dynamic_grid_renderer.dart';
 import 'editor/widget_palette_panel.dart';
+import 'editor/page_settings_panel.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -302,6 +303,35 @@ class _MobilePortraitLayout extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Page Settings',
+                        child: GestureDetector(
+                          onTap: () {
+                            final activePageId = ref
+                                .read(layoutStateProvider)
+                                .activePage
+                                ?.id;
+                            if (activePageId != null) {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) =>
+                                    PageSettingsPanel(pageId: activePageId),
+                              );
+                            }
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.settings,
+                              color: Color(0xFFC3C7CA),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                     const SizedBox(width: 4),
                     Tooltip(
@@ -517,6 +547,26 @@ class _LandscapeLayout extends ConsumerWidget {
                         : const Color(0xFFC3C7CA),
                     onPressed: () =>
                         ref.read(paletteVisibleProvider.notifier).toggle(),
+                  ),
+                  const SizedBox(width: 4),
+                  _HeaderIconButton(
+                    icon: Icons.settings,
+                    tooltip: 'Page Settings',
+                    color: const Color(0xFFC3C7CA),
+                    onPressed: () {
+                      final activePageId = ref
+                          .read(layoutStateProvider)
+                          .activePage
+                          ?.id;
+                      if (activePageId != null) {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) =>
+                              PageSettingsPanel(pageId: activePageId),
+                        );
+                      }
+                    },
                   ),
                 ],
                 const SizedBox(width: 4),
