@@ -8,8 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/ui/open_midi_screen.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
-import 'package:app/ui/panels/drum_grid_panel.dart';
-import 'package:app/ui/panels/utility_grid_panel.dart';
+import 'package:app/ui/widgets/velocity_drum_pad.dart';
+import 'package:app/ui/widgets/endless_encoder.dart';
+import 'package:app/ui/widgets/midi_buttons.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
 import 'package:app/ui/layout_state.dart';
@@ -82,15 +83,17 @@ void main() {
       await tester.tap(find.text('PADS'));
       await tester.pumpAndSettle();
 
-      // Should show Drum Grid
-      expect(find.byType(DrumGridPanel), findsOneWidget);
+      // Should show individual Drum Pads instead of DrumGridPanel now
+      expect(find.byType(VelocityDrumPad), findsWidgets);
 
       // Tap "UTILITY" tab
       await tester.tap(find.text('UTILITY'));
       await tester.pumpAndSettle();
 
-      // Should show Utility Grid
-      expect(find.byType(UtilityGridPanel), findsOneWidget);
+      // Should show individual Utility widgets instead of UtilityGridPanel now
+      expect(find.byType(EndlessEncoderWidget), findsWidgets);
+      expect(find.byType(Trigger), findsWidgets);
+      expect(find.byType(Toggle), findsWidgets);
     });
 
     testWidgets('shows DeviceOfflineOverlay when connection is lost', (

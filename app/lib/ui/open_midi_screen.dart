@@ -7,12 +7,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'widgets/hybrid_xy_pad.dart';
-import 'panels/drum_grid_panel.dart';
-import 'panels/utility_grid_panel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'hybrid_touch_fader.dart';
 import 'midi_service.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
@@ -22,7 +18,7 @@ import 'design_system.dart';
 import 'layout_state.dart';
 import 'editor_state.dart';
 import 'side_panel_state.dart';
-import '../core/models/layout_models.dart';
+import 'widgets/dynamic_grid_renderer.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -1104,66 +1100,13 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                     final isActive = currentPage == index;
                     final key = ValueKey(page.id);
 
-                    switch (page.type) {
-                      case PageType.fader:
-                        return Row(
-                          key: key,
-                          children: page.controls.asMap().entries.map((entry) {
-                            final i = entry.key;
-                            final control = entry.value;
-                            return Expanded(
-                              child: HybridTouchFader(
-                                key: ValueKey(control.id),
-                                controlId: control.id,
-                                ccNumber: control.defaultCc,
-                                displayName: control.displayName,
-                                activeColor: i % 2 == 0
-                                    ? const Color(0xFFA6C9F8)
-                                    : const Color(0xFFA1CFCE),
-                                labelColor: i % 2 == 0
-                                    ? const Color(0xFF033258)
-                                    : const Color(0xFF013737),
-                                initialValue: i % 2 == 0 ? 1.0 : 64 / 127.0,
-                                isMobile: widget.isMobile,
-                                behavior: ref.watch(faderBehaviorProvider),
-                                isActive: isActive,
-                              ),
-                            );
-                          }).toList(),
-                        );
-
-                      case PageType.xyPad:
-                        final xyControl = page.controls.firstWhere(
-                          (c) => c.type == ControlType.xyPad,
-                          orElse: () => LayoutControl(
-                            id: '${page.id}_xy_fallback',
-                            type: ControlType.xyPad,
-                            defaultCc: 1,
-                            secondaryCc: 11,
-                            channel: 0,
-                          ),
-                        );
-                        return Padding(
-                          key: key,
-                          padding: const EdgeInsets.all(16),
-                          child: HybridXYPad(
-                            id: xyControl.id,
-                            ccX: xyControl.defaultCc,
-                            ccY: xyControl.secondaryCc ?? 11,
-                            isActive: isActive,
-                          ),
-                        );
-
-                      case PageType.drumPad:
-                        return DrumGridPanel(
-                          key: key,
-                          pageId: page.id,
-                          isActive: isActive,
-                        );
-
-                      case PageType.utility:
-                        return UtilityGridPanel(key: key, pageId: page.id);
-                    }
+                    return DynamicGridRenderer(
+                      key: key,
+                      controls: page.controls,
+                      pageId: page.id,
+                      isActive: isActive,
+                      isMobile: widget.isMobile,
+                    );
                   }).toList(),
                 ),
         ),
