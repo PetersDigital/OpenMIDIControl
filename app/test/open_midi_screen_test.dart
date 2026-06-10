@@ -270,7 +270,10 @@ void main() {
       expect(find.byIcon(Icons.zoom_out_map), findsNothing);
 
       // Tap on the first fader to select it
-      await tester.tap(find.byType(HybridTouchFader).first, warnIfMissed: false);
+      await tester.tap(
+        find.byType(HybridTouchFader).first,
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
 
       // Now, the selected fader should show the resize handle
