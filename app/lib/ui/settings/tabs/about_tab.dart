@@ -6,10 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../design_system.dart';
-
-final _packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
-  return PackageInfo.fromPlatform();
-});
+import '../../settings_screen.dart';
 
 const _kAccent = Color(0xFFA6C9F8);
 const _kCardBg = Color(0xFF1A1C20);
@@ -20,7 +17,7 @@ class AboutTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final packageInfo = ref.watch(_packageInfoProvider);
+    final packageInfo = ref.watch(packageInfoProvider);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
