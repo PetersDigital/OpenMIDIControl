@@ -943,8 +943,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       }
     } else if (x != null || y != null) {
       // Action: Move/Drag
-      if (x != null) {
-        final bool movingRight = x > control.x;
+      if (x != null && newX != control.x) {
+        final bool movingRight = newX > control.x;
         final int startLimit = movingRight ? control.x : newX;
         final int endLimit = movingRight
             ? newX + control.width
@@ -960,8 +960,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           return; // Reject if constraint failed
         }
       }
-      if (y != null) {
-        final bool movingDown = y > control.y;
+      if (y != null && newY != control.y) {
+        final bool movingDown = newY > control.y;
         final int startLimit = movingDown ? control.y : newY;
         final int endLimit = movingDown
             ? newY + control.height
