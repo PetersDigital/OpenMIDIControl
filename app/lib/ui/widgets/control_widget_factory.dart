@@ -111,13 +111,13 @@ class ControlWidgetFactory {
                     onConfigRequested: isLocked
                         ? null
                         : () => showDialog(
-                              context: context,
-                              builder: (context) => ControlConfigModal(
-                                controlId: control.id,
-                                identifierLabel: 'CC Number (0-127)',
-                                displayNameLabel: 'Encoder Name',
-                              ),
+                            context: context,
+                            builder: (context) => ControlConfigModal(
+                              controlId: control.id,
+                              identifierLabel: 'CC Number (0-127)',
+                              displayNameLabel: 'Encoder Name',
                             ),
+                          ),
                     child: Container(
                       padding: const EdgeInsets.only(
                         top: 4,
@@ -155,7 +155,9 @@ class ControlWidgetFactory {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Space Grotesk',
-                            color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFC3C7CA,
+                            ).withValues(alpha: 0.3),
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -166,7 +168,9 @@ class ControlWidgetFactory {
                           'CH${control.channel + 1}',
                           style: TextStyle(
                             fontFamily: 'Space Grotesk',
-                            color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFC3C7CA,
+                            ).withValues(alpha: 0.3),
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
