@@ -57,26 +57,16 @@ void main() {
       expect(page.controls[1].x, 6);
       expect(page.controls[1].width, 2);
 
-      // Resize Fader 0 from width 6 to 7
+      // Resize Fader 0 from width 6 to 7 -> should be blocked because Fader 1 would shrink below 2 (its minimum width)
       notifier.updateControlSpatialData('page_0', 'fader_0', width: 7);
 
       state = container.read(layoutStateProvider);
       page = state.pages.firstWhere((p) => p.id == 'page_0');
 
-      expect(page.controls[0].width, 7);
-      expect(page.controls[1].x, 7);
-      expect(page.controls[1].width, 1);
-
-      // Resize Fader 0 from width 7 to 8 -> should be blocked because Fader 1 would shrink below 1
-      notifier.updateControlSpatialData('page_0', 'fader_0', width: 8);
-
-      state = container.read(layoutStateProvider);
-      page = state.pages.firstWhere((p) => p.id == 'page_0');
-
-      // Values should remain at width 7
-      expect(page.controls[0].width, 7);
-      expect(page.controls[1].x, 7);
-      expect(page.controls[1].width, 1);
+      // Values should remain at width 6
+      expect(page.controls[0].width, 6);
+      expect(page.controls[1].x, 6);
+      expect(page.controls[1].width, 2);
     });
 
     test('resizing left fader narrower stretches right fader left', () {
