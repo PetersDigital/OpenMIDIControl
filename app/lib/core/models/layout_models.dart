@@ -188,12 +188,16 @@ class LayoutPage {
   final PageType type;
   final String name;
   final List<LayoutControl> controls;
+  final int gridColumns;
+  final int gridRows;
 
   LayoutPage({
     required this.id,
     required this.type,
     required this.name,
     required this.controls,
+    this.gridColumns = 8,
+    this.gridRows = 4,
   });
 
   /// Create a copy with optional field overrides.
@@ -202,12 +206,16 @@ class LayoutPage {
     PageType? type,
     String? name,
     List<LayoutControl>? controls,
+    int? gridColumns,
+    int? gridRows,
   }) {
     return LayoutPage(
       id: id ?? this.id,
       type: type ?? this.type,
       name: name ?? this.name,
       controls: controls ?? this.controls,
+      gridColumns: gridColumns ?? this.gridColumns,
+      gridRows: gridRows ?? this.gridRows,
     );
   }
 
@@ -218,6 +226,8 @@ class LayoutPage {
       'type': type.name,
       'name': name,
       'controls': controls.map((c) => c.toJson()).toList(),
+      'gridColumns': gridColumns,
+      'gridRows': gridRows,
     };
   }
 
@@ -233,12 +243,14 @@ class LayoutPage {
           .cast<Map<String, dynamic>>()
           .map(LayoutControl.fromJson)
           .toList(),
+      gridColumns: json['gridColumns'] as int? ?? 8,
+      gridRows: json['gridRows'] as int? ?? 4,
     );
   }
 
   @override
   String toString() =>
-      'LayoutPage(id: $id, type: ${type.name}, name: $name, controlCount: ${controls.length})';
+      'LayoutPage(id: $id, type: ${type.name}, name: $name, controlCount: ${controls.length}, grid: ${gridColumns}x$gridRows)';
 
   @override
   bool operator ==(Object other) {
@@ -247,10 +259,18 @@ class LayoutPage {
         other.id == id &&
         other.type == type &&
         other.name == name &&
+        other.gridColumns == gridColumns &&
+        other.gridRows == gridRows &&
         const ListEquality().equals(other.controls, controls);
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, type, name, const ListEquality().hash(controls));
+  int get hashCode => Object.hash(
+    id,
+    type,
+    name,
+    gridColumns,
+    gridRows,
+    const ListEquality().hash(controls),
+  );
 }
