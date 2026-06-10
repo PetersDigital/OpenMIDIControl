@@ -3,24 +3,29 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PaletteVisibleNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
+enum EditorOverlay { none, palette, pageSettings }
 
-  void toggle() {
-    state = !state;
+class EditorOverlayNotifier extends Notifier<EditorOverlay> {
+  @override
+  EditorOverlay build() => EditorOverlay.none;
+
+  void toggle(EditorOverlay overlay) {
+    if (state == overlay) {
+      state = EditorOverlay.none;
+    } else {
+      state = overlay;
+    }
   }
 
   void hide() {
-    state = false;
+    state = EditorOverlay.none;
   }
 }
 
-final paletteVisibleProvider = NotifierProvider<PaletteVisibleNotifier, bool>(
-  () {
-    return PaletteVisibleNotifier();
-  },
-);
+final editorOverlayProvider =
+    NotifierProvider<EditorOverlayNotifier, EditorOverlay>(
+      () => EditorOverlayNotifier(),
+    );
 
 class EditorModeNotifier extends Notifier<bool> {
   @override
@@ -29,7 +34,7 @@ class EditorModeNotifier extends Notifier<bool> {
   void toggle() {
     state = !state;
     if (!state) {
-      ref.read(paletteVisibleProvider.notifier).state = false;
+      ref.read(editorOverlayProvider.notifier).hide();
     }
   }
 }
