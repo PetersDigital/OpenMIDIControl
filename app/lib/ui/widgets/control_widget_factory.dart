@@ -11,9 +11,14 @@ import '../widgets/velocity_drum_pad.dart';
 import '../widgets/endless_encoder.dart';
 import '../widgets/midi_buttons.dart';
 import '../open_midi_screen.dart'; // For faderBehaviorProvider
+import '../design_system.dart';
+import 'control_config_modal.dart';
+import 'config_gesture_wrapper.dart';
+import '../layout_state.dart';
 
 class ControlWidgetFactory {
   static Widget buildControl(
+    BuildContext context,
     LayoutControl control,
     String pageId,
     bool isActive,
@@ -70,10 +75,108 @@ class ControlWidgetFactory {
         );
 
       case ControlType.encoder:
-        return EndlessEncoderWidget(
+        final cc = control.defaultCc;
+        final isUnassigned = cc == -1;
+        final isLocked = ref.watch(
+          layoutStateProvider.select((s) => s.isPerformanceLocked),
+        );
+        return Container(
           key: key,
-          cc: control.defaultCc,
-          channel: control.channel == -1 ? 0 : control.channel,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: const Color(0xFF111318).withValues(alpha: 0.5),
+              width: 1.0,
+            ),
+          ),
+          child: Opacity(
+            opacity: isUnassigned ? 0.3 : 1.0,
+            child: Stack(
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: EndlessEncoderWidget(
+                      channel: control.channel == -1 ? 0 : control.channel,
+                      cc: isUnassigned ? 0 : cc,
+                      showChannelLabel: false,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: ConfigGestureWrapper(
+                    id: 'encoder_${control.id}',
+                    onConfigRequested: isLocked
+                        ? null
+                        : () => showDialog(
+                              context: context,
+                              builder: (context) => ControlConfigModal(
+                                controlId: control.id,
+                                identifierLabel: 'CC Number (0-127)',
+                                displayNameLabel: 'Encoder Name',
+                              ),
+                            ),
+                    child: Container(
+                      padding: const EdgeInsets.only(
+                        top: 4,
+                        left: 6,
+                        bottom: 20,
+                        right: 20,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 64,
+                        minHeight: 60,
+                      ),
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        isUnassigned ? 'UNASSIGNED' : 'CC $cc',
+                        style: AppText.performance(
+                          color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Display name / Channel at the bottom
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  right: 4,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          control.displayName,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (!isUnassigned)
+                        Text(
+                          'CH${control.channel + 1}',
+                          style: TextStyle(
+                            fontFamily: 'Space Grotesk',
+                            color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
 
       case ControlType.trigger:
