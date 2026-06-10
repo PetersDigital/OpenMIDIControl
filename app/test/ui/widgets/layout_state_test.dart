@@ -104,7 +104,12 @@ void main() {
       final notifier = container.read(layoutStateProvider.notifier);
 
       // Resize Fader 0 from width 4 to 5, passing height: 4 (unchanged)
-      notifier.updateControlSpatialData('page_0', 'fader_0', width: 5, height: 4);
+      notifier.updateControlSpatialData(
+        'page_0',
+        'fader_0',
+        width: 5,
+        height: 4,
+      );
 
       final state = container.read(layoutStateProvider);
       final page = state.pages.firstWhere((p) => p.id == 'page_0');
@@ -116,6 +121,24 @@ void main() {
       // Fader 1 should be pushed to x: 5, width: 3
       expect(page.controls[1].x, 5);
       expect(page.controls[1].width, 3);
+    });
+
+    test('deleteControl deletes a control from the page correctly', () {
+      final notifier = container.read(layoutStateProvider.notifier);
+
+      var state = container.read(layoutStateProvider);
+      var page = state.pages.firstWhere((p) => p.id == 'page_0');
+      expect(page.controls.length, 2);
+      expect(page.controls.any((c) => c.id == 'fader_0'), true);
+
+      // Delete fader_0
+      notifier.deleteControl('page_0', 'fader_0');
+
+      state = container.read(layoutStateProvider);
+      page = state.pages.firstWhere((p) => p.id == 'page_0');
+      expect(page.controls.length, 1);
+      expect(page.controls.any((c) => c.id == 'fader_0'), false);
+      expect(page.controls.first.id, 'fader_1');
     });
   });
 }
