@@ -259,91 +259,39 @@ class _MobilePortraitLayout extends ConsumerWidget {
               const Spacer(),
 
               // RIGHT ZONE: Transport + Settings
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Tooltip(
-                      message: 'Toggle Transport',
-                      child: GestureDetector(
-                        key: const ValueKey('transport_toggle_button_portrait'),
-                        onTap: () => ref
-                            .read(transportVisibleProvider.notifier)
-                            .toggle(),
-                        behavior: HitTestBehavior.opaque,
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.play_circle_outline,
-                            color: Color(0xFFC3C7CA),
-                            size: 24,
-                          ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Tooltip(
+                    message: 'Toggle Transport',
+                    child: GestureDetector(
+                      key: const ValueKey('transport_toggle_button_portrait'),
+                      onTap: () =>
+                          ref.read(transportVisibleProvider.notifier).toggle(),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          color: Color(0xFFC3C7CA),
+                          size: 24,
                         ),
                       ),
                     ),
-                    if (ref.watch(editorModeProvider)) ...[
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'Toggle Widget Palette',
-                        child: GestureDetector(
-                          onTap: () => ref
-                              .read(paletteVisibleProvider.notifier)
-                              .toggle(),
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Icon(
-                              Icons.add_box,
-                              color: ref.watch(paletteVisibleProvider)
-                                  ? const Color(0xFFA6C9F8)
-                                  : const Color(0xFFC3C7CA),
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'Page Settings',
-                        child: GestureDetector(
-                          onTap: () {
-                            final activePageId = ref
-                                .read(layoutStateProvider)
-                                .activePage
-                                ?.id;
-                            if (activePageId != null) {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) =>
-                                    PageSettingsPanel(pageId: activePageId),
-                              );
-                            }
-                          },
-                          behavior: HitTestBehavior.opaque,
-                          child: const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: Icon(
-                              Icons.settings,
-                              color: Color(0xFFC3C7CA),
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  ),
+                  if (ref.watch(editorModeProvider)) ...[
                     const SizedBox(width: 4),
                     Tooltip(
-                      message: 'Toggle Editor Mode',
+                      message: 'Toggle Widget Palette',
                       child: GestureDetector(
                         onTap: () =>
-                            ref.read(editorModeProvider.notifier).toggle(),
+                            ref.read(paletteVisibleProvider.notifier).toggle(),
                         behavior: HitTestBehavior.opaque,
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Icon(
-                            Icons.edit,
-                            color: ref.watch(editorModeProvider)
+                            Icons.add_box,
+                            color: ref.watch(paletteVisibleProvider)
                                 ? const Color(0xFFA6C9F8)
                                 : const Color(0xFFC3C7CA),
                             size: 24,
@@ -353,14 +301,27 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                     Tooltip(
-                      message: 'App Settings',
+                      message: 'Page Settings',
                       child: GestureDetector(
-                        onTap: () => _showAppSettings(context, ref),
+                        onTap: () {
+                          final activePageId = ref
+                              .read(layoutStateProvider)
+                              .activePage
+                              ?.id;
+                          if (activePageId != null) {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) =>
+                                  PageSettingsPanel(pageId: activePageId),
+                            );
+                          }
+                        },
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
                           padding: EdgeInsets.all(8),
                           child: Icon(
-                            Icons.more_vert,
+                            Icons.settings,
                             color: Color(0xFFC3C7CA),
                             size: 24,
                           ),
@@ -368,7 +329,42 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       ),
                     ),
                   ],
-                ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Toggle Editor Mode',
+                    child: GestureDetector(
+                      onTap: () =>
+                          ref.read(editorModeProvider.notifier).toggle(),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.edit,
+                          color: ref.watch(editorModeProvider)
+                              ? const Color(0xFFA6C9F8)
+                              : const Color(0xFFC3C7CA),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'App Settings',
+                    child: GestureDetector(
+                      onTap: () => _showAppSettings(context, ref),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.more_vert,
+                          color: Color(0xFFC3C7CA),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
