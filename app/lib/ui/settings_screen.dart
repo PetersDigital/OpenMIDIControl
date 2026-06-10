@@ -115,6 +115,7 @@ class _SettingsTabBar extends StatelessWidget {
         indicatorColor: _kAccent,
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
+        labelPadding: EdgeInsets.zero,
         labelColor: _kAccent,
         unselectedLabelColor: Colors.white38,
         tabs: tabs
@@ -128,11 +129,12 @@ class _SettingsTabBar extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       t.label,
+                      maxLines: 1,
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
