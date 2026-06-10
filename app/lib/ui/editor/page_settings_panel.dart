@@ -123,35 +123,35 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
               border: Border(bottom: BorderSide(color: Color(0x0AFFFFFF))),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _kAccent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.settings,
-                        color: _kAccent,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Text(
-                      'PAGE SETTINGS',
-                      style: AppText.system(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _kAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.settings, color: _kAccent, size: 20),
                 ),
-                _PageTypeBadge(type: page.type),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'PAGE SETTINGS',
+                        style: AppText.system(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _PageTypeBadge(type: page.type),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -266,13 +266,13 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                       'Custom:',
                       style: TextStyle(color: Colors.white60, fontSize: 14),
                     ),
-                    const SizedBox(width: 16),
+                    const Spacer(),
                     _CustomNumberInput(
                       controller: _colsController,
                       label: 'Cols',
                     ),
                     const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      padding: EdgeInsets.symmetric(horizontal: 8),
                       child: Text(
                         '×',
                         style: TextStyle(color: Colors.white38, fontSize: 18),
@@ -282,26 +282,25 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                       controller: _rowsController,
                       label: 'Rows',
                     ),
-                    const SizedBox(width: 16),
-                    FilledButton(
-                      onPressed: () {
-                        final cols =
-                            int.tryParse(_colsController.text) ??
-                            page.gridColumns;
-                        final rows =
-                            int.tryParse(_rowsController.text) ?? page.gridRows;
-                        _applySettings(cols, rows);
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _kAccent.withValues(alpha: 0.15),
-                        foregroundColor: _kAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('APPLY'),
-                    ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    final cols =
+                        int.tryParse(_colsController.text) ?? page.gridColumns;
+                    final rows =
+                        int.tryParse(_rowsController.text) ?? page.gridRows;
+                    _applySettings(cols, rows);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kAccent.withValues(alpha: 0.15),
+                    foregroundColor: _kAccent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('APPLY'),
                 ),
 
                 const SizedBox(height: 16),
@@ -374,8 +373,7 @@ class _CustomNumberInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
+    return Expanded(
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,

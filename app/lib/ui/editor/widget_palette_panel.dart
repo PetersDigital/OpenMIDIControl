@@ -54,13 +54,17 @@ class WidgetPalettePanel extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Text(
-                  'WIDGET PALETTE',
-                  style: AppText.system(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
+                Expanded(
+                  child: Text(
+                    'WIDGET PALETTE',
+                    style: AppText.system(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
