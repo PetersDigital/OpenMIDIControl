@@ -19,6 +19,7 @@ import 'layout_state.dart';
 import 'editor_state.dart';
 import 'side_panel_state.dart';
 import 'widgets/dynamic_grid_renderer.dart';
+import 'editor/widget_palette_panel.dart';
 
 // ---------------------------------------------------------------------------
 // State: Fader Behavior
@@ -280,6 +281,28 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         ),
                       ),
                     ),
+                    if (ref.watch(editorModeProvider)) ...[
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'Toggle Widget Palette',
+                        child: GestureDetector(
+                          onTap: () => ref
+                              .read(paletteVisibleProvider.notifier)
+                              .toggle(),
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.add_box,
+                              color: ref.watch(paletteVisibleProvider)
+                                  ? const Color(0xFFA6C9F8)
+                                  : const Color(0xFFC3C7CA),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 4),
                     Tooltip(
                       message: 'Toggle Editor Mode',
@@ -329,7 +352,23 @@ class _MobilePortraitLayout extends ConsumerWidget {
         // PERFORMANCE ZONE (70%)
         Expanded(
           flex: ref.watch(transportVisibleProvider) ? 70 : 100,
-          child: PerformanceZone(key: _performanceZoneKey, isMobile: true),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: PerformanceZone(
+                  key: _performanceZoneKey,
+                  isMobile: true,
+                ),
+              ),
+              if (ref.watch(paletteVisibleProvider))
+                const Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: WidgetPalettePanel(),
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -355,29 +394,40 @@ class _LandscapeLayout extends ConsumerWidget {
       children: [
         _buildLandscapeHeader(context, ref, isMobile),
         Expanded(
-          child: Row(
+          child: Stack(
             children: [
-              if (faderOnRight)
-                _buildAnimatedSidePanel(
-                  context,
-                  ref,
-                  isVisible,
-                  panelWidth,
-                  faderOnRight,
-                ),
-              Expanded(
-                child: PerformanceZone(
-                  key: _performanceZoneKey,
-                  isMobile: isMobile,
-                ),
+              Row(
+                children: [
+                  if (faderOnRight)
+                    _buildAnimatedSidePanel(
+                      context,
+                      ref,
+                      isVisible,
+                      panelWidth,
+                      faderOnRight,
+                    ),
+                  Expanded(
+                    child: PerformanceZone(
+                      key: _performanceZoneKey,
+                      isMobile: isMobile,
+                    ),
+                  ),
+                  if (!faderOnRight)
+                    _buildAnimatedSidePanel(
+                      context,
+                      ref,
+                      isVisible,
+                      panelWidth,
+                      faderOnRight,
+                    ),
+                ],
               ),
-              if (!faderOnRight)
-                _buildAnimatedSidePanel(
-                  context,
-                  ref,
-                  isVisible,
-                  panelWidth,
-                  faderOnRight,
+              if (ref.watch(paletteVisibleProvider))
+                const Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: WidgetPalettePanel(),
                 ),
             ],
           ),
@@ -457,6 +507,18 @@ class _LandscapeLayout extends ConsumerWidget {
                   onPressed: () =>
                       ref.read(transportVisibleProvider.notifier).toggle(),
                 ),
+                if (ref.watch(editorModeProvider)) ...[
+                  const SizedBox(width: 4),
+                  _HeaderIconButton(
+                    icon: Icons.add_box,
+                    tooltip: 'Toggle Widget Palette',
+                    color: ref.watch(paletteVisibleProvider)
+                        ? const Color(0xFFA6C9F8)
+                        : const Color(0xFFC3C7CA),
+                    onPressed: () =>
+                        ref.read(paletteVisibleProvider.notifier).toggle(),
+                  ),
+                ],
                 const SizedBox(width: 4),
                 _HeaderIconButton(
                   icon: Icons.edit,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/layout_models.dart';
+import '../layout_state.dart';
 import '../editor_state.dart';
 import 'control_widget_factory.dart';
 import 'editor_control_wrapper.dart';
@@ -41,7 +42,7 @@ class DynamicGridRenderer extends ConsumerWidget {
             // Background Grid (only visible in Editor Mode)
             if (isEditorMode)
               Positioned.fill(
-                child: _buildBackgroundGrid(cellWidth, cellHeight),
+                child: _buildBackgroundGrid(cellWidth, cellHeight, ref),
               ),
 
             // Controls Rendered on the Grid
@@ -78,7 +79,11 @@ class DynamicGridRenderer extends ConsumerWidget {
     );
   }
 
-  Widget _buildBackgroundGrid(double cellWidth, double cellHeight) {
+  Widget _buildBackgroundGrid(
+    double cellWidth,
+    double cellHeight,
+    WidgetRef ref,
+  ) {
     return Stack(
       children: [
         for (int row = 0; row < defaultRows; row++)
@@ -88,13 +93,25 @@ class DynamicGridRenderer extends ConsumerWidget {
               top: row * cellHeight,
               width: cellWidth,
               height: cellHeight,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    width: 1.0,
-                  ),
-                ),
+              child: DragTarget<ControlType>(
+                onAcceptWithDetails: (details) {
+                  ref
+                      .read(layoutStateProvider.notifier)
+                      .addControlToActivePage(details.data, x: col, y: row);
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: candidateData.isNotEmpty
+                          ? const Color(0xFFA6C9F8).withValues(alpha: 0.2)
+                          : null,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1.0,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
       ],

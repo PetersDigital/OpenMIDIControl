@@ -493,6 +493,89 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  void addControlToActivePage(ControlType type, {int? x, int? y}) {
+    if (state.pages.isEmpty) return;
+
+    final pageIndex = state.activePageIndex;
+    final page = state.pages[pageIndex];
+
+    int defaultWidth = 1;
+    int defaultHeight = 1;
+
+    switch (type) {
+      case ControlType.fader:
+        defaultWidth = 1;
+        defaultHeight = 3;
+        break;
+      case ControlType.xyPad:
+        defaultWidth = 2;
+        defaultHeight = 2;
+        break;
+      case ControlType.drumPad:
+      case ControlType.encoder:
+      case ControlType.trigger:
+      case ControlType.toggle:
+        defaultWidth = 1;
+        defaultHeight = 1;
+        break;
+    }
+
+    int startX = x ?? 0;
+    int startY = y ?? 0;
+
+    // Find the first available empty grid cell if x and y are not provided
+    if (x == null || y == null) {
+      bool found = false;
+      for (int r = 0; r <= 4 - defaultHeight && !found; r++) {
+        for (int c = 0; c <= 8 - defaultWidth && !found; c++) {
+          bool overlaps = false;
+          for (final control in page.controls) {
+            // Check intersection
+            if (c < control.x + control.width &&
+                c + defaultWidth > control.x &&
+                r < control.y + control.height &&
+                r + defaultHeight > control.y) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (!overlaps) {
+            startX = c;
+            startY = r;
+            found = true;
+          }
+        }
+      }
+
+      // If no space is found, just overlap at 0,0 (or clamp it)
+      if (!found) {
+        startX = 0;
+        startY = 0;
+      }
+    }
+
+    // Clamp coordinates to grid boundaries while taking width/height into account
+    startX = math.max(0, math.min(8 - defaultWidth, startX));
+    startY = math.max(0, math.min(4 - defaultHeight, startY));
+
+    final newControl = LayoutControl(
+      id: '${type.name}_${DateTime.now().millisecondsSinceEpoch}',
+      type: type,
+      defaultCc: -1,
+      channel: -1,
+      x: startX,
+      y: startY,
+      width: defaultWidth,
+      height: defaultHeight,
+    );
+
+    final updatedControls = [...page.controls, newControl];
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
   void clearPage(String pageId) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;

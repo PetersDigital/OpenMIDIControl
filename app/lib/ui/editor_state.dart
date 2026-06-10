@@ -3,12 +3,30 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+class PaletteVisibleNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() {
+    state = !state;
+  }
+}
+
+final paletteVisibleProvider = NotifierProvider<PaletteVisibleNotifier, bool>(
+  () {
+    return PaletteVisibleNotifier();
+  },
+);
+
 class EditorModeNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 
   void toggle() {
     state = !state;
+    if (!state) {
+      ref.read(paletteVisibleProvider.notifier).state = false;
+    }
   }
 }
 
