@@ -47,7 +47,11 @@ class WidgetPalettePanel extends ConsumerWidget {
                     color: _kAccent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.dashboard_customize, color: _kAccent, size: 20),
+                  child: const Icon(
+                    Icons.dashboard_customize,
+                    color: _kAccent,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Text(
@@ -62,16 +66,13 @@ class WidgetPalettePanel extends ConsumerWidget {
               ],
             ),
           ),
-          
+
           // Instructions
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Text(
               'Tap to add or drag onto the grid.',
-              style: AppText.system(
-                color: Colors.white38,
-                fontSize: 11,
-              ),
+              style: AppText.system(color: Colors.white38, fontSize: 11),
             ),
           ),
 
@@ -167,7 +168,11 @@ class _PaletteItemState extends ConsumerState<_PaletteItem> {
               color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(widget.icon, color: _isHovering ? _kAccent : Colors.white70, size: 20),
+            child: Icon(
+              widget.icon,
+              color: _isHovering ? _kAccent : Colors.white70,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -216,7 +221,9 @@ class _PaletteItemState extends ConsumerState<_PaletteItem> {
         childWhenDragging: Opacity(opacity: 0.4, child: itemWidget),
         child: GestureDetector(
           onTap: () {
-            ref.read(layoutStateProvider.notifier).addControlToActivePage(widget.type);
+            ref
+                .read(layoutStateProvider.notifier)
+                .addControlToActivePage(widget.type);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Added ${widget.label} to active page'),
