@@ -385,13 +385,21 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   isMobile: true,
                 ),
               ),
-              if (ref.watch(paletteVisibleProvider))
+              if (ref.watch(paletteVisibleProvider)) ...[
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => ref.read(paletteVisibleProvider.notifier).toggle(),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
                 const Positioned(
                   top: 0,
                   right: 0,
                   bottom: 0,
                   child: WidgetPalettePanel(),
                 ),
+              ],
             ],
           ),
         ),
@@ -447,13 +455,21 @@ class _LandscapeLayout extends ConsumerWidget {
                     ),
                 ],
               ),
-              if (ref.watch(paletteVisibleProvider))
+              if (ref.watch(paletteVisibleProvider)) ...[
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => ref.read(paletteVisibleProvider.notifier).toggle(),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
                 const Positioned(
                   top: 0,
                   right: 0,
                   bottom: 0,
                   child: WidgetPalettePanel(),
                 ),
+              ],
             ],
           ),
         ),
