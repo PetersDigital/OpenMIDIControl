@@ -691,8 +691,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         final current = updatedNeighbors[neighbor.id] ?? neighbor;
 
         final bool verticalOverlap =
-            math.max(y1, current.y) <
-            math.min(y2, current.y + current.height);
+            math.max(y1, current.y) < math.min(y2, current.y + current.height);
         if (!verticalOverlap) continue;
 
         // Check if neighbor was touching the resized control's right edge originally,
@@ -749,8 +748,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         final current = updatedNeighbors[neighbor.id] ?? neighbor;
 
         final bool horizontalOverlap =
-            math.max(x1, current.x) <
-            math.min(x2, current.x + current.width);
+            math.max(x1, current.x) < math.min(x2, current.x + current.width);
         if (!horizontalOverlap) continue;
 
         // Check if neighbor was touching the resized control's bottom edge originally,
@@ -808,8 +806,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         final current = updatedNeighbors[neighbor.id] ?? neighbor;
 
         final bool verticalOverlap =
-            math.max(y1, current.y) <
-            math.min(y2, current.y + current.height);
+            math.max(y1, current.y) < math.min(y2, current.y + current.height);
         if (!verticalOverlap) continue;
 
         if (movingRight) {
@@ -873,8 +870,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         final current = updatedNeighbors[neighbor.id] ?? neighbor;
 
         final bool horizontalOverlap =
-            math.max(x1, current.x) <
-            math.min(x2, current.x + current.width);
+            math.max(x1, current.x) < math.min(x2, current.x + current.width);
         if (!horizontalOverlap) continue;
 
         if (movingDown) {
@@ -1118,6 +1114,21 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       }).toList();
       return page.copyWith(controls: updatedControls);
     }).toList();
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  void deleteControl(String pageId, String controlId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+    final updatedControls = page.controls
+        .where((c) => c.id != controlId)
+        .toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
     state = state.copyWith(pages: updatedPages);
   }
 
