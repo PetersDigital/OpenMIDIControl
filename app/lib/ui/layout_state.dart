@@ -442,6 +442,57 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  void updateControlSpatialData(
+    String pageId,
+    String controlId, {
+    int? x,
+    int? y,
+    int? width,
+    int? height,
+  }) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+    final controlIndex = page.controls.indexWhere((c) => c.id == controlId);
+    if (controlIndex == -1) return;
+
+    final control = page.controls[controlIndex];
+
+    // Constrain logic to 8x4 grid
+    int newX = x ?? control.x;
+    int newY = y ?? control.y;
+    int newWidth = width ?? control.width;
+    int newHeight = height ?? control.height;
+
+    // Minimum size is 1x1
+    newWidth = math.max(1, newWidth);
+    newHeight = math.max(1, newHeight);
+
+    // Max size is 8x4
+    newWidth = math.min(8, newWidth);
+    newHeight = math.min(4, newHeight);
+
+    // Clamp coordinates to grid boundaries while taking width/height into account
+    newX = math.max(0, math.min(8 - newWidth, newX));
+    newY = math.max(0, math.min(4 - newHeight, newY));
+
+    final updatedControl = control.copyWith(
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight,
+    );
+
+    final updatedControls = [...page.controls];
+    updatedControls[controlIndex] = updatedControl;
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
   void clearPage(String pageId) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;

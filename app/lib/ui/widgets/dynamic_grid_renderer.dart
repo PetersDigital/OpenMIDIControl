@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/layout_models.dart';
 import '../editor_state.dart';
 import 'control_widget_factory.dart';
+import 'editor_control_wrapper.dart';
 
 class DynamicGridRenderer extends ConsumerWidget {
   final List<LayoutControl> controls;
@@ -45,18 +46,30 @@ class DynamicGridRenderer extends ConsumerWidget {
 
             // Controls Rendered on the Grid
             ...controls.map((control) {
+              Widget child = ControlWidgetFactory.buildControl(
+                control,
+                pageId,
+                isActive,
+                isMobile,
+                ref,
+              );
+
+              if (isEditorMode) {
+                child = EditorControlWrapper(
+                  control: control,
+                  pageId: pageId,
+                  cellWidth: cellWidth,
+                  cellHeight: cellHeight,
+                  child: child,
+                );
+              }
+
               return Positioned(
                 left: control.x * cellWidth,
                 top: control.y * cellHeight,
                 width: control.width * cellWidth,
                 height: control.height * cellHeight,
-                child: ControlWidgetFactory.buildControl(
-                  control,
-                  pageId,
-                  isActive,
-                  isMobile,
-                  ref,
-                ),
+                child: child,
               );
             }),
           ],
