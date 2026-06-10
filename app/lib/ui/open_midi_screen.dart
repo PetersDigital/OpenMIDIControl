@@ -247,17 +247,16 @@ class _MobilePortraitLayout extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // LEFT ZONE: App Icon
-              const Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.settings_input_component,
-                      color: Color(0xFFA6C9F8),
-                      size: 26,
-                    ),
-                  ],
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0),
+                child: Icon(
+                  Icons.settings_input_component,
+                  color: Color(0xFFA6C9F8),
+                  size: 26,
                 ),
               ),
+
+              const Spacer(),
 
               // RIGHT ZONE: Transport + Settings
               Expanded(
