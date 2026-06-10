@@ -60,17 +60,10 @@ class ControlWidgetFactory {
         );
 
       case ControlType.drumPad:
-        // Assuming we map individual drumPad controls to VelocityDrumPad
-        // extracting an index from the id if possible, otherwise defaulting to 0
-        int index = 0;
-        final match = RegExp(r'_(\d+)$').firstMatch(control.id);
-        if (match != null) {
-          index = int.parse(match.group(1)!);
-        }
         return VelocityDrumPad(
           key: key,
           pageId: pageId,
-          index: index,
+          controlId: control.id,
           isActive: isActive,
         );
 
@@ -184,27 +177,17 @@ class ControlWidgetFactory {
         );
 
       case ControlType.trigger:
-        int triggerIndex = 0;
-        final triggerMatch = RegExp(r'_(\d+)$').firstMatch(control.id);
-        if (triggerMatch != null) {
-          triggerIndex = int.parse(triggerMatch.group(1)!);
-        }
         return Trigger(
           key: key,
-          index: triggerIndex,
+          controlId: control.id,
           pageId: pageId,
           mode: MidiButtonMode.cc,
         );
 
       case ControlType.toggle:
-        int toggleIndex = 0;
-        final toggleMatch = RegExp(r'_(\d+)$').firstMatch(control.id);
-        if (toggleMatch != null) {
-          toggleIndex = int.parse(toggleMatch.group(1)!);
-        }
         return Toggle(
           key: key,
-          index: toggleIndex,
+          controlId: control.id,
           pageId: pageId,
           mode: MidiButtonMode.cc,
         );
