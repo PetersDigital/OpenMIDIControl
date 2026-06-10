@@ -604,8 +604,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
   int _getMinWidth(ControlType type) {
     switch (type) {
-      case ControlType.xyPad:
+      case ControlType.fader:
         return 2;
+      case ControlType.xyPad:
+        return 4;
       default:
         return 1;
     }
@@ -614,6 +616,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   int _getMinHeight(ControlType type) {
     switch (type) {
       case ControlType.fader:
+        return 2;
       case ControlType.xyPad:
         return 2;
       default:
@@ -1005,11 +1008,11 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
 
     switch (type) {
       case ControlType.fader:
-        defaultWidth = 1;
+        defaultWidth = 2;
         defaultHeight = 3;
         break;
       case ControlType.xyPad:
-        defaultWidth = 2;
+        defaultWidth = 4;
         defaultHeight = 2;
         break;
       case ControlType.drumPad:
