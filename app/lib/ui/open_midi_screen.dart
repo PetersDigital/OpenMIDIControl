@@ -284,14 +284,17 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     Tooltip(
                       message: 'Toggle Widget Palette',
                       child: GestureDetector(
-                        onTap: () =>
-                            ref.read(paletteVisibleProvider.notifier).toggle(),
+                        onTap: () => ref
+                            .read(editorOverlayProvider.notifier)
+                            .toggle(EditorOverlay.palette),
                         behavior: HitTestBehavior.opaque,
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Icon(
                             Icons.add_box,
-                            color: ref.watch(paletteVisibleProvider)
+                            color:
+                                ref.watch(editorOverlayProvider) ==
+                                    EditorOverlay.palette
                                 ? const Color(0xFFA6C9F8)
                                 : const Color(0xFFC3C7CA),
                             size: 24,
@@ -304,19 +307,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       message: 'Page Settings',
                       child: GestureDetector(
                         onTap: () {
-                          ref.read(paletteVisibleProvider.notifier).hide();
-                          final activePageId = ref
-                              .read(layoutStateProvider)
-                              .activePage
-                              ?.id;
-                          if (activePageId != null) {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) =>
-                                  PageSettingsPanel(pageId: activePageId),
-                            );
-                          }
+                          ref
+                              .read(editorOverlayProvider.notifier)
+                              .toggle(EditorOverlay.pageSettings);
                         },
                         behavior: HitTestBehavior.opaque,
                         child: const Padding(
@@ -354,7 +347,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                     message: 'App Settings',
                     child: GestureDetector(
                       onTap: () {
-                        ref.read(paletteVisibleProvider.notifier).hide();
+                        ref.read(editorOverlayProvider.notifier).hide();
                         _showAppSettings(context, ref);
                       },
                       behavior: HitTestBehavior.opaque,
@@ -389,22 +382,41 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   isMobile: true,
                 ),
               ),
-              if (ref.watch(paletteVisibleProvider)) ...[
+              if (ref.watch(editorOverlayProvider) != EditorOverlay.none)
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: () =>
-                        ref.read(paletteVisibleProvider.notifier).toggle(),
+                        ref.read(editorOverlayProvider.notifier).hide(),
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox.expand(),
                   ),
                 ),
-                const Positioned(
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: WidgetPalettePanel(),
-                ),
-              ],
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                right: ref.watch(editorOverlayProvider) == EditorOverlay.palette
+                    ? 0
+                    : -320,
+                child: const WidgetPalettePanel(),
+              ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                right:
+                    ref.watch(editorOverlayProvider) ==
+                        EditorOverlay.pageSettings
+                    ? 0
+                    : -320,
+                child: ref.watch(layoutStateProvider).activePage?.id != null
+                    ? PageSettingsPanel(
+                        pageId: ref.watch(layoutStateProvider).activePage!.id,
+                      )
+                    : const SizedBox(),
+              ),
             ],
           ),
         ),
@@ -460,22 +472,41 @@ class _LandscapeLayout extends ConsumerWidget {
                     ),
                 ],
               ),
-              if (ref.watch(paletteVisibleProvider)) ...[
+              if (ref.watch(editorOverlayProvider) != EditorOverlay.none)
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: () =>
-                        ref.read(paletteVisibleProvider.notifier).toggle(),
+                        ref.read(editorOverlayProvider.notifier).hide(),
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox.expand(),
                   ),
                 ),
-                const Positioned(
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: WidgetPalettePanel(),
-                ),
-              ],
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                right: ref.watch(editorOverlayProvider) == EditorOverlay.palette
+                    ? 0
+                    : -320,
+                child: const WidgetPalettePanel(),
+              ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                top: 0,
+                bottom: 0,
+                right:
+                    ref.watch(editorOverlayProvider) ==
+                        EditorOverlay.pageSettings
+                    ? 0
+                    : -320,
+                child: ref.watch(layoutStateProvider).activePage?.id != null
+                    ? PageSettingsPanel(
+                        pageId: ref.watch(layoutStateProvider).activePage!.id,
+                      )
+                    : const SizedBox(),
+              ),
             ],
           ),
         ),
@@ -559,11 +590,14 @@ class _LandscapeLayout extends ConsumerWidget {
                   _HeaderIconButton(
                     icon: Icons.add_box,
                     tooltip: 'Toggle Widget Palette',
-                    color: ref.watch(paletteVisibleProvider)
+                    color:
+                        ref.watch(editorOverlayProvider) ==
+                            EditorOverlay.palette
                         ? const Color(0xFFA6C9F8)
                         : const Color(0xFFC3C7CA),
-                    onPressed: () =>
-                        ref.read(paletteVisibleProvider.notifier).toggle(),
+                    onPressed: () => ref
+                        .read(editorOverlayProvider.notifier)
+                        .toggle(EditorOverlay.palette),
                   ),
                   const SizedBox(width: 4),
                   _HeaderIconButton(
@@ -571,19 +605,9 @@ class _LandscapeLayout extends ConsumerWidget {
                     tooltip: 'Page Settings',
                     color: const Color(0xFFC3C7CA),
                     onPressed: () {
-                      ref.read(paletteVisibleProvider.notifier).hide();
-                      final activePageId = ref
-                          .read(layoutStateProvider)
-                          .activePage
-                          ?.id;
-                      if (activePageId != null) {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          builder: (_) =>
-                              PageSettingsPanel(pageId: activePageId),
-                        );
-                      }
+                      ref
+                          .read(editorOverlayProvider.notifier)
+                          .toggle(EditorOverlay.pageSettings);
                     },
                   ),
                 ],
@@ -602,7 +626,7 @@ class _LandscapeLayout extends ConsumerWidget {
                   icon: Icons.more_vert,
                   tooltip: 'App Settings',
                   onPressed: () {
-                    ref.read(paletteVisibleProvider.notifier).hide();
+                    ref.read(editorOverlayProvider.notifier).hide();
                     _showAppSettings(context, ref);
                   },
                 ),
