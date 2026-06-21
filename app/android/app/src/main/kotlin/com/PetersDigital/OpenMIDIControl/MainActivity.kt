@@ -306,27 +306,31 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     systemEventSink = events
-                    setupMidiDeviceCallback()
 
-                    // Immediately evaluate the initial sticky intent if available
-                    stickyIntent?.let {
-                        val connected = it.extras?.getBoolean("connected") ?: false
-                        val configured = it.extras?.getBoolean("configured") ?: false
-                        val midi = it.extras?.getBoolean("midi") ?: false
-                        val isMidiConnected = connected && configured && midi
+                    // Stagger initialization to avoid CPU spike on app launch
+                    mainThreadHandler.postDelayed({
+                        if (systemEventSink != null) {
+                            setupMidiDeviceCallback()
 
-                        if (isMidiConnected) {
-                            lastUsbStateIsConnected = true
-                            lastUsbHostConnectedState = false
-                            systemEventSink?.success(EVENT_USB_AVAILABLE)
-                        } else if (!connected) {
-                            lastUsbStateIsConnected = false
-                            cachedDevicesList = null
-                            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
+                            // Evaluate the initial sticky intent if available
+                            stickyIntent?.let {
+                                val connected = it.extras?.getBoolean("connected") ?: false
+                                val configured = it.extras?.getBoolean("configured") ?: false
+                                val midi = it.extras?.getBoolean("midi") ?: false
+                                val isMidiConnected = connected && configured && midi
 
-                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
+                                if (isMidiConnected) {
+                                    lastUsbStateIsConnected = true
+                                    lastUsbHostConnectedState = false
+                                    systemEventSink?.success(EVENT_USB_AVAILABLE)
+                                } else if (!connected) {
+                                    lastUsbStateIsConnected = false
+                                    cachedDevicesList = null
+                                    systemEventSink?.success(EVENT_USB_DISCONNECTED)
+                                }
+                            }
                         }
-                    }
+                    }, 500L)
                 }
 
                 override fun onCancel(arguments: Any?) {
