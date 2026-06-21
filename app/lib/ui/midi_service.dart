@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../core/lifecycle/app_lifecycle_manager.dart';
@@ -221,6 +222,8 @@ class MidiService {
   final Map<String, dynamic> _cachedState = {};
 
   final bool useBackgroundWorker;
+  bool _isDisposed = false;
+  Timer? _initTimer;
 
   MidiService({this.useBackgroundWorker = true}) {
     _uiStateController = StreamController<Map<String, dynamic>>.broadcast(
@@ -231,15 +234,31 @@ class MidiService {
       },
     );
     _hostConnectionController = StreamController<bool>.broadcast();
-
-    // Reset native state on startup/hot-restart to clear deduplication buffers
-    _channel.invokeMethod('resetMidiTransport').catchError((e) {
-      debugPrint('Failed to reset MIDI transport: $e');
-    });
+    _workerReceivePort = ReceivePort();
 
     _setupRouters();
     _initStreams();
-    _initWorker();
+
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      // Run synchronously in tests to avoid pending timers
+      if (useBackgroundWorker) {
+        _initWorker();
+      }
+      _channel.invokeMethod('resetMidiTransport').catchError((e) {
+        debugPrint('Failed to reset MIDI transport: $e');
+      });
+    } else {
+      // Stagger heavy initialization to avoid CPU spike on app startup
+      _initTimer = Timer(const Duration(milliseconds: 600), () {
+        if (_isDisposed) return;
+        if (useBackgroundWorker) {
+          _initWorker();
+        }
+        _channel.invokeMethod('resetMidiTransport').catchError((e) {
+          debugPrint('Failed to reset MIDI transport: $e');
+        });
+      });
+    }
   }
   Map<String, dynamic> get currentState => Map.unmodifiable(_cachedState);
 
@@ -278,8 +297,9 @@ class MidiService {
   }
 
   Future<void> _initWorker() async {
-    _workerReceivePort = ReceivePort();
+    if (_isDisposed) return;
     _workerReceivePortSubscription = _workerReceivePort.listen((message) {
+      if (_isDisposed) return;
       if (message is SendPort) {
         _workerSendPort = message;
         if (_queuedEvents.isNotEmpty) {
@@ -384,6 +404,8 @@ class MidiService {
   }
 
   void dispose() {
+    _isDisposed = true;
+    _initTimer?.cancel();
     _rawStreamSubscription?.cancel();
     _workerReceivePortSubscription?.cancel();
     _uiStateController.close();
