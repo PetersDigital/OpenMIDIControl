@@ -100,24 +100,19 @@ class MainActivity : FlutterActivity() {
     private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
-            if (payload[0] > 0) {
-                // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
-                // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
-                // until the UI thread has acknowledged the message, preventing queue flooding.
-                withContext(Dispatchers.Main.immediate) {
-                    try {
+            try {
+                if (payload[0] > 0) {
+                    // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
+                    // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
+                    // until the UI thread has acknowledged the message, preventing queue flooding.
+                    withContext(Dispatchers.Main.immediate) {
                         eventSink?.success(payload)
-                    } finally {
-                        val result = emptyBuffers.trySend(payload)
-                        if (result.isFailure) {
-                            android.util.Log.e("MainActivity", "Failed to return buffer to pool: ${result.exceptionOrNull()}")
-                        }
                     }
                 }
-            } else {
+            } finally {
                 val result = emptyBuffers.trySend(payload)
                 if (result.isFailure) {
-                    android.util.Log.e("MainActivity", "Failed to return empty buffer to pool: ${result.exceptionOrNull()}")
+                    android.util.Log.e("MainActivity", "Failed to return buffer to pool: ${result.exceptionOrNull()}")
                 }
             }
         }
