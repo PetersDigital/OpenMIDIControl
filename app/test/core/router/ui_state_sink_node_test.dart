@@ -339,5 +339,10 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 32));
       expect(updateCount, 1);
     });
+
+    test('dispose cancels fallback timer safely', () {
+      final node = UiStateSinkNode(onStateUpdate: (_) {});
+      expect(() => node.dispose(), returnsNormally);
+    });
   });
 }
