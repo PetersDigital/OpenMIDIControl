@@ -412,6 +412,15 @@ class MidiService {
     _hostConnectionController.close();
     _workerReceivePort.close();
     _workerIsolate?.kill();
+
+    final nativeSink = outgoingRouter.getNode('nativeSink');
+    if (nativeSink is NativeTransportSinkNode) {
+      nativeSink.dispose();
+    }
+    final uiSyncSink = outgoingRouter.getNode('uiSyncSink');
+    if (uiSyncSink is UiStateSinkNode) {
+      uiSyncSink.dispose();
+    }
   }
 
   /// System-level events (USB state, device additions, removals).
@@ -593,7 +602,9 @@ class MidiService {
 }
 
 final midiServiceProvider = Provider<MidiService>((ref) {
-  return MidiService();
+  final service = MidiService();
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final midiDevicesProvider = FutureProvider<List<MidiDevice>>((ref) async {
