@@ -274,6 +274,23 @@ class _MobilePortraitLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isEditorMode = ref.watch(editorModeProvider.select((v) => v));
+    final isPaletteOpen = ref.watch(
+      editorOverlayProvider.select((o) => o == EditorOverlay.palette),
+    );
+    final isPageSettingsOpen = ref.watch(
+      editorOverlayProvider.select((o) => o == EditorOverlay.pageSettings),
+    );
+    final isOverlayVisible = ref.watch(
+      editorOverlayProvider.select((o) => o != EditorOverlay.none),
+    );
+    final isTransportVisible = ref.watch(
+      transportVisibleProvider.select((v) => v),
+    );
+    final activePageId = ref.watch(
+      layoutStateProvider.select((s) => s.activePage?.id),
+    );
+
     return Column(
       children: [
         // Top bar
@@ -317,7 +334,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  if (ref.watch(editorModeProvider)) ...[
+                  if (isEditorMode) ...[
                     const SizedBox(width: 4),
                     Tooltip(
                       message: 'Toggle Widget Palette',
@@ -330,9 +347,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                           padding: const EdgeInsets.all(8),
                           child: Icon(
                             Icons.add_box,
-                            color:
-                                ref.watch(editorOverlayProvider) ==
-                                    EditorOverlay.palette
+                            color: isPaletteOpen
                                 ? const Color(0xFFA6C9F8)
                                 : const Color(0xFFC3C7CA),
                             size: 24,
@@ -372,7 +387,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                         padding: const EdgeInsets.all(8),
                         child: Icon(
                           Icons.edit,
-                          color: ref.watch(editorModeProvider)
+                          color: isEditorMode
                               ? const Color(0xFFA6C9F8)
                               : const Color(0xFFC3C7CA),
                           size: 24,
@@ -406,12 +421,12 @@ class _MobilePortraitLayout extends ConsumerWidget {
         ),
 
         // COMMAND CENTER (30%)
-        if (ref.watch(transportVisibleProvider))
+        if (isTransportVisible)
           const Expanded(flex: 30, child: MidiTransportGrid(square: false)),
 
         // PERFORMANCE ZONE (70%)
         Expanded(
-          flex: ref.watch(transportVisibleProvider) ? 70 : 100,
+          flex: isTransportVisible ? 70 : 100,
           child: Stack(
             children: [
               Positioned.fill(
@@ -420,7 +435,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                   isMobile: true,
                 ),
               ),
-              if (ref.watch(editorOverlayProvider) != EditorOverlay.none)
+              if (isOverlayVisible)
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: () =>
@@ -434,9 +449,7 @@ class _MobilePortraitLayout extends ConsumerWidget {
                 curve: Curves.easeOutCubic,
                 top: 0,
                 bottom: 0,
-                right: ref.watch(editorOverlayProvider) == EditorOverlay.palette
-                    ? 0
-                    : -320,
+                right: isPaletteOpen ? 0 : -320,
                 child: const WidgetPalettePanel(),
               ),
               AnimatedPositioned(
@@ -444,15 +457,9 @@ class _MobilePortraitLayout extends ConsumerWidget {
                 curve: Curves.easeOutCubic,
                 top: 0,
                 bottom: 0,
-                right:
-                    ref.watch(editorOverlayProvider) ==
-                        EditorOverlay.pageSettings
-                    ? 0
-                    : -320,
-                child: ref.watch(layoutStateProvider).activePage?.id != null
-                    ? PageSettingsPanel(
-                        pageId: ref.watch(layoutStateProvider).activePage!.id,
-                      )
+                right: isPageSettingsOpen ? 0 : -320,
+                child: activePageId != null
+                    ? PageSettingsPanel(pageId: activePageId)
                     : const SizedBox(),
               ),
             ],
@@ -472,11 +479,24 @@ class _LandscapeLayout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final faderOnRight =
-        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
-    final isVisible = ref.watch(transportVisibleProvider);
+    final faderOnRight = ref.watch(
+      layoutHandProvider.select((h) => h == LayoutHand.faderOnRight),
+    );
+    final isVisible = ref.watch(transportVisibleProvider.select((v) => v));
     final size = MediaQuery.sizeOf(context);
     final panelWidth = size.width * (isMobile ? 0.38 : 0.40);
+    final isOverlayVisible = ref.watch(
+      editorOverlayProvider.select((o) => o != EditorOverlay.none),
+    );
+    final isPaletteOpen = ref.watch(
+      editorOverlayProvider.select((o) => o == EditorOverlay.palette),
+    );
+    final isPageSettingsOpen = ref.watch(
+      editorOverlayProvider.select((o) => o == EditorOverlay.pageSettings),
+    );
+    final activePageId = ref.watch(
+      layoutStateProvider.select((s) => s.activePage?.id),
+    );
 
     return Column(
       children: [
@@ -510,7 +530,7 @@ class _LandscapeLayout extends ConsumerWidget {
                     ),
                 ],
               ),
-              if (ref.watch(editorOverlayProvider) != EditorOverlay.none)
+              if (isOverlayVisible)
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: () =>
@@ -524,9 +544,7 @@ class _LandscapeLayout extends ConsumerWidget {
                 curve: Curves.easeOutCubic,
                 top: 0,
                 bottom: 0,
-                right: ref.watch(editorOverlayProvider) == EditorOverlay.palette
-                    ? 0
-                    : -320,
+                right: isPaletteOpen ? 0 : -320,
                 child: const WidgetPalettePanel(),
               ),
               AnimatedPositioned(
@@ -534,15 +552,9 @@ class _LandscapeLayout extends ConsumerWidget {
                 curve: Curves.easeOutCubic,
                 top: 0,
                 bottom: 0,
-                right:
-                    ref.watch(editorOverlayProvider) ==
-                        EditorOverlay.pageSettings
-                    ? 0
-                    : -320,
-                child: ref.watch(layoutStateProvider).activePage?.id != null
-                    ? PageSettingsPanel(
-                        pageId: ref.watch(layoutStateProvider).activePage!.id,
-                      )
+                right: isPageSettingsOpen ? 0 : -320,
+                child: activePageId != null
+                    ? PageSettingsPanel(pageId: activePageId)
                     : const SizedBox(),
               ),
             ],
@@ -578,9 +590,14 @@ class _LandscapeLayout extends ConsumerWidget {
     WidgetRef ref,
     bool isMobile,
   ) {
-    final faderOnRight =
-        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
-    final isVisible = ref.watch(transportVisibleProvider);
+    final faderOnRight = ref.watch(
+      layoutHandProvider.select((h) => h == LayoutHand.faderOnRight),
+    );
+    final isVisible = ref.watch(transportVisibleProvider.select((v) => v));
+    final isEditorMode = ref.watch(editorModeProvider.select((v) => v));
+    final isPaletteOpen = ref.watch(
+      editorOverlayProvider.select((o) => o == EditorOverlay.palette),
+    );
 
     return Container(
       color: const Color(0xFF111318),
@@ -623,14 +640,12 @@ class _LandscapeLayout extends ConsumerWidget {
                   onPressed: () =>
                       ref.read(transportVisibleProvider.notifier).toggle(),
                 ),
-                if (ref.watch(editorModeProvider)) ...[
+                if (isEditorMode) ...[
                   const SizedBox(width: 4),
                   _HeaderIconButton(
                     icon: Icons.add_box,
                     tooltip: 'Toggle Widget Palette',
-                    color:
-                        ref.watch(editorOverlayProvider) ==
-                            EditorOverlay.palette
+                    color: isPaletteOpen
                         ? const Color(0xFFA6C9F8)
                         : const Color(0xFFC3C7CA),
                     onPressed: () => ref
@@ -653,7 +668,7 @@ class _LandscapeLayout extends ConsumerWidget {
                 _HeaderIconButton(
                   icon: Icons.edit,
                   tooltip: 'Toggle Editor Mode',
-                  color: ref.watch(editorModeProvider)
+                  color: isEditorMode
                       ? const Color(0xFFA6C9F8)
                       : const Color(0xFFC3C7CA),
                   onPressed: () =>
