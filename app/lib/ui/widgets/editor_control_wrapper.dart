@@ -35,7 +35,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final isSelected = ref.watch(selectedControlProvider) == widget.control.id;
+    final isSelected = ref.watch(
+      selectedControlProvider.select((id) => id == widget.control.id),
+    );
 
     final bool isCompact =
         widget.control.type == ControlType.drumPad ||

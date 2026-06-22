@@ -27,7 +27,7 @@ class DynamicGridRenderer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isEditorMode = ref.watch(editorModeProvider);
+    final isEditorMode = ref.watch(editorModeProvider.select((v) => v));
     final page = ref.watch(
       layoutStateProvider.select(
         (s) => s.pages.firstWhereOrNull((p) => p.id == pageId),
