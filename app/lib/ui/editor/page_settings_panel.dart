@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 
 import '../../core/models/layout_models.dart';
 import '../layout_state.dart';
@@ -95,11 +96,22 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final layoutState = ref.watch(layoutStateProvider);
-    final page = layoutState.pages.firstWhere(
-      (p) => p.id == widget.pageId,
-      orElse: () => _buildFallbackPage(),
+    final pageDetails = ref.watch(
+      layoutStateProvider.select((s) {
+        final p = s.pages.firstWhereOrNull((x) => x.id == widget.pageId);
+        if (p == null) return null;
+        return (
+          name: p.name,
+          gridColumns: p.gridColumns,
+          gridRows: p.gridRows,
+          type: p.type,
+        );
+      }),
     );
+
+    final details =
+        pageDetails ??
+        (name: 'Unknown', gridColumns: 8, gridRows: 4, type: PageType.utility);
 
     return Container(
       width: 280,
@@ -148,7 +160,7 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      _PageTypeBadge(type: page.type),
+                      _PageTypeBadge(type: details.type),
                     ],
                   ),
                 ),
@@ -191,7 +203,7 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                     ),
                   ),
                   onSubmitted: (_) =>
-                      _applySettings(page.gridColumns, page.gridRows),
+                      _applySettings(details.gridColumns, details.gridRows),
                 ),
 
                 const SizedBox(height: 32),
@@ -215,43 +227,43 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                     _GridChip(
                       cols: 8,
                       rows: 4,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                     _GridChip(
                       cols: 8,
                       rows: 6,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                     _GridChip(
                       cols: 12,
                       rows: 4,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                     _GridChip(
                       cols: 16,
                       rows: 4,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                     _GridChip(
                       cols: 8,
                       rows: 8,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                     _GridChip(
                       cols: 16,
                       rows: 8,
-                      currentCols: page.gridColumns,
-                      currentRows: page.gridRows,
+                      currentCols: details.gridColumns,
+                      currentRows: details.gridRows,
                       onSelect: _applySettings,
                     ),
                   ],
@@ -288,9 +300,10 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
                 FilledButton(
                   onPressed: () {
                     final cols =
-                        int.tryParse(_colsController.text) ?? page.gridColumns;
+                        int.tryParse(_colsController.text) ??
+                        details.gridColumns;
                     final rows =
-                        int.tryParse(_rowsController.text) ?? page.gridRows;
+                        int.tryParse(_rowsController.text) ?? details.gridRows;
                     _applySettings(cols, rows);
                   },
                   style: FilledButton.styleFrom(
@@ -317,17 +330,6 @@ class _PageSettingsPanelState extends ConsumerState<PageSettingsPanel> {
           ),
         ],
       ),
-    );
-  }
-
-  LayoutPage _buildFallbackPage() {
-    return LayoutPage(
-      id: widget.pageId,
-      name: 'Unknown',
-      type: PageType.utility,
-      gridColumns: 8,
-      gridRows: 4,
-      controls: [],
     );
   }
 }

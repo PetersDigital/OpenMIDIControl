@@ -110,8 +110,9 @@ class _LayoutHandSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final faderOnRight =
-        ref.watch(layoutHandProvider) == LayoutHand.faderOnRight;
+    final faderOnRight = ref.watch(
+      layoutHandProvider.select((h) => h == LayoutHand.faderOnRight),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -139,7 +140,9 @@ class _PanelPositionSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLeft = ref.watch(sidePanelProvider).side == SidePanelSide.left;
+    final isLeft = ref.watch(
+      sidePanelProvider.select((s) => s.side == SidePanelSide.left),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
