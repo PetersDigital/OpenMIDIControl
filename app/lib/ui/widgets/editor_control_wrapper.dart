@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/layout_models.dart';
 import '../editor_state.dart';
 import '../layout_state.dart';
+import 'control_config_modal.dart';
 
 class EditorControlWrapper extends ConsumerStatefulWidget {
   final Widget child;
@@ -32,6 +33,50 @@ class EditorControlWrapper extends ConsumerStatefulWidget {
 class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
   Offset _dragDelta = Offset.zero;
   Offset _resizeDelta = Offset.zero;
+
+  void _openConfigModal(BuildContext context) {
+    String identifierLabel = 'MIDI ID (e.g., C3 or 60)';
+    String? secondaryIdentifierLabel;
+    String displayNameLabel = 'Display Name';
+
+    switch (widget.control.type) {
+      case ControlType.fader:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Fader Name';
+        break;
+      case ControlType.xyPad:
+        identifierLabel = 'X-Axis CC Number (0-127)';
+        secondaryIdentifierLabel = 'Y-Axis CC Number (0-127)';
+        displayNameLabel = 'XY Pad Name';
+        break;
+      case ControlType.drumPad:
+        identifierLabel = 'Note (0-127 or C-1 to G9)';
+        displayNameLabel = 'Pad Label';
+        break;
+      case ControlType.encoder:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Encoder Name';
+        break;
+      case ControlType.trigger:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Trigger Name';
+        break;
+      case ControlType.toggle:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Toggle Name';
+        break;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => ControlConfigModal(
+        controlId: widget.control.id,
+        identifierLabel: identifierLabel,
+        secondaryIdentifierLabel: secondaryIdentifierLabel,
+        displayNameLabel: displayNameLabel,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +266,43 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                     child: Center(
                       child: Icon(
                         Icons.delete,
+                        size: iconSize,
+                        color: const Color(0xFF1E2024),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Settings/Edit Handle (bottom left, offset slightly outward with touch area)
+          if (isSelected)
+            Positioned(
+              left: handleOffset,
+              bottom: handleOffset,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openConfigModal(context),
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  padding: EdgeInsets.all(innerPadding),
+                  color: Colors.transparent, // transparent touch area
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA6C9F8),
+                      borderRadius: BorderRadius.circular(isCompact ? 4 : 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: isCompact ? 3 : 4,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.settings,
                         size: iconSize,
                         color: const Color(0xFF1E2024),
                       ),
