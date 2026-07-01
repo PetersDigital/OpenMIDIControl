@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'package:collection/collection.dart';
 import 'dart:math' as math;
 
 // All control state is now managed directly within LayoutState using the expanded LayoutControl model.
@@ -1120,14 +1121,35 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
-  void deleteControl(String pageId, String controlId) {
+  LayoutControl? deleteControl(String pageId, String controlId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return null;
+
+    final page = state.pages[pageIndex];
+    final control = page.controls.firstWhereOrNull((c) => c.id == controlId);
+    if (control == null) return null;
+
+    final updatedControls = page.controls
+        .where((c) => c.id != controlId)
+        .toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+    return control;
+  }
+
+  void restoreControl(String pageId, LayoutControl control) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;
 
     final page = state.pages[pageIndex];
-    final updatedControls = page.controls
-        .where((c) => c.id != controlId)
-        .toList();
+
+    // Avoid duplicates if it's already there
+    if (page.controls.any((c) => c.id == control.id)) return;
+
+    final updatedControls = [...page.controls, control];
 
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = page.copyWith(controls: updatedControls);

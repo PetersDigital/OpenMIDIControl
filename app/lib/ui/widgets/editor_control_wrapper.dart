@@ -241,10 +241,28 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  ref
+                  final deletedControl = ref
                       .read(layoutStateProvider.notifier)
                       .deleteControl(widget.pageId, widget.control.id);
                   ref.read(selectedControlProvider.notifier).select(null);
+                  if (deletedControl != null && context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Deleted ${deletedControl.displayName}'),
+                        action: SnackBarAction(
+                          label: 'UNDO',
+                          onPressed: () {
+                            ref
+                                .read(layoutStateProvider.notifier)
+                                .restoreControl(widget.pageId, deletedControl);
+                          },
+                        ),
+                        duration: const Duration(seconds: 4),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 },
                 child: Container(
                   width: handleSize,
