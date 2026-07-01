@@ -113,7 +113,7 @@ void main() {
       expect(page.controls[1].width, 3);
     });
 
-    test('deleteControl deletes a control from the page correctly', () {
+    test('deleteControl deletes a control and restoreControl restores it', () {
       final notifier = container.read(layoutStateProvider.notifier);
 
       var state = container.read(layoutStateProvider);
@@ -121,14 +121,28 @@ void main() {
       expect(page.controls.length, 2);
       expect(page.controls.any((c) => c.id == 'fader_0'), true);
 
-      // Delete fader_0
-      notifier.deleteControl('page_0', 'fader_0');
+      final originalControl = page.controls.firstWhere(
+        (c) => c.id == 'fader_0',
+      );
+
+      // Delete fader_0 and verify returned deleted control
+      final deleted = notifier.deleteControl('page_0', 'fader_0');
+      expect(deleted, isNotNull);
+      expect(deleted!.id, 'fader_0');
+      expect(deleted, originalControl);
 
       state = container.read(layoutStateProvider);
       page = state.pages.firstWhere((p) => p.id == 'page_0');
       expect(page.controls.length, 1);
       expect(page.controls.any((c) => c.id == 'fader_0'), false);
-      expect(page.controls.first.id, 'fader_1');
+
+      // Restore it
+      notifier.restoreControl('page_0', deleted);
+
+      state = container.read(layoutStateProvider);
+      page = state.pages.firstWhere((p) => p.id == 'page_0');
+      expect(page.controls.length, 2);
+      expect(page.controls.any((c) => c.id == 'fader_0'), true);
     });
 
     test('resizing left drum pad wider pushes and shrinks right drum pad', () {
