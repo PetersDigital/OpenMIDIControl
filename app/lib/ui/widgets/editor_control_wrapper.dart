@@ -33,6 +33,8 @@ class EditorControlWrapper extends ConsumerStatefulWidget {
 class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
   Offset _dragDelta = Offset.zero;
   Offset _resizeDelta = Offset.zero;
+  double _initialScaleWidth = 0.0;
+  double _initialScaleHeight = 0.0;
 
   void _openConfigModal(BuildContext context) {
     String identifierLabel = 'MIDI ID (e.g., C3 or 60)';
@@ -107,32 +109,51 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                     .read(selectedControlProvider.notifier)
                     .select(widget.control.id);
               },
-              onPanStart: (details) {
+              onScaleStart: (details) {
                 ref
                     .read(selectedControlProvider.notifier)
                     .select(widget.control.id);
                 _dragDelta = Offset.zero;
+                _initialScaleWidth = widget.control.width.toDouble();
+                _initialScaleHeight = widget.control.height.toDouble();
               },
-              onPanUpdate: (details) {
-                _dragDelta += details.delta;
+              onScaleUpdate: (details) {
+                if (details.pointerCount == 1) {
+                  _dragDelta += details.focalPointDelta;
 
-                final dxCells = (_dragDelta.dx / widget.cellWidth).round();
-                final dyCells = (_dragDelta.dy / widget.cellHeight).round();
+                  final dxCells = (_dragDelta.dx / widget.cellWidth).round();
+                  final dyCells = (_dragDelta.dy / widget.cellHeight).round();
 
-                if (dxCells != 0 || dyCells != 0) {
-                  ref
-                      .read(layoutStateProvider.notifier)
-                      .updateControlSpatialData(
-                        widget.pageId,
-                        widget.control.id,
-                        x: widget.control.x + dxCells,
-                        y: widget.control.y + dyCells,
-                      );
-                  // Reset delta by the amount we consumed
-                  _dragDelta -= Offset(
-                    dxCells * widget.cellWidth,
-                    dyCells * widget.cellHeight,
-                  );
+                  if (dxCells != 0 || dyCells != 0) {
+                    ref
+                        .read(layoutStateProvider.notifier)
+                        .updateControlSpatialData(
+                          widget.pageId,
+                          widget.control.id,
+                          x: widget.control.x + dxCells,
+                          y: widget.control.y + dyCells,
+                        );
+                    // Reset delta by the amount we consumed
+                    _dragDelta -= Offset(
+                      dxCells * widget.cellWidth,
+                      dyCells * widget.cellHeight,
+                    );
+                  }
+                } else if (details.pointerCount == 2 && isSelected) {
+                  final newW = (_initialScaleWidth * details.scale).round();
+                  final newH = (_initialScaleHeight * details.scale).round();
+
+                  if (newW != widget.control.width ||
+                      newH != widget.control.height) {
+                    ref
+                        .read(layoutStateProvider.notifier)
+                        .updateControlSpatialData(
+                          widget.pageId,
+                          widget.control.id,
+                          width: newW,
+                          height: newH,
+                        );
+                  }
                 }
               },
               child: Stack(
