@@ -6,7 +6,40 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD)
+
+## [0.4.2] - 2026-11-10
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...v0.4.2)
+
+### Added
+
+- **Drag-and-Drop Control Placement**: Direct interactive movement and positioning of widgets across layout pages with boundary-checked grid snapping.
+- **Dual Resizing Capabilities**: Flexible resizing via bottom-right corner drag handles as well as two-finger pinch-to-resize scale gestures.
+- **Browsable Widget Palette**: Sliding side panel (`WidgetPalettePanel`) displaying a catalog of controls (Faders, XY Pads, Velocity Drum Pads, Toggles, Triggers, Endless Encoders) for drag-and-drop addition onto pages.
+- **In-Editor Control Configuration**: Contextual gear handle on selected controls providing direct access to the control configuration dialog without leaving editor mode.
+- **Undo Control Deletion**: Interactive SnackBar undo action with `restoreControl` to immediately recover accidentally deleted controls.
+- **Dynamic Layout Grid & Resolution**: Configurable grid resolution (columns and rows) per layout page with responsive spatial constraint solvers.
+- **Sliding Page Settings Panel**: Sliding side panel with interactive grid dimension picker and seamless overlay animation.
+
+### Changed
+
+- **Modular Settings Interface**: Replaced monolithic settings screen with a clean tabbed scaffold (`SettingsTabs`) separating general, appearance, MIDI, and about sections.
+- **Stable Widget Identity**: Refactored control rendering and layout models to use stable `controlId` identifiers and `ValueKey(control.id)` to prevent state misalignment during deletions and additions.
+
+### Performance
+
+- **Riverpod Rebuild Scope Optimization**: Optimized leaf-level state subscriptions using selective `.select` watchers across performance tabs, grid renderers, and editor wrappers.
+- **Staggered App Startup**: Staggered isolate spawning, MIDI transport reset, EventChannel setup, and USB callback registrations to eliminate main-thread stutter on launch.
+
+### Fixed
+
+- **Memory Leaks**: Resolved subscription and listener leaks in providers, router sink nodes, and Android `emptyBuffers` pool on cancellation.
+- **UI Overflow Guards**: Resolved RenderFlex overflows in mobile portrait headers and sliding side panels.
+
+### Build & Tooling
+
+- **Release Automation**: Updated `softprops/action-gh-release` action and hardened build artifact handling.
 
 ## [0.4.1] - 2026-06-09
 
@@ -422,7 +455,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.2.3...v0.3.0
