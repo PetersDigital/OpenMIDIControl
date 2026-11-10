@@ -29,11 +29,19 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ### Performance
 
+- **Dynamic Grid Hit-Testing Optimization**: Replaced $O(\text{cols}\times\text{rows})$ individual `DragTarget` widgets with a single full-area `DragTarget` and `CustomPainter`, reducing editor layout hit-testing overhead from $O(N)$ to $O(1)$ and eliminating UI thread frame spikes.
+- **Editor Gesture Throttling**: Added 16ms monotonic `Stopwatch` rate-limiting to drag and pinch-to-resize spatial updates in `EditorControlWrapper`, preventing high-frequency Riverpod state flooding.
+- **Natural Vsync Cadence Alignment**: Removed forced engine frame updates (`ensureVisualUpdate()`) from `UiStateSinkNode`, allowing display vsync to govern render scheduling and eliminating redundant draw invocations.
+- **VRR Ticker Preservation**: Added `clearManagedSubscriptions()` to `PerformanceTickerMixin` and moved fader layout listeners to `initState` via `listenManual`, preventing accidental destruction of spring animation tickers during control reassignments.
+- **Native Android Transport Hardening**: Bound `VirtualMidiService` coroutines to `Dispatchers.Main.immediate` and cached active receiver sets in `sendToDaw()` to prevent thread pool creep and allocation churn.
 - **Riverpod Rebuild Scope Optimization**: Optimized leaf-level state subscriptions using selective `.select` watchers across performance tabs, grid renderers, and editor wrappers.
 - **Staggered App Startup**: Staggered isolate spawning, MIDI transport reset, EventChannel setup, and USB callback registrations to eliminate main-thread stutter on launch.
 
 ### Fixed
 
+- **Worker Isolate & Stream Leaks**: Explicitly closed worker `ReceivePort` references and guaranteed immediate termination of native transport worker isolates upon disposal.
+- **Native Buffer Synchronization**: Synchronized `MidiParser.IncomingEventsBuffer.trySend` to prevent rare race conditions and dropped MIDI events under concurrent ingress.
+- **Background Memory Management**: Overrode `onTrimMemory` in `MainActivity` with `TRIM_MEMORY_UI_HIDDEN` handling to prompt garbage collection and release graphics resources when backgrounded.
 - **Memory Leaks**: Resolved subscription and listener leaks in providers, router sink nodes, and Android `emptyBuffers` pool on cancellation.
 - **UI Overflow Guards**: Resolved RenderFlex overflows in mobile portrait headers and sliding side panels.
 
