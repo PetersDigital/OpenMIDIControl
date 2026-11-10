@@ -3,9 +3,11 @@
 
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/core/lifecycle/app_lifecycle_manager.dart';
 import 'package:app/core/managers/layout_storage_manager.dart';
 import 'package:app/ui/layout_document_state.dart';
 import 'package:app/ui/layout_state.dart';
@@ -110,6 +112,39 @@ void main() {
         final loaded = await storageManager.loadDocument(activeId!);
         expect(loaded!.pages.length, 5);
         expect(loaded.pages.last.name, 'NEW XY');
+      },
+    );
+
+    test(
+      'flushes pending save when app lifecycle transitions to paused',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            layoutStorageManagerProvider.overrideWithValue(storageManager),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(layoutDocumentProvider.notifier)
+            .initializeOnStartup();
+
+        // Mutate layout state without waiting for the 1000ms debounce
+        container
+            .read(layoutStateProvider.notifier)
+            .addPage(PageType.drumPad, 'LIFECYCLE PAD');
+
+        // Simulate app transitioning to paused state
+        container.read(appLifecycleStateProvider.notifier).state =
+            AppLifecycleState.paused;
+
+        // Allow microtask to complete
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        final activeId = await storageManager.getActiveDocumentId();
+        final loaded = await storageManager.loadDocument(activeId!);
+        expect(loaded, isNotNull);
+        expect(loaded!.pages.last.name, 'LIFECYCLE PAD');
       },
     );
   });

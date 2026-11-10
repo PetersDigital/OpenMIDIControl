@@ -3,9 +3,11 @@
 
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/lifecycle/app_lifecycle_manager.dart';
 import '../core/managers/layout_storage_manager.dart';
 import '../core/models/layout_document.dart';
 import '../core/models/layout_manifest.dart';
@@ -43,6 +45,15 @@ class LayoutDocumentNotifier extends Notifier<LayoutDocument> {
           manifest: state.manifest.copyWith(updatedAt: DateTime.now()),
         );
         _scheduleAutoSave();
+      }
+    });
+
+    // Listen to app lifecycle events to immediately flush pending saves before pause/detach
+    ref.listen(appLifecycleStateProvider, (previous, next) {
+      if (next == AppLifecycleState.paused ||
+          next == AppLifecycleState.inactive ||
+          next == AppLifecycleState.detached) {
+        flushSave();
       }
     });
 
