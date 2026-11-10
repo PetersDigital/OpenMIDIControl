@@ -10,6 +10,8 @@ import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_document.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('LayoutDocumentNotifier Tests', () {
     test(
       'initializes with default manifest and mirrors layoutStateProvider pages',
