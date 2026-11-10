@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'package:collection/collection.dart';
 import 'dart:math' as math;
 
 // All control state is now managed directly within LayoutState using the expanded LayoutControl model.
@@ -78,9 +79,13 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final randomSuffix = math.Random().nextInt(1000000);
     final pageId = 'page_${timestamp}_$randomSuffix';
     final List<LayoutControl> controls = [];
+    int gridColumns = 8;
+    int gridRows = 4;
 
     switch (type) {
       case PageType.fader:
+        gridColumns = 8;
+        gridRows = 4;
         for (int i = 0; i < 2; i++) {
           controls.add(
             LayoutControl(
@@ -89,11 +94,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: i * 4,
+              y: 0,
+              width: 4,
+              height: 4,
             ),
           );
         }
         break;
       case PageType.xyPad:
+        gridColumns = 8;
+        gridRows = 4;
         controls.add(
           LayoutControl(
             id: 'xy_main_${timestamp}_$randomSuffix',
@@ -103,11 +114,19 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
             channel: -1,
             invertY: true,
             customName: 'UNASSIGNED',
+            x: 0,
+            y: 0,
+            width: 8,
+            height: 4,
           ),
         );
         break;
       case PageType.drumPad:
+        gridColumns = 8;
+        gridRows = 4;
         for (int i = 0; i < 8; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'pad_${timestamp}_${randomSuffix}_$i',
@@ -115,13 +134,21 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         break;
       case PageType.utility:
+        gridColumns = 8;
+        gridRows = 6;
         // Encoders
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'encoder_${timestamp}_${randomSuffix}_$i',
@@ -129,11 +156,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         // Toggles
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'toggle_${timestamp}_${randomSuffix}_$i',
@@ -141,11 +174,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: 2 + row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         // Triggers
         for (int i = 0; i < 4; i++) {
+          final int col = i % 2;
+          final int row = i ~/ 2;
           controls.add(
             LayoutControl(
               id: 'trigger_${timestamp}_${randomSuffix}_$i',
@@ -153,13 +192,24 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
               defaultCc: -1,
               channel: -1,
               customName: 'UNASSIGNED',
+              x: col * 4,
+              y: 4 + row,
+              width: 4,
+              height: 1,
             ),
           );
         }
         break;
     }
 
-    return LayoutPage(id: pageId, type: type, name: name, controls: controls);
+    return LayoutPage(
+      id: pageId,
+      type: type,
+      name: name,
+      controls: controls,
+      gridColumns: gridColumns,
+      gridRows: gridRows,
+    );
   }
 
   static LayoutPage _buildFaderPage() {
@@ -167,6 +217,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_0',
       type: PageType.fader,
       name: 'FADER',
+      gridColumns: 8,
+      gridRows: 4,
       controls: [
         LayoutControl(
           id: 'fader_0',
@@ -174,6 +226,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 1,
           channel: 0,
           customName: 'CC1\nDYNAMICS',
+          x: 0,
+          y: 0,
+          width: 4,
+          height: 4,
         ),
         LayoutControl(
           id: 'fader_1',
@@ -181,6 +237,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 11,
           channel: 0,
           customName: 'CC11\nEXPRESSION',
+          x: 4,
+          y: 0,
+          width: 4,
+          height: 4,
         ),
       ],
     );
@@ -191,6 +251,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_1',
       type: PageType.xyPad,
       name: 'XY',
+      gridColumns: 8,
+      gridRows: 4,
       controls: [
         LayoutControl(
           id: 'xy_main',
@@ -201,6 +263,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           invertY:
               true, // Default to true for standard DAW behavior (bottom=0, top=127)
           customName: 'XY PAD',
+          x: 0,
+          y: 0,
+          width: 8,
+          height: 4,
         ),
       ],
     );
@@ -221,13 +287,21 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_2',
       type: PageType.drumPad,
       name: 'PADS',
+      gridColumns: 8,
+      gridRows: 4,
       controls: List.generate(8, (index) {
+        final int col = index % 2;
+        final int row = index ~/ 2;
         return LayoutControl(
           id: 'pad_$index',
           type: ControlType.drumPad,
           defaultCc: 36 + index,
           channel: 9,
           customName: names[index],
+          x: col * 4,
+          y: row,
+          width: 4,
+          height: 1,
         );
       }),
     );
@@ -238,6 +312,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       id: 'page_3',
       type: PageType.utility,
       name: 'UTILITY',
+      gridColumns: 8,
+      gridRows: 6,
       controls: [
         // Encoders (Row 0 & 1)
         LayoutControl(
@@ -246,6 +322,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 20,
           channel: 0,
           customName: 'ENC 1',
+          x: 0,
+          y: 0,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_1',
@@ -253,6 +333,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 21,
           channel: 0,
           customName: 'ENC 2',
+          x: 4,
+          y: 0,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_2',
@@ -260,6 +344,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 22,
           channel: 0,
           customName: 'ENC 3',
+          x: 0,
+          y: 1,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'encoder_3',
@@ -267,6 +355,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 23,
           channel: 0,
           customName: 'ENC 4',
+          x: 4,
+          y: 1,
+          width: 4,
+          height: 1,
         ),
         // Toggle Buttons (Row 2 & 3)
         LayoutControl(
@@ -275,6 +367,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 24,
           channel: 0,
           customName: 'TOGGLE 1',
+          x: 0,
+          y: 2,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_1',
@@ -282,6 +378,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 25,
           channel: 0,
           customName: 'TOGGLE 2',
+          x: 4,
+          y: 2,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_2',
@@ -289,6 +389,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 26,
           channel: 0,
           customName: 'TOGGLE 3',
+          x: 0,
+          y: 3,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'toggle_3',
@@ -296,6 +400,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 27,
           channel: 0,
           customName: 'TOGGLE 4',
+          x: 4,
+          y: 3,
+          width: 4,
+          height: 1,
         ),
         // Trigger Buttons (Row 4 & 5)
         LayoutControl(
@@ -304,6 +412,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 28,
           channel: 0,
           customName: 'TRIG 1',
+          x: 0,
+          y: 4,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_1',
@@ -311,6 +423,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 29,
           channel: 0,
           customName: 'TRIG 2',
+          x: 4,
+          y: 4,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_2',
@@ -318,6 +434,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 30,
           channel: 0,
           customName: 'TRIG 3',
+          x: 0,
+          y: 5,
+          width: 4,
+          height: 1,
         ),
         LayoutControl(
           id: 'trigger_3',
@@ -325,6 +445,10 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           defaultCc: 31,
           channel: 0,
           customName: 'TRIG 4',
+          x: 4,
+          y: 5,
+          width: 4,
+          height: 1,
         ),
       ],
     );
@@ -442,6 +566,521 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  void updatePageGridAndName(
+    String pageId, {
+    String? name,
+    int? gridColumns,
+    int? gridRows,
+  }) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+    final int newCols = gridColumns ?? page.gridColumns;
+    final int newRows = gridRows ?? page.gridRows;
+
+    // Adjust controls to fit within the new grid dimensions
+    final updatedControls = page.controls.map((control) {
+      int newWidth = math.min(newCols, control.width);
+      int newHeight = math.min(newRows, control.height);
+      int newX = math.max(0, math.min(newCols - newWidth, control.x));
+      int newY = math.max(0, math.min(newRows - newHeight, control.y));
+      return control.copyWith(
+        x: newX,
+        y: newY,
+        width: newWidth,
+        height: newHeight,
+      );
+    }).toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(
+      name: name ?? page.name,
+      gridColumns: newCols,
+      gridRows: newRows,
+      controls: updatedControls,
+    );
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  int _getMinWidth(ControlType type) {
+    switch (type) {
+      case ControlType.fader:
+        return 2;
+      case ControlType.xyPad:
+        return 4;
+      default:
+        return 1;
+    }
+  }
+
+  int _getMinHeight(ControlType type) {
+    switch (type) {
+      case ControlType.fader:
+        return 2;
+      case ControlType.xyPad:
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  void updateControlSpatialData(
+    String pageId,
+    String controlId, {
+    int? x,
+    int? y,
+    int? width,
+    int? height,
+  }) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+    final controlIndex = page.controls.indexWhere((c) => c.id == controlId);
+    if (controlIndex == -1) return;
+
+    final control = page.controls[controlIndex];
+
+    int newX = control.x;
+    int newY = control.y;
+    int newWidth = control.width;
+    int newHeight = control.height;
+
+    final bool isResizing = width != null || height != null;
+
+    if (isResizing) {
+      newWidth = width ?? control.width;
+      newHeight = height ?? control.height;
+
+      // Apply minimum size thresholds
+      final int minW = _getMinWidth(control.type);
+      final int minH = _getMinHeight(control.type);
+      newWidth = math.max(minW, newWidth);
+      newHeight = math.max(minH, newHeight);
+
+      // Max size is page grid dimensions
+      newWidth = math.min(page.gridColumns, newWidth);
+      newHeight = math.min(page.gridRows, newHeight);
+
+      // Clamp to remaining space to the right/bottom (anchoring top-left x, y)
+      newWidth = math.min(page.gridColumns - control.x, newWidth);
+      newHeight = math.min(page.gridRows - control.y, newHeight);
+    } else {
+      // Action: Move/Drag
+      newX = x ?? control.x;
+      newY = y ?? control.y;
+
+      // Clamp coordinates to grid boundaries while preserving width/height
+      newX = math.max(0, math.min(page.gridColumns - newWidth, newX));
+      newY = math.max(0, math.min(page.gridRows - newHeight, newY));
+    }
+
+    // Collision & neighbor resolution state
+    final Map<String, LayoutControl> updatedNeighbors = {};
+
+    // Helper for horizontal push-and-shrink during resize
+    bool pushResizeHorizontal(
+      int startX,
+      int endX,
+      int y1,
+      int y2,
+      Set<String> activeIds,
+    ) {
+      for (final neighbor in page.controls) {
+        if (neighbor.id == controlId || activeIds.contains(neighbor.id)) {
+          continue;
+        }
+
+        final current = updatedNeighbors[neighbor.id] ?? neighbor;
+
+        final bool verticalOverlap =
+            math.max(y1, current.y) < math.min(y2, current.y + current.height);
+        if (!verticalOverlap) continue;
+
+        // Check if neighbor was touching the resized control's right edge originally,
+        // or if it falls within the newly expanded region [startX, endX)
+        final bool isAdjacent = neighbor.x == control.x + control.width;
+        final bool isOverlapped = current.x >= startX && current.x < endX;
+
+        if (isAdjacent || isOverlapped) {
+          int neighborNewX = endX;
+          int neighborNewWidth = (neighbor.x + neighbor.width) - endX;
+
+          final int minNeighborW = _getMinWidth(neighbor.type);
+          if (neighborNewWidth < minNeighborW) {
+            neighborNewWidth = minNeighborW;
+          }
+
+          if (neighborNewX + neighborNewWidth > page.gridColumns) {
+            return false;
+          }
+
+          updatedNeighbors[neighbor.id] = current.copyWith(
+            x: neighborNewX,
+            width: neighborNewWidth,
+          );
+
+          final nextActive = {...activeIds, neighbor.id};
+          if (!pushResizeHorizontal(
+            neighborNewX,
+            neighborNewX + neighborNewWidth,
+            current.y,
+            current.y + current.height,
+            nextActive,
+          )) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    // Helper for vertical push-and-shrink during resize
+    bool pushResizeVertical(
+      int startY,
+      int endY,
+      int x1,
+      int x2,
+      Set<String> activeIds,
+    ) {
+      for (final neighbor in page.controls) {
+        if (neighbor.id == controlId || activeIds.contains(neighbor.id)) {
+          continue;
+        }
+
+        final current = updatedNeighbors[neighbor.id] ?? neighbor;
+
+        final bool horizontalOverlap =
+            math.max(x1, current.x) < math.min(x2, current.x + current.width);
+        if (!horizontalOverlap) continue;
+
+        // Check if neighbor was touching the resized control's bottom edge originally,
+        // or if it falls within the newly expanded region [startY, endY)
+        final bool isAdjacent = neighbor.y == control.y + control.height;
+        final bool isOverlapped = current.y >= startY && current.y < endY;
+
+        if (isAdjacent || isOverlapped) {
+          int neighborNewY = endY;
+          int neighborNewHeight = (neighbor.y + neighbor.height) - endY;
+
+          final int minNeighborH = _getMinHeight(neighbor.type);
+          if (neighborNewHeight < minNeighborH) {
+            neighborNewHeight = minNeighborH;
+          }
+
+          if (neighborNewY + neighborNewHeight > page.gridRows) {
+            return false;
+          }
+
+          updatedNeighbors[neighbor.id] = current.copyWith(
+            y: neighborNewY,
+            height: neighborNewHeight,
+          );
+
+          final nextActive = {...activeIds, neighbor.id};
+          if (!pushResizeVertical(
+            neighborNewY,
+            neighborNewY + neighborNewHeight,
+            current.x,
+            current.x + current.width,
+            nextActive,
+          )) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    // Helper for horizontal push during move/drag (dimensions preserved)
+    bool pushMoveHorizontal(
+      int startX,
+      int endX,
+      int y1,
+      int y2,
+      Set<String> activeIds,
+      bool movingRight,
+    ) {
+      for (final neighbor in page.controls) {
+        if (neighbor.id == controlId || activeIds.contains(neighbor.id)) {
+          continue;
+        }
+
+        final current = updatedNeighbors[neighbor.id] ?? neighbor;
+
+        final bool verticalOverlap =
+            math.max(y1, current.y) < math.min(y2, current.y + current.height);
+        if (!verticalOverlap) continue;
+
+        if (movingRight) {
+          if (current.x >= startX && current.x < endX) {
+            int neighborNewX = endX;
+            if (neighborNewX + current.width > page.gridColumns) {
+              return false;
+            }
+            updatedNeighbors[neighbor.id] = current.copyWith(x: neighborNewX);
+            final nextActive = {...activeIds, neighbor.id};
+            if (!pushMoveHorizontal(
+              neighborNewX,
+              neighborNewX + current.width,
+              current.y,
+              current.y + current.height,
+              nextActive,
+              movingRight,
+            )) {
+              return false;
+            }
+          }
+        } else {
+          // Moving left
+          if (current.x + current.width > startX && current.x <= endX) {
+            int neighborNewX = startX - current.width;
+            if (neighborNewX < 0) {
+              return false;
+            }
+            updatedNeighbors[neighbor.id] = current.copyWith(x: neighborNewX);
+            final nextActive = {...activeIds, neighbor.id};
+            if (!pushMoveHorizontal(
+              neighborNewX,
+              neighborNewX + current.width,
+              current.y,
+              current.y + current.height,
+              nextActive,
+              movingRight,
+            )) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    // Helper for vertical push during move/drag (dimensions preserved)
+    bool pushMoveVertical(
+      int startY,
+      int endY,
+      int x1,
+      int x2,
+      Set<String> activeIds,
+      bool movingDown,
+    ) {
+      for (final neighbor in page.controls) {
+        if (neighbor.id == controlId || activeIds.contains(neighbor.id)) {
+          continue;
+        }
+
+        final current = updatedNeighbors[neighbor.id] ?? neighbor;
+
+        final bool horizontalOverlap =
+            math.max(x1, current.x) < math.min(x2, current.x + current.width);
+        if (!horizontalOverlap) continue;
+
+        if (movingDown) {
+          if (current.y >= startY && current.y < endY) {
+            int neighborNewY = endY;
+            if (neighborNewY + current.height > page.gridRows) {
+              return false;
+            }
+            updatedNeighbors[neighbor.id] = current.copyWith(y: neighborNewY);
+            final nextActive = {...activeIds, neighbor.id};
+            if (!pushMoveVertical(
+              neighborNewY,
+              neighborNewY + current.height,
+              current.x,
+              current.x + current.width,
+              nextActive,
+              movingDown,
+            )) {
+              return false;
+            }
+          }
+        } else {
+          // Moving up
+          if (current.y + current.height > startY && current.y <= endY) {
+            int neighborNewY = startY - current.height;
+            if (neighborNewY < 0) {
+              return false;
+            }
+            updatedNeighbors[neighbor.id] = current.copyWith(y: neighborNewY);
+            final nextActive = {...activeIds, neighbor.id};
+            if (!pushMoveVertical(
+              neighborNewY,
+              neighborNewY + current.height,
+              current.x,
+              current.x + current.width,
+              nextActive,
+              movingDown,
+            )) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    // Run propagation checks depending on action (resize vs move)
+    if (width != null || height != null) {
+      // Action: Resize
+      if (width != null && newWidth != control.width) {
+        if (!pushResizeHorizontal(
+          newX,
+          newX + newWidth,
+          newY,
+          newY + newHeight,
+          {controlId},
+        )) {
+          return; // Reject if constraint failed
+        }
+      }
+      if (height != null && newHeight != control.height) {
+        if (!pushResizeVertical(newY, newY + newHeight, newX, newX + newWidth, {
+          controlId,
+        })) {
+          return; // Reject if constraint failed
+        }
+      }
+    } else if (x != null || y != null) {
+      // Action: Move/Drag
+      if (x != null && newX != control.x) {
+        final bool movingRight = newX > control.x;
+        final int startLimit = movingRight ? control.x : newX;
+        final int endLimit = movingRight
+            ? newX + control.width
+            : control.x + control.width;
+        if (!pushMoveHorizontal(
+          startLimit,
+          endLimit,
+          newY,
+          newY + control.height,
+          {controlId},
+          movingRight,
+        )) {
+          return; // Reject if constraint failed
+        }
+      }
+      if (y != null && newY != control.y) {
+        final bool movingDown = newY > control.y;
+        final int startLimit = movingDown ? control.y : newY;
+        final int endLimit = movingDown
+            ? newY + control.height
+            : control.y + control.height;
+        if (!pushMoveVertical(
+          startLimit,
+          endLimit,
+          newX,
+          newX + control.width,
+          {controlId},
+          movingDown,
+        )) {
+          return; // Reject if constraint failed
+        }
+      }
+    }
+
+    final updatedControl = control.copyWith(
+      x: newX,
+      y: newY,
+      width: newWidth,
+      height: newHeight,
+    );
+
+    final updatedControls = page.controls.map((c) {
+      if (c.id == controlId) return updatedControl;
+      return updatedNeighbors[c.id] ?? c;
+    }).toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  void addControlToActivePage(ControlType type, {int? x, int? y}) {
+    if (state.pages.isEmpty) return;
+
+    final pageIndex = state.activePageIndex;
+    final page = state.pages[pageIndex];
+
+    int defaultWidth = 1;
+    int defaultHeight = 1;
+
+    switch (type) {
+      case ControlType.fader:
+        defaultWidth = 2;
+        defaultHeight = 3;
+        break;
+      case ControlType.xyPad:
+        defaultWidth = 4;
+        defaultHeight = 2;
+        break;
+      case ControlType.drumPad:
+      case ControlType.encoder:
+      case ControlType.trigger:
+      case ControlType.toggle:
+        defaultWidth = 1;
+        defaultHeight = 1;
+        break;
+    }
+
+    int startX = x ?? 0;
+    int startY = y ?? 0;
+
+    // Find the first available empty grid cell if x and y are not provided
+    if (x == null || y == null) {
+      bool found = false;
+      for (int r = 0; r <= page.gridRows - defaultHeight && !found; r++) {
+        for (int c = 0; c <= page.gridColumns - defaultWidth && !found; c++) {
+          bool overlaps = false;
+          for (final control in page.controls) {
+            // Check intersection
+            if (c < control.x + control.width &&
+                c + defaultWidth > control.x &&
+                r < control.y + control.height &&
+                r + defaultHeight > control.y) {
+              overlaps = true;
+              break;
+            }
+          }
+          if (!overlaps) {
+            startX = c;
+            startY = r;
+            found = true;
+          }
+        }
+      }
+
+      // If no space is found, just overlap at 0,0 (or clamp it)
+      if (!found) {
+        startX = 0;
+        startY = 0;
+      }
+    }
+
+    // Clamp coordinates to grid boundaries while taking width/height into account
+    startX = math.max(0, math.min(page.gridColumns - defaultWidth, startX));
+    startY = math.max(0, math.min(page.gridRows - defaultHeight, startY));
+
+    final newControl = LayoutControl(
+      id: '${type.name}_${DateTime.now().millisecondsSinceEpoch}',
+      type: type,
+      defaultCc: -1,
+      channel: -1,
+      x: startX,
+      y: startY,
+      width: defaultWidth,
+      height: defaultHeight,
+    );
+
+    final updatedControls = [...page.controls, newControl];
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+  }
+
   void clearPage(String pageId) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;
@@ -479,6 +1118,42 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       }).toList();
       return page.copyWith(controls: updatedControls);
     }).toList();
+    state = state.copyWith(pages: updatedPages);
+  }
+
+  LayoutControl? deleteControl(String pageId, String controlId) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return null;
+
+    final page = state.pages[pageIndex];
+    final control = page.controls.firstWhereOrNull((c) => c.id == controlId);
+    if (control == null) return null;
+
+    final updatedControls = page.controls
+        .where((c) => c.id != controlId)
+        .toList();
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
+    state = state.copyWith(pages: updatedPages);
+    return control;
+  }
+
+  void restoreControl(String pageId, LayoutControl control) {
+    final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
+    if (pageIndex == -1) return;
+
+    final page = state.pages[pageIndex];
+
+    // Avoid duplicates if it's already there
+    if (page.controls.any((c) => c.id == control.id)) return;
+
+    final updatedControls = [...page.controls, control];
+
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
+
     state = state.copyWith(pages: updatedPages);
   }
 

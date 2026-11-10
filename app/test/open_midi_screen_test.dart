@@ -8,11 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/ui/open_midi_screen.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
-import 'package:app/ui/panels/drum_grid_panel.dart';
-import 'package:app/ui/panels/utility_grid_panel.dart';
+import 'package:app/ui/widgets/velocity_drum_pad.dart';
+import 'package:app/ui/widgets/endless_encoder.dart';
+import 'package:app/ui/widgets/midi_buttons.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
 import 'package:app/ui/layout_state.dart';
+import 'package:app/ui/widgets/editor_control_wrapper.dart';
 import 'package:app/core/models/layout_models.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,15 +84,17 @@ void main() {
       await tester.tap(find.text('PADS'));
       await tester.pumpAndSettle();
 
-      // Should show Drum Grid
-      expect(find.byType(DrumGridPanel), findsOneWidget);
+      // Should show individual Drum Pads instead of DrumGridPanel now
+      expect(find.byType(VelocityDrumPad), findsWidgets);
 
       // Tap "UTILITY" tab
       await tester.tap(find.text('UTILITY'));
       await tester.pumpAndSettle();
 
-      // Should show Utility Grid
-      expect(find.byType(UtilityGridPanel), findsOneWidget);
+      // Should show individual Utility widgets instead of UtilityGridPanel now
+      expect(find.byType(EndlessEncoderWidget), findsWidgets);
+      expect(find.byType(Trigger), findsWidgets);
+      expect(find.byType(Toggle), findsWidgets);
     });
 
     testWidgets('shows DeviceOfflineOverlay when connection is lost', (
@@ -240,6 +244,40 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('layout editor mode wraps controls and handles selection', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(buildWidget());
+      await tester.pumpAndSettle();
+
+      // Initially, no control wrappers should be present
+      expect(find.byType(EditorControlWrapper), findsNothing);
+
+      // Tap the Toggle Editor Mode button
+      await tester.tap(find.byTooltip('Toggle Editor Mode').first);
+      await tester.pumpAndSettle();
+
+      // Now, control wrappers should be present wrapping the faders
+      expect(find.byType(EditorControlWrapper), findsWidgets);
+
+      // Verify that no control is selected initially
+      expect(find.byIcon(Icons.zoom_out_map), findsNothing);
+
+      // Tap on the first fader to select it
+      await tester.tap(
+        find.byType(HybridTouchFader).first,
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      // Now, the selected fader should show the resize handle
+      expect(find.byIcon(Icons.zoom_out_map), findsOneWidget);
     });
   });
 }

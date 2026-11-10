@@ -205,17 +205,17 @@ class UtilityGridPanel extends ConsumerWidget {
 
                   case ControlType.toggle:
                     return Toggle(
-                      key: ValueKey('toggle_${pageId}_$index'),
+                      key: ValueKey('toggle_${pageId}_${control.id}'),
                       pageId: pageId,
-                      index: index,
+                      controlId: control.id,
                       mode: MidiButtonMode.cc,
                     );
 
                   case ControlType.trigger:
                     return Trigger(
-                      key: ValueKey('trigger_${pageId}_$index'),
+                      key: ValueKey('trigger_${pageId}_${control.id}'),
                       pageId: pageId,
-                      index: index,
+                      controlId: control.id,
                       mode: MidiButtonMode.cc,
                     );
 

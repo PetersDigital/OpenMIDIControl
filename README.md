@@ -17,8 +17,8 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 ## Current Status
 
-- **v0.4.1** is the current implementation baseline, introducing layout engine hardening, pagination scaling, undo page deletion, and leaf-level UI performance optimizations.
-- **v0.4.2** is the next active focus for the modular layout editor (drag-and-drop, resizing, and widget palette).
+- **v0.4.2** is the current implementation baseline, introducing the dynamic layout editor mode (drag-and-drop placement, dual resizing, widget palette, in-editor config, and undo deletion).
+- **v0.4.3** is the next active focus for layout persistence and sharing (JSON schema versioning, manifest metadata, and export/import).
 - See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed roadmap.
 
 ## Core Docs

@@ -42,6 +42,7 @@ class UiStateSinkNode extends SinkNode {
   // Debounce timing
   bool isPaused = false;
   bool _hasPendingEmission = false;
+  Timer? _fallbackTimer;
 
   void setPaused(bool paused) {
     isPaused = paused;
@@ -109,14 +110,14 @@ class UiStateSinkNode extends SinkNode {
               _hasPendingEmission = false;
             }
           });
-          SchedulerBinding.instance.ensureVisualUpdate();
         } else {
           _emitSnapshot();
           _hasPendingEmission = false;
         }
       } catch (_) {
         // Fallback for isolated contexts
-        Timer(const Duration(milliseconds: 16), () {
+        _fallbackTimer?.cancel();
+        _fallbackTimer = Timer(const Duration(milliseconds: 16), () {
           if (_hasPendingEmission) {
             _emitSnapshot();
             _hasPendingEmission = false;
@@ -199,5 +200,9 @@ class UiStateSinkNode extends SinkNode {
       _processEvent(event);
     }
     _throttledEmit();
+  }
+
+  void dispose() {
+    _fallbackTimer?.cancel();
   }
 }

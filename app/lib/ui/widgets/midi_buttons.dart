@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
@@ -14,14 +15,14 @@ import 'control_config_modal.dart';
 enum MidiButtonMode { note, cc }
 
 class Trigger extends ConsumerStatefulWidget {
-  final int index;
+  final String controlId;
   final MidiButtonMode mode;
   final Color activeColor;
   final Color inactiveColor;
 
   const Trigger({
     super.key,
-    required this.index,
+    required this.controlId,
     required this.pageId,
     this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFA6C9F8),
@@ -85,12 +86,9 @@ class _TriggerState extends ConsumerState<Trigger>
   Widget build(BuildContext context) {
     final control = ref.watch(
       layoutStateProvider.select((s) {
-        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
-        if (pageIndex == -1) return null;
-        final page = s.pages[pageIndex];
-        return widget.index < page.controls.length
-            ? page.controls[widget.index]
-            : null;
+        final page = s.pages.firstWhereOrNull((p) => p.id == widget.pageId);
+        if (page == null) return null;
+        return page.controls.firstWhereOrNull((c) => c.id == widget.controlId);
       }),
     );
 
@@ -240,14 +238,14 @@ Future<void> showUtilityConfigModal(
 }
 
 class Toggle extends ConsumerStatefulWidget {
-  final int index;
+  final String controlId;
   final MidiButtonMode mode;
   final Color activeColor;
   final Color inactiveColor;
 
   const Toggle({
     super.key,
-    required this.index,
+    required this.controlId,
     required this.pageId,
     this.mode = MidiButtonMode.cc,
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
@@ -322,12 +320,9 @@ class _ToggleState extends ConsumerState<Toggle>
   Widget build(BuildContext context) {
     final control = ref.watch(
       layoutStateProvider.select((s) {
-        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
-        if (pageIndex == -1) return null;
-        final page = s.pages[pageIndex];
-        return widget.index < page.controls.length
-            ? page.controls[widget.index]
-            : null;
+        final page = s.pages.firstWhereOrNull((p) => p.id == widget.pageId);
+        if (page == null) return null;
+        return page.controls.firstWhereOrNull((c) => c.id == widget.controlId);
       }),
     );
 

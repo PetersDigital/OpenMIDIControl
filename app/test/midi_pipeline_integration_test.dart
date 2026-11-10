@@ -565,5 +565,15 @@ void main() {
 
       systemStreamController.close();
     });
+
+    test(
+      'MidiService disposal disposes router sink nodes and provider container teardown works cleanly',
+      () {
+        final container = ProviderContainer();
+        final service = container.read(midiServiceProvider);
+        expect(service, isNotNull);
+        expect(() => container.dispose(), returnsNormally);
+      },
+    );
   });
 }

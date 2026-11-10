@@ -100,24 +100,19 @@ class MainActivity : FlutterActivity() {
     private val batchDispatchRunnable: suspend CoroutineScope.() -> Unit = {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
-            if (payload[0] > 0) {
-                // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
-                // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
-                // until the UI thread has acknowledged the message, preventing queue flooding.
-                withContext(Dispatchers.Main.immediate) {
-                    try {
+            try {
+                if (payload[0] > 0) {
+                    // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
+                    // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
+                    // until the UI thread has acknowledged the message, preventing queue flooding.
+                    withContext(Dispatchers.Main.immediate) {
                         eventSink?.success(payload)
-                    } finally {
-                        val result = emptyBuffers.trySend(payload)
-                        if (result.isFailure) {
-                            android.util.Log.e("MainActivity", "Failed to return buffer to pool: ${result.exceptionOrNull()}")
-                        }
                     }
                 }
-            } else {
+            } finally {
                 val result = emptyBuffers.trySend(payload)
                 if (result.isFailure) {
-                    android.util.Log.e("MainActivity", "Failed to return empty buffer to pool: ${result.exceptionOrNull()}")
+                    android.util.Log.e("MainActivity", "Failed to return buffer to pool: ${result.exceptionOrNull()}")
                 }
             }
         }
@@ -306,27 +301,31 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     systemEventSink = events
-                    setupMidiDeviceCallback()
 
-                    // Immediately evaluate the initial sticky intent if available
-                    stickyIntent?.let {
-                        val connected = it.extras?.getBoolean("connected") ?: false
-                        val configured = it.extras?.getBoolean("configured") ?: false
-                        val midi = it.extras?.getBoolean("midi") ?: false
-                        val isMidiConnected = connected && configured && midi
+                    // Stagger initialization to avoid CPU spike on app launch
+                    mainThreadHandler.postDelayed({
+                        if (systemEventSink != null) {
+                            setupMidiDeviceCallback()
 
-                        if (isMidiConnected) {
-                            lastUsbStateIsConnected = true
-                            lastUsbHostConnectedState = false
-                            systemEventSink?.success(EVENT_USB_AVAILABLE)
-                        } else if (!connected) {
-                            lastUsbStateIsConnected = false
-                            cachedDevicesList = null
-                            sendSystemEvent("usb_state", EVENT_USB_DISCONNECTED)
+                            // Evaluate the initial sticky intent if available
+                            stickyIntent?.let {
+                                val connected = it.extras?.getBoolean("connected") ?: false
+                                val configured = it.extras?.getBoolean("configured") ?: false
+                                val midi = it.extras?.getBoolean("midi") ?: false
+                                val isMidiConnected = connected && configured && midi
 
-                            systemEventSink?.success(EVENT_USB_DISCONNECTED)
+                                if (isMidiConnected) {
+                                    lastUsbStateIsConnected = true
+                                    lastUsbHostConnectedState = false
+                                    systemEventSink?.success(EVENT_USB_AVAILABLE)
+                                } else if (!connected) {
+                                    lastUsbStateIsConnected = false
+                                    cachedDevicesList = null
+                                    systemEventSink?.success(EVENT_USB_DISCONNECTED)
+                                }
+                            }
                         }
-                    }
+                    }, 500L)
                 }
 
                 override fun onCancel(arguments: Any?) {
@@ -883,6 +882,14 @@ class MainActivity : FlutterActivity() {
         // but we invalidate the instance to prevent UI-bound callbacks from firing.
         // The core MIDI transport (Isolates/Coroutines) remains active.
         super.onPause()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            // Backgrounded or memory constrained: hint the system and runtime to trim memory
+            System.gc()
+        }
     }
 
     override fun onDestroy() {

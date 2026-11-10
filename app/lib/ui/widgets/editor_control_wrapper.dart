@@ -1,0 +1,366 @@
+// Copyright (c) 2026 Peters Digital
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/models/layout_models.dart';
+import '../editor_state.dart';
+import '../layout_state.dart';
+import 'control_config_modal.dart';
+
+class EditorControlWrapper extends ConsumerStatefulWidget {
+  final Widget child;
+  final LayoutControl control;
+  final String pageId;
+  final double cellWidth;
+  final double cellHeight;
+
+  const EditorControlWrapper({
+    super.key,
+    required this.child,
+    required this.control,
+    required this.pageId,
+    required this.cellWidth,
+    required this.cellHeight,
+  });
+
+  @override
+  ConsumerState<EditorControlWrapper> createState() =>
+      _EditorControlWrapperState();
+}
+
+class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
+  Offset _dragDelta = Offset.zero;
+  Offset _resizeDelta = Offset.zero;
+  double _initialScaleWidth = 0.0;
+  double _initialScaleHeight = 0.0;
+
+  final Stopwatch _dragThrottle = Stopwatch()..start();
+  final Stopwatch _resizeThrottle = Stopwatch()..start();
+
+  void _openConfigModal(BuildContext context) {
+    String identifierLabel = 'MIDI ID (e.g., C3 or 60)';
+    String? secondaryIdentifierLabel;
+    String displayNameLabel = 'Display Name';
+
+    switch (widget.control.type) {
+      case ControlType.fader:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Fader Name';
+        break;
+      case ControlType.xyPad:
+        identifierLabel = 'X-Axis CC Number (0-127)';
+        secondaryIdentifierLabel = 'Y-Axis CC Number (0-127)';
+        displayNameLabel = 'XY Pad Name';
+        break;
+      case ControlType.drumPad:
+        identifierLabel = 'Note (0-127 or C-1 to G9)';
+        displayNameLabel = 'Pad Label';
+        break;
+      case ControlType.encoder:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Encoder Name';
+        break;
+      case ControlType.trigger:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Trigger Name';
+        break;
+      case ControlType.toggle:
+        identifierLabel = 'CC Number (0-127)';
+        displayNameLabel = 'Toggle Name';
+        break;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => ControlConfigModal(
+        controlId: widget.control.id,
+        identifierLabel: identifierLabel,
+        secondaryIdentifierLabel: secondaryIdentifierLabel,
+        displayNameLabel: displayNameLabel,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = ref.watch(
+      selectedControlProvider.select((id) => id == widget.control.id),
+    );
+
+    final bool isCompact =
+        widget.control.type == ControlType.drumPad ||
+        widget.control.type == ControlType.encoder ||
+        widget.control.type == ControlType.trigger ||
+        widget.control.type == ControlType.toggle;
+    final double handleSize = isCompact ? 36.0 : 60.0;
+    final double innerPadding = isCompact ? 5.0 : 8.0;
+    final double iconSize = isCompact ? 12.0 : 20.0;
+    final double handleOffset = isCompact ? 5.0 : 5.0;
+
+    return Padding(
+      padding: const EdgeInsets.all(6.0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // The main control container (drag target)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                ref
+                    .read(selectedControlProvider.notifier)
+                    .select(widget.control.id);
+              },
+              onScaleStart: (details) {
+                ref
+                    .read(selectedControlProvider.notifier)
+                    .select(widget.control.id);
+                _dragDelta = Offset.zero;
+                _initialScaleWidth = widget.control.width.toDouble();
+                _initialScaleHeight = widget.control.height.toDouble();
+              },
+              onScaleUpdate: (details) {
+                if (details.pointerCount == 1) {
+                  _dragDelta += details.focalPointDelta;
+
+                  final dxCells = (_dragDelta.dx / widget.cellWidth).round();
+                  final dyCells = (_dragDelta.dy / widget.cellHeight).round();
+
+                  if ((dxCells != 0 || dyCells != 0) &&
+                      _dragThrottle.elapsedMilliseconds >= 16) {
+                    _dragThrottle.reset();
+                    ref
+                        .read(layoutStateProvider.notifier)
+                        .updateControlSpatialData(
+                          widget.pageId,
+                          widget.control.id,
+                          x: widget.control.x + dxCells,
+                          y: widget.control.y + dyCells,
+                        );
+                    // Reset delta by the amount we consumed
+                    _dragDelta -= Offset(
+                      dxCells * widget.cellWidth,
+                      dyCells * widget.cellHeight,
+                    );
+                  }
+                } else if (details.pointerCount == 2 && isSelected) {
+                  final newW = (_initialScaleWidth * details.scale).round();
+                  final newH = (_initialScaleHeight * details.scale).round();
+
+                  if ((newW != widget.control.width ||
+                          newH != widget.control.height) &&
+                      _resizeThrottle.elapsedMilliseconds >= 16) {
+                    _resizeThrottle.reset();
+                    ref
+                        .read(layoutStateProvider.notifier)
+                        .updateControlSpatialData(
+                          widget.pageId,
+                          widget.control.id,
+                          width: newW,
+                          height: newH,
+                        );
+                  }
+                }
+              },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: AbsorbPointer(absorbing: true, child: widget.child),
+                  ),
+                  // Darken locked controls in edit mode
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: isSelected
+                              ? Border.all(
+                                  color: const Color(0xFFA6C9F8),
+                                  width: 2.0,
+                                )
+                              : Border.all(
+                                  color: const Color(
+                                    0xFFA6C9F8,
+                                  ).withValues(alpha: 0.3),
+                                  width: 1.0,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Resize Handle (bottom right, offset slightly outward with touch area)
+          if (isSelected)
+            Positioned(
+              right: handleOffset,
+              bottom: handleOffset,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (details) {
+                  _resizeDelta = Offset.zero;
+                },
+                onPanUpdate: (details) {
+                  _resizeDelta += details.delta;
+
+                  final dwCells = (_resizeDelta.dx / widget.cellWidth).round();
+                  final dhCells = (_resizeDelta.dy / widget.cellHeight).round();
+
+                  if ((dwCells != 0 || dhCells != 0) &&
+                      _resizeThrottle.elapsedMilliseconds >= 16) {
+                    _resizeThrottle.reset();
+                    ref
+                        .read(layoutStateProvider.notifier)
+                        .updateControlSpatialData(
+                          widget.pageId,
+                          widget.control.id,
+                          width: widget.control.width + dwCells,
+                          height: widget.control.height + dhCells,
+                        );
+                    // Reset delta by the amount we consumed
+                    _resizeDelta -= Offset(
+                      dwCells * widget.cellWidth,
+                      dhCells * widget.cellHeight,
+                    );
+                  }
+                },
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  padding: EdgeInsets.all(innerPadding),
+                  color: Colors.transparent, // transparent touch area
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA6C9F8),
+                      borderRadius: BorderRadius.circular(isCompact ? 4 : 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: isCompact ? 3 : 4,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.zoom_out_map,
+                        size: iconSize,
+                        color: const Color(0xFF1E2024),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Delete Handle (top right, offset slightly outward with touch area)
+          if (isSelected)
+            Positioned(
+              right: handleOffset,
+              top: handleOffset,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final deletedControl = ref
+                      .read(layoutStateProvider.notifier)
+                      .deleteControl(widget.pageId, widget.control.id);
+                  ref.read(selectedControlProvider.notifier).select(null);
+                  if (deletedControl != null && context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Deleted ${deletedControl.displayName}'),
+                        action: SnackBarAction(
+                          label: 'UNDO',
+                          onPressed: () {
+                            ref
+                                .read(layoutStateProvider.notifier)
+                                .restoreControl(widget.pageId, deletedControl);
+                          },
+                        ),
+                        duration: const Duration(seconds: 4),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  padding: EdgeInsets.all(innerPadding),
+                  color: Colors.transparent, // transparent touch area
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE57373), // Soft premium red
+                      borderRadius: BorderRadius.circular(isCompact ? 4 : 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: isCompact ? 3 : 4,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.delete,
+                        size: iconSize,
+                        color: const Color(0xFF1E2024),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Settings/Edit Handle (bottom left, offset slightly outward with touch area)
+          if (isSelected)
+            Positioned(
+              left: handleOffset,
+              bottom: handleOffset,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openConfigModal(context),
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  padding: EdgeInsets.all(innerPadding),
+                  color: Colors.transparent, // transparent touch area
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA6C9F8),
+                      borderRadius: BorderRadius.circular(isCompact ? 4 : 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: isCompact ? 3 : 4,
+                          offset: const Offset(1, 1),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.settings,
+                        size: iconSize,
+                        color: const Color(0xFF1E2024),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

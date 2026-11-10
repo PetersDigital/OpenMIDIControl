@@ -4,6 +4,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:collection/collection.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
 import '../performance_ticker_mixin.dart';
@@ -13,7 +14,7 @@ import '../layout_state.dart';
 import '../../core/midi_utils.dart';
 
 class VelocityDrumPad extends ConsumerStatefulWidget {
-  final int index;
+  final String controlId;
   final Color padColor;
   final int minVelocity;
   final int maxVelocity;
@@ -21,7 +22,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 
   const VelocityDrumPad({
     super.key,
-    required this.index,
+    required this.controlId,
     required this.pageId,
     this.padColor = const Color(0xFF282A2E),
     this.minVelocity = 30,
@@ -148,12 +149,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   Widget build(BuildContext context) {
     final control = ref.watch(
       layoutStateProvider.select((s) {
-        final pageIndex = s.pages.indexWhere((p) => p.id == widget.pageId);
-        if (pageIndex == -1) return null;
-        final page = s.pages[pageIndex];
-        return widget.index < page.controls.length
-            ? page.controls[widget.index]
-            : null;
+        final page = s.pages.firstWhereOrNull((p) => p.id == widget.pageId);
+        if (page == null) return null;
+        return page.controls.firstWhereOrNull((c) => c.id == widget.controlId);
       }),
     );
 

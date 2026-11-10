@@ -64,10 +64,16 @@ class DrumGridPanel extends ConsumerWidget {
               ),
               itemCount: padCount,
               itemBuilder: (context, index) {
+                final pageState = ref.read(layoutStateProvider);
+                final pageData = pageState.pages.firstWhere(
+                  (p) => p.id == pageId,
+                  orElse: () => pageState.pages.first,
+                );
+                final control = pageData.controls[index];
                 return VelocityDrumPad(
-                  key: ValueKey('drum_pad_${pageId}_$index'),
+                  key: ValueKey(control.id),
                   pageId: pageId,
-                  index: index,
+                  controlId: control.id,
                   isActive: isActive,
                 );
               },

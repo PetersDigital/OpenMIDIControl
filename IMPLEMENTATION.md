@@ -116,13 +116,19 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Extreme UI Performance**: Leaf-level Riverpod optimization, repaint boundaries for faders/buttons/lists, and decoupled settings/compositor rebuild paths.
 - **Hardening & Fixes**: Fixed connection lost dismiss reference leaks, reorderable list layout bugs, and GPG/CI pipeline upgrades.
 
-### ⏳ Current Focus: v0.4.2 – Editor Mode
+### ✅ v0.4.2 – Editor Mode
 
-- **Drag-and-Drop Placement**: Interactive widget positioning within the layout grid.
-- **Resizing**: Pinch/drag resize handles for controls.
-- **Widget Palette**: Control palette for adding new widgets from a browsable catalog.
+- **Drag-and-Drop Placement**: Interactive widget positioning within the layout grid with boundary snapping.
+- **Resizing**: Corner drag handle and two-finger pinch-to-resize support.
+- **Widget Palette**: Sliding control palette panel for adding new widgets from a catalog.
+- **In-Editor Control Config**: Quick access settings handle for configuring controls directly in edit mode.
+- **Undo Control Deletion**: Interactive SnackBar undo action to restore accidentally deleted controls.
 
-#### ⏱️ v0.4.3 (Persistence & Marketplace): JSON schema versioning and manifest metadata for layout sharing
+### ⏳ Current Focus: v0.4.3 (Persistence & Marketplace)
+
+- **JSON Schema Versioning**: Layout serialization, deserialization, and schema migration.
+- **Manifest Metadata**: Author, version, tags, and layout sharing metadata.
+- **Import / Export**: Local and cloud file sharing of custom layouts.
 
 ### ⏳ v0.5.x – The MCU / HUI Protocol Series
 

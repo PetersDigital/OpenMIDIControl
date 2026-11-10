@@ -20,6 +20,7 @@ object MidiParser {
         @Volatile private var isFull = false
         private val ringBuffer = LongArray(capacity)
 
+        @Synchronized
         override fun trySend(packedEvent: Long): Boolean {
             val currentTail = tailPointer.get()
             val nextTail = (currentTail + 1) % ringBuffer.size
@@ -28,7 +29,7 @@ object MidiParser {
                 return false
             }
             ringBuffer[currentTail.toInt()] = packedEvent
-            tailPointer.compareAndSet(currentTail, nextTail)
+            tailPointer.set(nextTail)
             notifier?.trySend(Unit)
             return true
         }
