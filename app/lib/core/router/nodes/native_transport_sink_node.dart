@@ -49,6 +49,7 @@ class NativeTransportSinkNode extends SinkNode {
   Timer? _flushTimer;
 
   SendPort? _workerSendPort;
+  ReceivePort? _workerReceivePort;
   Isolate? _workerIsolate;
   bool _isDisposed = false;
   final bool useBackgroundWorker;
@@ -67,6 +68,7 @@ class NativeTransportSinkNode extends SinkNode {
     if (token == null) return;
 
     final receivePort = ReceivePort();
+    _workerReceivePort = receivePort;
     try {
       _workerIsolate = await Isolate.spawn(_nativeTransportWorker, [
         receivePort.sendPort,
@@ -74,8 +76,10 @@ class NativeTransportSinkNode extends SinkNode {
       ], debugName: 'NativeTransportWorker');
 
       if (_isDisposed) {
-        _workerIsolate?.kill();
+        _workerIsolate?.kill(priority: Isolate.immediate);
+        _workerIsolate = null;
         receivePort.close();
+        _workerReceivePort = null;
         return;
       }
 
@@ -188,7 +192,12 @@ class NativeTransportSinkNode extends SinkNode {
   void dispose() {
     _isDisposed = true;
     _flushTimer?.cancel();
+    _flushTimer = null;
     _eventBuffer.clear();
+    _workerReceivePort?.close();
+    _workerReceivePort = null;
+    _workerSendPort = null;
     _workerIsolate?.kill(priority: Isolate.immediate);
+    _workerIsolate = null;
   }
 }
