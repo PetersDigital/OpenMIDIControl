@@ -36,6 +36,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
   double _initialScaleWidth = 0.0;
   double _initialScaleHeight = 0.0;
 
+  final Stopwatch _dragThrottle = Stopwatch()..start();
+  final Stopwatch _resizeThrottle = Stopwatch()..start();
+
   void _openConfigModal(BuildContext context) {
     String identifierLabel = 'MIDI ID (e.g., C3 or 60)';
     String? secondaryIdentifierLabel;
@@ -124,7 +127,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                   final dxCells = (_dragDelta.dx / widget.cellWidth).round();
                   final dyCells = (_dragDelta.dy / widget.cellHeight).round();
 
-                  if (dxCells != 0 || dyCells != 0) {
+                  if ((dxCells != 0 || dyCells != 0) &&
+                      _dragThrottle.elapsedMilliseconds >= 16) {
+                    _dragThrottle.reset();
                     ref
                         .read(layoutStateProvider.notifier)
                         .updateControlSpatialData(
@@ -143,8 +148,10 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                   final newW = (_initialScaleWidth * details.scale).round();
                   final newH = (_initialScaleHeight * details.scale).round();
 
-                  if (newW != widget.control.width ||
-                      newH != widget.control.height) {
+                  if ((newW != widget.control.width ||
+                          newH != widget.control.height) &&
+                      _resizeThrottle.elapsedMilliseconds >= 16) {
+                    _resizeThrottle.reset();
                     ref
                         .read(layoutStateProvider.notifier)
                         .updateControlSpatialData(
@@ -209,7 +216,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                   final dwCells = (_resizeDelta.dx / widget.cellWidth).round();
                   final dhCells = (_resizeDelta.dy / widget.cellHeight).round();
 
-                  if (dwCells != 0 || dhCells != 0) {
+                  if ((dwCells != 0 || dhCells != 0) &&
+                      _resizeThrottle.elapsedMilliseconds >= 16) {
+                    _resizeThrottle.reset();
                     ref
                         .read(layoutStateProvider.notifier)
                         .updateControlSpatialData(
