@@ -884,6 +884,14 @@ class MainActivity : FlutterActivity() {
         super.onPause()
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            // Backgrounded or memory constrained: hint the system and runtime to trim memory
+            System.gc()
+        }
+    }
+
     override fun onDestroy() {
         coroutineScope.cancel()
         teardownMidiDeviceCallback()
