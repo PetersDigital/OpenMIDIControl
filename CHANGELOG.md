@@ -6,7 +6,28 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD)
+
+## [0.4.3] - 2026-11-20
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...v0.4.3)
+
+### Added
+
+- **LayoutManifest Metadata Model**: Class tracking `id`, `name`, `author`, `version`, `description`, `tags`, `createdAt`, and `updatedAt` with full serialization, copyWith, and equality methods.
+- **LayoutDocument Schema Envelope**: Versioned root container (`schemaVersion: 1`) encapsulating manifest metadata and structural layout state (`pages` and `activePageIndex`).
+- **LayoutSchemaMigrator Pipeline**: Extensible schema migration pipeline with automated v0 to v1 migration supporting unversioned legacy raw layouts and `PresetSnapshot` objects, synthesizing default metadata and safely ignoring transient runtime control states.
+- **UnsupportedSchemaVersionException**: Error handling for future, unsupported, or corrupted schema versions during deserialization and file imports.
+- **LayoutDocumentNotifier & Riverpod State Wiring**: Dedicated state manager for active `LayoutDocument` metadata, delegating layout structure mutations to `LayoutStateNotifier`.
+- **Manifest Editor Modal**: Clean modal dialog accessible from the Files tab for viewing and updating layout name, author, version, description, and comma-separated tags.
+- **LayoutStorageManager Repository**: Local file persistence engine saving and listing `.omc` layout documents in `<app_documents>/layouts/{id}.omc` with active layout tracking via `SharedPreferences`.
+- **Debounced Auto-Save & Flush**: Automatic 1000ms debounced persistence of layout state and manifest mutations, plus immediate non-debounced flush capabilities.
+- **Startup Loading**: Automatic restoration of active layout document on launch, with initial default document generation and persistence on first run.
+- **Hardened Import/Export Pipelines**: Upgraded `SnapshotManager` with `exportLayoutDocument` and `importLayoutDocument`, preserving `.omc` file extension continuity while migrating incoming legacy formats and providing descriptive SnackBar upgrade feedback.
+
+### Changed
+
+- **Files Tab Organization**: Replaced full preset export/import tiles with modern `LayoutDocument` sharing and added the dedicated `LAYOUT METADATA` section card for metadata editing.
 
 ## [0.4.2] - 2026-11-10
 
@@ -463,7 +484,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0
