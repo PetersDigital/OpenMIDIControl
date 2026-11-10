@@ -30,7 +30,11 @@ class LayoutSchemaMigrator {
   /// Detects unversioned legacy schemas (version 0) and processes iterative step
   /// upgrades. Throws [UnsupportedSchemaVersionException] if the version exceeds
   /// the runtime version or if no path exists.
-  static Map<String, dynamic> migrate(Map<String, dynamic> source) {
+  /// If [defaultName] is provided, it is used for unversioned schemas lacking a manifest name.
+  static Map<String, dynamic> migrate(
+    Map<String, dynamic> source, {
+    String defaultName = 'Default Layout',
+  }) {
     final Map<String, dynamic> mutableJson = Map<String, dynamic>.from(source);
 
     // Determine current version in input JSON (missing or null schemaVersion indicates legacy v0)
@@ -52,7 +56,11 @@ class LayoutSchemaMigrator {
           'No migration path registered from schema version $version.',
         );
       }
-      current = step(current);
+      if (version == 0) {
+        current = _migrateV0ToV1(current, defaultName: defaultName);
+      } else {
+        current = step(current);
+      }
       final newVersion = current['schemaVersion'] as int?;
       if (newVersion == null || newVersion <= version) {
         throw StateError(
@@ -85,7 +93,10 @@ class LayoutSchemaMigrator {
   ///
   /// Extracts pages and activePageIndex, synthesizes default manifest metadata,
   /// and wraps them in a schemaVersion: 1 envelope.
-  static Map<String, dynamic> _migrateV0ToV1(Map<String, dynamic> v0) {
+  static Map<String, dynamic> _migrateV0ToV1(
+    Map<String, dynamic> v0, {
+    String defaultName = 'Default Layout',
+  }) {
     final now = DateTime.now().toIso8601String();
 
     // Extract pages from legacy raw layout or PresetSnapshot
@@ -106,7 +117,7 @@ class LayoutSchemaMigrator {
         v0['manifest'] as Map<String, dynamic>,
       );
       manifest['id'] = manifest['id'] ?? _uuid.v4();
-      manifest['name'] = manifest['name'] ?? 'Imported Layout';
+      manifest['name'] = manifest['name'] ?? defaultName;
       manifest['author'] = manifest['author'] ?? 'Anonymous';
       manifest['version'] = manifest['version'] ?? '1.0.0';
       manifest['description'] = manifest['description'] ?? '';
@@ -116,7 +127,7 @@ class LayoutSchemaMigrator {
     } else {
       manifest = {
         'id': _uuid.v4(),
-        'name': 'Default Layout',
+        'name': defaultName,
         'author': 'Anonymous',
         'version': '1.0.0',
         'description': '',

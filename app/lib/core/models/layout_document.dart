@@ -74,8 +74,15 @@ class LayoutDocument {
   /// Deserializes a [LayoutDocument] from JSON.
   /// Automatically runs the migration pipeline via [LayoutSchemaMigrator.migrate]
   /// to migrate legacy or older schema versions before model construction.
-  factory LayoutDocument.fromJson(Map<String, dynamic> rawJson) {
-    final migrated = LayoutSchemaMigrator.migrate(rawJson);
+  /// If [defaultName] is provided, it is used when migrating legacy schemas lacking manifest metadata.
+  factory LayoutDocument.fromJson(
+    Map<String, dynamic> rawJson, {
+    String defaultName = 'Default Layout',
+  }) {
+    final migrated = LayoutSchemaMigrator.migrate(
+      rawJson,
+      defaultName: defaultName,
+    );
 
     final version = migrated['schemaVersion'] as int;
     if (version != currentSchemaVersion) {

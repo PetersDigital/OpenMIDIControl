@@ -188,7 +188,10 @@ class SnapshotManager {
       }
 
       final bool isLegacy = !decoded.containsKey('schemaVersion');
-      final LayoutDocument document = LayoutDocument.fromJson(decoded);
+      final LayoutDocument document = LayoutDocument.fromJson(
+        decoded,
+        defaultName: 'Imported Layout',
+      );
 
       return LayoutImportResult(document: document, wasUpgraded: isLegacy);
     } on UnsupportedSchemaVersionException catch (e) {
@@ -232,8 +235,14 @@ class SnapshotManager {
         return PageImportResult(page: LayoutPage.fromJson(decoded));
       } else if (decoded.containsKey('pages')) {
         // Document or preset provided: extract first page with upgrade note
-        final migrated = LayoutSchemaMigrator.migrate(decoded);
-        final doc = LayoutDocument.fromJson(migrated);
+        final migrated = LayoutSchemaMigrator.migrate(
+          decoded,
+          defaultName: 'Imported Layout',
+        );
+        final doc = LayoutDocument.fromJson(
+          migrated,
+          defaultName: 'Imported Layout',
+        );
         if (doc.pages.isNotEmpty) {
           return PageImportResult(page: doc.pages.first, wasUpgraded: true);
         }

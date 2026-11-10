@@ -60,6 +60,36 @@ void main() {
       expect(doc.pages.first.controls.first.defaultCc, 7);
     });
 
+    test(
+      'supports custom defaultName for imported legacy layouts lacking manifest',
+      () {
+        final legacyRawLayout = {
+          'pages': [
+            {
+              'id': 'page_imported',
+              'type': 'fader',
+              'name': 'FADER',
+              'controls': [],
+            },
+          ],
+        };
+
+        final migrated = LayoutSchemaMigrator.migrate(
+          legacyRawLayout,
+          defaultName: 'Imported Layout',
+        );
+
+        final manifest = migrated['manifest'] as Map<String, dynamic>;
+        expect(manifest['name'], 'Imported Layout');
+
+        final doc = LayoutDocument.fromJson(
+          legacyRawLayout,
+          defaultName: 'Imported Layout',
+        );
+        expect(doc.manifest.name, 'Imported Layout');
+      },
+    );
+
     test('migrates unversioned legacy PresetSnapshot JSON (v0 -> v1)', () {
       final legacySnapshot = {
         'controlState': {
