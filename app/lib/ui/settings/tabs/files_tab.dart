@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/managers/snapshot_manager.dart';
 import '../../../core/models/preset_snapshot.dart';
+import '../../layout_document_state.dart';
 import '../../layout_state.dart';
 import '../../midi_service.dart';
+import '../../widgets/manifest_editor_modal.dart';
 import '../../widgets/preset_management.dart';
 
 const _kAccent = Color(0xFFA6C9F8);
@@ -29,6 +31,8 @@ class FilesTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       children: const [
+        _ManifestMetadataSection(),
+        _FileDivider(),
         _InternalPresetSection(),
         _FileDivider(),
         _FullPresetSection(),
@@ -36,6 +40,46 @@ class FilesTab extends StatelessWidget {
         _ActivePageSection(),
         SizedBox(height: 32),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Manifest metadata section
+// ---------------------------------------------------------------------------
+
+class _ManifestMetadataSection extends ConsumerWidget {
+  const _ManifestMetadataSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final manifest = ref.watch(
+      layoutDocumentProvider.select((doc) => doc.manifest),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text('LAYOUT METADATA', style: _kSectionLabel),
+        ),
+        _FileCard(
+          icon: Icons.badge_outlined,
+          label: manifest.name.toUpperCase(),
+          subtitle:
+              'v${manifest.version} • By ${manifest.author} • Tap to edit details',
+          iconColor: _kAccent,
+          onTap: () => _handleEditMetadata(context),
+        ),
+      ],
+    );
+  }
+
+  void _handleEditMetadata(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const ManifestEditorModal(),
     );
   }
 }
