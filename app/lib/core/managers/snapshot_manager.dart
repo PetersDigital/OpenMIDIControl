@@ -10,12 +10,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/layout_document.dart';
 import '../models/layout_models.dart';
+import '../models/layout_schema_migrator.dart';
 import '../models/preset_snapshot.dart';
 
 final snapshotManagerProvider = Provider<SnapshotManager>((ref) {
   return SnapshotManager();
 });
+
+/// Result wrapper for layout document import operations providing upgrade metadata and status.
+class LayoutImportResult {
+  final LayoutDocument? document;
+  final bool wasUpgraded;
+  final String? errorMessage;
+
+  const LayoutImportResult({
+    this.document,
+    this.wasUpgraded = false,
+    this.errorMessage,
+  });
+
+  bool get isSuccess => document != null && errorMessage == null;
+}
+
+/// Result wrapper for single layout page import operations.
+class PageImportResult {
+  final LayoutPage? page;
+  final bool wasUpgraded;
+  final String? errorMessage;
+
+  const PageImportResult({
+    this.page,
+    this.wasUpgraded = false,
+    this.errorMessage,
+  });
+
+  bool get isSuccess => page != null && errorMessage == null;
+}
 
 class SnapshotManager {
   Future<Directory> get _presetsDir async {
@@ -29,8 +61,6 @@ class SnapshotManager {
 
   /// Sanitizes the preset name to prevent path traversal and illegal characters.
   String _sanitizeName(String name) {
-    // Only allow alphanumeric, spaces, underscores, and hyphens.
-    // This explicitly prevents '/', '\', '..', and other problematic characters.
     final sanitized = name.trim().replaceAll(RegExp(r'[^a-zA-Z0-9 _\-]'), '_');
     return sanitized.isEmpty ? 'unnamed_preset' : sanitized;
   }
@@ -49,7 +79,6 @@ class SnapshotManager {
       final sanitizedName = _sanitizeName(name);
       var file = File('${dir.path}/$sanitizedName.omc');
       if (!await file.exists()) {
-        // Fallback to legacy .json
         file = File('${dir.path}/$sanitizedName.json');
       }
       if (!await file.exists()) {
@@ -73,7 +102,6 @@ class SnapshotManager {
           final filename = entity.uri.pathSegments.last;
           presetNames.add(filename.substring(0, filename.length - 4));
         } else if (path.endsWith('.json')) {
-          // Include legacy JSON
           final filename = entity.uri.pathSegments.last;
           presetNames.add(filename.substring(0, filename.length - 5));
         }
@@ -91,6 +119,29 @@ class SnapshotManager {
     if (await fileJson.exists()) await fileJson.delete();
   }
 
+  /// Exports the layout document wrapped in the versioned [LayoutDocument] envelope.
+  Future<void> exportLayoutDocument(LayoutDocument document) async {
+    try {
+      final String jsonString = jsonEncode(document.toJson());
+      final directory = await getTemporaryDirectory();
+      final sanitizedFileName = _sanitizeName(
+        document.manifest.name,
+      ).toLowerCase();
+      final file = File('${directory.path}/$sanitizedFileName.omc');
+
+      await file.writeAsString(jsonString);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'OpenMIDIControl Layout: ${document.manifest.name}',
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error exporting layout document: $e');
+    }
+  }
+
+  /// Exports an active single page wrapped as a standalone [LayoutPage] JSON.
   Future<void> exportActiveLayout(LayoutPage page) async {
     try {
       final String jsonString = jsonEncode(page.toJson());
@@ -106,35 +157,100 @@ class SnapshotManager {
         ),
       );
     } catch (e) {
-      debugPrint('Error exporting layout: $e');
+      debugPrint('Error exporting active layout: $e');
     }
   }
 
-  Future<LayoutPage?> importLayout() async {
+  /// Imports a layout document with validation and schema migration.
+  Future<LayoutImportResult> importLayoutDocument({File? fileOverride}) async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['omc', 'json'],
-      );
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final String jsonString = await file.readAsString();
-        final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
-
-        // Simple check: LayoutPage has 'controls', PresetSnapshot has 'pages'
-        if (jsonMap.containsKey('controls')) {
-          return LayoutPage.fromJson(jsonMap);
-        } else if (jsonMap.containsKey('pages')) {
-          // User picked a full preset, maybe just return the first page?
-          // For now, let's just fail to import as layout.
-          debugPrint('File is a full Preset, not a single Page.');
-          return null;
+      File? targetFile = fileOverride;
+      if (targetFile == null) {
+        FilePickerResult? result = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['omc', 'json'],
+        );
+        if (result != null && result.files.single.path != null) {
+          targetFile = File(result.files.single.path!);
         }
       }
+
+      if (targetFile == null) {
+        return const LayoutImportResult();
+      }
+
+      final String content = await targetFile.readAsString();
+      final dynamic decoded = jsonDecode(content);
+      if (decoded is! Map<String, dynamic>) {
+        return const LayoutImportResult(
+          errorMessage: 'Invalid file format: Expected JSON object.',
+        );
+      }
+
+      final bool isLegacy = !decoded.containsKey('schemaVersion');
+      final LayoutDocument document = LayoutDocument.fromJson(decoded);
+
+      return LayoutImportResult(document: document, wasUpgraded: isLegacy);
+    } on UnsupportedSchemaVersionException catch (e) {
+      return LayoutImportResult(errorMessage: e.message);
+    } on FormatException catch (e) {
+      return LayoutImportResult(
+        errorMessage: 'Corrupted JSON file: ${e.message}',
+      );
     } catch (e) {
-      debugPrint('Error importing layout: $e');
+      return LayoutImportResult(errorMessage: 'Failed to import layout: $e');
     }
-    return null;
+  }
+
+  /// Imports a single layout page with validation.
+  Future<PageImportResult> importLayout({File? fileOverride}) async {
+    try {
+      File? targetFile = fileOverride;
+      if (targetFile == null) {
+        FilePickerResult? result = await FilePicker.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['omc', 'json'],
+        );
+        if (result != null && result.files.single.path != null) {
+          targetFile = File(result.files.single.path!);
+        }
+      }
+
+      if (targetFile == null) {
+        return const PageImportResult();
+      }
+
+      final String content = await targetFile.readAsString();
+      final dynamic decoded = jsonDecode(content);
+      if (decoded is! Map<String, dynamic>) {
+        return const PageImportResult(
+          errorMessage: 'Invalid file format: Expected JSON object.',
+        );
+      }
+
+      if (decoded.containsKey('controls')) {
+        return PageImportResult(page: LayoutPage.fromJson(decoded));
+      } else if (decoded.containsKey('pages')) {
+        // Document or preset provided: extract first page with upgrade note
+        final migrated = LayoutSchemaMigrator.migrate(decoded);
+        final doc = LayoutDocument.fromJson(migrated);
+        if (doc.pages.isNotEmpty) {
+          return PageImportResult(page: doc.pages.first, wasUpgraded: true);
+        }
+      }
+
+      return const PageImportResult(
+        errorMessage: 'File does not contain valid layout page controls.',
+      );
+    } on UnsupportedSchemaVersionException catch (e) {
+      return PageImportResult(errorMessage: e.message);
+    } on FormatException catch (e) {
+      return PageImportResult(
+        errorMessage: 'Corrupted JSON file: ${e.message}',
+      );
+    } catch (e) {
+      return PageImportResult(errorMessage: 'Failed to import page: $e');
+    }
   }
 
   Future<void> exportFullPreset(String name, PresetSnapshot preset) async {

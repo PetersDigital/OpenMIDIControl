@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'midi_service.dart';
+import 'layout_document_state.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
 import 'providers/config_ui_provider.dart';
@@ -133,7 +134,16 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
   @override
   void initState() {
     super.initState();
+    _initLayoutDocument();
     _checkFirstLaunch();
+  }
+
+  void _initLayoutDocument() {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(layoutDocumentProvider.notifier).initializeOnStartup();
+      }
+    });
   }
 
   @override

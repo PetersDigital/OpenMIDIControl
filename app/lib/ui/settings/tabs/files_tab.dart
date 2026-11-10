@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/managers/snapshot_manager.dart';
-import '../../../core/models/preset_snapshot.dart';
+import '../../layout_document_state.dart';
 import '../../layout_state.dart';
-import '../../midi_service.dart';
+import '../../widgets/manifest_editor_modal.dart';
 import '../../widgets/preset_management.dart';
 
 const _kAccent = Color(0xFFA6C9F8);
@@ -29,6 +29,8 @@ class FilesTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       children: const [
+        _ManifestMetadataSection(),
+        _FileDivider(),
         _InternalPresetSection(),
         _FileDivider(),
         _FullPresetSection(),
@@ -36,6 +38,46 @@ class FilesTab extends StatelessWidget {
         _ActivePageSection(),
         SizedBox(height: 32),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Manifest metadata section
+// ---------------------------------------------------------------------------
+
+class _ManifestMetadataSection extends ConsumerWidget {
+  const _ManifestMetadataSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final manifest = ref.watch(
+      layoutDocumentProvider.select((doc) => doc.manifest),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text('LAYOUT METADATA', style: _kSectionLabel),
+        ),
+        _FileCard(
+          icon: Icons.badge_outlined,
+          label: manifest.name.toUpperCase(),
+          subtitle:
+              'v${manifest.version} • By ${manifest.author} • Tap to edit details',
+          iconColor: _kAccent,
+          onTap: () => _handleEditMetadata(context),
+        ),
+      ],
+    );
+  }
+
+  void _handleEditMetadata(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const ManifestEditorModal(),
     );
   }
 }
@@ -122,43 +164,61 @@ class _FullPresetSection extends ConsumerWidget {
       children: [
         const Padding(
           padding: EdgeInsets.only(bottom: 12),
-          child: Text('FULL PRESET (.OMC)', style: _kSectionLabel),
+          child: Text('LAYOUT SHARING (.OMC)', style: _kSectionLabel),
         ),
         _FileCard(
           icon: Icons.share,
-          label: 'EXPORT FULL PRESET',
-          subtitle: 'Share your entire 4-page configuration as a file.',
+          label: 'EXPORT LAYOUT DOCUMENT',
+          subtitle: 'Share your layout envelope with metadata and all pages.',
           iconColor: _kAccent,
           onTap: () {
-            final snapshot = PresetSnapshot(
-              controlState: ref.read(controlStateProvider),
-              pages: ref.read(layoutStateProvider).pages,
-            );
-            ref
-                .read(snapshotManagerProvider)
-                .exportFullPreset('OMC_Preset', snapshot);
+            final document = ref.read(layoutDocumentProvider);
+            ref.read(snapshotManagerProvider).exportLayoutDocument(document);
           },
         ),
         const SizedBox(height: 8),
         _FileCard(
           icon: Icons.file_download,
-          label: 'IMPORT FULL PRESET',
-          subtitle: 'Load an entire configuration from an external .omc file.',
+          label: 'IMPORT LAYOUT DOCUMENT',
+          subtitle:
+              'Load a layout from an external .omc file with schema migration.',
           iconColor: _kAccent,
-          onTap: () => _handleImportFull(context, ref),
+          onTap: () => _handleImportDocument(context, ref),
         ),
       ],
     );
   }
 
-  Future<void> _handleImportFull(BuildContext context, WidgetRef ref) async {
-    final preset = await ref.read(snapshotManagerProvider).importFullPreset();
-    if (preset != null && context.mounted) {
-      ref.read(controlStateProvider.notifier).injectState(preset.controlState);
-      ref.read(layoutStateProvider.notifier).overwriteAllPages(preset.pages);
+  Future<void> _handleImportDocument(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final result = await ref
+        .read(snapshotManagerProvider)
+        .importLayoutDocument();
+    if (!context.mounted) return;
+
+    if (result.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Imported full OMC preset successfully.')),
+        SnackBar(
+          content: Text(result.errorMessage!),
+          backgroundColor: Colors.redAccent,
+        ),
       );
+      return;
+    }
+
+    if (result.document != null) {
+      await ref
+          .read(layoutDocumentProvider.notifier)
+          .setDocument(result.document!);
+      if (!context.mounted) return;
+      final message = result.wasUpgraded
+          ? 'Imported "${result.document!.manifest.name}" (Upgraded from legacy format).'
+          : 'Imported layout "${result.document!.manifest.name}" successfully.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 }
@@ -204,9 +264,27 @@ class _ActivePageSection extends ConsumerWidget {
   }
 
   Future<void> _handleImportPage(BuildContext context, WidgetRef ref) async {
-    final page = await ref.read(snapshotManagerProvider).importLayout();
-    if (page != null && context.mounted) {
-      ref.read(layoutStateProvider.notifier).overwriteActivePage(page);
+    final result = await ref.read(snapshotManagerProvider).importLayout();
+    if (!context.mounted) return;
+
+    if (result.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.errorMessage!),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (result.page != null) {
+      ref.read(layoutStateProvider.notifier).overwriteActivePage(result.page!);
+      final message = result.wasUpgraded
+          ? 'Imported page "${result.page!.name}" (Upgraded from layout).'
+          : 'Imported page "${result.page!.name}".';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 }
