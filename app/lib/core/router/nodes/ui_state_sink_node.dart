@@ -110,7 +110,6 @@ class UiStateSinkNode extends SinkNode {
               _hasPendingEmission = false;
             }
           });
-          SchedulerBinding.instance.ensureVisualUpdate();
         } else {
           _emitSnapshot();
           _hasPendingEmission = false;

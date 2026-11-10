@@ -150,10 +150,49 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     if (widget.isActive) {
       _setupMidiListeners();
     }
+
+    _registerLayoutListener();
+  }
+
+  void _registerLayoutListener() {
+    addManagedSubscription(
+      ref.listenManual(
+        layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
+        (prev, next) {
+          if (next != null &&
+              (next.defaultCc != _ccNumber ||
+                  next.channel != _midiChannel ||
+                  next.displayName != _ccLabel)) {
+            _batchStateUpdate({
+              'ccNumber': next.defaultCc,
+              'midiChannel': next.channel,
+              'ccLabel': next.displayName,
+              'lastPolledValue': null,
+            });
+            clearManagedSubscriptions();
+            addManagedSubscription(
+              ref.listenManual(
+                hotCcValueProvider("${next.channel}:${next.defaultCc}"),
+                (previous, nextVal) {
+                  if (nextVal is AsyncData) {
+                    final val = nextVal.value;
+                    if (val != null && val != _lastPolledValue) {
+                      final prevVal = _lastPolledValue;
+                      _lastPolledValue = val;
+                      _handleCcUpdate(prevVal, val);
+                    }
+                  }
+                },
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   void _setupMidiListeners() {
-    clearManagedResources();
+    clearManagedSubscriptions();
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
         previous,
@@ -191,7 +230,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         }
       } else {
         // Suspend heavy resources
-        clearManagedResources();
+        clearManagedSubscriptions();
         _animationController.stop();
         _vrrTicker?.stop();
         _stateDebounceTimer?.cancel();
@@ -407,40 +446,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
-    // Reactively update local state and subscriptions when global layout state changes
-    ref.listen(
-      layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
-      (prev, next) {
-        if (next != null &&
-            (next.defaultCc != _ccNumber ||
-                next.channel != _midiChannel ||
-                next.displayName != _ccLabel)) {
-          _batchStateUpdate({
-            'ccNumber': next.defaultCc,
-            'midiChannel': next.channel,
-            'ccLabel': next.displayName,
-            'lastPolledValue': null,
-          });
-          clearManagedResources();
-          addManagedSubscription(
-            ref.listenManual(
-              hotCcValueProvider("${next.channel}:${next.defaultCc}"),
-              (previous, nextVal) {
-                if (nextVal is AsyncData) {
-                  final val = nextVal.value;
-                  if (val != null && val != _lastPolledValue) {
-                    final prevVal = _lastPolledValue;
-                    _lastPolledValue = val;
-                    _handleCcUpdate(prevVal, val);
-                  }
-                }
-              },
-            ),
-          );
-        }
-      },
-    );
-
     final double labelFontSize = widget.isMobile ? 14.0 : 18.0;
     final double displayFontSize = widget.isMobile ? 40.0 : 60.0;
     final TextStyle displayTextStyle = TextStyle(

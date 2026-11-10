@@ -85,9 +85,15 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   /// Useful for re-configuring a widget reactively.
   void clearManagedResources() {
     for (final ticker in _managedTickers) {
+      ticker.stop();
       ticker.dispose();
     }
     _managedTickers.clear();
+    clearManagedSubscriptions();
+  }
+
+  /// Clears only managed subscriptions, leaving tickers intact.
+  void clearManagedSubscriptions() {
     for (final sub in _managedSubscriptions) {
       sub.close();
     }
