@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/managers/snapshot_manager.dart';
 import '../../layout_document_state.dart';
 import '../../layout_state.dart';
+import '../../widgets/layout_library_modal.dart';
 import '../../widgets/manifest_editor_modal.dart';
 import '../../widgets/preset_management.dart';
 
@@ -30,6 +31,8 @@ class FilesTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       children: const [
         _ManifestMetadataSection(),
+        _FileDivider(),
+        _LayoutLibrarySection(),
         _FileDivider(),
         _InternalPresetSection(),
         _FileDivider(),
@@ -87,6 +90,46 @@ class _FileDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       const Divider(color: Color(0x1AFFFFFF), height: 32);
+}
+
+// ---------------------------------------------------------------------------
+// Layout library section (LayoutStorageManager)
+// ---------------------------------------------------------------------------
+
+class _LayoutLibrarySection extends ConsumerWidget {
+  const _LayoutLibrarySection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text('SAVED LAYOUTS (LOCAL)', style: _kSectionLabel),
+        ),
+        _FileCard(
+          icon: Icons.dashboard_customize_outlined,
+          label: 'OPEN LAYOUT LIBRARY',
+          subtitle: 'Switch between or manage locally saved layout documents.',
+          iconColor: _kAccent,
+          onTap: () => _handleOpenLibrary(context),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleOpenLibrary(BuildContext context) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => const LayoutLibraryModal(),
+    );
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Switched to layout "$result".')));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
