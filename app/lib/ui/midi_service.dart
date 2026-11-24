@@ -223,6 +223,7 @@ class MidiService {
 
   final bool useBackgroundWorker;
   bool _isDisposed = false;
+  bool _isPaused = false;
   Timer? _initTimer;
 
   MidiService({this.useBackgroundWorker = true}) {
@@ -302,6 +303,9 @@ class MidiService {
       if (_isDisposed) return;
       if (message is SendPort) {
         _workerSendPort = message;
+        if (_isPaused) {
+          _workerSendPort!.send(('set_paused', true));
+        }
         if (_queuedEvents.isNotEmpty) {
           for (final e in _queuedEvents) {
             _workerSendPort!.send(TransferableTypedData.fromList([e]));
@@ -318,11 +322,16 @@ class MidiService {
       }
     });
 
-    _workerIsolate = await Isolate.spawn(
+    final isolate = await Isolate.spawn(
       _midiWorkerEntryPoint,
       _workerReceivePort.sendPort,
       debugName: 'MidiWorkerIsolate',
     );
+    if (_isDisposed) {
+      isolate.kill(priority: Isolate.immediate);
+      return;
+    }
+    _workerIsolate = isolate;
   }
 
   void _handleStateUpdate(Map<String, dynamic> updates) {
@@ -368,10 +377,12 @@ class MidiService {
   }
 
   void setPaused(bool paused) {
+    _isPaused = paused;
     final node = outgoingRouter.getNode('uiSyncSink');
     if (node is UiStateSinkNode) {
-      node.isPaused = paused;
+      node.setPaused(paused);
     }
+    _workerSendPort?.send(('set_paused', paused));
   }
 
   void _setupRouters() {
@@ -1069,10 +1080,19 @@ class ControlStateNotifier extends Notifier<ControlState> {
       yield current;
     }
 
-    final controller = _hotCcControllers.putIfAbsent(
-      address,
-      () => StreamController<int>.broadcast(),
-    );
+    final controller = _hotCcControllers.putIfAbsent(address, () {
+      late final StreamController<int> created;
+      created = StreamController<int>.broadcast(
+        onCancel: () {
+          if (!created.hasListener &&
+              identical(_hotCcControllers[address], created)) {
+            _hotCcControllers.remove(address);
+            created.close();
+          }
+        },
+      );
+      return created;
+    });
     yield* controller.stream;
   }
 
@@ -1272,20 +1292,23 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
   mainSendPort.send(receivePort.sendPort);
 
   final incomingRouter = MidiRouter();
-  incomingRouter.addNode('source', SplitNode());
-  incomingRouter.addNode(
-    'uiStateSink',
-    UiStateSinkNode(
-      onStateUpdate: (batchUpdates) {
-        if (batchUpdates.isNotEmpty) {
-          mainSendPort.send(('state_update', batchUpdates));
-        }
-      },
-    ),
+  final uiStateSink = UiStateSinkNode(
+    useTimerOnly: true,
+    onStateUpdate: (batchUpdates) {
+      if (batchUpdates.isNotEmpty) {
+        mainSendPort.send(('state_update', batchUpdates));
+      }
+    },
   );
+  incomingRouter.addNode('source', SplitNode());
+  incomingRouter.addNode('uiStateSink', uiStateSink);
   incomingRouter.addEdge('source', 'uiStateSink');
 
   receivePort.listen((message) {
+    if (message is (String, dynamic) && message.$1 == 'set_paused') {
+      uiStateSink.setPaused(message.$2 as bool);
+      return;
+    }
     final Int64List? data = switch (message) {
       TransferableTypedData ttd => ttd.materialize().asInt64List(),
       Int64List list => list,
