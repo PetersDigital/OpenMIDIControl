@@ -1,8 +1,12 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/core/managers/layout_storage_manager.dart';
 import 'package:app/ui/layout_document_state.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/core/models/layout_models.dart';
@@ -12,11 +16,33 @@ import 'package:app/core/models/layout_document.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late Directory tempDir;
+  late LayoutStorageManager storageManager;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('omc_doc_state_test_');
+    SharedPreferences.setMockInitialValues({});
+    storageManager = LayoutStorageManager(
+      customDirProvider: () async => tempDir,
+      customPrefsProvider: () => SharedPreferences.getInstance(),
+    );
+  });
+
+  tearDown(() async {
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
   group('LayoutDocumentNotifier Tests', () {
     test(
       'initializes with default manifest and mirrors layoutStateProvider pages',
       () {
-        final container = ProviderContainer();
+        final container = ProviderContainer(
+          overrides: [
+            layoutStorageManagerProvider.overrideWithValue(storageManager),
+          ],
+        );
         addTearDown(container.dispose);
 
         final doc = container.read(layoutDocumentProvider);
@@ -30,7 +56,11 @@ void main() {
     );
 
     test('updateManifest modifies manifest properties', () {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          layoutStorageManagerProvider.overrideWithValue(storageManager),
+        ],
+      );
       addTearDown(container.dispose);
 
       container
@@ -53,8 +83,12 @@ void main() {
 
     test(
       'setDocument replaces active document and syncs layoutStateProvider',
-      () {
-        final container = ProviderContainer();
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            layoutStorageManagerProvider.overrideWithValue(storageManager),
+          ],
+        );
         addTearDown(container.dispose);
 
         final newPage = LayoutPage(
@@ -75,7 +109,9 @@ void main() {
           activePageIndex: 0,
         );
 
-        container.read(layoutDocumentProvider.notifier).setDocument(newDoc);
+        await container
+            .read(layoutDocumentProvider.notifier)
+            .setDocument(newDoc);
 
         final activeDoc = container.read(layoutDocumentProvider);
         expect(activeDoc.manifest.id, 'custom_doc_id');
