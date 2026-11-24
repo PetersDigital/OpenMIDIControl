@@ -48,11 +48,11 @@ class LayoutDocumentNotifier extends Notifier<LayoutDocument> {
       }
     });
 
-    // Listen to app lifecycle events to immediately flush pending saves before pause/detach
+    // Listen to app lifecycle events to flush dirty pending saves on pause/detach
     ref.listen(appLifecycleStateProvider, (previous, next) {
-      if (next == AppLifecycleState.paused ||
-          next == AppLifecycleState.inactive ||
-          next == AppLifecycleState.detached) {
+      if ((next == AppLifecycleState.paused ||
+              next == AppLifecycleState.detached) &&
+          (_debounceTimer?.isActive ?? false)) {
         flushSave();
       }
     });

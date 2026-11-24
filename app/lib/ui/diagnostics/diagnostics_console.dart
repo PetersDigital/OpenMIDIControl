@@ -58,7 +58,6 @@ class DiagnosticsConsole extends ConsumerWidget {
                     ),
                   )
                 : ListView.builder(
-                    key: ValueKey(state.version),
                     itemCount: logs.length,
                     itemBuilder: (context, index) {
                       final entry = logs[index];

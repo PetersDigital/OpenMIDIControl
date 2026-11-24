@@ -163,6 +163,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
         final isTest = Platform.environment.containsKey('FLUTTER_TEST');
         if (isTest) {
           final isFirstLaunch = await ref.read(firstLaunchCheckProvider.future);
+          if (!mounted) return;
           if (isFirstLaunch) {
             ref.read(transportVisibleProvider.notifier).setVisible(true);
 
@@ -188,6 +189,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
               final isFirstLaunch = await ref.read(
                 firstLaunchCheckProvider.future,
               );
+              if (!mounted) return;
               if (isFirstLaunch) {
                 ref.read(transportVisibleProvider.notifier).setVisible(true);
 
@@ -1055,102 +1057,104 @@ class _DynamicConnectionIslandState
             _showMidiSettings(context, ref);
           }
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOutCubic,
-          height: 36,
-          // Finite constraints for smooth lerp
-          constraints: BoxConstraints(
-            minWidth: 36,
-            maxWidth: _isExpanded ? 500 : 36,
-          ),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2024),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: statusColor.withValues(alpha: 0.3),
-              width: 1.5,
+        child: RepaintBoundary(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+            height: 36,
+            // Finite constraints for smooth lerp
+            constraints: BoxConstraints(
+              minWidth: 36,
+              maxWidth: _isExpanded ? 500 : 36,
             ),
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer scroll view suppresses overflow errors for the whole row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                clipBehavior: Clip.none,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: _isExpanded ? 16 : 10.5,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // The Dot
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E2024),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: statusColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer scroll view suppresses overflow errors for the whole row
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  clipBehavior: Clip.none,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: _isExpanded ? 16 : 10.5,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // The Dot
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      // Expansion Spacer
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 400),
-                        curve: Curves.easeInOutCubic,
-                        width: _isExpanded ? 12 : 0,
-                      ),
-                      // Expanded content
-                      AnimatedOpacity(
-                        opacity: _isExpanded ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                        child: AnimatedContainer(
+                        // Expansion Spacer
+                        AnimatedContainer(
                           duration: const Duration(milliseconds: 400),
                           curve: Curves.easeInOutCubic,
-                          constraints: BoxConstraints(
-                            maxWidth: _isExpanded ? 400 : 0,
-                          ),
-                          // Inner scroll view suppresses overflow errors for the text row
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            clipBehavior: Clip.none,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  statusText,
-                                  style: AppText.system(
-                                    color: statusColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
+                          width: _isExpanded ? 12 : 0,
+                        ),
+                        // Expanded content
+                        AnimatedOpacity(
+                          opacity: _isExpanded ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                            constraints: BoxConstraints(
+                              maxWidth: _isExpanded ? 400 : 0,
+                            ),
+                            // Inner scroll view suppresses overflow errors for the text row
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const NeverScrollableScrollPhysics(),
+                              clipBehavior: Clip.none,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    statusText,
+                                    style: AppText.system(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                    maxLines: 1,
                                   ),
-                                  maxLines: 1,
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.settings_ethernet,
-                                  color: statusColor.withValues(alpha: 0.7),
-                                  size: 16,
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.settings_ethernet,
+                                    color: statusColor.withValues(alpha: 0.7),
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1404,22 +1408,24 @@ class GlobalConfigProgressBar extends ConsumerWidget {
 
     if (progress <= 0) return const SizedBox.shrink();
 
-    return Container(
-      height: 3,
-      width: double.infinity,
-      color: Colors.transparent,
-      alignment: Alignment.centerLeft,
-      child: FractionallySizedBox(
-        widthFactor: progress,
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF9575CD), // Purple
-                Color(0xFFEBC351), // Gold
-              ],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
+    return RepaintBoundary(
+      child: Container(
+        height: 3,
+        width: double.infinity,
+        color: Colors.transparent,
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: progress,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF9575CD), // Purple
+                  Color(0xFFEBC351), // Gold
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
             ),
           ),
         ),
