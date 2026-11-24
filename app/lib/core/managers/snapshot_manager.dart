@@ -161,19 +161,22 @@ class SnapshotManager {
     }
   }
 
+  /// Picks a `.omc` or `.json` file via the system file picker.
+  Future<File?> _pickLayoutFile() async {
+    final List<PlatformFile> files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['omc', 'json'],
+    );
+    if (files.isNotEmpty && files.first.path != null) {
+      return File(files.first.path!);
+    }
+    return null;
+  }
+
   /// Imports a layout document with validation and schema migration.
   Future<LayoutImportResult> importLayoutDocument({File? fileOverride}) async {
     try {
-      File? targetFile = fileOverride;
-      if (targetFile == null) {
-        FilePickerResult? result = await FilePicker.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: ['omc', 'json'],
-        );
-        if (result != null && result.files.single.path != null) {
-          targetFile = File(result.files.single.path!);
-        }
-      }
+      final File? targetFile = fileOverride ?? await _pickLayoutFile();
 
       if (targetFile == null) {
         return const LayoutImportResult();
@@ -208,16 +211,7 @@ class SnapshotManager {
   /// Imports a single layout page with validation.
   Future<PageImportResult> importLayout({File? fileOverride}) async {
     try {
-      File? targetFile = fileOverride;
-      if (targetFile == null) {
-        FilePickerResult? result = await FilePicker.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: ['omc', 'json'],
-        );
-        if (result != null && result.files.single.path != null) {
-          targetFile = File(result.files.single.path!);
-        }
-      }
+      final File? targetFile = fileOverride ?? await _pickLayoutFile();
 
       if (targetFile == null) {
         return const PageImportResult();
@@ -283,12 +277,8 @@ class SnapshotManager {
 
   Future<PresetSnapshot?> importFullPreset() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['omc', 'json'],
-      );
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
+      final file = await _pickLayoutFile();
+      if (file != null) {
         final String jsonString = await file.readAsString();
         final jsonMap = jsonDecode(jsonString) as Map<String, dynamic>;
 
