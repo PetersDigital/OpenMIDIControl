@@ -124,13 +124,14 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **In-Editor Control Config**: Quick access settings handle for configuring controls directly in edit mode.
 - **Undo Control Deletion**: Interactive SnackBar undo action to restore accidentally deleted controls.
 
-### ⏳ Current Focus: v0.4.3 (Persistence & Marketplace)
+### ✅ v0.4.3 – Persistence & Marketplace (Local Foundation)
 
-- **JSON Schema Versioning**: Layout serialization, deserialization, and schema migration.
-- **Manifest Metadata**: Author, version, tags, and layout sharing metadata.
-- **Import / Export**: Local and cloud file sharing of custom layouts.
+- **JSON Schema Versioning & Migration**: `LayoutDocument` envelope (`schemaVersion: 1`), `LayoutManifest` metadata model, and extensible `LayoutSchemaMigrator` pipeline for v0→v1 upgrades of legacy layouts and `PresetSnapshot` files.
+- **Manifest Metadata UI**: `LayoutDocumentNotifier` and `ManifestEditorModal` in `FilesTab` for editing layout name, author, version, description, and comma-separated tags.
+- **Local Storage Persistence**: `LayoutStorageManager` saving `.omc` layout documents under `<app_documents>/layouts/{id}.omc`, `SharedPreferences` active document tracking, 1000ms debounced auto-save, lifecycle background flush, startup restoration, and `LayoutLibraryModal` for browsing/switching/deleting saved layouts.
+- **Hardened Import / Export**: Envelope-wrapped `.omc` sharing and validated imports with automatic legacy migration and SnackBar feedback.
 
-### ⏳ v0.5.x – The MCU / HUI Protocol Series
+### ⏳ Current Focus: v0.5.x – The MCU / HUI Protocol Series
 
 #### ⏱️ v0.5.0 (Core Logic): Basic MCU protocol mapping and native UMP high-resolution control
 

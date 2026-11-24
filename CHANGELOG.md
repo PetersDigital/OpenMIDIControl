@@ -21,9 +21,10 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 - **LayoutDocumentNotifier & Riverpod State Wiring**: Dedicated state manager for active `LayoutDocument` metadata, delegating layout structure mutations to `LayoutStateNotifier`.
 - **Manifest Editor Modal**: Clean modal dialog accessible from the Files tab for viewing and updating layout name, author, version, description, and comma-separated tags.
 - **LayoutStorageManager Repository**: Local file persistence engine saving and listing `.omc` layout documents in `<app_documents>/layouts/{id}.omc` with active layout tracking via `SharedPreferences`.
-- **Debounced Auto-Save & Flush**: Automatic 1000ms debounced persistence of layout state and manifest mutations, plus immediate non-debounced flush capabilities.
+- **Debounced Auto-Save & Lifecycle Flush**: Automatic 1000ms debounced persistence of layout state and manifest mutations, plus immediate flush on app backgrounding (`paused`/`inactive`/`detached`) via `appLifecycleStateProvider`.
+- **Layout Library Modal**: Browser dialog (`LayoutLibraryModal`) accessible from the Files tab for listing, switching, and deleting locally saved `.omc` layout documents.
 - **Startup Loading**: Automatic restoration of active layout document on launch, with initial default document generation and persistence on first run.
-- **Hardened Import/Export Pipelines**: Upgraded `SnapshotManager` with `exportLayoutDocument` and `importLayoutDocument`, preserving `.omc` file extension continuity while migrating incoming legacy formats and providing descriptive SnackBar upgrade feedback.
+- **Hardened Import/Export Pipelines**: Upgraded `SnapshotManager` with `exportLayoutDocument` and `importLayoutDocument`, preserving `.omc` file extension continuity while migrating incoming legacy formats (named `Imported Layout` by default) and providing descriptive SnackBar upgrade feedback.
 
 ### Changed
 
