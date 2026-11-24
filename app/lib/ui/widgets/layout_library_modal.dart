@@ -139,51 +139,56 @@ class _LayoutLibraryModalState extends ConsumerState<LayoutLibraryModal> {
                               : const Color(0x14FFFFFF),
                         ),
                       ),
-                      child: ListTile(
-                        dense: true,
-                        title: Text(
-                          doc.manifest.name,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: isActive
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          dense: true,
+                          title: Text(
+                            doc.manifest.name,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: isActive
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          'v${doc.manifest.version} • ${doc.pages.length} page(s)'
-                          '${isActive ? ' (ACTIVE)' : ''}',
-                          style: TextStyle(
-                            color: isActive
-                                ? const Color(0xFFA6C9F8)
-                                : Colors.white38,
-                            fontSize: 11,
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!isActive)
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 18,
-                                  color: Colors.white38,
-                                ),
-                                onPressed: () => _deleteLayout(doc),
-                              ),
-                            Icon(
-                              isActive
-                                  ? Icons.check_circle
-                                  : Icons.chevron_right,
+                          subtitle: Text(
+                            'v${doc.manifest.version} • ${doc.pages.length} page(s)'
+                            '${isActive ? ' (ACTIVE)' : ''}',
+                            style: TextStyle(
                               color: isActive
                                   ? const Color(0xFFA6C9F8)
-                                  : Colors.white24,
-                              size: 18,
+                                  : Colors.white38,
+                              fontSize: 11,
                             ),
-                          ],
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isActive)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: Colors.white38,
+                                  ),
+                                  onPressed: () => _deleteLayout(doc),
+                                ),
+                              Icon(
+                                isActive
+                                    ? Icons.check_circle
+                                    : Icons.chevron_right,
+                                color: isActive
+                                    ? const Color(0xFFA6C9F8)
+                                    : Colors.white24,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                          onTap: isActive ? null : () => _selectLayout(doc),
                         ),
-                        onTap: isActive ? null : () => _selectLayout(doc),
                       ),
                     );
                   }).toList(),
