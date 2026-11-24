@@ -13,6 +13,7 @@ import 'performance_ticker_mixin.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
 import 'layout_state.dart';
+import '../core/models/layout_models.dart';
 
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
 
@@ -46,10 +47,7 @@ class HybridTouchFader extends ConsumerStatefulWidget {
 }
 
 class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        PerformanceTickerMixin {
+    with TickerProviderStateMixin, PerformanceTickerMixin {
   late AnimationController _animationController;
   late int _ccNumber;
   int _midiChannel = 0;
@@ -75,8 +73,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   bool _isVisualUpdateQueued = false;
 
   SpringSimulation? _springSimulation;
-  Ticker? _vrrTicker;
   int? _lastPolledValue;
+  ProviderSubscription<LayoutControl?>? _layoutSubscription;
 
   Timer? _stateDebounceTimer;
   final Map<String, dynamic> _pendingStateChanges = {};
@@ -112,9 +110,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   void initState() {
     super.initState();
     initPerformanceMixin();
-    _vrrTicker = createManagedTicker(
-      (_) {},
-    ); // Dummy callback, ticker is only used for animateWith vsync
     _throttleStopwatch = Stopwatch()..start();
     _midiThrottleStopwatch = Stopwatch()..start();
     _ccNumber = widget.ccNumber;
@@ -142,7 +137,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         if (distance < 0.001 && velocity < 0.001) {
           _animationController.stop();
           _animationController.value = target;
-          _vrrTicker?.stop();
         }
       }
     });
@@ -155,46 +149,39 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _registerLayoutListener() {
-    addManagedSubscription(
-      ref.listenManual(
-        layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
-        (prev, next) {
-          if (next != null &&
-              (next.defaultCc != _ccNumber ||
-                  next.channel != _midiChannel ||
-                  next.displayName != _ccLabel)) {
-            _batchStateUpdate({
-              'ccNumber': next.defaultCc,
-              'midiChannel': next.channel,
-              'ccLabel': next.displayName,
-              'lastPolledValue': null,
-            });
-            clearManagedSubscriptions();
-            addManagedSubscription(
-              ref.listenManual(
-                hotCcValueProvider("${next.channel}:${next.defaultCc}"),
-                (previous, nextVal) {
-                  if (nextVal is AsyncData) {
-                    final val = nextVal.value;
-                    if (val != null && val != _lastPolledValue) {
-                      final prevVal = _lastPolledValue;
-                      _lastPolledValue = val;
-                      _handleCcUpdate(prevVal, val);
-                    }
-                  }
-                },
-              ),
+    _layoutSubscription?.close();
+    _layoutSubscription = ref.listenManual(
+      layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
+      (prev, next) {
+        if (next != null &&
+            (next.defaultCc != _ccNumber ||
+                next.channel != _midiChannel ||
+                next.displayName != _ccLabel)) {
+          _batchStateUpdate({
+            'ccNumber': next.defaultCc,
+            'midiChannel': next.channel,
+            'ccLabel': next.displayName,
+            'lastPolledValue': null,
+          });
+          if (widget.isActive) {
+            _setupMidiListeners(
+              channel: next.channel,
+              ccNumber: next.defaultCc,
             );
+          } else {
+            clearManagedSubscriptions();
           }
-        },
-      ),
+        }
+      },
     );
   }
 
-  void _setupMidiListeners() {
+  void _setupMidiListeners({int? channel, int? ccNumber}) {
+    final targetChannel = channel ?? _midiChannel;
+    final targetCc = ccNumber ?? _ccNumber;
     clearManagedSubscriptions();
     addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$_midiChannel:$_ccNumber"), (
+      ref.listenManual(hotCcValueProvider("$targetChannel:$targetCc"), (
         previous,
         next,
       ) {
@@ -209,6 +196,13 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         }
       }),
     );
+  }
+
+  @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _animationController.stop();
+    }
   }
 
   @override
@@ -232,7 +226,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         // Suspend heavy resources
         clearManagedSubscriptions();
         _animationController.stop();
-        _vrrTicker?.stop();
         _stateDebounceTimer?.cancel();
       }
     }
@@ -240,6 +233,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   void dispose() {
+    _layoutSubscription?.close();
+    _layoutSubscription = null;
     _stateDebounceTimer?.cancel();
     _animationController.dispose();
     disposePerformanceMixin();
@@ -419,7 +414,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   );
 
   void _animateToIncomingValue(double incomingNormalized) {
-    safeStartTicker(_vrrTicker);
     if (_springSimulation == null) {
       _springSimulation = SpringSimulation(
         _springDesc,
@@ -427,9 +421,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         0.0,
       );
-      _animationController
-          .animateWith(_springSimulation!)
-          .whenComplete(() => _vrrTicker?.stop());
+      _animationController.animateWith(_springSimulation!);
     } else {
       // Retarget the existing simulation
       _springSimulation = SpringSimulation(
@@ -438,9 +430,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         incomingNormalized,
         _animationController.velocity,
       );
-      _animationController
-          .animateWith(_springSimulation!)
-          .whenComplete(() => _vrrTicker?.stop());
+      _animationController.animateWith(_springSimulation!);
     }
   }
 

@@ -41,10 +41,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
 }
 
 class _HybridXYPadState extends ConsumerState<HybridXYPad>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        PerformanceTickerMixin {
+    with TickerProviderStateMixin, PerformanceTickerMixin {
   bool _isDragging = false;
   double _normalizedX = 0.5;
   double _normalizedY = 0.5;
@@ -84,12 +81,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     }
   }
 
-  void _setupMidiListeners() {
-    clearManagedResources();
+  void _setupMidiListeners({int? channel, int? ccX, int? ccY}) {
+    clearManagedSubscriptions();
     final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channelSub = controlSub?.channel ?? widget.channel;
-    final ccXSub = controlSub?.defaultCc ?? widget.ccX;
-    final ccYSub = controlSub?.secondaryCc ?? widget.ccY;
+    final channelSub = channel ?? controlSub?.channel ?? widget.channel;
+    final ccXSub = ccX ?? controlSub?.defaultCc ?? widget.ccX;
+    final ccYSub = ccY ?? controlSub?.secondaryCc ?? widget.ccY;
 
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
@@ -154,6 +151,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         });
       } else {
         // Suspend resources
+        clearManagedSubscriptions();
         _throttleTimer?.cancel();
       }
     }
@@ -291,38 +289,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
-        clearManagedResources();
-        final channelSub = next?.channel ?? widget.channel;
-        final ccXSub = next?.defaultCc ?? widget.ccX;
-        final ccYSub = next?.secondaryCc ?? widget.ccY;
-
-        addManagedSubscription(
-          ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
-            previous,
-            current,
-          ) {
-            if (current is AsyncData) {
-              final valX = current.value;
-              if (valX != null && valX != _lastPolledX) {
-                _lastPolledX = valX;
-                _handleXUpdate(valX);
-              }
-            }
-          }),
-        );
-        addManagedSubscription(
-          ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
-            previous,
-            current,
-          ) {
-            if (current is AsyncData) {
-              final valY = current.value;
-              if (valY != null && valY != _lastPolledY) {
-                _lastPolledY = valY;
-                _handleYUpdate(valY);
-              }
-            }
-          }),
+        clearManagedSubscriptions();
+        if (!widget.isActive) return;
+        _setupMidiListeners(
+          channel: next?.channel ?? widget.channel,
+          ccX: next?.defaultCc ?? widget.ccX,
+          ccY: next?.secondaryCc ?? widget.ccY,
         );
       }
     });

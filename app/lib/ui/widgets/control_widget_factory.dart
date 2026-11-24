@@ -93,6 +93,7 @@ class ControlWidgetFactory {
                       channel: control.channel == -1 ? 0 : control.channel,
                       cc: isUnassigned ? 0 : cc,
                       showChannelLabel: false,
+                      isActive: isActive,
                     ),
                   ),
                 ),

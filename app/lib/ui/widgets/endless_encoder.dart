@@ -13,6 +13,7 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int cc;
   final double sensitivity;
   final bool showChannelLabel;
+  final bool isActive;
 
   const EndlessEncoderWidget({
     super.key,
@@ -20,6 +21,7 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
     required this.cc,
     this.sensitivity = 1.5,
     this.showChannelLabel = true,
+    this.isActive = true,
   });
 
   @override
@@ -28,10 +30,7 @@ class EndlessEncoderWidget extends ConsumerStatefulWidget {
 }
 
 class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        PerformanceTickerMixin {
+    with TickerProviderStateMixin, PerformanceTickerMixin {
   int _currentValue = 0;
   double _accumulatedDelta = 0.0;
   bool _isDragging = false;
@@ -43,7 +42,14 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void initState() {
     super.initState();
     initPerformanceMixin();
-    // Initialize from current state
+    _syncFromControlState();
+
+    if (widget.isActive) {
+      _setupMidiListener();
+    }
+  }
+
+  void _syncFromControlState() {
     final hotValue = ref
         .read(controlStateProvider)
         .ccValues["${widget.channel}:${widget.cc}"];
@@ -51,12 +57,16 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       _currentValue = hotValue;
       _lastPolledValue = hotValue;
     }
+  }
 
+  void _setupMidiListener() {
+    clearManagedSubscriptions();
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
         previous,
         next,
       ) {
+        if (!widget.isActive) return;
         if (next is AsyncData) {
           final val = next.value;
           if (_isDragging) return;
@@ -71,6 +81,27 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
         }
       }),
     );
+  }
+
+  @override
+  void didUpdateWidget(EndlessEncoderWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      if (widget.isActive) {
+        _setupMidiListener();
+        _syncFromControlState();
+      } else {
+        clearManagedSubscriptions();
+        _throttleTimer?.cancel();
+      }
+    } else if (oldWidget.channel != widget.channel ||
+        oldWidget.cc != widget.cc) {
+      _lastPolledValue = null;
+      _syncFromControlState();
+      if (widget.isActive) {
+        _setupMidiListener();
+      }
+    }
   }
 
   @override
