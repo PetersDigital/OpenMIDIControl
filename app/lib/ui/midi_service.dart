@@ -285,7 +285,7 @@ class MidiService {
         }
 
         if (_workerSendPort != null) {
-          _workerSendPort!.send(event);
+          _workerSendPort!.send(TransferableTypedData.fromList([event]));
         } else {
           if (_queuedEvents.length >= _maxQueuedBatches) {
             _queuedEvents.removeAt(0); // Drop oldest
@@ -304,7 +304,7 @@ class MidiService {
         _workerSendPort = message;
         if (_queuedEvents.isNotEmpty) {
           for (final e in _queuedEvents) {
-            _workerSendPort!.send(e);
+            _workerSendPort!.send(TransferableTypedData.fromList([e]));
           }
           _queuedEvents.clear();
         }
@@ -1286,9 +1286,14 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
   incomingRouter.addEdge('source', 'uiStateSink');
 
   receivePort.listen((message) {
-    if (message is Int64List) {
-      final int usedLongCount = message.isNotEmpty ? message[0] : 0;
-      final events = _LazyMidiEventList(message, usedLongCount);
+    final Int64List? data = switch (message) {
+      TransferableTypedData ttd => ttd.materialize().asInt64List(),
+      Int64List list => list,
+      _ => null,
+    };
+    if (data != null) {
+      final int usedLongCount = data.isNotEmpty ? data[0] : 0;
+      final events = _LazyMidiEventList(data, usedLongCount);
       incomingRouter.process('source', events);
     }
   });
