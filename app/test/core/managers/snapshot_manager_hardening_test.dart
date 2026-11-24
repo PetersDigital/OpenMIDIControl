@@ -85,6 +85,7 @@ void main() {
         expect(result.isSuccess, isTrue);
         expect(result.wasUpgraded, isTrue);
         expect(result.document!.schemaVersion, 1);
+        expect(result.document!.manifest.name, 'Imported Layout');
         expect(result.document!.pages.first.name, 'DRUMS');
       },
     );
