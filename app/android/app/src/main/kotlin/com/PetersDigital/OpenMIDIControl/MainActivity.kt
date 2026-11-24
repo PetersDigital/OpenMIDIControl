@@ -101,12 +101,16 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             try {
-                if (payload[0] > 0) {
+                val usedLongs = payload[0].toInt().coerceIn(0, payload.size - 1)
+                if (usedLongs > 0) {
+                    // Slice to active payload size so JNI StandardMessageCodec does not serialize
+                    // the full 16 KB buffer on every batch, while preserving [usedLongs, ump, ts...].
+                    val trimmed = payload.copyOf(1 + usedLongs)
                     // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
                     // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
                     // until the UI thread has acknowledged the message, preventing queue flooding.
                     withContext(Dispatchers.Main.immediate) {
-                        eventSink?.success(payload)
+                        eventSink?.success(trimmed)
                     }
                 }
             } finally {
@@ -632,7 +636,14 @@ class MainActivity : FlutterActivity() {
         }
 
         midiManager?.openDevice(deviceInfo, { device ->
+            if (isDestroyed || isFinishing) {
+                device?.close()
+                return@openDevice
+            }
             if (device != null) {
+                // Tear down any previous connection before replacing hostMidiBackend.
+                disconnectDevice()
+
                 var inputPort: MidiInputPort? = null
                 var outputPort: MidiOutputPort? = null
 
@@ -697,6 +708,9 @@ class MainActivity : FlutterActivity() {
     private fun setupMidiReceiver() {
         val backend = hostMidiBackend ?: return
         val backendId = backend.portId
+
+        // Ensure no orphaned session coroutine remains for this backendId.
+        activeSessions.remove(backendId)?.job?.cancel()
 
         val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
         val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
@@ -886,13 +900,12 @@ class MainActivity : FlutterActivity() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            // Backgrounded or memory constrained: hint the system and runtime to trim memory
-            System.gc()
-        }
     }
 
     override fun onDestroy() {
+        mainThreadHandler.removeCallbacksAndMessages(null)
+        eventSink = null
+        systemEventSink = null
         coroutineScope.cancel()
         teardownMidiDeviceCallback()
         try {
