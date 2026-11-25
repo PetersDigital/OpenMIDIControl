@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import '../midi_utils.dart';
+
 enum NoteVelocityMode { fixed, touchPosition }
 
 enum NoteVelocityCurve { linear, drumPad }
@@ -25,6 +27,22 @@ enum McuTransportAction {
 /// A persisted MIDI action assignment for a layout control or axis.
 sealed class ActionPayload {
   const ActionPayload();
+
+  int? get midiChannel => switch (this) {
+    CcPayload(:final channel) ||
+    RelativeCcPayload(:final channel) ||
+    NotePayload(:final channel) ||
+    PitchBendPayload(:final channel) => channel,
+    McuActionPayload() => null,
+  };
+
+  String get displayLabel => switch (this) {
+    CcPayload(:final cc) => 'CC $cc',
+    NotePayload(:final note) => MidiUtils.getNoteName(note),
+    PitchBendPayload() => 'Pitch Bend',
+    RelativeCcPayload(:final cc) => 'Relative CC $cc',
+    McuActionPayload() => 'MCU',
+  };
 
   factory ActionPayload.fromJson(Map<String, dynamic> json) {
     return switch (json['type']) {

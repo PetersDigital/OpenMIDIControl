@@ -7,11 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
+import '../midi_action_dispatcher.dart';
 import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
 import 'config_gesture_wrapper.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
+import '../../core/models/action_payload.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -58,19 +60,36 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   int? _lastPolledY;
 
   LayoutControl? _cachedControl;
+  final _xAction = MidiActionDispatcher();
+  final _yAction = MidiActionDispatcher();
+
+  int get _channel => _cachedControl?.channel ?? widget.channel;
+  int get _ccX => _cachedControl?.defaultCc ?? widget.ccX;
+  int get _ccY => _cachedControl?.secondaryCc ?? widget.ccY;
+  bool get _invertX => _cachedControl?.invertX ?? widget.invertX;
+  bool get _invertY => _cachedControl?.invertY ?? widget.invertY;
+  double get _midiX => _invertX ? 1.0 - _normalizedX : _normalizedX;
+  double get _midiY => _invertY ? 1.0 - _normalizedY : _normalizedY;
+  String? get _feedbackX =>
+      ccFeedbackAddress(_cachedControl?.payload, _channel, _ccX);
+  String? get _feedbackY =>
+      ccFeedbackAddress(_cachedControl?.secondaryPayload, _channel, _ccY);
+
+  String _axisLabel(ActionPayload? payload, int legacyCc) => switch (payload) {
+    CcPayload(:final cc) => 'CC$cc',
+    null => 'CC$legacyCc',
+    _ => payload.displayLabel,
+  };
 
   @override
   void initState() {
     super.initState();
     initPerformanceMixin();
-    final control = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channel = control?.channel ?? widget.channel;
-    final ccX = control?.defaultCc ?? widget.ccX;
-    final ccY = control?.secondaryCc ?? widget.ccY;
+    _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
 
     final controlState = ref.read(controlStateProvider);
-    final hotX = controlState.ccValues["$channel:$ccX"];
-    final hotY = controlState.ccValues["$channel:$ccY"];
+    final hotX = controlState.ccValues[_feedbackX];
+    final hotY = controlState.ccValues[_feedbackY];
 
     final double initX = hotX != null ? hotX / 127.0 : 0.5;
     final double initY = hotY != null ? hotY / 127.0 : 0.5;
@@ -81,43 +100,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     }
   }
 
-  void _setupMidiListeners({int? channel, int? ccX, int? ccY}) {
+  void _setupMidiListeners() {
     clearManagedSubscriptions();
-    final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channelSub = channel ?? controlSub?.channel ?? widget.channel;
-    final ccXSub = ccX ?? controlSub?.defaultCc ?? widget.ccX;
-    final ccYSub = ccY ?? controlSub?.secondaryCc ?? widget.ccY;
-
-    addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
-        previous,
-        next,
-      ) {
-        if (!widget.isActive) return;
-        if (next is AsyncData) {
-          final valX = next.value;
-          if (valX != null && valX != _lastPolledX) {
-            _lastPolledX = valX;
-            _handleXUpdate(valX);
+    final feedbackX = _feedbackX;
+    final feedbackY = _feedbackY;
+    if (feedbackX != null) {
+      addManagedSubscription(
+        ref.listenManual(hotCcValueProvider(feedbackX), (previous, next) {
+          if (!widget.isActive) return;
+          if (next is AsyncData) {
+            final valX = next.value;
+            if (valX != null && valX != _lastPolledX) {
+              _lastPolledX = valX;
+              _handleXUpdate(valX);
+            }
           }
-        }
-      }),
-    );
-    addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
-        previous,
-        next,
-      ) {
-        if (!widget.isActive) return;
-        if (next is AsyncData) {
-          final valY = next.value;
-          if (valY != null && valY != _lastPolledY) {
-            _lastPolledY = valY;
-            _handleYUpdate(valY);
+        }),
+      );
+    }
+    if (feedbackY != null) {
+      addManagedSubscription(
+        ref.listenManual(hotCcValueProvider(feedbackY), (previous, next) {
+          if (!widget.isActive) return;
+          if (next is AsyncData) {
+            final valY = next.value;
+            if (valY != null && valY != _lastPolledY) {
+              _lastPolledY = valY;
+              _handleYUpdate(valY);
+            }
           }
-        }
-      }),
-    );
+        }),
+      );
+    }
   }
 
   @override
@@ -128,39 +142,49 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         // Re-setup listeners
         _setupMidiListeners();
         // Re-sync values when coming back to foreground
-        final control = ref.read(layoutStateProvider).getControlById(widget.id);
-        final channel = control?.channel ?? widget.channel;
-        final ccX = control?.defaultCc ?? widget.ccX;
-        final ccY = control?.secondaryCc ?? widget.ccY;
-        final invertX = control?.invertX ?? widget.invertX;
-        final invertY = control?.invertY ?? widget.invertY;
-
         final controlState = ref.read(controlStateProvider);
-        final hotX = controlState.ccValues["$channel:$ccX"];
-        final hotY = controlState.ccValues["$channel:$ccY"];
+        final hotX = controlState.ccValues[_feedbackX];
+        final hotY = controlState.ccValues[_feedbackY];
 
         double nextX = _normalizedX;
         double nextY = _normalizedY;
         if (hotX != null) {
           final normX = hotX / 127.0;
-          nextX = invertX ? 1.0 - normX : normX;
+          nextX = _invertX ? 1.0 - normX : normX;
         }
         if (hotY != null) {
           final normY = hotY / 127.0;
-          nextY = invertY ? 1.0 - normY : normY;
+          nextY = _invertY ? 1.0 - normY : normY;
         }
         _posNotifier.value = Offset(nextX, nextY);
       } else {
         // Suspend resources
         clearManagedSubscriptions();
         _throttleTimer?.cancel();
+        _canSend = true;
+        _hasPendingSend = false;
+        _xAction.end();
+        _yAction.end();
       }
+    }
+  }
+
+  @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _throttleTimer?.cancel();
+      _canSend = true;
+      _hasPendingSend = false;
+      _xAction.end();
+      _yAction.end();
     }
   }
 
   @override
   void dispose() {
     _throttleTimer?.cancel();
+    _xAction.end();
+    _yAction.end();
     _posNotifier.dispose();
     disposePerformanceMixin();
     super.dispose();
@@ -204,21 +228,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     setState(() {
       _isDragging = true;
     });
-    _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
-    _updatePosition(details.localPosition, size, isFinal: false);
+    _updatePosition(details.localPosition, size, begin: true);
   }
 
-  void _updatePosition(
-    Offset localPosition,
-    Size size, {
-    required bool isFinal,
-  }) {
+  void _updatePosition(Offset localPosition, Size size, {bool begin = false}) {
     final double nx = (localPosition.dx / size.width).clamp(0.0, 1.0);
     final double ny = (localPosition.dy / size.height).clamp(0.0, 1.0);
 
     _posNotifier.value = Offset(nx, ny);
 
-    _sendMidi(isFinal: isFinal);
+    if (begin) {
+      final service = ref.read(midiServiceProvider);
+      _xAction.begin(service, _cachedControl?.payload, _midiX);
+      _yAction.begin(service, _cachedControl?.secondaryPayload, _midiY);
+    }
+    _sendMidi(isFinal: false);
   }
 
   static const int _kTransmissionThrottleMs = 8;
@@ -243,31 +267,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       },
     );
 
-    final effectiveCcX = _cachedControl?.defaultCc ?? widget.ccX;
-    final effectiveCcY = _cachedControl?.secondaryCc ?? widget.ccY;
-    final effectiveChannel = _cachedControl?.channel ?? widget.channel;
-    final effectiveInvertX = _cachedControl?.invertX ?? widget.invertX;
-    final effectiveInvertY = _cachedControl?.invertY ?? widget.invertY;
-
-    final effectiveX = effectiveInvertX ? 1.0 - _normalizedX : _normalizedX;
-    final effectiveY = effectiveInvertY ? 1.0 - _normalizedY : _normalizedY;
-
-    final valX = (effectiveX * 127).round().clamp(0, 127);
-    final valY = (effectiveY * 127).round().clamp(0, 127);
-
     final service = ref.read(midiServiceProvider);
-
-    // Batch these closely together
-    service.sendCC(
-      effectiveCcX,
-      valX,
-      channel: effectiveChannel,
+    _xAction.sendPosition(
+      service,
+      _cachedControl?.payload,
+      _midiX,
+      legacyChannel: _channel,
+      legacyCc: _ccX,
       isFinal: isFinal,
     );
-    service.sendCC(
-      effectiveCcY,
-      valY,
-      channel: effectiveChannel,
+    _yAction.sendPosition(
+      service,
+      _cachedControl?.secondaryPayload,
+      _midiY,
+      legacyChannel: _channel,
+      legacyCc: _ccY,
       isFinal: isFinal,
     );
   }
@@ -279,25 +293,28 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       prev,
       next,
     ) {
+      if (prev?.payload != next?.payload) _xAction.end();
+      if (prev?.secondaryPayload != next?.secondaryPayload) _yAction.end();
       _cachedControl = next;
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
-        clearManagedSubscriptions();
         if (!widget.isActive) return;
-        _setupMidiListeners(
-          channel: next?.channel ?? widget.channel,
-          ccX: next?.defaultCc ?? widget.ccX,
-          ccY: next?.secondaryCc ?? widget.ccY,
-        );
+        _setupMidiListeners();
       }
     });
 
     final control = ref.watch(
       layoutStateProvider.select((s) => s.getControlById(widget.id)),
     );
-    final ccX = control?.defaultCc ?? widget.ccX;
-    final ccY = control?.secondaryCc ?? widget.ccY;
+    final labelX = _axisLabel(
+      control?.payload,
+      control?.defaultCc ?? widget.ccX,
+    );
+    final labelY = _axisLabel(
+      control?.secondaryPayload,
+      control?.secondaryCc ?? widget.ccY,
+    );
     final invertX = control?.invertX ?? widget.invertX;
     final invertY = control?.invertY ?? widget.invertY;
 
@@ -309,7 +326,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
           return GestureDetector(
             onPanStart: (details) => _handleDragStart(details, size),
             onPanUpdate: (details) {
-              _updatePosition(details.localPosition, size, isFinal: false);
+              _updatePosition(details.localPosition, size);
             },
             onPanEnd: (details) {
               setState(() {
@@ -455,7 +472,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                 ),
                               ),
                               Text(
-                                'X: CC$ccX',
+                                'X: $labelX',
                                 style: AppText.performance(
                                   color: Colors.white24,
                                   fontSize: 9,
@@ -484,7 +501,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Y: CC$ccY',
+                                'Y: $labelY',
                                 style: AppText.performance(
                                   color: Colors.white24,
                                   fontSize: 9,

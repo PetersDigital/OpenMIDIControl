@@ -99,6 +99,7 @@ class LayoutControl {
     if (customName != null && customName!.trim().isNotEmpty) {
       return customName!;
     }
+    if (payload case final action?) return action.displayLabel;
     if (defaultCc == -1) {
       return 'UNASSIGNED';
     }

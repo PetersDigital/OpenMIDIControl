@@ -9,11 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'open_midi_screen.dart'; // For FaderBehavior type
 import 'design_system.dart';
 import 'midi_service.dart';
+import 'midi_action_dispatcher.dart';
 import 'performance_ticker_mixin.dart';
 import 'widgets/control_config_modal.dart';
 import 'widgets/config_gesture_wrapper.dart';
 import 'layout_state.dart';
 import '../core/models/layout_models.dart';
+import '../core/models/action_payload.dart';
 
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
 
@@ -52,6 +54,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   late int _ccNumber;
   int _midiChannel = 0;
   late String _ccLabel;
+  ActionPayload? _payload;
+  final _midiAction = MidiActionDispatcher();
 
   // Monotonic clock for reliable MIDI throttling (immune to system clock changes)
   late final Stopwatch _throttleStopwatch;
@@ -88,18 +92,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           if (_pendingStateChanges.containsKey('isDragging')) {
             _isDragging = _pendingStateChanges['isDragging'];
           }
-          if (_pendingStateChanges.containsKey('ccNumber')) {
-            _ccNumber = _pendingStateChanges['ccNumber'];
-          }
-          if (_pendingStateChanges.containsKey('midiChannel')) {
-            _midiChannel = _pendingStateChanges['midiChannel'];
-          }
-          if (_pendingStateChanges.containsKey('ccLabel')) {
-            _ccLabel = _pendingStateChanges['ccLabel'];
-          }
-          if (_pendingStateChanges.containsKey('lastPolledValue')) {
-            _lastPolledValue = _pendingStateChanges['lastPolledValue'];
-          }
         });
         _pendingStateChanges.clear();
       }
@@ -112,11 +104,16 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     initPerformanceMixin();
     _throttleStopwatch = Stopwatch()..start();
     _midiThrottleStopwatch = Stopwatch()..start();
-    _ccNumber = widget.ccNumber;
-    _ccLabel = widget.displayName;
+    final control = ref
+        .read(layoutStateProvider)
+        .getControlById(widget.controlId);
+    _ccNumber = control?.defaultCc ?? widget.ccNumber;
+    _midiChannel = control?.channel ?? 0;
+    _ccLabel = control?.displayName ?? widget.displayName;
+    _payload = control?.payload;
 
     // Restore value from session state if available, otherwise use initialValue
-    final hotValue = ref.read(controlStateProvider).ccValues["0:$_ccNumber"];
+    final hotValue = ref.read(controlStateProvider).ccValues[_feedbackAddress];
     final startValue = hotValue != null
         ? hotValue / 127.0
         : widget.initialValue;
@@ -153,38 +150,33 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _layoutSubscription = ref.listenManual(
       layoutStateProvider.select((s) => s.getControlById(widget.controlId)),
       (prev, next) {
-        if (next != null &&
-            (next.defaultCc != _ccNumber ||
-                next.channel != _midiChannel ||
-                next.displayName != _ccLabel)) {
-          _batchStateUpdate({
-            'ccNumber': next.defaultCc,
-            'midiChannel': next.channel,
-            'ccLabel': next.displayName,
-            'lastPolledValue': null,
-          });
+        final previousAddress = _feedbackAddress;
+        if (next?.payload != _payload) _midiAction.end();
+        setState(() {
+          _ccNumber = next?.defaultCc ?? widget.ccNumber;
+          _midiChannel = next?.channel ?? 0;
+          _ccLabel = next?.displayName ?? widget.displayName;
+          _payload = next?.payload;
+        });
+        if (previousAddress != _feedbackAddress) {
+          _lastPolledValue = null;
           if (widget.isActive) {
-            _setupMidiListeners(
-              channel: next.channel,
-              ccNumber: next.defaultCc,
-            );
-          } else {
-            clearManagedSubscriptions();
+            _setupMidiListeners();
           }
         }
       },
     );
   }
 
-  void _setupMidiListeners({int? channel, int? ccNumber}) {
-    final targetChannel = channel ?? _midiChannel;
-    final targetCc = ccNumber ?? _ccNumber;
+  String? get _feedbackAddress =>
+      ccFeedbackAddress(_payload, _midiChannel, _ccNumber);
+
+  void _setupMidiListeners() {
     clearManagedSubscriptions();
+    final address = _feedbackAddress;
+    if (address == null) return;
     addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$targetChannel:$targetCc"), (
-        previous,
-        next,
-      ) {
+      ref.listenManual(hotCcValueProvider(address), (previous, next) {
         if (!widget.isActive) return;
         if (next is AsyncData) {
           final val = next.value;
@@ -201,6 +193,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   @override
   void onAppLifecycleChanged(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
+      _midiAction.end();
       _animationController.stop();
     }
   }
@@ -215,7 +208,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         // Re-sync value when coming back to foreground
         final hotValue = ref
             .read(controlStateProvider)
-            .ccValues["$_midiChannel:$_ccNumber"];
+            .ccValues[_feedbackAddress];
         if (hotValue != null) {
           final target = hotValue / 127.0;
           if ((_animationController.value - target).abs() > 0.001) {
@@ -225,6 +218,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       } else {
         // Suspend heavy resources
         clearManagedSubscriptions();
+        _midiAction.end();
         _animationController.stop();
         _stateDebounceTimer?.cancel();
       }
@@ -233,6 +227,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   void dispose() {
+    _midiAction.end();
     _layoutSubscription?.close();
     _layoutSubscription = null;
     _stateDebounceTimer?.cancel();
@@ -242,10 +237,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _sendMidiUpdate({bool isFinal = false}) {
-    final int ccValue = (_animationController.value * 127).round();
-    ref
-        .read(midiServiceProvider)
-        .sendCC(_ccNumber, ccValue, channel: _midiChannel, isFinal: isFinal);
+    _midiAction.sendPosition(
+      ref.read(midiServiceProvider),
+      _payload,
+      _animationController.value,
+      legacyChannel: _midiChannel,
+      legacyCc: _ccNumber,
+      isFinal: isFinal,
+    );
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
@@ -266,13 +265,16 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   }
 
   void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
-    if (widget.behavior == FaderBehavior.jump) {
+    if (widget.behavior == FaderBehavior.jump ||
+        (widget.behavior == FaderBehavior.catchUp && !_isCatchingUp)) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
-      return;
     }
-
-    if (widget.behavior == FaderBehavior.catchUp && !_isCatchingUp) {
-      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+    if (_payload is NotePayload || _payload is RelativeCcPayload) {
+      _midiAction.begin(
+        ref.read(midiServiceProvider),
+        _payload,
+        _animationController.value,
+      );
     }
   }
 

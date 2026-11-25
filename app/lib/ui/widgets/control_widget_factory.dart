@@ -69,7 +69,8 @@ class ControlWidgetFactory {
 
       case ControlType.encoder:
         final cc = control.defaultCc;
-        final isUnassigned = cc == -1;
+        final channel = control.payload?.midiChannel ?? control.channel;
+        final isUnassigned = cc == -1 && control.payload == null;
         final isLocked = ref.watch(
           layoutStateProvider.select((s) => s.isPerformanceLocked),
         );
@@ -90,8 +91,9 @@ class ControlWidgetFactory {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: EndlessEncoderWidget(
-                      channel: control.channel == -1 ? 0 : control.channel,
+                      channel: channel == -1 ? 0 : channel,
                       cc: isUnassigned ? 0 : cc,
+                      payload: control.payload,
                       showChannelLabel: false,
                       isActive: isActive,
                     ),
@@ -125,7 +127,9 @@ class ControlWidgetFactory {
                       ),
                       alignment: Alignment.topLeft,
                       child: Text(
-                        isUnassigned ? 'UNASSIGNED' : 'CC $cc',
+                        isUnassigned
+                            ? 'UNASSIGNED'
+                            : control.payload?.displayLabel ?? 'CC $cc',
                         style: AppText.performance(
                           color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
                           fontSize: 12,
@@ -159,7 +163,7 @@ class ControlWidgetFactory {
                       ),
                       if (!isUnassigned)
                         Text(
-                          'CH${control.channel + 1}',
+                          'CH${channel + 1}',
                           style: TextStyle(
                             fontFamily: 'Space Grotesk',
                             color: const Color(
