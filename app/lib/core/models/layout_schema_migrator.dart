@@ -4,6 +4,7 @@
 import 'package:uuid/uuid.dart';
 
 import 'layout_document.dart';
+import 'layout_models.dart';
 
 /// Function signature for schema migration steps.
 typedef SchemaMigrationStep =
@@ -18,7 +19,10 @@ class LayoutSchemaMigrator {
 
   /// Registry mapping a source schema version to the transformation function
   /// that promotes it to the next version (e.g. 0 -> 1, 1 -> 2).
-  static final Map<int, SchemaMigrationStep> _migrations = {0: _migrateV0ToV1};
+  static final Map<int, SchemaMigrationStep> _migrations = {
+    0: _migrateV0ToV1,
+    1: _migrateV1ToV2,
+  };
 
   /// Registers a custom migration handler for testing or future extensions.
   static void registerMigration(int fromVersion, SchemaMigrationStep step) {
@@ -142,6 +146,38 @@ class LayoutSchemaMigrator {
       'manifest': manifest,
       'pages': pages,
       'activePageIndex': activePageIndex,
+    };
+  }
+
+  /// Adds typed assignments while retaining legacy mappings and page metadata.
+  static Map<String, dynamic> _migrateV1ToV2(Map<String, dynamic> v1) {
+    final pages = (v1['pages'] as List<dynamic>?)?.cast<Map<String, dynamic>>();
+    return {
+      ...v1,
+      'schemaVersion': 2,
+      if (pages != null)
+        'pages': [
+          for (final page in pages)
+            {
+              ...page,
+              'controls': [
+                for (final control
+                    in (page['controls'] as List<dynamic>)
+                        .cast<Map<String, dynamic>>())
+                  _migrateControl(control),
+              ],
+            },
+        ],
+    };
+  }
+
+  static Map<String, dynamic> _migrateControl(Map<String, dynamic> json) {
+    final control = LayoutControl.fromJson(json);
+    return {
+      ...json,
+      if (control.payload case final payload?) 'payload': payload.toJson(),
+      if (control.secondaryPayload case final payload?)
+        'secondaryPayload': payload.toJson(),
     };
   }
 }

@@ -29,9 +29,9 @@ void main() {
 
   group('Hardened SnapshotManager Import/Export Tests', () {
     test(
-      'importLayoutDocument imports version 1 LayoutDocument successfully',
+      'importLayoutDocument imports a current layout document',
       () async {
-        final docFile = File('${tempDir.path}/valid_v1.omc');
+        final docFile = File('${tempDir.path}/layout.omc');
         final doc = LayoutDocument(
           manifest: LayoutManifest(
             id: 'v1_doc_id',
@@ -63,7 +63,7 @@ void main() {
     );
 
     test(
-      'importLayoutDocument upgrades legacy raw layout JSON (v0 -> v1)',
+      'importLayoutDocument upgrades legacy raw layout JSON to v2',
       () async {
         final legacyFile = File('${tempDir.path}/legacy_raw.omc');
         final legacyJson = {
@@ -84,7 +84,7 @@ void main() {
         );
         expect(result.isSuccess, isTrue);
         expect(result.wasUpgraded, isTrue);
-        expect(result.document!.schemaVersion, 1);
+        expect(result.document!.schemaVersion, 2);
         expect(result.document!.manifest.name, 'Imported Layout');
         expect(result.document!.pages.first.name, 'DRUMS');
       },

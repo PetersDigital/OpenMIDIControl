@@ -37,20 +37,19 @@ void main() {
       );
 
       final document = LayoutDocument(
-        schemaVersion: 1,
         manifest: manifest,
         pages: [page],
         activePageIndex: 0,
       );
 
       final json = document.toJson();
-      expect(json['schemaVersion'], 1);
+      expect(json['schemaVersion'], 2);
       expect(json['manifest']['id'], 'doc_1');
       expect(json['pages'].length, 1);
       expect(json['activePageIndex'], 0);
 
       final parsed = LayoutDocument.fromJson(json);
-      expect(parsed.schemaVersion, 1);
+      expect(parsed.schemaVersion, 2);
       expect(parsed.manifest.name, 'Main Layout');
       expect(parsed.pages.length, 1);
       expect(parsed.pages.first.id, 'p_0');
@@ -74,7 +73,7 @@ void main() {
 
       final updated = doc.copyWith(activePageIndex: 0);
       expect(updated.manifest.name, 'Main');
-      expect(updated.schemaVersion, 1);
+      expect(updated.schemaVersion, 2);
     });
 
     test(

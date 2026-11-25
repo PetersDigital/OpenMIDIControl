@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:collection/collection.dart';
+
 import '../midi_utils.dart';
+import 'action_payload.dart';
 
 /// Enumeration of supported control types in the layout schema.
 enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
@@ -15,7 +17,7 @@ enum PageType { fader, xyPad, drumPad, utility }
 /// Fields:
 /// - [id]: Unique identifier for the control (e.g., "fader_0", "drum_pad_1")
 /// - [type]: The type of control (fader, xyPad, drumPad, encoder, button)
-/// - [defaultCc]: Default MIDI CC number (1-127)
+/// - [defaultCc]: Legacy CC or note number (0-127, or -1 if unassigned)
 /// - [channel]: MIDI channel (0-15, where 9 is typically drums)
 /// - [customName]: Optional custom display name; if empty/null, uses "CC $defaultCc"
 class LayoutControl {
@@ -27,6 +29,11 @@ class LayoutControl {
 
   /// Secondary MIDI identifier (e.g., CC for Y-axis in XY pads).
   final int? secondaryCc;
+
+  final ActionPayload? payload;
+
+  /// Action assignment for the Y-axis of an XY pad.
+  final ActionPayload? secondaryPayload;
 
   /// Whether to invert the primary value (X-axis for XY pads).
   final bool invertX;
@@ -46,6 +53,8 @@ class LayoutControl {
     required this.channel,
     this.customName,
     this.secondaryCc,
+    ActionPayload? payload,
+    ActionPayload? secondaryPayload,
     this.invertX = false,
     this.invertY = false,
     this.x = 0,
@@ -53,7 +62,36 @@ class LayoutControl {
     this.width = 1,
     this.height = 1,
   }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
-       assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15');
+       assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15'),
+       payload = payload ?? _legacyPayload(type, channel, defaultCc),
+       secondaryPayload =
+           secondaryPayload ??
+           (type == ControlType.xyPad
+               ? _legacyPayload(type, channel, secondaryCc)
+               : null);
+
+  static ActionPayload? _legacyPayload(
+    ControlType type,
+    int channel,
+    int? identifier,
+  ) {
+    if (identifier == null ||
+        identifier < 0 ||
+        identifier > 127 ||
+        channel < 0 ||
+        channel > 15) {
+      return null;
+    }
+    if (type == ControlType.drumPad) {
+      return NotePayload(
+        channel: channel,
+        note: identifier,
+        velocityMode: NoteVelocityMode.touchPosition,
+        velocityCurve: NoteVelocityCurve.drumPad,
+      );
+    }
+    return CcPayload(channel: channel, cc: identifier);
+  }
 
   /// Display name: uses customName if provided and non-empty, else "CC $defaultCc".
   /// For drum pads, uses the note name (e.g., "C1").
@@ -78,6 +116,8 @@ class LayoutControl {
     int? channel,
     String? customName,
     int? secondaryCc,
+    ActionPayload? payload,
+    ActionPayload? secondaryPayload,
     bool? invertX,
     bool? invertY,
     int? x,
@@ -85,13 +125,29 @@ class LayoutControl {
     int? width,
     int? height,
   }) {
+    final controlType = type ?? this.type;
+    final midiChannel = channel ?? this.channel;
+    final primaryCc = defaultCc ?? this.defaultCc;
+    final axisCc = secondaryCc ?? this.secondaryCc;
+    final mappingChanged =
+        controlType != this.type || midiChannel != this.channel;
+
     return LayoutControl(
       id: id ?? this.id,
-      type: type ?? this.type,
-      defaultCc: defaultCc ?? this.defaultCc,
-      channel: channel ?? this.channel,
+      type: controlType,
+      defaultCc: primaryCc,
+      channel: midiChannel,
       customName: customName ?? this.customName,
-      secondaryCc: secondaryCc ?? this.secondaryCc,
+      secondaryCc: axisCc,
+      // Legacy assignment edits replace the payload for the affected axis.
+      payload:
+          payload ??
+          (mappingChanged || primaryCc != this.defaultCc ? null : this.payload),
+      secondaryPayload:
+          secondaryPayload ??
+          (mappingChanged || axisCc != this.secondaryCc
+              ? null
+              : this.secondaryPayload),
       invertX: invertX ?? this.invertX,
       invertY: invertY ?? this.invertY,
       x: x ?? this.x,
@@ -110,6 +166,9 @@ class LayoutControl {
       'channel': channel,
       'customName': customName,
       'secondaryCc': secondaryCc,
+      if (payload != null) 'payload': payload!.toJson(),
+      if (secondaryPayload != null)
+        'secondaryPayload': secondaryPayload!.toJson(),
       'invertX': invertX,
       'invertY': invertY,
       'x': x,
@@ -128,6 +187,8 @@ class LayoutControl {
       channel: json['channel'] as int,
       customName: json['customName'] as String?,
       secondaryCc: json['secondaryCc'] as int?,
+      payload: _readPayload(json['payload']),
+      secondaryPayload: _readPayload(json['secondaryPayload']),
       invertX: json['invertX'] as bool? ?? false,
       invertY: json['invertY'] as bool? ?? false,
       x: json['x'] as int? ?? 0,
@@ -135,6 +196,12 @@ class LayoutControl {
       width: json['width'] as int? ?? 1,
       height: json['height'] as int? ?? 1,
     );
+  }
+
+  static ActionPayload? _readPayload(Object? json) {
+    if (json == null) return null;
+    if (json is Map<String, dynamic>) return ActionPayload.fromJson(json);
+    throw const FormatException('Action payload must be a JSON object.');
   }
 
   @override
@@ -151,6 +218,8 @@ class LayoutControl {
         other.channel == channel &&
         other.customName == customName &&
         other.secondaryCc == secondaryCc &&
+        other.payload == payload &&
+        other.secondaryPayload == secondaryPayload &&
         other.invertX == invertX &&
         other.invertY == invertY &&
         other.x == x &&
@@ -167,6 +236,8 @@ class LayoutControl {
     channel,
     customName,
     secondaryCc,
+    payload,
+    secondaryPayload,
     invertX,
     invertY,
     x,
