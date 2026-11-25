@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/core/lifecycle/app_lifecycle_manager.dart';
 import 'package:app/core/managers/layout_storage_manager.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/ui/layout_document_state.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/core/models/layout_models.dart';
@@ -36,6 +37,36 @@ void main() {
   });
 
   group('LayoutDocumentNotifier Auto-Save & Startup Tests', () {
+    test('restores edited and cleared typed assignments on startup', () async {
+      ProviderContainer createContainer() {
+        final container = ProviderContainer(
+          overrides: [
+            layoutStorageManagerProvider.overrideWithValue(storageManager),
+          ],
+        );
+        addTearDown(container.dispose);
+        return container;
+      }
+
+      final first = createContainer();
+      final document = first.read(layoutDocumentProvider.notifier);
+      await document.initializeOnStartup();
+      final layout = first.read(layoutStateProvider.notifier);
+      const x = PitchBendPayload(channel: 8, value: 4096);
+      const y = NotePayload(channel: 3, note: 42);
+      layout.updateControlActions('xy_main', payload: x, secondaryPayload: y);
+      layout.updateControlActions('fader_0', payload: null);
+      await document.flushSave();
+
+      final second = createContainer();
+      await second.read(layoutDocumentProvider.notifier).initializeOnStartup();
+      final restored = second.read(layoutStateProvider);
+      expect(restored.getControlById('xy_main')!.payload, x);
+      expect(restored.getControlById('xy_main')!.secondaryPayload, y);
+      expect(restored.getControlById('fader_0')!.payload, isNull);
+      expect(restored.getControlById('fader_0')!.defaultCc, -1);
+    });
+
     test(
       'initializeOnStartup creates and persists initial document if none exists',
       () async {

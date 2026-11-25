@@ -3,9 +3,118 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/core/models/action_payload.dart';
+import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/layout_state.dart';
 
 void main() {
+  group('LayoutStateNotifier - updateControlActions', () {
+    late ProviderContainer container;
+    late LayoutStateNotifier notifier;
+
+    LayoutControl control(String id) =>
+        container.read(layoutStateProvider).getControlById(id)!;
+
+    setUp(() {
+      container = ProviderContainer();
+      notifier = container.read(layoutStateProvider.notifier);
+      addTearDown(container.dispose);
+    });
+
+    test('updates both axes and editor settings in one notification', () {
+      final previous = container.read(layoutStateProvider);
+      final original = control('xy_main');
+      var notifications = 0;
+      container.listen(layoutStateProvider, (_, _) => notifications++);
+
+      const x = NotePayload(channel: 9, note: 36);
+      const y = RelativeCcPayload(
+        channel: 4,
+        cc: 18,
+        encoding: RelativeCcEncoding.binaryOffset,
+      );
+      notifier.updateControlActions(
+        'xy_main',
+        payload: x,
+        secondaryPayload: y,
+        name: 'Effects',
+        invertX: true,
+        invertY: false,
+      );
+
+      final state = container.read(layoutStateProvider);
+      final updated = control('xy_main');
+      expect(notifications, 1);
+      expect(state.pages.first, same(previous.pages.first));
+      expect(updated.payload, x);
+      expect(updated.secondaryPayload, y);
+      expect(updated.defaultCc, 36);
+      expect(updated.secondaryCc, 18);
+      expect(updated.channel, 9);
+      expect(updated.customName, 'Effects');
+      expect(updated.invertX, isTrue);
+      expect(updated.invertY, isFalse);
+      expect(updated.width, original.width);
+
+      notifier.updateControlActions('xy_main', payload: x, secondaryPayload: y);
+      expect(container.read(layoutStateProvider), same(state));
+      expect(notifications, 1);
+    });
+
+    test('preserves implicit legacy Y routing when replacing X', () {
+      notifier.setPageIndex(1);
+      final page = container.read(layoutStateProvider).activePage!;
+      notifier.overwriteActivePage(
+        page.copyWith(
+          controls: [
+            LayoutControl(
+              id: 'xy_main',
+              type: ControlType.xyPad,
+              channel: 2,
+              defaultCc: 7,
+            ),
+          ],
+        ),
+      );
+
+      const pitch = PitchBendPayload(channel: 13);
+      notifier.updateControlActions('xy_main', payload: pitch);
+      expect(control('xy_main').payload, pitch);
+      expect(
+        control('xy_main').secondaryPayload,
+        const CcPayload(channel: 2, cc: LayoutControl.defaultXySecondaryCc),
+      );
+
+      notifier.updateControlActions(
+        'xy_main',
+        payload: pitch,
+        clearSecondary: true,
+      );
+      expect(control('xy_main').payload, pitch);
+      expect(control('xy_main').secondaryPayload, isNull);
+      expect(control('xy_main').secondaryCc, -1);
+    });
+
+    test(
+      'clears a typed action whose legacy fields already mark it unassigned',
+      () {
+        const mcu = McuActionPayload.fader(0);
+        notifier.updateControlActions('fader_0', payload: mcu);
+        notifier.updateControlActions('fader_1', payload: mcu);
+        expect(control('fader_0').defaultCc, -1);
+        expect(control('fader_0').channel, -1);
+        expect(control('fader_0').payload, mcu);
+
+        notifier.clearControl('fader_0');
+        expect(control('fader_0').payload, isNull);
+        expect(control('fader_1').payload, mcu);
+
+        notifier.clearPage('page_0');
+        expect(control('fader_1').payload, isNull);
+      },
+    );
+  });
+
   group('LayoutStateNotifier - updateControlSpatialData', () {
     late ProviderContainer container;
 

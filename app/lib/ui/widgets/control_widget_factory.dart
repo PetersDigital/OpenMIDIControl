@@ -54,7 +54,7 @@ class ControlWidgetFactory {
           child: HybridXYPad(
             id: control.id,
             ccX: control.defaultCc,
-            ccY: control.secondaryCc ?? 11,
+            ccY: control.secondaryCc ?? LayoutControl.defaultXySecondaryCc,
             isActive: isActive,
           ),
         );

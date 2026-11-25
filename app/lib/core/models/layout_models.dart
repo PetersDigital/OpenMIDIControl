@@ -21,6 +21,8 @@ enum PageType { fader, xyPad, drumPad, utility }
 /// - [channel]: MIDI channel (0-15, where 9 is typically drums)
 /// - [customName]: Optional custom display name; if empty/null, uses "CC $defaultCc"
 class LayoutControl {
+  static const defaultXySecondaryCc = 11;
+
   final String id;
   final ControlType type;
   final int defaultCc;
@@ -157,6 +159,53 @@ class LayoutControl {
       height: height ?? this.height,
     );
   }
+
+  /// Replaces the primary assignment and optionally edits the XY Y-axis.
+  ///
+  /// A null [payload] clears the primary assignment. Omit [secondaryPayload]
+  /// to retain the Y-axis assignment, or pass [clearSecondary] to clear it.
+  LayoutControl withActions({
+    required ActionPayload? payload,
+    ActionPayload? secondaryPayload,
+    bool clearSecondary = false,
+    String? customName,
+    bool? invertX,
+    bool? invertY,
+  }) {
+    assert(!clearSecondary || secondaryPayload == null);
+    assert(secondaryPayload == null || type == ControlType.xyPad);
+    final yAction = clearSecondary
+        ? null
+        : secondaryPayload ??
+              this.secondaryPayload ??
+              (type == ControlType.xyPad && secondaryCc == null
+                  ? _legacyPayload(type, channel, defaultXySecondaryCc)
+                  : null);
+    return LayoutControl(
+      id: id,
+      type: type,
+      defaultCc: _legacyIdentifier(payload),
+      channel: payload?.midiChannel ?? yAction?.midiChannel ?? -1,
+      customName: customName ?? this.customName,
+      secondaryCc: type == ControlType.xyPad || clearSecondary
+          ? _legacyIdentifier(yAction)
+          : secondaryCc,
+      payload: payload,
+      secondaryPayload: yAction,
+      invertX: invertX ?? this.invertX,
+      invertY: invertY ?? this.invertY,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+    );
+  }
+
+  static int _legacyIdentifier(ActionPayload? payload) => switch (payload) {
+    CcPayload(:final cc) || RelativeCcPayload(:final cc) => cc,
+    NotePayload(:final note) => note,
+    _ => -1,
+  };
 
   /// Serialize to JSON.
   Map<String, dynamic> toJson() {

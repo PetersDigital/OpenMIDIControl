@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_models.dart';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
@@ -258,7 +259,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           id: 'xy_main',
           type: ControlType.xyPad,
           defaultCc: 1, // X-axis
-          secondaryCc: 11, // Y-axis
+          secondaryCc: LayoutControl.defaultXySecondaryCc,
           channel: 0,
           invertY:
               true, // Default to true for standard DAW behavior (bottom=0, top=127)
@@ -513,6 +514,55 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       return page.copyWith(controls: updatedControls);
     }).toList();
     state = state.copyWith(pages: updatedPages);
+  }
+
+  /// Saves a typed assignment and its editor settings in one state update.
+  void updateControlActions(
+    String controlId, {
+    required ActionPayload? payload,
+    ActionPayload? secondaryPayload,
+    bool clearSecondary = false,
+    String? name,
+    bool? invertX,
+    bool? invertY,
+  }) {
+    _editControl(
+      controlId,
+      (control) => control.withActions(
+        payload: payload,
+        secondaryPayload: secondaryPayload,
+        clearSecondary: clearSecondary,
+        customName: name,
+        invertX: invertX,
+        invertY: invertY,
+      ),
+    );
+  }
+
+  void _editControl(
+    String controlId,
+    LayoutControl Function(LayoutControl) edit,
+  ) {
+    final pages = state.pages;
+    List<LayoutPage>? updatedPages;
+    for (var pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      final page = pages[pageIndex];
+      final controls = page.controls;
+      List<LayoutControl>? updatedControls;
+      for (var index = 0; index < controls.length; index++) {
+        final control = controls[index];
+        if (control.id != controlId) continue;
+        final updated = edit(control);
+        if (updated == control) continue;
+        (updatedControls ??= [...controls])[index] = updated;
+      }
+      if (updatedControls != null) {
+        (updatedPages ??= [...pages])[pageIndex] = page.copyWith(
+          controls: updatedControls,
+        );
+      }
+    }
+    if (updatedPages != null) state = state.copyWith(pages: updatedPages);
   }
 
   void resetControl(String controlId) {
@@ -1085,16 +1135,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;
     final page = state.pages[pageIndex];
-    final updatedControls = page.controls.map((control) {
-      return control.copyWith(
-        defaultCc: -1,
-        secondaryCc: -1,
-        channel: -1,
-        customName: 'Unassigned',
-        invertX: false,
-        invertY: false,
-      );
-    }).toList();
+    final updatedControls = page.controls.map(_clearControlActions).toList();
 
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
@@ -1102,24 +1143,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   }
 
   void clearControl(String controlId) {
-    final updatedPages = state.pages.map((page) {
-      final updatedControls = page.controls.map((control) {
-        if (control.id == controlId) {
-          return control.copyWith(
-            defaultCc: -1,
-            secondaryCc: -1,
-            channel: -1,
-            customName: 'Unassigned',
-            invertX: false,
-            invertY: false,
-          );
-        }
-        return control;
-      }).toList();
-      return page.copyWith(controls: updatedControls);
-    }).toList();
-    state = state.copyWith(pages: updatedPages);
+    _editControl(controlId, _clearControlActions);
   }
+
+  static LayoutControl _clearControlActions(LayoutControl control) =>
+      control.withActions(
+        payload: null,
+        clearSecondary: true,
+        customName: 'Unassigned',
+        invertX: false,
+        invertY: false,
+      );
 
   LayoutControl? deleteControl(String pageId, String controlId) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
