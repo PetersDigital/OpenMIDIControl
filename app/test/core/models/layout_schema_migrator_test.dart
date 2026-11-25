@@ -220,8 +220,14 @@ void main() {
       );
       expect(controls[5].secondaryCc, isNull);
       expect(controls[5].secondaryPayload, isNull);
+      expect(
+        controls[5].effectiveSecondaryPayload,
+        const CcPayload(channel: 0, cc: 11),
+      );
+      expect(controls[5].toJson().containsKey('secondaryPayload'), isFalse);
       expect(controls[6].secondaryCc, -1);
       expect(controls[6].secondaryPayload, isNull);
+      expect(controls[6].effectiveSecondaryPayload, isNull);
       expect(controls[7].defaultCc, -1);
       expect(controls[8].channel, -1);
       expect(

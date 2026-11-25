@@ -71,6 +71,7 @@ void main() {
     final copy = control.copyWith(x: 2, customName: 'Pan and modulation');
     expect(copy.payload, control.payload);
     expect(copy.secondaryPayload, control.secondaryPayload);
+    expect(copy.effectiveSecondaryPayload, same(control.secondaryPayload));
     expect(LayoutControl.fromJson(jsonDecode(jsonEncode(copy.toJson()))), copy);
     expect(
       copy.copyWith(payload: const CcPayload(channel: 0, cc: 10)),
@@ -87,5 +88,15 @@ void main() {
     );
     expect(cleared.payload, isNull);
     expect(cleared.secondaryPayload, isNull);
+  });
+
+  test('leaves Y unassigned when the legacy XY channel is unassigned', () {
+    final control = LayoutControl(
+      id: 'xy',
+      type: ControlType.xyPad,
+      defaultCc: -1,
+      channel: -1,
+    );
+    expect(control.effectiveSecondaryPayload, isNull);
   });
 }

@@ -37,6 +37,15 @@ class LayoutControl {
   /// Action assignment for the Y-axis of an XY pad.
   final ActionPayload? secondaryPayload;
 
+  /// Resolves the implicit CC assignment used by older XY pads with no Y ID.
+  ///
+  /// Reading this leaves the stored assignment and legacy fields intact.
+  ActionPayload? get effectiveSecondaryPayload {
+    if (secondaryPayload != null) return secondaryPayload;
+    if (type != ControlType.xyPad || secondaryCc != null) return null;
+    return _legacyPayload(type, channel, defaultXySecondaryCc);
+  }
+
   /// Whether to invert the primary value (X-axis for XY pads).
   final bool invertX;
 
