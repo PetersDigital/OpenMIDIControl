@@ -5,6 +5,9 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import '../../core/models/action_payload.dart';
+import '../../core/models/layout_models.dart';
+import '../midi_action_dispatcher.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
 import '../performance_ticker_mixin.dart';
@@ -43,6 +46,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
+  int? _activePointer;
+  final _midiGate = MidiGate();
 
   late AnimationController _scaleController;
 
@@ -65,6 +70,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive && !widget.isActive) {
       _scaleController.stop();
+      _resetPress();
     }
   }
 
@@ -74,11 +80,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     // the animation thread and prevent resource drain on suspended views.
     if (state != AppLifecycleState.resumed) {
       _scaleController.stop();
+      setState(_resetPress);
     }
   }
 
   @override
   void dispose() {
+    _midiGate.release();
     _scaleController.dispose();
     disposePerformanceMixin();
     super.dispose();
@@ -87,10 +95,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   void _handlePointerDown(
     PointerDownEvent event,
     Size size,
-    int note,
-    int channel,
+    ActionPayload? payload,
   ) {
-    if (_isPressed) return;
+    if (_activePointer != null) return;
+    _activePointer = event.pointer;
 
     final center = Offset(size.width / 2, size.height / 2);
     final touchOffset = event.localPosition;
@@ -106,8 +114,12 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     // Calculate velocity (1.0 at center, 0.0 at edge)
     double intensity = 1.0 - (distance / maxDistance).clamp(0.0, 1.0);
 
-    // Apply a slight curve to make the "sweet spot" at the center feel more natural
-    intensity = math.pow(intensity, 1.5).toDouble();
+    if (payload case NotePayload(velocityMode: NoteVelocityMode.fixed)) {
+      intensity = 1.0;
+    } else if (payload is! NotePayload ||
+        payload.velocityCurve == NoteVelocityCurve.drumPad) {
+      intensity = math.pow(intensity, 1.5).toDouble();
+    }
 
     final velocity =
         widget.minVelocity +
@@ -121,23 +133,28 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
     _scaleController.reverse();
 
-    ref
-        .read(midiServiceProvider)
-        .sendNoteOn(note, velocity, channel: channel, isFinal: true);
+    if (payload != null) {
+      _midiGate.press(
+        ref.read(midiServiceProvider),
+        payload,
+        velocity: velocity,
+      );
+    }
   }
 
-  void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
-    setState(() {
-      _isPressed = false;
-      _lastVelocity = null;
-      _lastTouchPosition = null;
-    });
+  void _resetPress() {
+    _activePointer = null;
+    _isPressed = false;
+    _lastVelocity = null;
+    _lastTouchPosition = null;
+    _midiGate.release();
+  }
+
+  void _handlePointerUpOrCancel(PointerEvent event) {
+    if (event.pointer != _activePointer) return;
+    setState(_resetPress);
 
     _scaleController.forward();
-
-    ref
-        .read(midiServiceProvider)
-        .sendNoteOff(note, channel: channel, isFinal: true);
   }
 
   @override
@@ -157,6 +174,21 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     );
     final note = control.defaultCc;
     final channel = control.channel;
+    final configured = control.payload;
+    // The legacy drum grid renders all of its controls as note pads.
+    final payload =
+        control.type != ControlType.drumPad &&
+            configured is CcPayload &&
+            !configured.highResolution &&
+            configured.channel == channel &&
+            configured.cc == note
+        ? NotePayload(
+            channel: channel,
+            note: note,
+            velocityMode: NoteVelocityMode.touchPosition,
+            velocityCurve: NoteVelocityCurve.drumPad,
+          )
+        : configured;
     final displayLabel = control.displayName;
 
     return RepaintBoundary(
@@ -165,12 +197,9 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
           final size = Size(constraints.maxWidth, constraints.maxHeight);
 
           return Listener(
-            onPointerDown: (event) =>
-                _handlePointerDown(event, size, note, channel),
-            onPointerUp: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
-            onPointerCancel: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
+            onPointerDown: (event) => _handlePointerDown(event, size, payload),
+            onPointerUp: _handlePointerUpOrCancel,
+            onPointerCancel: _handlePointerUpOrCancel,
             behavior: HitTestBehavior.opaque,
             child: ScaleTransition(
               scale: _scaleController,
@@ -212,7 +241,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                           ),
                           alignment: Alignment.topLeft,
                           child: Text(
-                            MidiUtils.getNoteName(note),
+                            payload?.displayLabel ??
+                                MidiUtils.getNoteName(note),
                             style: AppText.performance(
                               color: _isPressed
                                   ? const Color(
@@ -235,7 +265,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       bottom: 8,
                       right: 8,
                       child: Text(
-                        'CH${channel + 1}',
+                        'CH${(payload?.midiChannel ?? channel) + 1}',
                         style: AppText.system(
                           color: _isPressed
                               ? const Color(0xFF1E2024).withValues(alpha: 0.6)
