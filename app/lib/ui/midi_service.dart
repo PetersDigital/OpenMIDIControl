@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:isolate';
 
 import '../core/models/control_state.dart';
+import '../core/models/action_payload.dart';
 import '../core/models/midi_event.dart';
 import '../core/router/midi_router.dart';
 import '../core/router/nodes/native_transport_sink_node.dart';
@@ -501,21 +502,84 @@ class MidiService {
       return;
     }
 
-    int ump =
-        ((0x2 << 28) |
-            (0x0 << 24) |
-            (((0xB0 | (channel & 0x0F)) & 0xFF) << 16) |
-            ((cc & 0xFF) << 8) |
-            (value & 0xFF)) &
-        0xFFFFFFFF;
-    final event = MidiEvent(
-      ump,
-      _stopwatch.elapsedMilliseconds,
-      isFinal: isFinal,
+    outgoingRouter.processSingle(
+      'source',
+      _voiceEvent(0xB0 | channel, cc, value, isFinal),
     );
-
-    outgoingRouter.processSingle('source', event);
   }
+
+  Future<void> sendPitchBend(
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    if (value < 0 || value > 16383 || channel < 0 || channel > 15) return;
+    outgoingRouter.processSingle(
+      'source',
+      _voiceEvent(0xE0 | channel, value & 0x7F, value >> 7, isFinal),
+    );
+  }
+
+  Future<void> sendHighResolutionCc(
+    int cc,
+    int value, {
+    required int channel,
+  }) async {
+    if (cc < 0 ||
+        cc > 31 ||
+        value < 0 ||
+        value > 16383 ||
+        channel < 0 ||
+        channel > 15) {
+      return;
+    }
+    // Some receivers reset the LSB when the MSB changes. Deliver both bytes
+    // together even when one byte matches the preceding value.
+    outgoingRouter.process('source', [
+      _voiceEvent(0xB0 | channel, cc, value >> 7, true),
+      _voiceEvent(0xB0 | channel, cc + 32, value & 0x7F, true),
+    ]);
+  }
+
+  Future<void> sendRelativeCc(RelativeCcPayload payload, int delta) async {
+    if (delta == 0 ||
+        payload.channel < 0 ||
+        payload.channel > 15 ||
+        payload.cc < 0 ||
+        payload.cc > 127) {
+      return;
+    }
+    final status = 0xB0 | payload.channel;
+    final direction = delta.sign;
+    var remaining = delta.abs();
+    final events = <MidiEvent>[];
+    while (remaining > 0) {
+      final magnitude = remaining.clamp(1, 63);
+      final value = switch (payload.encoding) {
+        RelativeCcEncoding.signedBit =>
+          direction < 0 ? 64 + magnitude : magnitude,
+        RelativeCcEncoding.twosComplement =>
+          direction < 0 ? 128 - magnitude : magnitude,
+        RelativeCcEncoding.binaryOffset => 64 + direction * magnitude,
+      };
+      // Every delta counts. The native delivery flag bypasses deduplication,
+      // and the native-only route keeps deltas out of absolute CC feedback.
+      events.add(_voiceEvent(status, payload.cc, value, true));
+      remaining -= magnitude;
+    }
+    if (events.length == 1) {
+      outgoingRouter.processSingle('nativeSink', events.single);
+    } else {
+      outgoingRouter.process('nativeSink', events);
+    }
+  }
+
+  MidiEvent _voiceEvent(int status, int data1, int data2, bool isFinal) =>
+      MidiEvent(
+        0x20000000 | (status << 16) | (data1 << 8) | data2,
+        _stopwatch.elapsedMilliseconds,
+        isFinal: isFinal,
+      );
 
   Future<void> sendNoteOn(
     int note,
