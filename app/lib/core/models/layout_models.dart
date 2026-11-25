@@ -185,11 +185,7 @@ class LayoutControl {
     assert(secondaryPayload == null || type == ControlType.xyPad);
     final yAction = clearSecondary
         ? null
-        : secondaryPayload ??
-              this.secondaryPayload ??
-              (type == ControlType.xyPad && secondaryCc == null
-                  ? _legacyPayload(type, channel, defaultXySecondaryCc)
-                  : null);
+        : secondaryPayload ?? effectiveSecondaryPayload;
     return LayoutControl(
       id: id,
       type: type,
