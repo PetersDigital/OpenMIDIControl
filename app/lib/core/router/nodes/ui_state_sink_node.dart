@@ -24,6 +24,7 @@ class UiStateSinkNode extends SinkNode {
   }, growable: false);
 
   final void Function(Map<String, dynamic>) onStateUpdate;
+  final bool useTimerOnly;
 
   // 16 channels * 128 CCs = 2048
   final Int32List _ccBuffer = Int32List(2048)..fillRange(0, 2048, -1);
@@ -37,15 +38,19 @@ class UiStateSinkNode extends SinkNode {
   bool _hasNoteUpdates = false;
   bool _hasButtonUpdates = false;
 
-  UiStateSinkNode({required this.onStateUpdate});
+  UiStateSinkNode({required this.onStateUpdate, this.useTimerOnly = false});
 
   // Debounce timing
   bool isPaused = false;
+  bool _disposed = false;
   bool _hasPendingEmission = false;
   Timer? _fallbackTimer;
 
   void setPaused(bool paused) {
     isPaused = paused;
+    if (!paused && !_disposed) {
+      _throttledEmit();
+    }
   }
 
   void _emitSnapshot() {
@@ -87,6 +92,7 @@ class UiStateSinkNode extends SinkNode {
   }
 
   void _throttledEmit() {
+    if (_disposed) return;
     if (_dirtyCcIndices.isEmpty && !_hasNoteUpdates && !_hasButtonUpdates) {
       return;
     }
@@ -101,30 +107,48 @@ class UiStateSinkNode extends SinkNode {
 
       // Sync emission with the hardware display refresh rate.
       // In headless unit tests, frames are never drawn, causing scheduleFrameCallback to hang.
+      final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
+      if (isTest) {
+        _emitSnapshot();
+        _hasPendingEmission = false;
+        return;
+      }
+
+      if (useTimerOnly) {
+        _scheduleFallbackTimer();
+        return;
+      }
+
       try {
-        final isTest = io.Platform.environment.containsKey('FLUTTER_TEST');
-        if (!isTest) {
-          SchedulerBinding.instance.scheduleFrameCallback((_) {
-            if (_hasPendingEmission) {
-              _emitSnapshot();
-              _hasPendingEmission = false;
-            }
-          });
-        } else {
-          _emitSnapshot();
-          _hasPendingEmission = false;
-        }
-      } catch (_) {
-        // Fallback for isolated contexts
-        _fallbackTimer?.cancel();
-        _fallbackTimer = Timer(const Duration(milliseconds: 16), () {
+        SchedulerBinding.instance.scheduleFrameCallback((_) {
+          if (_disposed || isPaused) {
+            _hasPendingEmission = false;
+            return;
+          }
           if (_hasPendingEmission) {
             _emitSnapshot();
             _hasPendingEmission = false;
           }
         });
+      } catch (_) {
+        // Fallback for isolated contexts
+        _scheduleFallbackTimer();
       }
     }
+  }
+
+  void _scheduleFallbackTimer() {
+    _fallbackTimer?.cancel();
+    _fallbackTimer = Timer(const Duration(milliseconds: 16), () {
+      if (_disposed || isPaused) {
+        _hasPendingEmission = false;
+        return;
+      }
+      if (_hasPendingEmission) {
+        _emitSnapshot();
+        _hasPendingEmission = false;
+      }
+    });
   }
 
   void _processEvent(MidiEvent event) {
@@ -203,6 +227,8 @@ class UiStateSinkNode extends SinkNode {
   }
 
   void dispose() {
+    _disposed = true;
+    _hasPendingEmission = false;
     _fallbackTimer?.cancel();
   }
 }

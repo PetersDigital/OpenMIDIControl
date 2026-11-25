@@ -11,6 +11,8 @@ import kotlinx.coroutines.*
 class PeripheralMidiService : MidiDeviceService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val deadReceivers = mutableSetOf<MidiReceiver>()
+    private var cachedReceivers: Array<MidiReceiver>? = null
+    private var cachedReceiverSet: Set<MidiReceiver> = emptySet()
  
     companion object {
         var activeInstance: PeripheralMidiService? = null
@@ -32,6 +34,8 @@ class PeripheralMidiService : MidiDeviceService() {
     override fun onDestroy() {
         serviceScope.cancel()
         deadReceivers.clear()
+        cachedReceivers = null
+        cachedReceiverSet = emptySet()
         activeInstance = null
         super.onDestroy()
     }
@@ -58,7 +62,11 @@ class PeripheralMidiService : MidiDeviceService() {
         // If a receiver is no longer in outputPortReceivers, it has been removed by the OS
         // and we no longer need to track it as dead. This prevents unbounded memory growth.
         if (deadReceivers.isNotEmpty()) {
-            deadReceivers.retainAll(receivers.toSet())
+            if (receivers !== cachedReceivers) {
+                cachedReceivers = receivers
+                cachedReceiverSet = receivers.toSet()
+            }
+            deadReceivers.retainAll(cachedReceiverSet)
         }
 
         for (receiver in receivers) {
@@ -76,7 +84,7 @@ class PeripheralMidiService : MidiDeviceService() {
                     deadReceivers.add(it)
                     // Phase 1: Safely notify failure on Main Thread to prevent background channel crashes.
                     // Using service-level scope to ensure lifecycle-bound execution.
-                    serviceScope.launch(Dispatchers.Main) {
+                    serviceScope.launch(Dispatchers.Main.immediate) {
                         MidiSystemManager.onPortFailure("peripheral_host")
                     }
                 }

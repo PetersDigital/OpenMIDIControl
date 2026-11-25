@@ -223,6 +223,7 @@ class MidiService {
 
   final bool useBackgroundWorker;
   bool _isDisposed = false;
+  bool _isPaused = false;
   Timer? _initTimer;
 
   MidiService({this.useBackgroundWorker = true}) {
@@ -285,7 +286,7 @@ class MidiService {
         }
 
         if (_workerSendPort != null) {
-          _workerSendPort!.send(event);
+          _workerSendPort!.send(TransferableTypedData.fromList([event]));
         } else {
           if (_queuedEvents.length >= _maxQueuedBatches) {
             _queuedEvents.removeAt(0); // Drop oldest
@@ -302,9 +303,12 @@ class MidiService {
       if (_isDisposed) return;
       if (message is SendPort) {
         _workerSendPort = message;
+        if (_isPaused) {
+          _workerSendPort!.send(('set_paused', true));
+        }
         if (_queuedEvents.isNotEmpty) {
           for (final e in _queuedEvents) {
-            _workerSendPort!.send(e);
+            _workerSendPort!.send(TransferableTypedData.fromList([e]));
           }
           _queuedEvents.clear();
         }
@@ -318,11 +322,16 @@ class MidiService {
       }
     });
 
-    _workerIsolate = await Isolate.spawn(
+    final isolate = await Isolate.spawn(
       _midiWorkerEntryPoint,
       _workerReceivePort.sendPort,
       debugName: 'MidiWorkerIsolate',
     );
+    if (_isDisposed) {
+      isolate.kill(priority: Isolate.immediate);
+      return;
+    }
+    _workerIsolate = isolate;
   }
 
   void _handleStateUpdate(Map<String, dynamic> updates) {
@@ -368,10 +377,12 @@ class MidiService {
   }
 
   void setPaused(bool paused) {
+    _isPaused = paused;
     final node = outgoingRouter.getNode('uiSyncSink');
     if (node is UiStateSinkNode) {
-      node.isPaused = paused;
+      node.setPaused(paused);
     }
+    _workerSendPort?.send(('set_paused', paused));
   }
 
   void _setupRouters() {
@@ -1069,10 +1080,19 @@ class ControlStateNotifier extends Notifier<ControlState> {
       yield current;
     }
 
-    final controller = _hotCcControllers.putIfAbsent(
-      address,
-      () => StreamController<int>.broadcast(),
-    );
+    final controller = _hotCcControllers.putIfAbsent(address, () {
+      late final StreamController<int> created;
+      created = StreamController<int>.broadcast(
+        onCancel: () {
+          if (!created.hasListener &&
+              identical(_hotCcControllers[address], created)) {
+            _hotCcControllers.remove(address);
+            created.close();
+          }
+        },
+      );
+      return created;
+    });
     yield* controller.stream;
   }
 
@@ -1272,23 +1292,31 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
   mainSendPort.send(receivePort.sendPort);
 
   final incomingRouter = MidiRouter();
-  incomingRouter.addNode('source', SplitNode());
-  incomingRouter.addNode(
-    'uiStateSink',
-    UiStateSinkNode(
-      onStateUpdate: (batchUpdates) {
-        if (batchUpdates.isNotEmpty) {
-          mainSendPort.send(('state_update', batchUpdates));
-        }
-      },
-    ),
+  final uiStateSink = UiStateSinkNode(
+    useTimerOnly: true,
+    onStateUpdate: (batchUpdates) {
+      if (batchUpdates.isNotEmpty) {
+        mainSendPort.send(('state_update', batchUpdates));
+      }
+    },
   );
+  incomingRouter.addNode('source', SplitNode());
+  incomingRouter.addNode('uiStateSink', uiStateSink);
   incomingRouter.addEdge('source', 'uiStateSink');
 
   receivePort.listen((message) {
-    if (message is Int64List) {
-      final int usedLongCount = message.isNotEmpty ? message[0] : 0;
-      final events = _LazyMidiEventList(message, usedLongCount);
+    if (message is (String, dynamic) && message.$1 == 'set_paused') {
+      uiStateSink.setPaused(message.$2 as bool);
+      return;
+    }
+    final Int64List? data = switch (message) {
+      TransferableTypedData ttd => ttd.materialize().asInt64List(),
+      Int64List list => list,
+      _ => null,
+    };
+    if (data != null) {
+      final int usedLongCount = data.isNotEmpty ? data[0] : 0;
+      final events = _LazyMidiEventList(data, usedLongCount);
       incomingRouter.process('source', events);
     }
   });

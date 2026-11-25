@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -39,15 +39,15 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
     on ConsumerState<T> {
   final List<Ticker> _managedTickers = [];
   final List<ProviderSubscription<dynamic>> _managedSubscriptions = [];
+  ProviderSubscription<AppLifecycleState>? _lifecycleSubscription;
 
   /// Must be called at the top of [State.initState] (after `super.initState()`)
   /// to register this widget for app lifecycle changes.
   void initPerformanceMixin() {
-    addManagedSubscription(
-      ref.listenManual(
-        appLifecycleStateProvider,
-        (_, state) => _handleAppLifecycleState(state),
-      ),
+    _lifecycleSubscription?.close();
+    _lifecycleSubscription = ref.listenManual(
+      appLifecycleStateProvider,
+      (_, state) => _handleAppLifecycleState(state),
     );
   }
 
@@ -104,6 +104,11 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   // App Lifecycle Management
   // ---------------------------------------------------------------------------
 
+  /// Hook for subclasses to suspend custom [AnimationController]s or timers
+  /// when the app lifecycle changes.
+  @protected
+  void onAppLifecycleChanged(AppLifecycleState state) {}
+
   void _handleAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       // Suspend all tickers to eliminate render-loop drain while backgrounded.
@@ -111,6 +116,7 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
         ticker.stop();
       }
     }
+    onAppLifecycleChanged(state);
     // Tickers are NOT restarted here — each widget is responsible for
     // restarting its own ticker on the next interaction event. This prevents
     // spurious polls when the app foregrounds without user input.
@@ -123,6 +129,8 @@ mixin PerformanceTickerMixin<T extends ConsumerStatefulWidget>
   /// **Must** be called from the widget's [State.dispose] *before*
   /// `super.dispose()`.
   void disposePerformanceMixin() {
+    _lifecycleSubscription?.close();
+    _lifecycleSubscription = null;
     for (final ticker in _managedTickers) {
       ticker.dispose();
     }

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ScrollableDialogContent extends StatefulWidget {
   final Widget child;

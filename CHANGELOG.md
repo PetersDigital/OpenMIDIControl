@@ -6,7 +6,45 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD)
+
+## [0.4.3] - 2026-11-20
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...v0.4.3)
+
+### Added
+
+- **LayoutManifest Metadata Model**: Class tracking `id`, `name`, `author`, `version`, `description`, `tags`, `createdAt`, and `updatedAt` with full serialization, copyWith, and equality methods.
+- **LayoutDocument Schema Envelope**: Versioned root container (`schemaVersion: 1`) encapsulating manifest metadata and structural layout state (`pages` and `activePageIndex`).
+- **LayoutSchemaMigrator Pipeline**: Extensible schema migration pipeline with automated v0 to v1 migration supporting unversioned legacy raw layouts and `PresetSnapshot` objects, synthesizing default metadata and safely ignoring transient runtime control states.
+- **UnsupportedSchemaVersionException**: Error handling for future, unsupported, or corrupted schema versions during deserialization and file imports.
+- **LayoutDocumentNotifier & Riverpod State Wiring**: Dedicated state manager for active `LayoutDocument` metadata, delegating layout structure mutations to `LayoutStateNotifier`.
+- **Manifest Editor Modal**: Clean modal dialog accessible from the Files tab for viewing and updating layout name, author, version, description, and comma-separated tags.
+- **LayoutStorageManager Repository**: Local file persistence engine saving and listing `.omc` layout documents in `<app_documents>/layouts/{id}.omc` with active layout tracking via `SharedPreferences`.
+- **Debounced Auto-Save & Lifecycle Flush**: Automatic 1000ms debounced persistence of layout state and manifest mutations, plus immediate flush on app backgrounding (`paused`/`inactive`/`detached`) via `appLifecycleStateProvider`.
+- **Layout Library Modal**: Browser dialog (`LayoutLibraryModal`) accessible from the Files tab for listing, switching, and deleting locally saved `.omc` layout documents.
+- **Startup Loading**: Automatic restoration of active layout document on launch, with initial default document generation and persistence on first run.
+- **Hardened Import/Export Pipelines**: Upgraded `SnapshotManager` with `exportLayoutDocument` and `importLayoutDocument`, preserving `.omc` file extension continuity while migrating incoming legacy formats (named `Imported Layout` by default) and providing descriptive SnackBar upgrade feedback.
+
+### Changed
+
+- **Files Tab Organization**: Replaced full preset export/import tiles with modern `LayoutDocument` sharing and added the dedicated `LAYOUT METADATA` section card for metadata editing.
+
+### Performance
+
+- **JNI Batch Trimming & Zero-Copy Isolate Transit**: Sliced native `MainActivity` event batches (`payload.copyOf(1 + usedLongs)`) prior to `EventChannel` dispatch and wrapped Dart `Int64List` payloads in `TransferableTypedData` across `MidiWorkerIsolate`, eliminating ~4 MB/sec of redundant copy churn.
+- **Worker Isolate Timer Mode**: Added `useTimerOnly` mode in `UiStateSinkNode` so `MidiWorkerIsolate` schedules its 16ms timer directly without throwing/catching `SchedulerBinding` exceptions ~60x/sec.
+- **Background MIDI UI Suspension**: Forwarded `setPaused` state to `MidiWorkerIsolate` so UI snapshot emissions pause when backgrounded and flush immediately on resume while `incomingRouter` stays active.
+- **XY Pad & Overlay Repaint Isolation**: Moved `HybridXYPad` coordinates to a `ValueNotifier<Offset>` inside an inner `RepaintBoundary` (caching grid `Paint`), and wrapped `Trigger`, `DynamicConnectionIsland`, and `GlobalConfigProgressBar` in `RepaintBoundary` to avoid re-rasterizing outer `BoxShadow` layers at 60–120Hz.
+- **Diagnostics List Recycling & Gesture Rebuild Cleanup**: Removed `ValueKey(state.version)` from `DiagnosticsConsole`'s `ListView.builder` so elements recycle across 100ms updates, and eliminated non-rendered `setState()` calls in `ConfigGestureWrapper`.
+- **Peripheral Service & Trim Hardening**: Cached `PeripheralMidiService` receiver sets on `sendToHost()` (using `Dispatchers.Main.immediate`) and removed the blocking `System.gc()` pause from `MainActivity.onTrimMemory()`.
+
+### Fixed
+
+- **Lifecycle Subscription Preservation**: Isolated `PerformanceTickerMixin`'s `_lifecycleSubscription` from `clearManagedSubscriptions()` so MIDI re-binding no longer kills `appLifecycleStateProvider` observation, and added `onAppLifecycleChanged` to suspend fader and drum pad `AnimationController`s on backgrounding.
+- **Inactive Control & Stream Cleanup**: Suspended off-screen `hotCcValueProvider` listeners in `HybridXYPad` and `EndlessEncoderWidget`, evicted idle broadcast controllers on `onCancel` in `ControlStateNotifier.watchHotCc()`, and guarded `Isolate.spawn` against mid-spawn disposal.
+- **Native Reconnect & Activity Teardown**: Closed prior `hostMidiBackend` and cancelled orphaned `ActivePortSession` coroutines on reconnect, guarded late `openDevice()` callbacks, and cleared `mainThreadHandler` / event sinks in `MainActivity.onDestroy()`.
+- **Dirty-Guarded Lifecycle Save & Timer Safety**: Restricted `LayoutDocumentNotifier`'s lifecycle `flushSave()` to `paused`/`detached` when a dirty debounce timer is active, fixed `ConfigGestureWrapper.dispose()` progress reset, and added `mounted` guards after `await` in `_checkFirstLaunch()`.
 
 ## [0.4.2] - 2026-11-10
 
@@ -463,7 +501,8 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 - Project initialized (documentation only).
 
-[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/PetersDigital/OpenMIDIControl/compare/v0.3.0...v0.4.0

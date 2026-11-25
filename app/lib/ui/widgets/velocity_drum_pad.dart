@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 import '../midi_service.dart';
@@ -39,10 +39,7 @@ class VelocityDrumPad extends ConsumerStatefulWidget {
 }
 
 class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        PerformanceTickerMixin {
+    with TickerProviderStateMixin, PerformanceTickerMixin {
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
@@ -72,14 +69,12 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void onAppLifecycleChanged(AppLifecycleState state) {
     // Suspend the scale animation while the app is backgrounded to free
     // the animation thread and prevent resource drain on suspended views.
     if (state != AppLifecycleState.resumed) {
       _scaleController.stop();
     }
-    // Delegate to the mixin to handle any registered tickers as well.
-    super.didChangeAppLifecycleState(state);
   }
 
   @override

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/layout_models.dart';
@@ -93,6 +93,7 @@ class ControlWidgetFactory {
                       channel: control.channel == -1 ? 0 : control.channel,
                       cc: isUnassigned ? 0 : cc,
                       showChannelLabel: false,
+                      isActive: isActive,
                     ),
                   ),
                 ),

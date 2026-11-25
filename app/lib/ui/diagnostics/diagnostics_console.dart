@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'diagnostics_logger.dart';
@@ -58,7 +58,6 @@ class DiagnosticsConsole extends ConsumerWidget {
                     ),
                   )
                 : ListView.builder(
-                    key: ValueKey(state.version),
                     itemCount: logs.length,
                     itemBuilder: (context, index) {
                       final entry = logs[index];

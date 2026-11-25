@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../midi_settings_state.dart';
@@ -67,16 +67,28 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
 
   @override
   void dispose() {
+    final wasHolding =
+        _progressController.isAnimating || _progressController.value > 0;
+    final progressNotifier = wasHolding
+        ? ref.read(configProgressProvider.notifier)
+        : null;
     _progressController.dispose();
     _configTimer?.cancel();
     _tapResetTimer?.cancel();
     // Ensure we don't leave a ghost progress bar if disposed during hold
-    Future.microtask(() {
-      if (mounted) {
-        ref.read(configProgressProvider.notifier).reset();
-      }
-    });
+    if (progressNotifier != null) {
+      Future.microtask(progressNotifier.reset);
+    }
     super.dispose();
+  }
+
+  void _setTapCount(int next) {
+    if (_tapCount == next) return;
+    if (mounted) {
+      setState(() => _tapCount = next);
+    } else {
+      _tapCount = next;
+    }
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -95,23 +107,19 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
         ? currentElapsed - _lastTapElapsedMs
         : 999999;
 
-    setState(() {
-      _isDown = true;
-      _activePointerId = event.pointer;
-      _initialPointerPos = event.localPosition;
-    });
+    _isDown = true;
+    _activePointerId = event.pointer;
+    _initialPointerPos = event.localPosition;
 
     final mode = ref.read(configGestureModeProvider);
 
     // Tap sequence logic: strictly serial double-tap detection
     if (_tapCount == 0 || (timeSinceLastTap > _kMaxDoubleTapGapMs)) {
-      _tapCount = 1;
+      _setTapCount(1);
       _tapResetTimer?.cancel();
       _tapResetTimer = Timer(
         const Duration(milliseconds: _kMaxDoubleTapGapMs),
-        () {
-          if (mounted) setState(() => _tapCount = 0);
-        },
+        () => _setTapCount(0),
       );
 
       // If in single-tap mode, start the timer immediately if we have a callback
@@ -122,13 +130,13 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       }
     } else if (_tapCount == 1 && timeSinceLastTap < _kMaxDoubleTapSpeedMs) {
       if (mode == ConfigGestureMode.doubleTapHold) {
-        _tapCount = 2;
+        _setTapCount(2);
         _tapResetTimer?.cancel();
 
         // RENAME GESTURE: Quick double-tap (within 400ms) triggers rename immediately
         if (widget.onRenameRequested != null) {
           widget.onRenameRequested!();
-          _tapCount = 0; // Reset after rename action
+          _setTapCount(0); // Reset after rename action
           return;
         }
 
@@ -139,7 +147,7 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       }
     } else {
       // Excessive taps or too slow - reset
-      _tapCount = 0;
+      _setTapCount(0);
       _stopConfigTimer();
     }
 
@@ -159,12 +167,14 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
       // (The max pan distance threshold handles preventing trigger on drag).
       if (!_isDown || !mounted) return;
 
-      setState(() {
-        _isDown = false;
-        _progressController.reset();
+      _isDown = false;
+      _progressController.reset();
+      _setTapCount(0);
+      Future.microtask(() {
+        if (mounted) {
+          ref.read(configProgressProvider.notifier).reset();
+        }
       });
-      Future.microtask(() => ref.read(configProgressProvider.notifier).reset());
-      _tapCount = 0;
       if (widget.onConfigRequested != null) {
         widget.onConfigRequested!();
       }
@@ -185,23 +195,25 @@ class _ConfigGestureWrapperState extends ConsumerState<ConfigGestureWrapper>
 
   void _stopConfigTimer() {
     if (!mounted) return;
-    setState(() {
-      _progressController.reset();
-      _configTimer?.cancel();
-    });
-    Future.microtask(() {
-      if (mounted) {
-        ref.read(configProgressProvider.notifier).reset();
-      }
-    });
+    final hadActiveHold =
+        _progressController.isAnimating ||
+        _progressController.value > 0 ||
+        (_configTimer?.isActive ?? false);
+    _progressController.reset();
+    _configTimer?.cancel();
+    if (hadActiveHold) {
+      Future.microtask(() {
+        if (mounted) {
+          ref.read(configProgressProvider.notifier).reset();
+        }
+      });
+    }
   }
 
   void _handlePointerUpCancel() {
-    setState(() {
-      _isDown = false;
-      _activePointerId = null;
-      _initialPointerPos = null;
-    });
+    _isDown = false;
+    _activePointerId = null;
+    _initialPointerPos = null;
     _stopConfigTimer();
   }
 

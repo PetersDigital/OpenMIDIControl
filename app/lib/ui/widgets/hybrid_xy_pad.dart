@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system.dart';
@@ -41,13 +41,13 @@ class HybridXYPad extends ConsumerStatefulWidget {
 }
 
 class _HybridXYPadState extends ConsumerState<HybridXYPad>
-    with
-        TickerProviderStateMixin,
-        WidgetsBindingObserver,
-        PerformanceTickerMixin {
+    with TickerProviderStateMixin, PerformanceTickerMixin {
   bool _isDragging = false;
-  double _normalizedX = 0.5;
-  double _normalizedY = 0.5;
+  final ValueNotifier<Offset> _posNotifier = ValueNotifier<Offset>(
+    const Offset(0.5, 0.5),
+  );
+  double get _normalizedX => _posNotifier.value.dx;
+  double get _normalizedY => _posNotifier.value.dy;
 
   Timer? _throttleTimer;
   bool _canSend = true;
@@ -72,24 +72,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final hotX = controlState.ccValues["$channel:$ccX"];
     final hotY = controlState.ccValues["$channel:$ccY"];
 
-    if (hotX != null) {
-      _normalizedX = hotX / 127.0;
-    }
-    if (hotY != null) {
-      _normalizedY = hotY / 127.0;
-    }
+    final double initX = hotX != null ? hotX / 127.0 : 0.5;
+    final double initY = hotY != null ? hotY / 127.0 : 0.5;
+    _posNotifier.value = Offset(initX, initY);
 
     if (widget.isActive) {
       _setupMidiListeners();
     }
   }
 
-  void _setupMidiListeners() {
-    clearManagedResources();
+  void _setupMidiListeners({int? channel, int? ccX, int? ccY}) {
+    clearManagedSubscriptions();
     final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channelSub = controlSub?.channel ?? widget.channel;
-    final ccXSub = controlSub?.defaultCc ?? widget.ccX;
-    final ccYSub = controlSub?.secondaryCc ?? widget.ccY;
+    final channelSub = channel ?? controlSub?.channel ?? widget.channel;
+    final ccXSub = ccX ?? controlSub?.defaultCc ?? widget.ccX;
+    final ccYSub = ccY ?? controlSub?.secondaryCc ?? widget.ccY;
 
     addManagedSubscription(
       ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
@@ -142,18 +139,20 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         final hotX = controlState.ccValues["$channel:$ccX"];
         final hotY = controlState.ccValues["$channel:$ccY"];
 
-        setState(() {
-          if (hotX != null) {
-            final normX = hotX / 127.0;
-            _normalizedX = invertX ? 1.0 - normX : normX;
-          }
-          if (hotY != null) {
-            final normY = hotY / 127.0;
-            _normalizedY = invertY ? 1.0 - normY : normY;
-          }
-        });
+        double nextX = _normalizedX;
+        double nextY = _normalizedY;
+        if (hotX != null) {
+          final normX = hotX / 127.0;
+          nextX = invertX ? 1.0 - normX : normX;
+        }
+        if (hotY != null) {
+          final normY = hotY / 127.0;
+          nextY = invertY ? 1.0 - normY : normY;
+        }
+        _posNotifier.value = Offset(nextX, nextY);
       } else {
         // Suspend resources
+        clearManagedSubscriptions();
         _throttleTimer?.cancel();
       }
     }
@@ -162,6 +161,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   @override
   void dispose() {
     _throttleTimer?.cancel();
+    _posNotifier.dispose();
     disposePerformanceMixin();
     super.dispose();
   }
@@ -185,10 +185,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final control = ref.read(layoutStateProvider).getControlById(widget.id);
     final invertX = control?.invertX ?? widget.invertX;
     final norm = val / 127.0;
-
-    setState(() {
-      _normalizedX = invertX ? 1.0 - norm : norm;
-    });
+    final nextX = invertX ? 1.0 - norm : norm;
+    _posNotifier.value = Offset(nextX, _normalizedY);
   }
 
   void _handleYUpdate(int val) {
@@ -198,10 +196,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final control = ref.read(layoutStateProvider).getControlById(widget.id);
     final invertY = control?.invertY ?? widget.invertY;
     final norm = val / 127.0;
-
-    setState(() {
-      _normalizedY = invertY ? 1.0 - norm : norm;
-    });
+    final nextY = invertY ? 1.0 - norm : norm;
+    _posNotifier.value = Offset(_normalizedX, nextY);
   }
 
   void _handleDragStart(DragStartDetails details, Size size) {
@@ -220,10 +216,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final double nx = (localPosition.dx / size.width).clamp(0.0, 1.0);
     final double ny = (localPosition.dy / size.height).clamp(0.0, 1.0);
 
-    setState(() {
-      _normalizedX = nx;
-      _normalizedY = ny;
-    });
+    _posNotifier.value = Offset(nx, ny);
 
     _sendMidi(isFinal: isFinal);
   }
@@ -232,7 +225,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 
   void _sendMidi({required bool isFinal}) {
     if (!_canSend && !isFinal) {
-      setState(() => _isDragging = true);
       _hasPendingSend = true;
       return;
     }
@@ -291,38 +283,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
-        clearManagedResources();
-        final channelSub = next?.channel ?? widget.channel;
-        final ccXSub = next?.defaultCc ?? widget.ccX;
-        final ccYSub = next?.secondaryCc ?? widget.ccY;
-
-        addManagedSubscription(
-          ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
-            previous,
-            current,
-          ) {
-            if (current is AsyncData) {
-              final valX = current.value;
-              if (valX != null && valX != _lastPolledX) {
-                _lastPolledX = valX;
-                _handleXUpdate(valX);
-              }
-            }
-          }),
-        );
-        addManagedSubscription(
-          ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
-            previous,
-            current,
-          ) {
-            if (current is AsyncData) {
-              final valY = current.value;
-              if (valY != null && valY != _lastPolledY) {
-                _lastPolledY = valY;
-                _handleYUpdate(valY);
-              }
-            }
-          }),
+        clearManagedSubscriptions();
+        if (!widget.isActive) return;
+        _setupMidiListeners(
+          channel: next?.channel ?? widget.channel,
+          ccX: next?.defaultCc ?? widget.ccX,
+          ccY: next?.secondaryCc ?? widget.ccY,
         );
       }
     });
@@ -381,47 +347,72 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                 borderRadius: BorderRadius.zero,
                 child: Stack(
                   children: [
-                    // Center guide lines
-                    CustomPaint(size: Size.infinite, painter: _XYGridPainter()),
-                    // Active crosshairs
-                    Positioned(
-                      left: _normalizedX * size.width - 0.5,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 1,
-                        color: _isDragging
-                            ? const Color(0xFFA6C9F8)
-                            : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
-                      ),
+                    // Static center guide lines (never repainted on drag)
+                    const CustomPaint(
+                      size: Size.infinite,
+                      painter: _XYGridPainter(),
                     ),
-                    Positioned(
-                      top: _normalizedY * size.height - 0.5,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: 1,
-                        color: _isDragging
-                            ? const Color(0xFFA6C9F8)
-                            : const Color(0xFFA6C9F8).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    // Touch Point Marker
-                    Positioned(
-                      left: (_normalizedX * size.width) - 15,
-                      top: (_normalizedY * size.height) - 15,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isDragging
-                              ? const Color(0xFFA6C9F8).withValues(alpha: 0.8)
-                              : const Color(0xFFA6C9F8).withValues(alpha: 0.4),
-                          border: Border.all(
-                            color: const Color(0xFFA6C9F8),
-                            width: 2,
-                          ),
+                    // Dynamic crosshairs & touch marker isolated in inner RepaintBoundary
+                    Positioned.fill(
+                      child: RepaintBoundary(
+                        child: ValueListenableBuilder<Offset>(
+                          valueListenable: _posNotifier,
+                          builder: (context, pos, _) {
+                            final nx = pos.dx;
+                            final ny = pos.dy;
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: nx * size.width - 0.5,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 1,
+                                    color: _isDragging
+                                        ? const Color(0xFFA6C9F8)
+                                        : const Color(
+                                            0xFFA6C9F8,
+                                          ).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: ny * size.height - 0.5,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    height: 1,
+                                    color: _isDragging
+                                        ? const Color(0xFFA6C9F8)
+                                        : const Color(
+                                            0xFFA6C9F8,
+                                          ).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: (nx * size.width) - 15,
+                                  top: (ny * size.height) - 15,
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _isDragging
+                                          ? const Color(
+                                              0xFFA6C9F8,
+                                            ).withValues(alpha: 0.8)
+                                          : const Color(
+                                              0xFFA6C9F8,
+                                            ).withValues(alpha: 0.4),
+                                      border: Border.all(
+                                        color: const Color(0xFFA6C9F8),
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -442,18 +433,25 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             crossAxisAlignment: CrossAxisAlignment.end,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                ((invertX
-                                            ? (1.0 - _normalizedX)
-                                            : _normalizedX) *
-                                        127)
-                                    .round()
-                                    .toString()
-                                    .padLeft(3, '0'),
-                                style: const TextStyle(
-                                  fontFamily: 'DSEG7Modern',
-                                  color: Color(0xFFA6C9F8),
-                                  fontSize: 16,
+                              RepaintBoundary(
+                                child: ValueListenableBuilder<Offset>(
+                                  valueListenable: _posNotifier,
+                                  builder: (_, pos, _) {
+                                    final val =
+                                        ((invertX ? (1.0 - pos.dx) : pos.dx) *
+                                                127)
+                                            .round()
+                                            .toString()
+                                            .padLeft(3, '0');
+                                    return Text(
+                                      val,
+                                      style: const TextStyle(
+                                        fontFamily: 'DSEG7Modern',
+                                        color: Color(0xFFA6C9F8),
+                                        fontSize: 16,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                               Text(
@@ -493,18 +491,25 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                ((invertY
-                                            ? (1.0 - _normalizedY)
-                                            : _normalizedY) *
-                                        127)
-                                    .round()
-                                    .toString()
-                                    .padLeft(3, '0'),
-                                style: const TextStyle(
-                                  fontFamily: 'DSEG7Modern',
-                                  color: Color(0xFFA6C9F8),
-                                  fontSize: 16,
+                              RepaintBoundary(
+                                child: ValueListenableBuilder<Offset>(
+                                  valueListenable: _posNotifier,
+                                  builder: (_, pos, _) {
+                                    final val =
+                                        ((invertY ? (1.0 - pos.dy) : pos.dy) *
+                                                127)
+                                            .round()
+                                            .toString()
+                                            .padLeft(3, '0');
+                                    return Text(
+                                      val,
+                                      style: const TextStyle(
+                                        fontFamily: 'DSEG7Modern',
+                                        color: Color(0xFFA6C9F8),
+                                        fontSize: 16,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -524,21 +529,23 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
 }
 
 class _XYGridPainter extends CustomPainter {
+  const _XYGridPainter();
+
+  static final Paint _gridPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.05)
+    ..strokeWidth = 1.0;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-
     canvas.drawLine(
       Offset(size.width / 2, 0),
       Offset(size.width / 2, size.height),
-      paint,
+      _gridPaint,
     );
     canvas.drawLine(
       Offset(0, size.height / 2),
       Offset(size.width, size.height / 2),
-      paint,
+      _gridPaint,
     );
   }
 
