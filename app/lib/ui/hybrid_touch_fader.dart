@@ -574,7 +574,6 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: widget.controlId,
-        identifierLabel: 'CC Number (0-127)',
         displayNameLabel: 'Fader Name',
       ),
     );

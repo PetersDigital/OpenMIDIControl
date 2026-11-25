@@ -110,7 +110,6 @@ class ControlWidgetFactory {
                             context: context,
                             builder: (context) => ControlConfigModal(
                               controlId: control.id,
-                              identifierLabel: 'CC Number (0-127)',
                               displayNameLabel: 'Encoder Name',
                             ),
                           ),

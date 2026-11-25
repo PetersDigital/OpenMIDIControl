@@ -349,7 +349,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: controlId,
-        identifierLabel: 'MIDI Note (e.g., C3 or 36)',
         displayNameLabel: 'Pad Name',
       ),
     );

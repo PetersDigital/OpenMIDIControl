@@ -259,11 +259,8 @@ Future<void> showUtilityConfigModal(
 ) async {
   await showDialog(
     context: context,
-    builder: (context) => ControlConfigModal(
-      controlId: id,
-      identifierLabel: 'CC Number',
-      displayNameLabel: 'Control Name',
-    ),
+    builder: (context) =>
+        ControlConfigModal(controlId: id, displayNameLabel: 'Control Name'),
   );
 }
 

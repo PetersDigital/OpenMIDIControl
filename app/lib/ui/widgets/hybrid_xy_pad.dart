@@ -195,8 +195,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: widget.id,
-        identifierLabel: 'X Axis MIDI ID (e.g., 20 or C3)',
-        secondaryIdentifierLabel: 'Y Axis MIDI ID (e.g., 21 or C#3)',
         displayNameLabel: 'XY Pad Name',
       ),
     );
