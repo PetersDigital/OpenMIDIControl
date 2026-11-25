@@ -4,15 +4,30 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import '../../core/models/action_payload.dart';
+import '../../core/models/layout_models.dart';
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
 import '../midi_service.dart';
+import '../midi_action_dispatcher.dart';
 import '../layout_state.dart';
 import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
 
 enum MidiButtonMode { note, cc }
+
+ActionPayload? _buttonPayload(LayoutControl control, MidiButtonMode mode) {
+  final payload = control.payload;
+  if (mode == MidiButtonMode.note &&
+      payload is CcPayload &&
+      !payload.highResolution &&
+      payload.cc == control.defaultCc &&
+      payload.channel == control.channel) {
+    return NotePayload(channel: payload.channel, note: payload.cc);
+  }
+  return payload;
+}
 
 class Trigger extends ConsumerStatefulWidget {
   final String controlId;
@@ -41,6 +56,8 @@ class _TriggerState extends ConsumerState<Trigger>
         WidgetsBindingObserver,
         PerformanceTickerMixin {
   bool _isPressed = false;
+  int? _activePointer;
+  final _midiGate = MidiGate();
 
   @override
   void initState() {
@@ -49,37 +66,44 @@ class _TriggerState extends ConsumerState<Trigger>
   }
 
   @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && _isPressed) {
+      setState(() {
+        _activePointer = null;
+        _isPressed = false;
+      });
+      _midiGate.release();
+    }
+  }
+
+  @override
   void dispose() {
+    _midiGate.release();
     disposePerformanceMixin();
     super.dispose();
   }
 
-  void _handlePointerDown(PointerEvent event, int identifier, int channel) {
+  void _handlePointerDown(PointerEvent event, ActionPayload? payload) {
     if (_isPressed) return;
+    _activePointer = event.pointer;
 
     setState(() {
       _isPressed = true;
     });
 
-    final service = ref.read(midiServiceProvider);
-    if (widget.mode == MidiButtonMode.note) {
-      service.sendNoteOn(identifier, 127, channel: channel, isFinal: false);
-    } else {
-      service.sendCC(identifier, 127, channel: channel, isFinal: false);
+    if (payload != null) {
+      _midiGate.press(ref.read(midiServiceProvider), payload, isFinal: false);
     }
   }
 
-  void _handlePointerUp(PointerEvent event, int identifier, int channel) {
+  void _handlePointerUp(PointerEvent event) {
+    if (event.pointer != _activePointer) return;
+    _activePointer = null;
     setState(() {
       _isPressed = false;
     });
 
-    final service = ref.read(midiServiceProvider);
-    if (widget.mode == MidiButtonMode.note) {
-      service.sendNoteOff(identifier, channel: channel, isFinal: true);
-    } else {
-      service.sendCC(identifier, 0, channel: channel, isFinal: true);
-    }
+    _midiGate.release();
   }
 
   @override
@@ -97,22 +121,19 @@ class _TriggerState extends ConsumerState<Trigger>
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
-    final channel = control.channel;
+    final channel = control.payload?.midiChannel ?? control.channel;
     final identifier = control.defaultCc;
-    final isUnassigned = identifier == -1;
+    final payload = _buttonPayload(control, widget.mode);
+    final isUnassigned = identifier == -1 && payload == null;
     final label = control.displayName;
 
     return RepaintBoundary(
       child: Listener(
         onPointerDown: isUnassigned
             ? null
-            : (e) => _handlePointerDown(e, identifier, channel),
-        onPointerUp: isUnassigned
-            ? null
-            : (e) => _handlePointerUp(e, identifier, channel),
-        onPointerCancel: isUnassigned
-            ? null
-            : (e) => _handlePointerUp(e, identifier, channel),
+            : (e) => _handlePointerDown(e, payload),
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerUp,
         behavior: HitTestBehavior.opaque,
         child: Opacity(
           opacity: isUnassigned ? 0.3 : 1.0,
@@ -153,7 +174,9 @@ class _TriggerState extends ConsumerState<Trigger>
                       ),
                       alignment: Alignment.topLeft,
                       child: Text(
-                        isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
+                        isUnassigned
+                            ? 'UNASSIGNED'
+                            : control.payload?.displayLabel ?? 'CC $identifier',
                         style: AppText.performance(
                           color: _isPressed
                               ? const Color(0xFF033258).withValues(alpha: 0.6)
@@ -272,6 +295,8 @@ class _ToggleState extends ConsumerState<Toggle>
         PerformanceTickerMixin {
   bool _isActive = false;
   bool _isPressed = false;
+  int? _activePointer;
+  final _midiGate = MidiGate();
 
   @override
   void initState() {
@@ -281,45 +306,40 @@ class _ToggleState extends ConsumerState<Toggle>
 
   @override
   void dispose() {
+    if (_midiGate.heldPayload is NotePayload) {
+      _midiGate.release();
+    }
     disposePerformanceMixin();
     super.dispose();
   }
 
   void _handlePointerDown(PointerEvent event) {
     if (_isPressed) return;
+    _activePointer = event.pointer;
 
     setState(() {
       _isPressed = true;
     });
   }
 
-  void _handlePointerUp(PointerEvent event, int identifier, int channel) {
-    if (!_isPressed) return;
+  void _handlePointerUp(PointerEvent event, ActionPayload? payload) {
+    if (event.pointer != _activePointer) return;
+    _activePointer = null;
 
-    _toggleState(identifier, channel);
+    _toggleState(payload);
 
     setState(() {
       _isPressed = false;
     });
   }
 
-  void _toggleState(int identifier, int channel) {
+  void _toggleState(ActionPayload? payload) {
     setState(() => _isActive = !_isActive);
 
-    final service = ref.read(midiServiceProvider);
-
-    if (widget.mode == MidiButtonMode.note) {
-      if (_isActive) {
-        service.sendNoteOn(identifier, 127, channel: channel, isFinal: true);
-      } else {
-        service.sendNoteOff(identifier, channel: channel, isFinal: true);
-      }
-    } else {
-      if (_isActive) {
-        service.sendCC(identifier, 127, channel: channel, isFinal: true);
-      } else {
-        service.sendCC(identifier, 0, channel: channel, isFinal: true);
-      }
+    if (_isActive && payload != null) {
+      _midiGate.press(ref.read(midiServiceProvider), payload);
+    } else if (!_isActive) {
+      _midiGate.release(relativeOnRelease: true);
     }
   }
 
@@ -338,20 +358,17 @@ class _ToggleState extends ConsumerState<Toggle>
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
-    final channel = control.channel;
+    final channel = control.payload?.midiChannel ?? control.channel;
     final identifier = control.defaultCc;
-    final isUnassigned = identifier == -1;
+    final payload = _buttonPayload(control, widget.mode);
+    final isUnassigned = identifier == -1 && payload == null && !_isActive;
     final label = control.displayName;
 
     return RepaintBoundary(
       child: Listener(
         onPointerDown: isUnassigned ? null : _handlePointerDown,
-        onPointerUp: isUnassigned
-            ? null
-            : (e) => _handlePointerUp(e, identifier, channel),
-        onPointerCancel: isUnassigned
-            ? null
-            : (e) => _handlePointerUp(e, identifier, channel),
+        onPointerUp: (e) => _handlePointerUp(e, payload),
+        onPointerCancel: (e) => _handlePointerUp(e, payload),
         behavior: HitTestBehavior.opaque,
         child: Opacity(
           opacity: isUnassigned ? 0.3 : 1.0,
@@ -390,7 +407,9 @@ class _ToggleState extends ConsumerState<Toggle>
                       ),
                       alignment: Alignment.topLeft,
                       child: Text(
-                        isUnassigned ? 'UNASSIGNED' : 'CC $identifier',
+                        isUnassigned
+                            ? 'UNASSIGNED'
+                            : control.payload?.displayLabel ?? 'CC $identifier',
                         style: AppText.performance(
                           color: _isActive
                               ? const Color(0xFF690005).withValues(alpha: 0.6)
