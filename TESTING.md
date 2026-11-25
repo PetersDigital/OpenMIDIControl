@@ -1,16 +1,16 @@
 # Automated Test Suite Architecture
 
 > [!NOTE]
-> This documentation covers the multi-domain test suite for the v0.4.2 dynamic layout engine and routing/state foundation, including Kotlin native unit tests, Dart unit/widget tests, integration tests, and responsive UI validation.
+> This documentation covers the multi-domain test suite for the v0.4.3 layout persistence, dynamic layout engine, and UMP routing/state foundation, including Kotlin native unit tests, Dart unit/widget tests (194+ cases), integration tests, and Windows MIDI Services HITL validation.
 
-The v0.4.2 Dynamic Modular Layout Engine builds on the v0.3.0 Universal MIDI Packet (UMP) transport pipeline and layout-state foundation. Both layers are validated via a rigorous, multi-domain automated test suite. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Flutter Integration Tests**.
+The v0.4.3 release builds on the v0.3.0 Universal MIDI Packet (UMP) transport pipeline and v0.4.x dynamic layout engine with full automated coverage for `LayoutDocument`, `LayoutManifest`, `LayoutSchemaMigrator`, `LayoutStorageManager`, `LayoutLibraryModal`, `ManifestEditorModal`, and hardened `.omc` import/export. The suite is separated into three tiers: **Kotlin Native Unit Tests**, **Dart Flutter Unit & Widget Tests**, and **Hardware-in-the-Loop (HITL) / Integration Tests**.
 
 This document outlines how to execute the test suite and the specific scenarios validated.
 
 ## 1. Phase A: Kotlin Native Transport & Logic Tests
 
 **Target Directory:** `app/android/app/src/test/kotlin/com/petersdigital/openmidicontrol/`
-**Test Files:** `MidiParserTest.kt`, `MidiSystemManagerTest.kt`
+**Test Files:** `MidiParserTest.kt`, `MidiSystemManagerTest.kt`, `UmpPacketTest.kt`
 **Runner:** Gradle (JUnit 4 + Coroutines Test)
 
 The native Android byte-parsing logic is architecturally isolated in a testable static object `MidiParser.kt` (extracted from `MainActivity.kt`). This prevents tests from requiring complex Android Service lifecycles (like `MidiManager` or `MidiDeviceService`).
@@ -45,6 +45,11 @@ Or on Windows PowerShell:
 cd app/android
 .\gradlew.bat :app:testDebugUnitTest
 ```
+
+> [!TIP]
+> Always module-qualify `:app:testDebugUnitTest` on Windows rather than running unqualified `testDebugUnitTest`, which also runs third-party plugin tests (e.g., `:android_file_picker`) that may fail on Windows path separators.
+>
+> For physical hardware verification on Windows 11 with **Windows MIDI Services (`midi.exe`)**, enumerate the Android USB peripheral ID via `midi enumerate endpoints -i`, inject UMP packets with `midi endpoint send-message --endpoint-id "<ID>" --no-wait 0x20B00140`, and capture outbound UMP packets with microsecond timestamps using `midi endpoint monitor "<ID>" --include-timestamp --capture-to-file out.csv --capture-format csv`. Android Emulators can be used for UI layout checks, but do not emulate USB MIDI peripheral connections.
 
 ---
 

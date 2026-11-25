@@ -283,7 +283,7 @@ State machine must be explicit and testable.
 - **Stream Throttling**: The `ControlStateNotifier` implements a throttled per-CC update stream, deduplicating high-frequency redundant MIDI events before they are dispatched to the UI bridge.
 - **O(1) State Equality**: The `ControlState` model implements equality checks based strictly on a monotonically increasing `version` counter, eliminating $O(N)$ collection comparisons during Riverpod state transitions.
 - **Native Deduplication Buffers**: `MainActivity.kt` maintains 16k-entry `IntArray` and `LongArray` buffers to perform O(1) deduplication and rate-limiting for every possible MIDI CC/Channel combination at the native boundary.
-- **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
+- **Performance Evaluation (Planned v0.6.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations and Windows MIDI Services `<1µs` timestamps.
 - **C++ Audio Layer (Conditional, Later):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
 ### G. Lifecycle & Performance Hardening (v0.3.0)

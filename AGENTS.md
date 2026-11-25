@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.4.3 – Persistence & Marketplace**. See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.4.4 – Modular Engine Core & MCU Prerequisites** (`v0.4.3` released). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ## Project Structure
 
@@ -32,13 +32,18 @@ OpenMIDIControl/
 
 | File / Directory | Purpose |
 | --- | --- |
-| `app/lib/core/models/MidiEvent` | Immutable 32-bit UMP-ready MIDI event model |
-| `app/lib/core/models/ControlState` | Scalable Riverpod state for UI controls |
+| `app/lib/core/models/midi_event.dart` | Immutable 32-bit UMP-ready MIDI event model |
+| `app/lib/core/models/control_state.dart` | Scalable Riverpod state for UI controls |
+| `app/lib/core/models/layout_document.dart` | Versioned `.omc` layout document envelope & manifest |
+| `app/lib/core/models/layout_schema_migrator.dart` | Automated schema migration pipeline (`v0 → v1+`) |
+| `app/lib/core/managers/layout_storage_manager.dart` | Local `.omc` layout repository & persistence |
 | `app/lib/ui/open_midi_screen.dart` | Main performance screen |
 | `app/lib/ui/hybrid_touch_fader.dart` | Expressive fader (Jump/Hybrid/Catch-up) |
 | `app/lib/ui/midi_settings_screen.dart` | Port configuration with active highlighting |
 | `app/lib/ui/diagnostics/` | Real-time MIDI event logger |
 | `app/android/.../MainActivity.kt` | JNI bridge & `MidiPortBackend` implementation |
+| `app/android/.../MidiParser.kt` | Isolated 32-bit UMP reconstruction & echo suppression |
+| `app/android/.../MidiSystemManager.kt` | Persistent native MIDI lifecycle singleton |
 | `app/android/.../VirtualMidiService.kt` | Virtual MIDI device for local routing |
 | `app/android/.../PeripheralMidiService.kt` | USB class compliance service |
 
@@ -46,9 +51,11 @@ OpenMIDIControl/
 
 ### Prerequisites
 
-- Flutter 3.x (SDK >=3.41.0)
-- Android Studio / Android SDK
-- Android device with USB MIDI support (API 29+)
+- Flutter 3.x (SDK `>=3.41.0`; current toolchain baseline: Flutter `3.50.1` / Dart `3.14.0`)
+- Java 21 JDK (`flutter config --jdk-dir <jdk21-path>`)
+- Android Studio / Android SDK (Gradle `9.5.0`, AGP `9.3.1`, KGP `2.4.20`, `compileSdk = 36`)
+- Physical Android device with USB MIDI support (API `33+`) for MIDI HITL testing *(Android Emulator can be used for UI checks, but does not emulate USB MIDI peripheral mode properly)*
+- Windows MIDI Services (`midi.exe`) on Windows 11 for UMP HITL testing
 - Python 3.9+ (for scripts)
 - Node.js (for commitlint + husky, optional but recommended)
 
@@ -81,17 +88,23 @@ Copy-Item -Path scripts/.env.example.ps1 -Destination scripts/.env.ps1
 
 ### Analyze & Test
 
-```bash
-flutter analyze
+```powershell
+# Inside app/
+flutter analyze --fatal-infos
 flutter test
+
+# Inside app/android/ (always module-qualify :app: on Windows to avoid 3rd-party plugin test path issues)
+.\gradlew.bat :app:testDebugUnitTest
 ```
 
 ## Code Style
 
+- **Material UI Imports (Flutter 3.50+):** Always import `package:material_ui/material_ui.dart` (`material_ui: ^1.11.1`) instead of the deprecated `package:flutter/material.dart`.
 - **Architecture:** `MidiEvent` (transport) is strictly separated from `ControlState` (UI-facing Riverpod state). All state models are immutable.
 - **Native UMP (v0.3.0+):** The native layer enforces 32-bit Universal MIDI Packets (UMP). To ensure absolute compatibility, Android builds must explicitly hardcode `minSdk = 33`, `targetSdk = 36`, and `compileSdk = 36` directly in `app/android/app/build.gradle.kts`, overriding and ignoring `flutter.minSdkVersion` variables.
   - Developers must implement **manual 32-bit reconstruction** from `byte[]` buffers in `MidiReceiver.onSend()`.
-  - Builds must use Java 21 (`sourceCompatibility = JavaVersion.VERSION_21`, `compileSdk = 36`).
+  - Builds must use Java 21 (`sourceCompatibility = JavaVersion.VERSION_21`, `compileSdk = 36`), Gradle `9.5.0`, AGP `9.3.1`, and KGP `2.4.20`.
+  - Keep `android.builtInKotlin=false` and `android.newDsl=false` in `app/android/gradle.properties` until upstream Flutter plugins (e.g., `shared_preferences_android`) migrate to AGP Built-in Kotlin.
 - **DAG Routing:** The core routing engine is a Directed Acyclic Graph (`MidiRouter`). Never use deep recursion for event traversal; strictly use pre-allocated work queues (`Queue<WorkItem>`) and object pooling to maintain determinism and reduce allocation churn.
 - **Monotonic Clocks for Timing:** Use `Stopwatch.elapsedMilliseconds` (not `DateTime.now()`) for all MIDI throttling and rate-limiting logic. `DateTime.now()` is non-monotonic and can jump on NTP sync, breaking throttle guarantees.
 - **Primitive Packing & Thermal Stability:** Do not use `Pair` or objects to bundle UMP payloads and timestamps. Pack them into `Long` primitives to prevent garbage collection spikes (`~2MB/sec` allocation reduction) that cause thermal churn.
@@ -135,12 +148,19 @@ See [TESTING.md](TESTING.md) for complete documentation and commands for all dar
 
 ### Hardware Monitoring (HITL)
 
-```bash
+```powershell
 # Monitor native logs (look for "UMP Reconstruction" or "32-bit Payload")
-adb logcat | grep -i "openmidicontrol\|PeripheralMidi\|MidiReceiver"
+adb logcat | Select-String -Pattern "openmidicontrol|PeripheralMidi|MidiReceiver"
 
-# Send test MIDI messages (Windows MIDI Services)
-midi endpoint send-message 0x20B00140  # CC1, Value 64
+# List Windows MIDI Services UMP endpoints with IDs (Android peripheral appears as "MIDI function")
+midi enumerate endpoints -i
+
+# Send test 32-bit UMP messages (Windows MIDI Services)
+midi endpoint send-message --endpoint-id "<ENDPOINT_ID>" --no-wait 0x20B00140  # Ch1 CC1 = 64
+midi endpoint send-message --endpoint-id "<ENDPOINT_ID>" --no-wait 0x20903C7F  # Ch1 Note On C4 vel 127
+
+# Capture outbound UMP packets with microsecond timestamps to CSV
+midi endpoint monitor "<ENDPOINT_ID>" --include-timestamp --capture-to-file midi_capture.csv --capture-format csv
 ```
 
 ## PR Instructions
@@ -200,7 +220,7 @@ This is a hard requirement. CI will fail without it.
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 ```
 
 ### Kotlin Files (`.kt`)

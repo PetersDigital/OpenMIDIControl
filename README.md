@@ -10,16 +10,16 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 ## Getting Started
 
-1. Install Flutter 3.x and target Android 10+ or desktop/Windows devices.
+1. Install Flutter 3.x (3.50+ recommended), Java 21, and target Android 13+ (API 33+) devices.
 2. Run `flutter pub get` inside the `app/` folder.
 3. Start the app with `flutter run -d <device>`.
 4. Open the settings or MIDI settings screens to configure ports and layouts.
 
 ## Current Status
 
-- **v0.4.2** is the current implementation baseline, introducing the dynamic layout editor mode (drag-and-drop placement, dual resizing, widget palette, in-editor config, and undo deletion).
-- **v0.4.3** is the next active focus for layout persistence and sharing (JSON schema versioning, manifest metadata, and export/import).
-- See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed roadmap.
+- **v0.4.3** is the current released baseline, introducing versioned `.omc` layout persistence (`LayoutDocument` schema v1, `LayoutManifest` metadata, `LayoutSchemaMigrator`, local `LayoutLibraryModal`, and hardened import/export) plus Flutter 3.50 / Gradle 9.5 toolchain upgrades.
+- **v0.4.4** is the next active focus for Modular Engine Core & MCU Prerequisites (`ActionPayload` polymorphism, `TransportButton` widgets, Factory Page Templates, and `WidgetStyle` inspector), leading into **v0.5.x (MCU/HUI & High-Res UMP)**.
+- See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed phased roadmap.
 
 ## Core Docs
 
