@@ -133,6 +133,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _sendMidiUpdate() {
+    if (widget.payload == null && widget.cc == -1) return;
     final delta = _pendingRelativeDelta;
     _pendingRelativeDelta = 0;
     _midiAction.sendPosition(

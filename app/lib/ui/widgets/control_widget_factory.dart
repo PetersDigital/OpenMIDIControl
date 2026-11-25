@@ -92,7 +92,7 @@ class ControlWidgetFactory {
                     aspectRatio: 1,
                     child: EndlessEncoderWidget(
                       channel: channel == -1 ? 0 : channel,
-                      cc: isUnassigned ? 0 : cc,
+                      cc: cc,
                       payload: control.payload,
                       showChannelLabel: false,
                       isActive: isActive,

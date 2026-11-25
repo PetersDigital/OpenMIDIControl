@@ -15,6 +15,8 @@ import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/midi_service.dart';
 
 class FakeMidiService implements MidiService {
+  final sentCcs = <int>[];
+
   @override
   Map<String, dynamic> get currentState => {};
 
@@ -27,7 +29,9 @@ class FakeMidiService implements MidiService {
     int value, {
     int channel = 0,
     bool isFinal = false,
-  }) async {}
+  }) async {
+    sentCcs.add(cc);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -47,7 +51,7 @@ class MockConfigGestureModeNotifier extends ConfigGestureModeNotifier {
 }
 
 void main() {
-  Widget buildTestSubject() {
+  Widget buildTestSubject({FakeMidiService? midiService}) {
     final mockUtilityPage = LayoutPage(
       id: 'page_3',
       type: PageType.utility,
@@ -102,7 +106,7 @@ void main() {
 
     return ProviderScope(
       overrides: [
-        midiServiceProvider.overrideWithValue(FakeMidiService()),
+        midiServiceProvider.overrideWithValue(midiService ?? FakeMidiService()),
         configGestureModeProvider.overrideWith(
           () => MockConfigGestureModeNotifier(),
         ),
@@ -121,6 +125,29 @@ void main() {
       ),
     );
   }
+
+  testWidgets('dragging a cleared encoder sends no CC', (tester) async {
+    final midiService = FakeMidiService();
+    await tester.pumpWidget(buildTestSubject(midiService: midiService));
+    final panel = find.byType(UtilityGridPanel);
+    final encoder = find.byType(EndlessEncoderWidget).first;
+    final notifier = ProviderScope.containerOf(
+      tester.element(panel),
+    ).read(layoutStateProvider.notifier);
+
+    await tester.drag(encoder, const Offset(0, -45));
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(midiService.sentCcs, isNotEmpty);
+    expect(midiService.sentCcs, everyElement(20));
+    midiService.sentCcs.clear();
+
+    notifier.clearControl('encoder_0');
+    await tester.pump();
+    await tester.drag(encoder, const Offset(0, -45));
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(midiService.sentCcs, isEmpty);
+  });
 
   testWidgets(
     'UtilityGridPanel renders correctly with default configurations',

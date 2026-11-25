@@ -111,7 +111,7 @@ class UtilityGridPanel extends ConsumerWidget {
                                       child: EndlessEncoderWidget(
                                         key: ValueKey('encoder_$index'),
                                         channel: channel,
-                                        cc: isUnassigned ? 0 : cc,
+                                        cc: cc,
                                         payload: control.payload,
                                         showChannelLabel: false,
                                       ),
