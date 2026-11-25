@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/managers/snapshot_manager.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_document.dart';
 import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_models.dart';
@@ -29,7 +30,7 @@ void main() {
 
   group('Hardened SnapshotManager Import/Export Tests', () {
     test(
-      'importLayoutDocument imports a current layout document',
+      'importLayoutDocument imports current documents and upgrades v1',
       () async {
         final docFile = File('${tempDir.path}/layout.omc');
         final doc = LayoutDocument(
@@ -44,7 +45,14 @@ void main() {
               id: 'page_1',
               type: PageType.fader,
               name: 'FADERS',
-              controls: [],
+              controls: [
+                LayoutControl(
+                  id: 'volume',
+                  type: ControlType.fader,
+                  defaultCc: 7,
+                  channel: 0,
+                ),
+              ],
             ),
           ],
           activePageIndex: 0,
@@ -59,6 +67,24 @@ void main() {
         expect(result.wasUpgraded, isFalse);
         expect(result.document!.manifest.name, 'Stage Layout');
         expect(result.document!.pages.length, 1);
+
+        final legacyJson = doc.toJson();
+        legacyJson['schemaVersion'] = 1;
+        final legacyPages = legacyJson['pages'] as List<Map<String, dynamic>>;
+        final legacyControls =
+            legacyPages.single['controls'] as List<Map<String, dynamic>>;
+        legacyControls.single.remove('payload');
+        await docFile.writeAsString(jsonEncode(legacyJson));
+
+        final upgraded = await snapshotManager.importLayoutDocument(
+          fileOverride: docFile,
+        );
+        expect(upgraded.wasUpgraded, isTrue);
+        expect(upgraded.document, doc);
+        expect(
+          upgraded.document!.pages.single.controls.single.payload,
+          const CcPayload(channel: 0, cc: 7),
+        );
       },
     );
 

@@ -190,13 +190,15 @@ class SnapshotManager {
         );
       }
 
-      final bool isLegacy = !decoded.containsKey('schemaVersion');
       final LayoutDocument document = LayoutDocument.fromJson(
         decoded,
         defaultName: 'Imported Layout',
       );
 
-      return LayoutImportResult(document: document, wasUpgraded: isLegacy);
+      return LayoutImportResult(
+        document: document,
+        wasUpgraded: decoded['schemaVersion'] != document.schemaVersion,
+      );
     } on UnsupportedSchemaVersionException catch (e) {
       return LayoutImportResult(errorMessage: e.message);
     } on FormatException catch (e) {
