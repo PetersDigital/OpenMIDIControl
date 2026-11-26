@@ -31,6 +31,10 @@ class MidiEvent {
   int get data1 => (ump >>> 8) & 0xFF; // e.g., CC number
   int get data2 => ump & 0xFF; // e.g., CC value
 
+  // Reserve bank selectors, paired CCs, RPN/NRPN, and channel-mode commands.
+  static bool isMidi2AbsoluteCc(int cc) =>
+      cc >= 64 && cc <= 119 && (cc < 96 || cc > 101);
+
   int? get pitchBend32 => messageType == 4 && status == 0xE0 ? umpWord1 : null;
   int? get ccValue32 => messageType == 4 && status == 0xB0 ? umpWord1 : null;
   int? get noteVelocity16 {

@@ -562,6 +562,43 @@ class MidiService {
     );
   }
 
+  Future<void> sendPitchBend32(
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    _sendMidi2Controller(0xE0, 0, value, channel, isFinal);
+  }
+
+  Future<void> sendAbsoluteCc32(
+    int cc,
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    if (!MidiEvent.isMidi2AbsoluteCc(cc)) return;
+    _sendMidi2Controller(0xB0, cc, value, channel, isFinal);
+  }
+
+  void _sendMidi2Controller(
+    int status,
+    int address,
+    int value,
+    int channel,
+    bool isFinal,
+  ) {
+    if (value < 0 || value > 0xFFFFFFFF || channel < 0 || channel > 15) return;
+    outgoingRouter.processSingle(
+      'source',
+      MidiEvent(
+        0x40000000 | ((status | channel) << 16) | (address << 8),
+        _stopwatch.elapsedMilliseconds,
+        umpWord1: value,
+        isFinal: isFinal,
+      ),
+    );
+  }
+
   Future<void> sendHighResolutionCc(
     int cc,
     int value, {

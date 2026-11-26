@@ -25,7 +25,8 @@ void main() {
       callCompleter = Completer<void>();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-            if (call.method == 'sendMidiCCBatch') {
+            if (call.method == 'sendMidiCCBatch' ||
+                call.method == 'sendMidiBatchV2') {
               final events = (call.arguments as Map)['events'] as Int64List;
               capturedEvents = events;
               allEvents.addAll(events);
@@ -72,6 +73,30 @@ void main() {
       await service.sendPitchBend(8192, channel: 2, isFinal: true);
       await service.sendPitchBend(16383, channel: 2, isFinal: true);
       expect(allEvents, [0x20E20000, 1, 0x20E20040, 1, 0x20E27F7F, 1]);
+    });
+
+    test('preserves MT 4 words and flags in mixed outbound batches', () async {
+      final service = MidiService(useBackgroundWorker: false);
+      addTearDown(service.dispose);
+
+      await service.sendAbsoluteCc32(6, 1, channel: 2, isFinal: true);
+      expect(allEvents, isEmpty);
+      await service.sendPitchBend32(0, channel: 2);
+      await service.sendCC(10, 64, channel: 2);
+      await service.sendAbsoluteCc32(74, 0xFFFFFFFF, channel: 2, isFinal: true);
+
+      expect(capturedEvents, [
+        -2,
+        0x40E20000,
+        0,
+        0,
+        0x20B20A40,
+        0,
+        0,
+        0x40B24A00,
+        0xFFFFFFFF,
+        1,
+      ]);
     });
 
     test('sends an ordered high-resolution CC pair together', () async {
