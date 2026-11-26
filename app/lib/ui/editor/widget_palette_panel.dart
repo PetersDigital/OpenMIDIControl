@@ -390,6 +390,7 @@ class _TemplateItem extends ConsumerWidget {
                       SnackBar(
                         content: Text('Added page "${created.name}"'),
                         duration: const Duration(seconds: 3),
+                        persist: false,
                         behavior: SnackBarBehavior.floating,
                         action: createdIndex == -1
                             ? null

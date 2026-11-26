@@ -1,11 +1,14 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/layout_models.dart';
 import '../editor_state.dart';
+import '../global_ui_scale_state.dart';
 import '../layout_state.dart';
 import 'control_config_modal.dart';
 
@@ -70,13 +73,30 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
       ControlType.fader || ControlType.xyPad => false,
       _ => true,
     };
-    final double handleSize = isCompact ? 36.0 : 60.0;
-    final double innerPadding = isCompact ? 5.0 : 8.0;
-    final double iconSize = isCompact ? 12.0 : 20.0;
-    final double handleOffset = isCompact ? 5.0 : 5.0;
+    final double boxWidth = widget.control.width * widget.cellWidth;
+    final double boxHeight = widget.control.height * widget.cellHeight;
+    final bool isNarrow = boxWidth < 84.0;
+    final bool isTallNarrow = isNarrow && boxHeight >= 78.0;
+    final double outerPadding = isNarrow ? 3.0 : 6.0;
+    final double handleSize = isNarrow
+        ? (isTallNarrow
+              ? math.min(28.0, (boxWidth - 4.0).clamp(20.0, 28.0))
+              : (math.min(
+                          boxWidth - outerPadding * 2 - 3.0,
+                          boxHeight - outerPadding * 2 - 3.0,
+                        ) /
+                        2)
+                    .clamp(16.0, 24.0))
+        : (isCompact ? 36.0 : 60.0);
+    final double innerPadding = isNarrow ? 2.0 : (isCompact ? 5.0 : 8.0);
+    final double iconSize = isNarrow ? 11.0 : (isCompact ? 12.0 : 20.0);
+    final double handleOffset = isNarrow ? (isTallNarrow ? 2.0 : 1.0) : 5.0;
+    final double settingsBottomOffset = isTallNarrow
+        ? handleOffset + handleSize + 4.0
+        : handleOffset;
 
     return Padding(
-      padding: const EdgeInsets.all(6.0),
+      padding: EdgeInsets.all(outerPadding),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -98,7 +118,10 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
               },
               onScaleUpdate: (details) {
                 if (details.pointerCount == 1) {
-                  _dragDelta += details.focalPointDelta;
+                  final gridScale =
+                      ref.read(globalUiScaleProvider).value ??
+                      GlobalUiScaleNotifier.defaultScale;
+                  _dragDelta += details.focalPointDelta / gridScale;
 
                   final dxCells = (_dragDelta.dx / widget.cellWidth).round();
                   final dyCells = (_dragDelta.dy / widget.cellHeight).round();
@@ -182,6 +205,7 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
               right: handleOffset,
               bottom: handleOffset,
               child: GestureDetector(
+                key: ValueKey('editor_resize_handle_${widget.control.id}'),
                 behavior: HitTestBehavior.opaque,
                 onPanStart: (details) {
                   _resizeDelta = Offset.zero;
@@ -245,6 +269,7 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
               right: handleOffset,
               top: handleOffset,
               child: GestureDetector(
+                key: ValueKey('editor_delete_handle_${widget.control.id}'),
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
                   final deletedControl = ref
@@ -265,6 +290,7 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
                           },
                         ),
                         duration: const Duration(seconds: 4),
+                        persist: false,
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -303,8 +329,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
           if (isSelected)
             Positioned(
               left: handleOffset,
-              bottom: handleOffset,
+              bottom: settingsBottomOffset,
               child: GestureDetector(
+                key: ValueKey('editor_settings_handle_${widget.control.id}'),
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _openConfigModal(context),
                 child: Container(
