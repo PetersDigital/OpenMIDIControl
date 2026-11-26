@@ -38,6 +38,29 @@ void main() {
     });
   }
 
+  test('transport action roles preserve their MCU wire names', () {
+    expect(TransportAction.values.map((action) => action.name), [
+      'play',
+      'stop',
+      'record',
+      'cycle',
+      'rewind',
+      'fastForward',
+      'bankLeft',
+      'bankRight',
+    ]);
+    for (final action in TransportAction.values) {
+      final json = {
+        'type': 'mcu',
+        'target': 'transport',
+        'action': action.name,
+      };
+      final payload = McuActionPayload.transport(action);
+      expect(ActionPayload.fromJson(json), payload);
+      expect(payload.toJson(), json);
+    }
+  });
+
   test('rejects unknown variants and invalid wire values', () {
     final invalid = [
       {'type': 'unknown'},

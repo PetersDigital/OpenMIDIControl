@@ -13,7 +13,8 @@ enum McuTarget { fader, vPot, channelButton, transport }
 
 enum McuChannelButton { recordArm, solo, mute, select }
 
-enum McuTransportAction {
+/// The role of a transport control, independent of its MIDI assignment.
+enum TransportAction {
   play,
   stop,
   record,
@@ -23,6 +24,9 @@ enum McuTransportAction {
   bankLeft,
   bankRight,
 }
+
+/// Source compatibility for callers using the original MCU enum name.
+typedef McuTransportAction = TransportAction;
 
 /// A persisted MIDI action assignment for a layout control or axis.
 sealed class ActionPayload {
@@ -217,7 +221,7 @@ final class McuActionPayload extends ActionPayload {
   final McuTarget target;
   final int? strip;
   final McuChannelButton? button;
-  final McuTransportAction? action;
+  final TransportAction? action;
 
   const McuActionPayload.fader(int index)
     : assert(index >= 0 && index <= 8),
@@ -239,7 +243,7 @@ final class McuActionPayload extends ActionPayload {
       target = McuTarget.channelButton,
       action = null;
 
-  const McuActionPayload.transport(McuTransportAction this.action)
+  const McuActionPayload.transport(TransportAction this.action)
     : target = McuTarget.transport,
       strip = null,
       button = null;
@@ -257,7 +261,7 @@ final class McuActionPayload extends ActionPayload {
         ActionPayload._readEnum(json, 'button', McuChannelButton.values),
       ),
       McuTarget.transport => McuActionPayload.transport(
-        ActionPayload._readEnum(json, 'action', McuTransportAction.values),
+        ActionPayload._readEnum(json, 'action', TransportAction.values),
       ),
     };
   }
