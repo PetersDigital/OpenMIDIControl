@@ -218,27 +218,18 @@ class MainActivity : FlutterActivity() {
                 deviceInfo.inputPortCount > 0 && deviceInfo.outputPortCount > 0
     }
 
-    private fun getAvailableMidiDevices(): Array<MidiDeviceInfo>? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val merged = LinkedHashMap<Int, MidiDeviceInfo>()
+    private data class AvailableMidiDevice(val info: MidiDeviceInfo, val isUmp: Boolean)
 
-            midiManager
-                ?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)
-                ?.forEach { device ->
-                    merged[device.id] = device
-                }
-
-            midiManager
-                ?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)
-                ?.forEach { device ->
-                    merged[device.id] = device
-                }
-
-            merged.values.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
+    private fun getAvailableMidiDevices(): Collection<AvailableMidiDevice> {
+        val manager = midiManager ?: return emptyList()
+        val merged = LinkedHashMap<Int, AvailableMidiDevice>()
+        manager.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS).forEach { device ->
+            merged[device.id] = AvailableMidiDevice(device, isUmp = true)
         }
+        manager.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM).forEach { device ->
+            merged[device.id] = AvailableMidiDevice(device, isUmp = false)
+        }
+        return merged.values
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -514,7 +505,7 @@ class MainActivity : FlutterActivity() {
         val devicesList = mutableListOf<Map<String, Any>>()
         val devices = getAvailableMidiDevices()
 
-        devices?.forEach { deviceInfo ->
+        devices.forEach { (deviceInfo) ->
             val id = deviceInfo.id.toString()
             val properties = deviceInfo.properties
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
@@ -604,14 +595,14 @@ class MainActivity : FlutterActivity() {
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
         val devices = getAvailableMidiDevices()
-        val deviceInfo = devices?.find { it.id.toString() == id }
+        val selectedDevice = devices.find { it.info.id.toString() == id }
 
-        if (deviceInfo == null) {
+        if (selectedDevice == null) {
             result.error("DEVICE_NOT_FOUND", "Could not find device with ID: $id", null)
             return
         }
 
-        midiManager?.openDevice(deviceInfo, { device ->
+        midiManager?.openDevice(selectedDevice.info, { device ->
             if (isDestroyed || isFinishing) {
                 device?.close()
                 return@openDevice
@@ -636,7 +627,7 @@ class MainActivity : FlutterActivity() {
                 }
 
                 hostMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort)
-                setupMidiReceiver()
+                setupMidiReceiver(selectedDevice.isUmp)
 
                 result.success(true)
             } else {
@@ -681,7 +672,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setupMidiReceiver() {
+    private fun setupMidiReceiver(isUmp: Boolean) {
         val backend = hostMidiBackend ?: return
         val backendId = backend.portId
 
@@ -706,7 +697,15 @@ class MainActivity : FlutterActivity() {
 
         activeSessions[backendId] = ActivePortSession(backendId, portBuffer, portJob)
 
+        val umpDecoder = if (isUmp) UmpStreamDecoder() else null
+        val forwardLegacyUmp: (Int, Int, Long) -> Unit = { word0, _, timestamp ->
+            MidiParser.processSingleUmp(word0, timestamp, false, portBuffer, suppressionWindowNs, lastSentTime)
+        }
         backend.startReceiving { msg, offset, count, timestamp ->
+            if (umpDecoder != null) {
+                umpDecoder.read(msg, offset, count, timestamp, forwardLegacyUmp)
+                return@startReceiving
+            }
             MidiParser.processMidiPayload(
                 msg = msg,
                 offset = offset,
@@ -716,7 +715,8 @@ class MainActivity : FlutterActivity() {
                 incomingEventsSink = portBuffer,
                 suppressionWindowNs = suppressionWindowNs,
                 lastSentTime = lastSentTime,
-                isDebug = BuildConfig.DEBUG
+                isDebug = BuildConfig.DEBUG,
+                isUmpTransport = false
             )
         }
     }

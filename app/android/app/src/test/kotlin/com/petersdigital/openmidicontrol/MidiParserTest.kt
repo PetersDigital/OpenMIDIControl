@@ -20,6 +20,39 @@ private class TestIncomingEventsSink : MidiParser.IncomingEventsSink {
 class MidiParserTest {
 
     @Test
+    fun testUmpCarriesSplitMt4AndPreservesRawWords() {
+        val decoder = UmpStreamDecoder()
+        val events = mutableListOf<Triple<Int, Int, Long>>()
+        val receive: (Int, Int, Long) -> Unit = { first, second, timestamp ->
+            events.add(Triple(first, second, timestamp))
+        }
+        val first = byteArrayOf(0, 0x43, 0xE8.toByte(), 0, 0, 0x80.toByte())
+        decoder.read(first, 1, 5, 100L, receive)
+        assertTrue(events.isEmpty())
+
+        val rest = byteArrayOf(0, 0, 1, 0x43, 0xE8.toByte(), 0, 0, 0, 0, 0, 0)
+        decoder.read(rest, 0, rest.size, 200L, receive)
+        assertEquals(
+            listOf(Triple(0x43E80000, 0x80000001.toInt(), 100L), Triple(0x43E80000, 0, 200L)),
+            events
+        )
+    }
+
+    @Test
+    fun testUmpSkipsWholeUnsupportedPacketsUsingTheirDefinedSizes() {
+        val decoder = UmpStreamDecoder()
+        val continuation = byteArrayOf(0x20, 0xB0.toByte(), 0x4A, 0x40)
+        val payload = byteArrayOf(0xA0.toByte(), 0, 0, 0) + continuation +
+            byteArrayOf(0xC0.toByte(), 0, 0, 0) + continuation + continuation +
+            byteArrayOf(0xF0.toByte(), 0, 0, 0) + continuation + continuation + continuation +
+            continuation
+        val words = mutableListOf<Int>()
+        decoder.read(payload, Int.MAX_VALUE, 3, 0L) { _, _, _ -> error("Invalid bounds") }
+        decoder.read(payload, 0, payload.size, 200L) { first, _, _ -> words.add(first) }
+        assertEquals(listOf(0x20B04A40), words)
+    }
+
+    @Test
     fun testUmpHeuristicValidation() = runBlocking {
         val sink = TestIncomingEventsSink()
         // 8 bytes: Legacy CC (3 bytes) + Clock (1 byte) + Padding (4 bytes)

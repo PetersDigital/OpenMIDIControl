@@ -72,46 +72,21 @@ object MidiParser {
         incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
         lastSentTime: LongArray,
-        isDebug: Boolean = false
+        isDebug: Boolean = false,
+        isUmpTransport: Boolean? = null
     ) {
-        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
-        if (offset < 0 || count < 0 || offset + count > msg.size) return
+        if (offset < 0 || count < 0 || offset > msg.size - count) return
 
-        // Check for UMP alignment and validate Message Type (MT) to prevent false positives
-        val isUmp = if (count >= 4 && count % 4 == 0) {
-            val firstUmpWord = ((msg[offset].toInt() and 0xFF) shl 24) or
-                               ((msg[offset + 1].toInt() and 0xFF) shl 16) or
-                               ((msg[offset + 2].toInt() and 0xFF) shl 8) or
-                               (msg[offset + 3].toInt() and 0xFF)
-            val firstMessageType = (firstUmpWord ushr 28) and 0xF
-            firstMessageType in 0x0..0x5
-        } else false
+        // Callers with a known transport bypass the compatibility heuristic.
+        val isUmp = isUmpTransport ?: (
+            count >= 4 && count % 4 == 0 && ((msg[offset].toInt() and 0xFF) ushr 4) <= 0x5
+        )
 
         if (isUmp) {
-            // Process each 32-bit UMP word independently to avoid misalignment churn.
-            var i = offset
-            while (i + 3 < offset + count) {
-                val byte1 = msg[i].toInt() and 0xFF
-                val byte2 = msg[i + 1].toInt() and 0xFF
-                val byte3 = msg[i + 2].toInt() and 0xFF
-                val byte4 = msg[i + 3].toInt() and 0xFF
-
-                val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
-                processSingleUmp(umpInt, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
-
-                val messageType = (umpInt ushr 28) and 0xF
-                val wordCount = when (messageType) {
-                    0x0, 0x1, 0x2 -> 1
-                    0x3, 0x4 -> 2
-                    0x5 -> 4
-                    0x6, 0x7 -> 1
-                    0x8, 0x9 -> 2
-                    0xA, 0xB -> 3
-                    0xC, 0xD, 0xE, 0xF -> 4
-                    else -> 1
-                }
-                // Silently drop other words for multi-word messages as they are currently unsupported
-                i += wordCount * 4
+            UmpStreamDecoder().read(msg, offset, count, timestamp) { word0, _, packetTimestamp ->
+                processSingleUmp(
+                    word0, packetTimestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime
+                )
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
