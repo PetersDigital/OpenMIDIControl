@@ -217,15 +217,18 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 > **Platform & Standards Context (see `REFERENCES.md` & `references/cubase/README.md`):**
 >
-> - **Android UMP (API 33–36):** USB Peripheral continues using `MidiDeviceService` + `TRANSPORT_UNIVERSAL_MIDI_PACKETS` (with manual 4-byte chunk reconstruction in `MidiParser.kt`). Local virtual MIDI 2.0 endpoints can adopt `MidiUmpDeviceService` (API 33+/35+) where supported. UMP packets arrive as 32-bit (`MT=0x0/0x1/0x2`), 64-bit (`MT=0x3` SysEx7, `MT=0x4` MIDI 2.0 Channel Voice), or 128-bit (`MT=0x5` SysEx8/MDS, `MT=0xF` Stream) aligned words.
-> - **Windows MIDI Services (Win11 GA Feb 2026 / `midi.exe`):** Multi-client by default (DAW + `midi endpoint monitor` share `KSA` endpoints concurrently) with `<1µs` timestamps, native UMP `MT=0x2`/`MT=0x3`/`MT=0x4` support, and MIDI-CI Function Blocks.
-> - **SysEx Manufacturer IDs:** Use Mackie ID `00 00 66` (`14` = MCU, `15` = MCU XT) for MCU emulation, and **non-commercial ID `0x7C`** (MIDI Association Oct 2025 policy) for OpenMIDIControl custom UMP Endpoint Discovery / diagnostics.
+> - Android API 33+ enumerates byte-stream and UMP transports separately. The opened port determines framing. Local virtual UMP services use `MidiUmpDeviceService` on API 35+. [Android MIDI API](https://developer.android.com/reference/android/media/midi/package-summary)
+> - On the Galaxy S24 Ultra running Android 17 (API 37), the direct USB cable to Cubase currently provides MIDI 1.0. Windows confirmed Cubase 16 had the Samsung byte-stream endpoint open. Test native MIDI 2.0 separately with the Galaxy hosting a compatible USB UMP device or with an Android virtual UMP peer.
+> - Windows MIDI Services can translate for legacy hardware. Record the native data format, actual protocol and direction of each test. Measure delivery timing on the test route. [Microsoft translation guide](https://microsoft.github.io/MIDI/kb/data-translation/)
+> - v0.5.0 uses Channel Voice for control. Review manufacturer identity and the permitted uses of special IDs when scoping discovery in v0.5.1. [MIDI Association ID policy](https://midi.org/new-midi-association-sysex-id-policies-as-of-oct-15-2025)
 
 ---
 
 #### ⏳ Current Focus: v0.5.0 (Core Logic): Basic MCU Protocol Mapping & Native UMP High-Resolution Control
 
-**Goal:** Deliver deterministic, low-latency 14-bit MCU fader/V-Pot/button/transport control and native high-resolution UMP transport.
+**Goal:** Deliver 14-bit MCU faders, relative V-Pots, strip and transport buttons, host feedback and native high-resolution UMP transport.
+
+Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin v0.5.0 Phase 1. Keep handshake work in v0.5.1. MCU ingress must decode MT 2 and MT 4 bend, Note and CC feedback, including channel 16 time digits. Use the [series implementation and verification plan](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md) for the released-code audit, wire vectors, commit boundaries and hardware criteria. The local [reference index](REFERENCES.md) and [bundled Cubase mappings](references/cubase/README.md) provide background. For the November 2026 bench, record the installed Windows service, Preview 14 components, native endpoint format, Cubase build and script revision separately. Cubase 16 adds Windows MIDI Services and independently updatable factory scripts. [Microsoft Preview 14](https://github.com/microsoft/MIDI/releases/tag/inbox-preview-14) · [Steinberg Cubase 16 release notes](https://www.steinberg.net/cubase/release-notes/16/)
 
 ##### Phase 1 – Native Kotlin & Core Dart High-Res UMP Foundation
 
@@ -235,13 +238,13 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - Add `buildUmpPitchBendPacket(channel, value14Bit, group)` (`0x2<g>E<ch><lsb><msb>`) and `MidiEvent.pitchBendValue14Bit` (`(data2 << 7) | data1`, range `0..16383`).
   - Extend `MidiEvent` (optional `int umpWord2 = 0`) and `MidiParser.kt` / `IncomingEventsBuffer` to preserve **64-bit MIDI 2.0 Channel Voice (`MT=0x4`)** packets (`word0` header + `word1` 32-bit value) instead of dropping word 2, with deterministic down-translation to `MT=0x2` (14-bit Pitch Bend / 7-bit CC) when targeting MIDI 1.0 endpoints.
 - **High-Res State (`control_state.dart`, `ui_state_sink_node.dart`, `native_transport_sink_node.dart`):**
-  - Add immutable `pitchBendValues: Map<int, int>` (`0..15` → `0..16383`) and optional `highResCcValues: Map<String, int>` (32-bit unsigned) to `ControlState`.
-  - Pre-allocate `Int32List(16)` pitch-bend buffer + dirty bitmask in `UiStateSinkNode` (zero allocation on hot path) and allow `MT=0x4` alongside `MT=0x2` in `NativeTransportSinkNode`.
+  - Retain 14-bit MCU bend and unsigned 32-bit native bend/CC values through immutable state. Scope feedback to the selected port, group and channel.
+  - Pre-allocate precision-appropriate typed buffers with dirty masks in `UiStateSinkNode` and support two-word events in both paths of `NativeTransportSinkNode`.
 
 ##### Phase 2 – Pure-Dart MCU Core Protocol Module (`app/lib/core/protocol/mcu/`)
 
 - **`mcu_constants.dart` — Standard Mackie Control Universal Map:**
-  - **Faders (14-bit Pitch Bend):** Ch `0..7` (`0xE0..0xE7`) = Tracks 1–8; Ch `8` (`0xE8`) = Master (`0..16383`, 0 dB ≈ `12580` / `0x3124`).
+  - **Faders (14-bit Pitch Bend):** Ch `0..7` (`0xE0..0xE7`) = Tracks 1–8. Ch `8` (`0xE8`) = Master. Range `0..16383`. Verify the host's unity-gain position in Cubase.
   - **Fader Touch (Ch 1 Notes):** `0x68..0x6F` (notes `104..111`) = Tracks 1–8; `0x70` (`112`) = Master (`vel 127` on touch-down, `vel 0` on release — required for DAW Touch/Latch automation).
   - **V-Pots (Ch 1 Relative CC):** `CC 16..23` (`0x10..0x17`) using MCU signed-magnitude encoding (`0x01..0x3F` CW steps, `0x41..0x7F` CCW steps).
   - **Channel Strip Buttons (Ch 1 Notes, `vel 127`/`0`):**
@@ -273,108 +276,39 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ---
 
-#### ⏱️ v0.5.1 (Handshake): DAW Device Detection, SysEx7 Transport & Bidirectional Negotiation
+#### ⏱️ v0.5.1 – Surface discovery, SysEx7 and UMP endpoint configuration
 
-**Goal:** Enable automatic DAW protocol discovery and keep-alive across MCU, Mackie HUI (Pro Tools), and MIDI 2.0 MIDI-CI / UMP Endpoint Discovery.
+**Deliverable:** a reconnect-safe session that identifies MCU or HUI on a selected surface port and reports the opened MIDI transport and protocol. Begin with directional startup captures from Cubase 15 and 16. [Detailed phases, packets and exit tests](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md#v051-discovery-and-handshake)
 
-##### Phase 1 – Native UMP SysEx7 (`MT=0x3`) Chunking & Reassembly
+1. **SysEx7 transport.** Implement MT 3 Complete/Start/Continue/End and legacy F0/F7 assembly in the native parser. Bound buffers and idle time per session/group, preserve ordering with real-time messages and keep completed control messages off the voice ring. Test fragment boundaries, simultaneous groups, overflow and disconnect. Exercise an API 35+ virtual UMP peer independently of the Galaxy USB byte route.
+2. **MCU dialogue.** Choose the handshake by device family and observed host behavior. For the challenge variant the surface provides the challenge, verifies the host's reply and returns confirmation or denial. Cover query/ready-only hosts, directed Universal Device Inquiry, repeated probes, timeout and stale replies. Maintain separate manual-mode and auto-detection state. [Ardour's MCU and Logic Control paths](https://github.com/Ardour/ardour/blob/master/libs/surfaces/mackie/surface.cc)
+3. **HUI heartbeat and header.** Respond to the host ping on the protocol worker. Protect Generic mode from false detection on note zero. Reuse the nine header roles with surface-to-host CC 0F/2F and host-to-surface LED feedback on CC 0C/2C (hex). Use the transport and cursor zone/port fixtures in the detailed plan. Record Cubase HUI and Pro Tools qualification separately. [HUI measurements](https://htlab.net/computer/protocol/mackie-control/HUI.pdf)
+4. **Capability and endpoint discovery.** Implement MIDI-CI v1.2 Discovery/Reply, MUID collision handling and truthful capability/size reporting. Use MT F UMP Stream for endpoint/function-block discovery and Stream Configuration, respecting platform-owned responders. Keep the physical port's known framing on timeout. Validate identity at build time. Allow 7C only for eligible non-commercial discovery fields. A commercial configuration enabling manufacturer identity requires an injected assigned ID. Offer a build with identity-dependent features disabled. [MIDI-CI and UMP changes](https://midi.org/details-about-midi-2-0-midi-ci-profiles-and-property-exchange-updated-june-2023) · [Identity policy](https://midi.org/new-midi-association-sysex-id-policies-as-of-oct-15-2025)
 
-- **Kotlin Layer (`MidiParser.kt`, `UmpPacket.kt`, `MainActivity.kt`):**
-  - Implement 64-bit UMP **SysEx7 (`MT=0x3`)** chunking/reassembly (status nibbles: `0x0` complete in 1 packet, `0x1` start, `0x2` continue, `0x3` end; 0–6 data bytes per 64-bit packet) alongside legacy `F0 ... F7` byte-stream fallback.
-  - Add bounded SysEx reassembly buffer (e.g., max `512` bytes, hard timeout/reset on malformed frames) to prevent DoS/memory growth, and expose a dedicated SysEx channel/stream to Dart (`EventChannel` or typed payload) without touching the hot-path `LongArray` CC/Pitch Bend ring buffer.
-  - Evaluate migrating `VirtualMidiService` to `MidiUmpDeviceService` (API 33+/35+) for local inter-app MIDI 2.0 virtual routing while keeping `PeripheralMidiService` class-compliant for Windows/macOS USB.
-
-##### Phase 2 – MCU Handshake & Challenge-Response State Machine (`app/lib/core/protocol/handshake/`)
-
-- **Explicit Deterministic State Machine:** `IDLE → PROBING → CHALLENGED → HANDSHAKE_COMPLETE → ACTIVE` (with timeout fallback to generic MIDI mode, per `ARCHITECTURE.md` §7).
-- **MCU SysEx Protocol (`F0 00 00 66 14 <cmd> ... F7`):**
-  - Respond to Host Device Query (`cmd = 0x00`) with Host Connection Query / Serial (`cmd = 0x01`, 7-byte serial + 4 challenge bytes) and compute the 4-byte challenge response (`r1..r4`, masked `& 0x7F`) within `<300ms` (replying with `cmd = 0x02` / `0x03` confirmation).
-  - Support Universal Device Inquiry (`F0 7E 7F 06 01 F7` → Identity Reply `F0 7E <devId> 06 02 00 00 66 ... F7` or `0x7C` non-commercial ID for native OpenMIDIControl mode).
-
-##### Phase 3 – Mackie HUI Heartbeat & Protocol Auto-Detection
-
-- **HUI Keep-Alive Responder (`hui_handshake.dart`):**
-  - Detect DAW HUI ping (`0x90 0x00 0x00` sent every ~1–2s by Pro Tools / HUI hosts) and reply immediately on the native/worker path with `0x90 0x00 0x7F` so the DAW never drops the surface.
-  - Implement HUI Zone/Port Select (`0xB0 0x0F <zone>` + `0xB0 0x2F <port>`) foundational mapping for HUI mode toggle, automatically mapping the 9 `HeaderTransportRole` cells via HUI Transport & Navigation zones while preserving manual Generic MIDI assignments.
-
-##### Phase 4 – MIDI-CI & UMP Endpoint Discovery (Windows MIDI Services / Cubase 15+)
-
-- **MIDI-CI Protocol Negotiation (`midi_ci_negotiator.dart`):**
-  - Handle UMP Stream Discovery (`MT=0xF`) / MIDI-CI Discovery & Protocol Negotiation using non-commercial Manufacturer ID `0x7C` (`REFERENCES.md`) to advertise MIDI 2.0 (`MT=0x4`) capability and Function Block metadata, automatically falling back to MIDI 1.0 (`MT=0x2`) if the host declines or times out.
-- **UI Indicator:** Surface negotiated protocol badge (`MIDI 1.0` / `MCU` / `HUI` / `MIDI 2.0 UMP`) inside `DynamicConnectionIsland` and `MidiSettingsScreen`.
-
-##### Verification (`v0.5.1`)
-
-- Kotlin JUnit: SysEx7 (`MT=0x3`) single-packet and multi-packet reassembly, malformed/oversized frame rejection, legacy `F0..F7` fallback.
-- Dart tests: MCU challenge-response math vectors, timeout recovery state transitions, HUI `90 00 00 → 90 00 7F` responder, MIDI-CI fallback negotiation.
-- HITL (`midi.exe` `sysex` & `endpoint request`): inject MCU Device Query & HUI pings from Windows MIDI Services and verify sub-50ms replies and `DynamicConnectionIsland` protocol badge updates.
+**Exit evidence.** Kotlin framing vectors, deterministic worker/state-machine tests and Cubase cold/warm capture replay. Measure HUI replies against 50 ms under automation load; separately verify raw Stream responses on a capable UMP peer. Show surface mode and effective protocol in the connection indicator and MIDI Settings.
 
 ---
 
-#### ⏱️ v0.5.2 (Feedback): LCD Track Naming, Peak Metering, V-Pot Rings & Bank Switching
+#### ⏱️ v0.5.2 – MCU displays, metering and bank feedback
 
-**Goal:** Close the bidirectional studio loop so track names, dB readouts, peak meters, V-Pot LED rings, timecode, and bank offsets reflect live DAW state at 60Hz with zero thermal churn.
+**Deliverable:** responsive host-driven feedback for the eight-strip surface across selection, automation and channel/bank changes. [Decoder contracts and Cubase fixtures](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md#v052-studio-feedback)
 
-##### Phase 1 – MCU 56×2 LCD Scribble Strip Engine (`app/lib/core/protocol/mcu/mcu_lcd_state.dart`)
+1. **LCD.** Decode Mackie command 12 into 112 raw cells (56 × 2). Handle offsets, row crossings, special glyphs and partial writes. Publish dirty strip/row slices with fallback layout labels while waiting for the DAW.
+2. **Metering.** Add channel pressure to the selected MCU ingress, decode strip and level, keep overload latched until explicitly cleared. Bound paint cadence to visible frames and stop decay scheduling when idle or backgrounded.
+3. **Rings and transport display.** Decode CC 30–37 hex into ring mode, segment position and independent indicator. Decode CC 40–49 and 4A/4B into ten reversed time digits and two assignment cells with a glyph table and dot flags. Test mode-specific zero/extremes and single-digit writes. [Controller implementation observations](https://github.com/NicoG60/TouchMCU/blob/main/doc/mackie_control_protocol.md)
+4. **Bank reconciliation.** Send bank/channel navigation on MCU notes 2E/2F and 30/31. Track pending navigation separately from incoming host state. Clear obsolete peaks, preserve partial updates, and publish an absolute offset only with corroborating host evidence.
 
-- **SysEx Decoder (`F0 00 00 66 14 12 <offset> <ascii...> F7`):**
-  - Maintain a fixed `112`-byte character buffer (Row 0: offsets `0..55`, Row 1: offsets `56..111` — 8 strips × 7 chars per row).
-  - Update only modified strip slices (0–7) via granular Riverpod `.select((s) => s.stripLabel(i))` so updating Strip 3's value readout never rebuilds Strips 0–2 or 4–7.
-  - Render dynamic scribble strip headers directly above MCU faders/strips (track name on top line, pan/value/parameter on second line) with graceful fallback to `LayoutControl.displayName` when disconnected.
-
-##### Phase 2 – Peak Level Metering (`0xD0` Channel Pressure)
-
-- **Native & Dart Metering Pipeline (`MidiParser.kt`, `mcu_meter_state.dart`):**
-  - Enable Channel Pressure (`0xD0..0xDF`, 2-byte legacy / `MT=0x2` UMP `0x2<g>D0<data1>00`) passthrough in `MidiParser.kt` (currently only `0x80/0x90/0xB0/0xE0` are forwarded!).
-  - Decode MCU meter byte: `stripIndex = (data1 >> 4) & 0x07`, `level = data1 & 0x0F` (`0..12` signal levels, `14` = overload/clip set, `15` = overload clear).
-  - Drive per-strip peak meter bars via `ValueNotifier` / `CustomPainter` inside a dedicated `RepaintBoundary` with smooth ballistic decay (~300ms/segment per MCU spec) suspended automatically when backgrounded.
-
-##### Phase 3 – V-Pot LED Rings & 7-Segment Timecode Display
-
-- **V-Pot LED Rings (`CC 48..55` / `0x30..0x37`):**
-  - Decode all 4 MCU ring modes (`Single Dot` `1..11`, `Boost/Cut` `17..27`, `Wrap` `33..43`, `Spread` `49..54`, plus `+64` center dot flag) and render the 11-segment arc directly in `EndlessEncoderWidget`'s painter.
-- **Timecode / Beats 7-Segment Display (`CC 64..73` / `0x40..0x49`):**
-  - Decode 10-character rightmost-to-leftmost timecode bytes (bit 6 = decimal point flag, bits `0..5` = ASCII char) plus Assignment display (`CC 74..75`) and render in a toggleable header/widget bar using the bundled `DSEG7Modern` font.
-
-##### Phase 4 – Bank & Channel Switching Feedback
-
-- **Bank State & Sync:**
-  - Wire Bank Left/Right (`0x2E`/`0x2F`) and Channel Left/Right (`0x30`/`0x31`) actions, clearing stale transient meter peaks on bank switch and awaiting fresh DAW fader/LCD/LED snapshots without visual flicker.
-
-##### Verification (`v0.5.2`)
-
-- Unit tests: LCD offset wrapping/partial updates, Channel Pressure meter decoding & clip latch/clear, V-Pot LED ring mode decoding, Timecode `CC 64..73` decoding.
-- HITL (`midi.exe`): stream `F0 00 00 66 14 12 00 ... F7` track names, `0x20D00A00` meter bursts, `0x20B03016` V-Pot rings, and `CC 64..73` timecode into the S24 Ultra; verify smooth 60–120Hz UI updates, `<5%` extra CPU delta, and zero `System.gc` UI stalls.
+**Exit evidence.** Capture renames, pan/assignment changes, overload, playback display and rapid bank navigation in a 17-track project on Cubase 15 and 16. Compare 60/120 Hz profile runs, process CPU increase, GC-related missed frames, idle scheduling and touch-release delivery. Record injected-only feedback separately from DAW-emitted feedback.
 
 ---
 
-### ⏳ v0.6.0 – Native DAW Remote Scripts, Macro Engine & NDK Performance Audit
+### ⏳ v0.6.0 – DAW adapters, macro engine and Android latency audit
 
-**Goal:** Deliver official host-side DAW scripts (starting with Cubase 14/15), programmable macro execution, and a data-driven Kotlin vs. NDK `AMidi` latency benchmark.
+**Deliverable:** editable macro sequences, an installable OpenMIDIControl Cubase MIDI Remote driver, companion mappings and a measured transport decision. The primary qualification hosts are Cubase 15 and 16. [Data contracts, host-specific implementation and benchmark design](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md#v060-macros-daw-adapters-and-android-latency)
 
-#### Phase 1 – Macro Engine & Inspector Scripting Hook
+1. **Macro engine and Inspector.** Add a versioned macro payload for MIDI, SysEx7, MCU, timed waits and named adapter commands. Plan v2→v3 layout migration, validate complete sequences on import, expose ordered editing and preview, and dispatch through a bounded cancellable per-session runner. Guard terminal releases, overlapping gestures and duplicate host commands with fake-clock and physical capture tests.
+2. **Cubase adapter.** Create an original ES5 `PetersDigital_OpenMIDIControl.js` under `scripts/daw/cubase/`. Bind physical ports, eight strips plus master, relative encoders and the existing transport roles to Mixer, Quick Controls, EQ, Sends and Transport mappings. Use host callbacks first and probe available DirectAccess methods. Use a dedicated Channel Voice route for version, page/bank, command acknowledgements, UTF-8 names and colors. Use length-delimited seven-bit data and verify ordering and translation on each backend. Package as `.midiremote`; exercise clean import and deactivate/reactivate in each target host. [Steinberg API versions](https://steinbergmedia.github.io/midiremote_api_doc/versions/) · [Local Cubase mapping references](references/cubase/README.md)
+3. **Other DAWs.** Provide separate REAPER CSI MIDI surfaces/zones, a version-pinned Live Python Remote Script, and a Logic control-surface profile with documented assignments. An OSC route for REAPER requires a MIDI↔OSC bridge. Qualify each artifact's installation, input, feedback, restart and removal on its actual host. Record the Mac/Logic qualification separately.
+4. **Android latency decision.** Instrument touch, Dart dispatch, bridge, Kotlin write/receive, echo and Flutter paint. Compare repeatable 120 Hz load traces under identical route, refresh rate and thermal conditions. Measure parser microbenchmarks and end-to-end percentiles separately. Prototype AMidi/FFI only when the transport stage causes a measured budget miss. Preserve Kotlin fallback, timing and byte/UMP parity. [Android AMidi guide](https://developer.android.com/ndk/guides/audio/midi) · [Repository performance targets](TESTING.md)
 
-- **Model & Router (`app/lib/core/models/macro_action.dart`, `macro_dispatcher_node.dart`):**
-  - Add a **Macro Script** action payload in `ControlConfigModal` supporting multi-step MIDI/DAW command sequences (ordered MIDI/SysEx/MCU commands with optional ms delays or host command IDs).
-  - Implement `MacroDispatcherNode` in `MidiRouter` with non-blocking queue execution and diagnostics console logging.
-
-#### Phase 2 – Official Cubase MIDI Remote Script (`scripts/daw/cubase/` — never modify `references/`)
-
-- **Architecture (following `references/cubase/README.md` & `midiremote_api_v1`):**
-  - Create `PetersDigital_OpenMIDIControl.js` using `require('midiremote_api_v1')`:
-    - `makeDeviceDriver('PetersDigital', 'OpenMIDIControl', 'Peters Digital')`
-    - `makeDetectionUnit().detectPortPair(midiInput, midiOutput)` matching Windows MIDI Services (`MIDI function` / `OpenMIDIControl`) and macOS port names.
-    - `mOnActivate` / `mOnDeactivate` SysEx handshake (using `0x7C` non-commercial ID, modeled after `references/cubase/arturia/MiniLab_3/MiniLab_3_Connection.js`).
-    - **Surface & SubPages:** Virtual surface mirroring OpenMIDIControl's Mixer, Quick Controls, EQ, Sends, and Transport `SubPages` (referencing `references/cubase/novation/common/sub-pages.js`), with 14-bit Pitch Bend faders, `RelativeSignedBit` encoders, and `setValueTakeOverModePickup()`.
-    - **Direct Access Feedback (API v1.1+):** Stream track names, colors, and parameter titles/display values (`getParameterTitle`, `getParameterDisplayValue`) over compact framed SysEx to OpenMIDIControl (referencing `REFERENCES.md` SysEx streaming patterns) so Cubase displays full parameter names beyond MCU's 7-char LCD limit.
-
-#### Phase 3 – Additional DAW Remote Scripts (Reaper / Ableton Live / Logic)
-
-- Provide lightweight companion mappings/scripts under `scripts/daw/` (Reaper CSI / OSC-MIDI preset, Ableton Live MIDI Remote Script `.py`, Logic Pro Control Surface profile) sharing the same DAW-agnostic core protocol.
-
-#### Phase 4 – Latency Benchmark & Conditional Android NDK `AMidi` Fast Path
-
-- **Benchmark Suite:** Measure end-to-end round-trip latency and jitter (`Touch → JNI/Kotlin → USB UMP → Windows MIDI Services <1µs timestamp → Echo → UI`) under 120Hz multi-touch + metering load on Galaxy S24 Ultra.
-- **Conditional NDK Migration (`amidi/AMidi.h` + Dart FFI):**
-  - Migrate the native transport hot path to C++ `AMidi` + lock-free Dart FFI shared ring buffer **only if** benchmarks prove Kotlin/MethodChannel/EventChannel exceeds the latency/jitter budget (per `ARCHITECTURE.md` §3.1).
-  - Preserve full Kotlin unit-test parity and `minSdk = 33` / `targetSdk = 36` compliance.
+**Exit evidence.** Macro migration and cancellation fixtures, two Cubase install/feedback reports, per-adapter support matrix, trace-backed Kotlin/AMidi decision and the full app/native regression suite. v0.6.0 is the feature milestone currently defined for v0.6.x. Assign subsequent patch work from qualified host/build regressions.
