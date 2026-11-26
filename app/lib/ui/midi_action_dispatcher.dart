@@ -10,10 +10,13 @@ import 'midi_service.dart';
 String? ccFeedbackAddress(ActionPayload? payload, int channel, int cc) {
   return switch (payload) {
     CcPayload(:final channel, :final cc) => '$channel:$cc',
-    null => '$channel:$cc',
+    null when _hasLegacyCc(channel, cc) => '$channel:$cc',
     _ => null,
   };
 }
+
+bool _hasLegacyCc(int channel, int cc) =>
+    channel >= 0 && channel <= 15 && cc >= 0 && cc <= 127;
 
 void _sendMidiGate(
   MidiService service,
@@ -154,12 +157,14 @@ class MidiActionDispatcher {
       case NotePayload() || McuActionPayload():
         break;
       case null:
-        service.sendCC(
-          legacyCc,
-          (position * 127).round(),
-          channel: legacyChannel,
-          isFinal: isFinal,
-        );
+        if (_hasLegacyCc(legacyChannel, legacyCc)) {
+          service.sendCC(
+            legacyCc,
+            (position * 127).round(),
+            channel: legacyChannel,
+            isFinal: isFinal,
+          );
+        }
     }
     if (isFinal) end();
   }
