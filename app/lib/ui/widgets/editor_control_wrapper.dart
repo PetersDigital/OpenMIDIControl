@@ -43,7 +43,9 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
     final displayNameLabel = switch (widget.control.type) {
       ControlType.fader => 'Fader Name',
       ControlType.xyPad => 'XY Pad Name',
-      ControlType.drumPad || ControlType.aftertouchPad => 'Pad Label',
+      ControlType.drumPad ||
+      ControlType.aftertouchPad ||
+      ControlType.latchPad => 'Pad Label',
       ControlType.encoder => 'Encoder Name',
       ControlType.trigger => 'Trigger Name',
       ControlType.toggle => 'Toggle Name',

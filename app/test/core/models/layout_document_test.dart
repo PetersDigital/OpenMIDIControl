@@ -16,6 +16,26 @@ void main() {
   group('LayoutDocument Envelope Tests', () {
     final now = DateTime.now();
 
+    test('latch duration round-trips and missing values use the default', () {
+      final defaultPad = LayoutControl(
+        id: 'latch',
+        type: ControlType.latchPad,
+        defaultCc: 64,
+        channel: 3,
+      );
+      expect(defaultPad.toJson().containsKey('latchDurationMs'), isFalse);
+      expect(LayoutControl.fromJson(defaultPad.toJson()).latchDurationMs, 1000);
+      final edited = defaultPad.copyWith(latchDurationMs: 2500);
+      expect(edited, isNot(defaultPad));
+      expect(LayoutControl.fromJson(edited.toJson()), edited);
+      expect(edited.withActions(payload: edited.payload).latchDurationMs, 2500);
+      expect(
+        () =>
+            LayoutControl.fromJson({...edited.toJson(), 'latchDurationMs': 0}),
+        throwsFormatException,
+      );
+    });
+
     test(
       'round-trips aftertouch defaults, remaps, and disabled expression',
       () {

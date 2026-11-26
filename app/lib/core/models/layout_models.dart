@@ -16,6 +16,7 @@ enum ControlType {
   trigger,
   toggle,
   aftertouchPad,
+  latchPad,
 }
 
 /// Enumeration of supported page types in the layout schema.
@@ -32,6 +33,9 @@ enum PageType { fader, xyPad, drumPad, utility }
 class LayoutControl {
   static const defaultXySecondaryCc = 11;
   static const defaultAftertouchCc = 74;
+  static const minLatchDurationMs = 500;
+  static const maxLatchDurationMs = 16000;
+  static const defaultLatchDurationMs = 1000;
 
   final String id;
   final ControlType type;
@@ -73,6 +77,7 @@ class LayoutControl {
   final int width;
   final int height;
   final WidgetStyle? style;
+  final int latchDurationMs;
 
   WidgetStyle get effectiveStyle => style ?? WidgetStyle.defaults;
 
@@ -92,8 +97,13 @@ class LayoutControl {
     this.width = 1,
     this.height = 1,
     this.style,
+    this.latchDurationMs = defaultLatchDurationMs,
   }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
        assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15'),
+       assert(
+         latchDurationMs >= minLatchDurationMs &&
+             latchDurationMs <= maxLatchDurationMs,
+       ),
        payload = payload ?? _legacyPayload(type, channel, defaultCc),
        secondaryPayload =
            secondaryPayload ??
@@ -158,6 +168,7 @@ class LayoutControl {
     int? height,
     WidgetStyle? style,
     bool clearStyle = false,
+    int? latchDurationMs,
   }) {
     final controlType = type ?? this.type;
     final midiChannel = channel ?? this.channel;
@@ -189,6 +200,7 @@ class LayoutControl {
       width: width ?? this.width,
       height: height ?? this.height,
       style: clearStyle ? null : (style ?? this.style),
+      latchDurationMs: latchDurationMs ?? this.latchDurationMs,
     );
   }
 
@@ -205,6 +217,7 @@ class LayoutControl {
     bool? invertY,
     WidgetStyle? style,
     bool clearStyle = false,
+    int? latchDurationMs,
   }) {
     assert(!clearSecondary || secondaryPayload == null);
     assert(secondaryPayload == null || supportsSecondaryAction);
@@ -234,6 +247,7 @@ class LayoutControl {
       width: width,
       height: height,
       style: clearStyle ? null : (style ?? this.style),
+      latchDurationMs: latchDurationMs ?? this.latchDurationMs,
     );
   }
 
@@ -262,14 +276,18 @@ class LayoutControl {
       'width': width,
       'height': height,
       if (style != null && !style!.isDefault) 'style': style!.toJson(),
+      if (type == ControlType.latchPad &&
+          latchDurationMs != defaultLatchDurationMs)
+        'latchDurationMs': latchDurationMs,
     };
   }
 
   /// Deserialize from JSON.
   factory LayoutControl.fromJson(Map<String, dynamic> json) {
+    final type = ControlType.values.byName(json['type'] as String);
     return LayoutControl(
       id: json['id'] as String,
-      type: ControlType.values.byName(json['type'] as String),
+      type: type,
       defaultCc: json['defaultCc'] as int,
       channel: json['channel'] as int,
       customName: json['customName'] as String?,
@@ -283,6 +301,21 @@ class LayoutControl {
       width: json['width'] as int? ?? 1,
       height: json['height'] as int? ?? 1,
       style: _readStyle(json['style']),
+      latchDurationMs: type == ControlType.latchPad
+          ? _readLatchDuration(json['latchDurationMs'])
+          : defaultLatchDurationMs,
+    );
+  }
+
+  static int _readLatchDuration(Object? value) {
+    if (value == null) return defaultLatchDurationMs;
+    if (value is int &&
+        value >= minLatchDurationMs &&
+        value <= maxLatchDurationMs) {
+      return value;
+    }
+    throw const FormatException(
+      'Latch duration must be 500 to 16000 milliseconds.',
     );
   }
 
@@ -323,7 +356,8 @@ class LayoutControl {
         other.y == y &&
         other.width == width &&
         other.height == height &&
-        other.style == style;
+        other.style == style &&
+        other.latchDurationMs == latchDurationMs;
   }
 
   @override
@@ -343,6 +377,7 @@ class LayoutControl {
     width,
     height,
     style,
+    latchDurationMs,
   );
 }
 
