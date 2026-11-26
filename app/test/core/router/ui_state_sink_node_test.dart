@@ -111,6 +111,37 @@ void main() {
       expect(received!['buttons'], containsPair('note:0:10', true));
     });
 
+    test('publishes explicit off deltas for CC and Note feedback', () {
+      final updates = <Map<String, dynamic>>[];
+      final node = UiStateSinkNode(onStateUpdate: updates.add);
+      addTearDown(node.dispose);
+
+      node.execute([
+        const MidiEvent(0x20B20A7F, 0),
+        const MidiEvent(0x20933C7F, 0),
+      ]);
+      expect(updates.single['buttons'], {'2:10': true, 'note:3:60': true});
+
+      node.executeSingle(const MidiEvent(0x20B20A3F, 1));
+      expect(updates.last['buttons'], {'2:10': false});
+
+      node.executeSingle(const MidiEvent(0x20933C00, 2));
+      expect(updates.last['buttons'], {'note:3:60': false});
+      expect(updates.last['notes'], {3: isEmpty});
+    });
+
+    test('publishes an off message for a previously unseen address', () {
+      final updates = <Map<String, dynamic>>[];
+      final node = UiStateSinkNode(onStateUpdate: updates.add);
+      addTearDown(node.dispose);
+
+      node.execute([
+        const MidiEvent(0x20B10B00, 0),
+        const MidiEvent(0x20843D00, 0),
+      ]);
+      expect(updates.single['buttons'], {'1:11': false, 'note:4:61': false});
+    });
+
     test(
       'does not include buttons when button state has not changed (lazy update)',
       () async {
