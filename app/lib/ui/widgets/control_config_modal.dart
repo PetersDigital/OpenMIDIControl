@@ -3,12 +3,10 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
 import '../design_system.dart';
 import 'midi_action_fields.dart';
 import 'scrollable_dialog_content.dart';
-import '../../core/midi_utils.dart';
 import '../layout_state.dart';
 
 class ControlConfigModal extends ConsumerStatefulWidget {
@@ -29,9 +27,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   final _formKey = GlobalKey<FormState>();
   late final ControlType? _controlType;
   late final MidiActionDraft _primaryAction;
-  TextEditingController? _secondaryIdentifierController;
-  CcPayload? _originalSecondaryCc;
-  String? _originalSecondaryText;
+  MidiActionDraft? _secondaryAction;
   late final TextEditingController _displayNameController;
   bool _invertX = false;
   bool _invertY = false;
@@ -55,6 +51,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       channel: control?.channel ?? 0,
       identifier: control?.defaultCc,
       drumPad: _controlType == ControlType.drumPad,
+      allowUnassigned: _isXy,
     );
 
     final name = control?.customName;
@@ -63,16 +60,12 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
     );
 
     if (_isXy && control != null) {
-      final secondary = control.secondaryPayload;
-      if (secondary == null || secondary is CcPayload) {
-        final configuredCc = secondary is CcPayload ? secondary : null;
-        final cc = configuredCc?.cc ?? control.secondaryCc;
-        _originalSecondaryCc = configuredCc;
-        _originalSecondaryText = cc == null || cc < 0 ? '' : cc.toString();
-        _secondaryIdentifierController = TextEditingController(
-          text: _originalSecondaryText,
-        );
-      }
+      _secondaryAction = MidiActionDraft(
+        payload: control.effectiveSecondaryPayload,
+        channel: control.channel,
+        identifier: control.secondaryCc,
+        allowUnassigned: true,
+      );
       _invertX = control.invertX;
       _invertY = control.invertY;
     }
@@ -81,26 +74,18 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   @override
   void dispose() {
     _primaryAction.dispose();
-    _secondaryIdentifierController?.dispose();
+    _secondaryAction?.dispose();
     _displayNameController.dispose();
     super.dispose();
   }
 
   void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    final secondaryText = _secondaryIdentifierController?.text.trim();
-    CcPayload? secondary;
-    if (secondaryText != null &&
-        secondaryText.isNotEmpty &&
-        secondaryText != _originalSecondaryText) {
-      final cc = MidiUtils.parseNoteIdentifier(secondaryText)!;
-      secondary = CcPayload(
-        channel: _originalSecondaryCc?.channel ?? _primaryAction.channel,
-        cc: cc,
-        highResolution:
-            cc < 32 && (_originalSecondaryCc?.highResolution ?? false),
-      );
+    final invalidFields = _formKey.currentState!.validateGranularly();
+    if (invalidFields.isNotEmpty) {
+      Scrollable.ensureVisible(invalidFields.first.context, alignment: 0.15);
+      return;
     }
+    final secondary = _secondaryAction?.payload;
 
     ref
         .read(layoutStateProvider.notifier)
@@ -108,6 +93,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
           widget.controlId,
           payload: _primaryAction.payload,
           secondaryPayload: secondary,
+          clearSecondary: _secondaryAction != null && secondary == null,
           name: _displayNameController.text,
           invertX: _isXy ? _invertX : null,
           invertY: _isXy ? _invertY : null,
@@ -155,31 +141,13 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                 const SizedBox(height: 8),
               ],
               MidiActionFields(
+                key: _isXy ? const ValueKey('xy-x-action') : null,
                 draft: _primaryAction,
                 usesPitchBendPosition: _isContinuous,
                 supportsVariableVelocity:
                     _isContinuous || _controlType == ControlType.drumPad,
               ),
-              if (_isXy) ...[
-                if (_secondaryIdentifierController != null) ...[
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _secondaryIdentifierController,
-                    keyboardType: TextInputType.text,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: MidiActionFields.decoration.copyWith(
-                      labelText: 'Y-Axis CC Number (0-127)',
-                    ),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      return text.isNotEmpty &&
-                              MidiUtils.parseNoteIdentifier(text) == null
-                          ? 'Enter a number from 0 to 127'
-                          : null;
-                    },
-                  ),
-                ],
-                const SizedBox(height: 12),
+              if (_secondaryAction case final secondary?) ...[
                 CheckboxListTile(
                   title: const Text(
                     'Invert X',
@@ -189,6 +157,18 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   onChanged: (v) => setState(() => _invertX = v ?? false),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Y Axis',
+                  style: TextStyle(color: Color(0xFFC3C7CA)),
+                ),
+                const SizedBox(height: 8),
+                MidiActionFields(
+                  key: const ValueKey('xy-y-action'),
+                  draft: secondary,
+                  usesPitchBendPosition: true,
+                  supportsVariableVelocity: true,
                 ),
                 CheckboxListTile(
                   title: const Text(
@@ -227,7 +207,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   Navigator.of(context).pop();
                 },
                 child: Text(
-                  'Clear',
+                  _isXy ? 'Clear All' : 'Clear',
                   style: AppText.system(color: Colors.redAccent),
                 ),
               ),

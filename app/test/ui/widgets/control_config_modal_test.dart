@@ -5,16 +5,24 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/action_payload.dart';
+import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/widgets/control_config_modal.dart';
 
 void main() {
   Future<ProviderContainer> openInspector(
     WidgetTester tester,
-    String controlId,
-  ) async {
+    String controlId, {
+    LayoutControl? xyControl,
+  }) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
+    if (xyControl != null) {
+      final notifier = container.read(layoutStateProvider.notifier);
+      notifier.setPageIndex(1);
+      final page = container.read(layoutStateProvider).activePage!;
+      notifier.overwriteActivePage(page.copyWith(controls: [xyControl]));
+    }
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -29,9 +37,15 @@ void main() {
   Future<void> select(
     WidgetTester tester,
     String current,
-    String option,
-  ) async {
-    final field = find.text(current);
+    String option, {
+    String? axis,
+  }) async {
+    final field = axis == null
+        ? find.text(current)
+        : find.descendant(
+            of: find.byKey(ValueKey('xy-$axis-action')),
+            matching: find.text(current),
+          );
     await tester.ensureVisible(field);
     await tester.tap(field);
     await tester.pumpAndSettle();
@@ -155,9 +169,9 @@ void main() {
         .read(layoutStateProvider)
         .getControlById('xy_main')!;
 
-    await select(tester, 'CC', 'Relative CC');
-    await select(tester, 'Signed Bit', 'Binary Offset');
-    await select(tester, 'Channel 1', 'Channel 4');
+    await select(tester, 'CC', 'Relative CC', axis: 'x');
+    await select(tester, 'Signed Bit', 'Binary Offset', axis: 'x');
+    await select(tester, 'Channel 1', 'Channel 4', axis: 'x');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -174,6 +188,109 @@ void main() {
     );
     expect(after.secondaryPayload, before.secondaryPayload);
     expect(after.invertY, before.invertY);
+  });
+
+  testWidgets('edits a typed Y assignment and validates numeric CC input', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'xy_main',
+      xyControl: LayoutControl(
+        id: 'xy_main',
+        type: ControlType.xyPad,
+        defaultCc: 21,
+        channel: 2,
+        secondaryPayload: const NotePayload(channel: 5, note: 42),
+      ),
+    );
+    final yFields = find.byKey(const ValueKey('xy-y-action'));
+    expect(
+      find.descendant(of: yFields, matching: find.text('Channel 6')),
+      findsOneWidget,
+    );
+    await select(tester, 'Note', 'CC', axis: 'y');
+    await select(tester, 'Channel 6', 'Channel 7', axis: 'y');
+
+    final highResolution = find.descendant(
+      of: yFields,
+      matching: find.text('14-bit CC'),
+    );
+    await tester.ensureVisible(highResolution);
+    await tester.tap(highResolution);
+    await tester.pumpAndSettle();
+    final cc = find.descendant(
+      of: yFields,
+      matching: find.widgetWithText(TextFormField, 'CC Number (0-31)'),
+    );
+    await tester.ensureVisible(cc);
+    await tester.enterText(cc, 'C3');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a CC number from 0 to 31'), findsOneWidget);
+
+    await tester.enterText(cc, '31');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final control = container
+        .read(layoutStateProvider)
+        .getControlById('xy_main')!;
+    expect(control.payload, const CcPayload(channel: 2, cc: 21));
+    expect(
+      control.secondaryPayload,
+      const CcPayload(channel: 6, cc: 31, highResolution: true),
+    );
+  });
+
+  for (final axis in ['x', 'y']) {
+    testWidgets('clearing $axis preserves the other XY assignment', (
+      tester,
+    ) async {
+      final container = await openInspector(tester, 'xy_main');
+      final before = container
+          .read(layoutStateProvider)
+          .getControlById('xy_main')!;
+      await select(tester, 'CC', 'Unassigned', axis: axis);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final after = container
+          .read(layoutStateProvider)
+          .getControlById('xy_main')!;
+      expect(after.payload, axis == 'x' ? isNull : before.payload);
+      expect(
+        after.secondaryPayload,
+        axis == 'y' ? isNull : before.secondaryPayload,
+      );
+    });
+  }
+
+  testWidgets('opens an implicit legacy Y assignment on the original channel', (
+    tester,
+  ) async {
+    await openInspector(
+      tester,
+      'xy_main',
+      xyControl: LayoutControl(
+        id: 'xy_main',
+        type: ControlType.xyPad,
+        defaultCc: 21,
+        channel: 2,
+      ),
+    );
+    final yFields = find.byKey(const ValueKey('xy-y-action'));
+    expect(
+      find.descendant(of: yFields, matching: find.text('Channel 3')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: yFields,
+        matching: find.widgetWithText(TextFormField, '11'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ControlConfigModal handles Clear action', (
