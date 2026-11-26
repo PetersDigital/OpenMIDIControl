@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_models.dart';
 import 'package:app/core/models/page_templates.dart';
+import 'package:app/core/models/widget_style.dart';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
 
@@ -572,6 +573,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     String? name,
     bool? invertX,
     bool? invertY,
+    WidgetStyle? style,
+    bool clearStyle = false,
   }) {
     _editControl(
       controlId,
@@ -582,6 +585,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         customName: name,
         invertX: invertX,
         invertY: invertY,
+        style: style,
+        clearStyle: clearStyle,
       ),
     );
   }

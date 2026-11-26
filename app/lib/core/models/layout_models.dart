@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 
 import '../midi_utils.dart';
 import 'action_payload.dart';
+import 'widget_style.dart';
 
 /// Enumeration of supported control types in the layout schema.
 enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
@@ -56,6 +57,9 @@ class LayoutControl {
   final int y;
   final int width;
   final int height;
+  final WidgetStyle? style;
+
+  WidgetStyle get effectiveStyle => style ?? WidgetStyle.defaults;
 
   LayoutControl({
     required this.id,
@@ -72,6 +76,7 @@ class LayoutControl {
     this.y = 0,
     this.width = 1,
     this.height = 1,
+    this.style,
   }) : assert(defaultCc >= -1 && defaultCc <= 127, 'CC must be -1 to 127'),
        assert(channel >= -1 && channel <= 15, 'Channel must be -1 to 15'),
        payload = payload ?? _legacyPayload(type, channel, defaultCc),
@@ -136,6 +141,8 @@ class LayoutControl {
     int? y,
     int? width,
     int? height,
+    WidgetStyle? style,
+    bool clearStyle = false,
   }) {
     final controlType = type ?? this.type;
     final midiChannel = channel ?? this.channel;
@@ -166,6 +173,7 @@ class LayoutControl {
       y: y ?? this.y,
       width: width ?? this.width,
       height: height ?? this.height,
+      style: clearStyle ? null : (style ?? this.style),
     );
   }
 
@@ -180,6 +188,8 @@ class LayoutControl {
     String? customName,
     bool? invertX,
     bool? invertY,
+    WidgetStyle? style,
+    bool clearStyle = false,
   }) {
     assert(!clearSecondary || secondaryPayload == null);
     assert(secondaryPayload == null || type == ControlType.xyPad);
@@ -203,6 +213,7 @@ class LayoutControl {
       y: y,
       width: width,
       height: height,
+      style: clearStyle ? null : (style ?? this.style),
     );
   }
 
@@ -230,6 +241,7 @@ class LayoutControl {
       'y': y,
       'width': width,
       'height': height,
+      if (style != null && !style!.isDefault) 'style': style!.toJson(),
     };
   }
 
@@ -250,6 +262,7 @@ class LayoutControl {
       y: json['y'] as int? ?? 0,
       width: json['width'] as int? ?? 1,
       height: json['height'] as int? ?? 1,
+      style: _readStyle(json['style']),
     );
   }
 
@@ -259,9 +272,18 @@ class LayoutControl {
     throw const FormatException('Action payload must be a JSON object.');
   }
 
+  static WidgetStyle? _readStyle(Object? json) {
+    if (json == null) return null;
+    if (json is Map<String, dynamic>) {
+      final parsed = WidgetStyle.fromJson(json);
+      return parsed.isDefault ? null : parsed;
+    }
+    throw const FormatException('Widget style must be a JSON object.');
+  }
+
   @override
   String toString() =>
-      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel, secondaryCc: $secondaryCc, invertX: $invertX, invertY: $invertY, x: $x, y: $y, width: $width, height: $height)';
+      'LayoutControl(id: $id, type: ${type.name}, cc: $defaultCc, channel: $channel, secondaryCc: $secondaryCc, invertX: $invertX, invertY: $invertY, x: $x, y: $y, width: $width, height: $height, style: $style)';
 
   @override
   bool operator ==(Object other) {
@@ -280,7 +302,8 @@ class LayoutControl {
         other.x == x &&
         other.y == y &&
         other.width == width &&
-        other.height == height;
+        other.height == height &&
+        other.style == style;
   }
 
   @override
@@ -299,6 +322,7 @@ class LayoutControl {
     y,
     width,
     height,
+    style,
   );
 }
 
