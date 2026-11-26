@@ -73,11 +73,13 @@ class MainActivity : FlutterActivity() {
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
     private val emptyBuffers = Channel<LongArray>(capacity = 8)
+    private val nextPortGeneration = java.util.concurrent.atomic.AtomicLong()
+    private var useMidiBatchV2 = false
     private val incomingPeripheralUmpChannel = Channel<Long>(capacity = Channel.UNLIMITED)
 
     // Per-port sharded processing session state
     private class ActivePortSession(
-        val backendId: String,
+        val generation: Long,
         val buffer: MidiParser.IncomingEventsBuffer,
         val job: Job
     )
@@ -86,14 +88,7 @@ class MainActivity : FlutterActivity() {
     private val activeSessions = ConcurrentHashMap<String, ActivePortSession>()
  
     init {
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
+        repeat(8) { emptyBuffers.trySend(LongArray(3003)) }
     }
 
     private var batchDispatchJob: Job? = null
@@ -101,16 +96,20 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             try {
-                val usedLongs = payload[0].toInt().coerceIn(0, payload.size - 1)
-                if (usedLongs > 0) {
-                    // Slice to active payload size so JNI StandardMessageCodec does not serialize
-                    // the full 16 KB buffer on every batch, while preserving [usedLongs, ump, ts...].
-                    val trimmed = payload.copyOf(1 + usedLongs)
-                    // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
-                    // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
-                    // until the UI thread has acknowledged the message, preventing queue flooding.
+                val count = payload[2].toInt()
+                if (count > 0) {
                     withContext(Dispatchers.Main.immediate) {
-                        eventSink?.success(trimmed)
+                        if (activeSessions.values.any { it.generation == payload[1] }) {
+                            val sink = eventSink
+                            if (sink != null) {
+                                if (useMidiBatchV2) {
+                                    sink.success(payload.copyOf(3 + count * 3))
+                                } else {
+                                    val legacy = toLegacyMidiBatch(payload, count)
+                                    if (legacy[0] > 0) sink.success(legacy)
+                                }
+                            }
+                        }
                     }
                 }
             } finally {
@@ -121,6 +120,19 @@ class MainActivity : FlutterActivity() {
             }
         }
     }
+    private fun toLegacyMidiBatch(payload: LongArray, count: Int): LongArray {
+        val legacy = LongArray(1 + count * 2)
+        var writeIndex = 1
+        for (i in 3 until 3 + count * 3 step 3) {
+            val word0 = payload[i]
+            if (word0 ushr 28 != 0x2L) continue
+            legacy[writeIndex++] = word0
+            legacy[writeIndex++] = (payload[i + 2] / 1_000_000L) and 0xFFFFFFFFL
+        }
+        legacy[0] = (writeIndex - 1).toLong()
+        return if (writeIndex == legacy.size) legacy else legacy.copyOf(writeIndex)
+    }
+
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var lastUsbStateIsConnected = false
@@ -281,6 +293,7 @@ class MainActivity : FlutterActivity() {
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENTS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    useMidiBatchV2 = arguments == 2
                     eventSink = events
                     startBatchDispatchTimer()
                 }
@@ -681,12 +694,13 @@ class MainActivity : FlutterActivity() {
 
         val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
         val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+        val generation = nextPortGeneration.incrementAndGet()
 
         val portJob = coroutineScope.launch {
             for (notification in notifier) {
                 while (!portBuffer.isEmpty()) {
                     val batch = emptyBuffers.receive()
-                    portBuffer.drainToBatch(batch)
+                    portBuffer.drainToBatch(batch, generation)
                     eventMultiplexer.send(batch)
 
                     // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
@@ -695,22 +709,25 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        activeSessions[backendId] = ActivePortSession(backendId, portBuffer, portJob)
+        activeSessions[backendId] = ActivePortSession(generation, portBuffer, portJob)
 
         val umpDecoder = if (isUmp) UmpStreamDecoder() else null
-        val forwardLegacyUmp: (Int, Int, Long) -> Unit = { word0, _, timestamp ->
-            MidiParser.processSingleUmp(word0, timestamp, false, portBuffer, suppressionWindowNs, lastSentTime)
+        val forwardUmp: (Int, Int, Long) -> Unit = { word0, word1, timestamp ->
+            MidiParser.processChannelVoice(
+                word0, word1, timestamp, false, portBuffer, suppressionWindowNs, lastSentTime
+            )
         }
         backend.startReceiving { msg, offset, count, timestamp ->
             if (umpDecoder != null) {
-                umpDecoder.read(msg, offset, count, timestamp, forwardLegacyUmp)
+                val nowNs = if (timestamp == 0L) System.nanoTime() else timestamp
+                umpDecoder.read(msg, offset, count, nowNs, forwardUmp)
                 return@startReceiving
             }
             MidiParser.processMidiPayload(
                 msg = msg,
                 offset = offset,
                 count = count,
-                timestamp = timestamp,
+                timestamp = if (timestamp == 0L) System.nanoTime() else timestamp,
                 isVirtual = false,
                 incomingEventsSink = portBuffer,
                 suppressionWindowNs = suppressionWindowNs,
@@ -724,22 +741,23 @@ class MainActivity : FlutterActivity() {
     private fun getOrCreateVirtualSession(isVirtual: Boolean): MidiParser.IncomingEventsBuffer {
         val sessionId = if (isVirtual) "virtual_daw" else "peripheral_host"
 
-        val session = activeSessions.computeIfAbsent(sessionId) { id ->
+        val session = activeSessions.computeIfAbsent(sessionId) {
             val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
             val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+            val generation = nextPortGeneration.incrementAndGet()
 
             val portJob = coroutineScope.launch {
                 for (notification in notifier) {
                     while (!portBuffer.isEmpty()) {
                         val batch = emptyBuffers.receive()
-                        portBuffer.drainToBatch(batch)
+                        portBuffer.drainToBatch(batch, generation)
                         eventMultiplexer.send(batch)
 
                         delay(8)
                     }
                 }
             }
-            ActivePortSession(id, portBuffer, portJob)
+            ActivePortSession(generation, portBuffer, portJob)
         }
         return session.buffer
     }

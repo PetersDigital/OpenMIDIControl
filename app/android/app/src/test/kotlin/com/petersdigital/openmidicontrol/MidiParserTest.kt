@@ -247,9 +247,10 @@ class MidiParserTest {
         // Drain it into the provided reusable buffer.
         buffer.drainToBatch(batch)
 
-        // Buffer contract: batch[0] = used data longs, remainder is [ump, ts, ump, ts, ...]
+        // Batch v2 uses a three-slot header and three slots per event.
         assertEquals(2000, batch.size)
-        assertEquals(300L, batch[0])
+        assertEquals(-2L, batch[0])
+        assertEquals(150L, batch[2])
 
         // The buffer should be empty now
         assertTrue(buffer.isEmpty())
@@ -263,7 +264,7 @@ class MidiParserTest {
         for (i in 0 until 2000) {
             assertTrue(buffer.trySend(i.toLong()))
         }
-        buffer.drainToBatch(LongArray(5000)) // Clears it, head/tail now at 2000
+        buffer.drainToBatch(LongArray(6003)) // Clears it, head/tail now at 2000
 
         // 2. Push 100 more events to trigger wrap-around
         // Tail is at 2000, next 48 will be at 2000-2047, then wrap to 0-51
@@ -271,9 +272,23 @@ class MidiParserTest {
             assertTrue("Should successfully send event $i during wrap-around", buffer.trySend(9999L + i))
         }
 
-        val drainResult = LongArray(256)
+        val drainResult = LongArray(303)
         buffer.drainToBatch(drainResult)
-        assertEquals(200L, drainResult[0]) // 100 events * 2 longs
+        assertEquals(100L, drainResult[2])
         assertTrue("Buffer should be empty after wrap-around drain", buffer.isEmpty())
+    }
+
+    @Test
+    fun testVersionedBatchPreservesBothWordsAndFullTimestamp() {
+        val buffer = MidiParser.IncomingEventsBuffer(4)
+        val timestamp = 12_345_678_901L
+        for (value in intArrayOf(0, 0xFFFFFFFF.toInt())) {
+            MidiParser.processChannelVoice(0x40E00000, value, timestamp, false, buffer, 0, LongArray(0))
+        }
+
+        val batch = LongArray(9)
+        buffer.drainToBatch(batch, generation = 42L)
+        assertTrue(longArrayOf(-2, 42, 2, 0x40E00000, 0, timestamp, 0x40E00000, 0xFFFFFFFF, timestamp)
+            .contentEquals(batch))
     }
 }
