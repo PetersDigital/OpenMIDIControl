@@ -182,6 +182,12 @@ class _WidgetPalettePanelState extends ConsumerState<WidgetPalettePanel> {
                         label: 'Toggle',
                         subtitle: 'On/Off switch',
                       ),
+                      _PaletteItem(
+                        type: ControlType.aftertouchPad,
+                        icon: Icons.touch_app,
+                        label: 'Aftertouch Pad',
+                        subtitle: 'Note pad with vertical CC expression',
+                      ),
                       SizedBox(height: 24),
                     ],
                   ),
@@ -498,6 +504,7 @@ class _PaletteItemState extends ConsumerState<_PaletteItem> {
       onExit: (_) => setState(() => _isHovering = false),
       child: Draggable<ControlType>(
         data: widget.type,
+        affinity: Axis.horizontal,
         feedback: Material(
           color: Colors.transparent,
           child: Opacity(

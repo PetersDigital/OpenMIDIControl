@@ -6,12 +6,64 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:app/core/models/page_templates.dart';
+import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/editor/widget_palette_panel.dart';
 import 'package:app/ui/layout_state.dart';
+import 'package:app/ui/widgets/aftertouch_pad.dart';
 import 'package:app/ui/widgets/dynamic_grid_renderer.dart';
 import 'package:app/ui/widgets/page_management.dart';
 
 void main() {
+  testWidgets('palette places an unassigned aftertouch pad on the grid', (
+    tester,
+  ) async {
+    final container = ProviderContainer.test();
+    final layout = container.read(layoutStateProvider.notifier);
+    final page = container.read(layoutStateProvider).activePage!;
+    layout.overwriteActivePage(page.copyWith(controls: []));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                const SizedBox(width: 300, child: WidgetPalettePanel()),
+                Expanded(
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final activePage = ref
+                          .watch(layoutStateProvider)
+                          .activePage!;
+                      return DynamicGridRenderer(
+                        controls: activePage.controls,
+                        pageId: activePage.id,
+                        isActive: true,
+                        isMobile: false,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final pad = find.text('Aftertouch Pad');
+    await tester.scrollUntilVisible(pad, 150);
+    await tester.tap(pad);
+    await tester.pumpAndSettle();
+    final placed = container
+        .read(layoutStateProvider)
+        .activePage!
+        .controls
+        .single;
+    expect(placed.type, ControlType.aftertouchPad);
+    expect(placed.payload, isNull);
+    expect(find.byType(AftertouchPad), findsOneWidget);
+  });
+
   group('Template UI integration', () {
     testWidgets(
       'WidgetPalettePanel switches to TEMPLATES and stamps/undoes NEW PAGE',
