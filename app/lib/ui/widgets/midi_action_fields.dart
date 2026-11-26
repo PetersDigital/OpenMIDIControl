@@ -27,6 +27,7 @@ class MidiActionDraft {
     int? identifier,
     bool drumPad = false,
     this.allowUnassigned = false,
+    this.ccAndNoteOnly = false,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -68,6 +69,7 @@ class MidiActionDraft {
 
   late _MidiMessageType _type;
   final bool allowUnassigned;
+  final bool ccAndNoteOnly;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
@@ -76,6 +78,13 @@ class MidiActionDraft {
   late NoteVelocityCurve _velocityCurve;
   late RelativeCcEncoding _encoding;
   late final McuActionPayload? _mcuPayload;
+
+  bool _canSelect(_MidiMessageType type) => switch (type) {
+    _MidiMessageType.unassigned => allowUnassigned,
+    _MidiMessageType.cc || _MidiMessageType.note => true,
+    _MidiMessageType.pitchBend || _MidiMessageType.relativeCc => !ccAndNoteOnly,
+    _MidiMessageType.mcu => false,
+  };
 
   int? _parseNumber(String text, int max) {
     final value = int.tryParse(text.trim(), radix: 10);
@@ -214,19 +223,17 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           value: type,
           values: [
             for (final option in _MidiMessageType.values)
-              if (switch (option) {
-                _MidiMessageType.unassigned => _draft.allowUnassigned,
-                _MidiMessageType.mcu => _draft._mcuPayload != null,
-                _ => true,
-              })
+              if (option == type ||
+                  _draft._canSelect(option) ||
+                  (option == _MidiMessageType.mcu &&
+                      _draft._mcuPayload != null))
                 option,
           ],
           optionLabel: (type) => type.label,
           onChanged: (value) => _draft._type = value,
-          isEnabled: (type) => type != _MidiMessageType.mcu,
+          isEnabled: _draft._canSelect,
         ),
-        if (type != _MidiMessageType.mcu &&
-            type != _MidiMessageType.unassigned) ...[
+        if (_draft._canSelect(type) && type != _MidiMessageType.unassigned) ...[
           const SizedBox(height: 12),
           _dropdown(
             label: 'MIDI Channel',
@@ -236,7 +243,8 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
             onChanged: (value) => _draft.channel = value,
           ),
         ],
-        if (type == _MidiMessageType.pitchBend &&
+        if (_draft._canSelect(type) &&
+            type == _MidiMessageType.pitchBend &&
             !widget.usesPitchBendPosition) ...[
           const SizedBox(height: 12),
           _numberField(
@@ -248,9 +256,10 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
                 : null,
           ),
         ],
-        if (type == _MidiMessageType.cc ||
-            type == _MidiMessageType.note ||
-            type == _MidiMessageType.relativeCc) ...[
+        if (_draft._canSelect(type) &&
+            (type == _MidiMessageType.cc ||
+                type == _MidiMessageType.note ||
+                type == _MidiMessageType.relativeCc)) ...[
           const SizedBox(height: 12),
           _numberField(
             label: type == _MidiMessageType.note
@@ -304,7 +313,7 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
             ),
           ],
         ],
-        if (type == _MidiMessageType.relativeCc) ...[
+        if (type == _MidiMessageType.relativeCc && _draft._canSelect(type)) ...[
           const SizedBox(height: 12),
           _dropdown(
             label: 'Relative Encoding',

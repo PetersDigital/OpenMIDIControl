@@ -13,15 +13,15 @@ void main() {
   Future<ProviderContainer> openInspector(
     WidgetTester tester,
     String controlId, {
-    LayoutControl? xyControl,
+    LayoutControl? initialControl,
   }) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
-    if (xyControl != null) {
+    if (initialControl != null) {
       final notifier = container.read(layoutStateProvider.notifier);
       notifier.setPageIndex(1);
       final page = container.read(layoutStateProvider).activePage!;
-      notifier.overwriteActivePage(page.copyWith(controls: [xyControl]));
+      notifier.overwriteActivePage(page.copyWith(controls: [initialControl]));
     }
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -196,7 +196,7 @@ void main() {
     final container = await openInspector(
       tester,
       'xy_main',
-      xyControl: LayoutControl(
+      initialControl: LayoutControl(
         id: 'xy_main',
         type: ControlType.xyPad,
         defaultCc: 21,
@@ -272,7 +272,7 @@ void main() {
     await openInspector(
       tester,
       'xy_main',
-      xyControl: LayoutControl(
+      initialControl: LayoutControl(
         id: 'xy_main',
         type: ControlType.xyPad,
         defaultCc: 21,
@@ -291,6 +291,42 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('configures a transport button with a supported MIDI mapping', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'transport',
+      initialControl: LayoutControl(
+        id: 'transport',
+        type: ControlType.transportButton,
+        defaultCc: -1,
+        channel: -1,
+        transportAction: TransportAction.stop,
+      ),
+    );
+    await tester.tap(find.text('Unassigned'));
+    await tester.pumpAndSettle();
+    expect(find.text('CC'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
+    expect(find.text('Pitch Bend'), findsNothing);
+    expect(find.text('Relative CC'), findsNothing);
+    await tester.tap(find.text('Note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'MIDI Note (e.g., C3 or 60)'),
+      '60',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final control = container
+        .read(layoutStateProvider)
+        .getControlById('transport')!;
+    expect(control.payload, const NotePayload(channel: 0, note: 60));
+    expect(control.transportAction, TransportAction.stop);
   });
 
   testWidgets('ControlConfigModal handles Clear action', (
