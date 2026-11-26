@@ -20,6 +20,23 @@ void main() {
   }
 
   group('UiStateSinkNode', () {
+    test('preserves adjacent 32-bit controller values and legacy fallback', () {
+      final updates = <Map<String, dynamic>>[];
+      final node = UiStateSinkNode(onStateUpdate: updates.add);
+
+      node.executeSingle(const MidiEvent(0x40B04A00, 0, umpWord1: 0x80000001));
+      node.executeSingle(const MidiEvent(0x40B04A00, 0, umpWord1: 0x80000002));
+      node.executeSingle(const MidiEvent(0x40E00000, 0, umpWord1: 0xFFFFFFFF));
+      node.executeSingle(const MidiEvent(0x20E00000, 0));
+
+      expect(updates.map((update) => update['controllers']), [
+        {'cc32:0:74': 0x80000001},
+        {'cc32:0:74': 0x80000002},
+        {'bend:0': 0xFFFFFFFF},
+        {'bend:0': 0},
+      ]);
+    });
+
     test(
       'emits updates for state-changing events (CC, Note) but ignores system real-time',
       () {

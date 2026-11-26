@@ -24,6 +24,15 @@ class UiStateSinkNode extends SinkNode {
     return 'note:$channel:$note';
   }, growable: false);
 
+  static final _controllerKeys = [
+    for (var channel = 0; channel < 16; channel++) 'bend:$channel',
+    for (final address in _addressKeys) 'cc32:$address',
+  ];
+
+  final _controllerValues = Int64List(16 + _addressCount)
+    ..fillRange(0, 16 + _addressCount, -1);
+  final _dirtyControllers = <int>{};
+
   final void Function(Map<String, dynamic>) onStateUpdate;
   final bool useTimerOnly;
 
@@ -63,6 +72,14 @@ class UiStateSinkNode extends SinkNode {
 
     final payload = <String, dynamic>{'ccs': ccBatch};
 
+    if (_dirtyControllers.isNotEmpty) {
+      payload['controllers'] = <String, int>{
+        for (final index in _dirtyControllers)
+          _controllerKeys[index]: _controllerValues[index],
+      };
+      _dirtyControllers.clear();
+    }
+
     if (_hasNoteUpdates) {
       final noteBatch = <int, List<int>>{};
       for (final entry in _noteStates.entries) {
@@ -90,6 +107,7 @@ class UiStateSinkNode extends SinkNode {
   void _throttledEmit() {
     if (_disposed) return;
     if (_dirtyCcIndices.isEmpty &&
+        _dirtyControllers.isEmpty &&
         !_hasNoteUpdates &&
         _dirtyButtonIndices.isEmpty) {
       return;
@@ -156,6 +174,12 @@ class UiStateSinkNode extends SinkNode {
     _dirtyButtonIndices.add(index);
   }
 
+  void _updateController(int index, int value) {
+    if (_controllerValues[index] == value) return;
+    _controllerValues[index] = value;
+    _dirtyControllers.add(index);
+  }
+
   void _processEvent(MidiEvent event) {
     final identifier = event.data1;
     if (identifier > 127) return;
@@ -164,6 +188,20 @@ class UiStateSinkNode extends SinkNode {
     final status = event.status;
     final isMidi2 = event.messageType == 4;
     if (isMidi2 && event.group != 0) return;
+
+    if (event.group == 0 && status == 0xE0) {
+      final bend =
+          event.pitchBend32 ??
+          (((event.data2 << 7) | identifier) * 0xFFFFFFFF / 16383).round();
+      _updateController(channel, bend);
+      return;
+    }
+    if (event.group == 0 &&
+        status == 0xB0 &&
+        MidiEvent.isMidi2AbsoluteCc(identifier)) {
+      final cc = event.ccValue32 ?? (event.data2 * 0xFFFFFFFF / 127).round();
+      _updateController(16 + index, cc);
+    }
 
     final value = switch (status) {
       0xB0 when isMidi2 => (event.ccValue32 ?? 0) >>> 25,

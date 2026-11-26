@@ -389,6 +389,18 @@ class MidiService {
       unmodifiableUpdates['ccs'] = Map<String, int>.unmodifiable(ccs);
     }
 
+    final controllers = updates['controllers'] as Map<String, int>?;
+    if (controllers != null && controllers.isNotEmpty) {
+      final existing = _cachedState['controllers'] as Map<String, int>?;
+      _cachedState['controllers'] = Map<String, int>.unmodifiable({
+        ...?existing,
+        ...controllers,
+      });
+      unmodifiableUpdates['controllers'] = Map<String, int>.unmodifiable(
+        controllers,
+      );
+    }
+
     final notes = updates['notes'] as Map<int, List<int>>?;
     if (notes != null) {
       final nextNotes = Map<int, List<int>>.unmodifiable(
@@ -1254,6 +1266,8 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (current.isNotEmpty) {
       final ccs = current['ccs'] as Map<String, int>? ?? {};
       _hotCcState.addAll(ccs);
+      final controllers = current['controllers'] as Map<String, int>?;
+      if (controllers != null) _hotCcState.addAll(controllers);
 
       final notes = current['notes'] as Map<int, List<int>>? ?? {};
       for (final entry in notes.entries) {
@@ -1308,6 +1322,9 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (ccs != null && ccs.isNotEmpty) {
       if (_applyCcUpdates(ccs)) hasChanges = true;
     }
+
+    final controllers = updates['controllers'] as Map<String, int>?;
+    if (controllers != null && _applyCcUpdates(controllers)) hasChanges = true;
 
     final notes = updates['notes'] as Map<int, List<int>>?;
     if (notes != null) {
