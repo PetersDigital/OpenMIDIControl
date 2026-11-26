@@ -60,6 +60,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   int? _lastPolledY;
 
   LayoutControl? _cachedControl;
+  ActionPayload? _yPayload;
   final _xAction = MidiActionDispatcher();
   final _yAction = MidiActionDispatcher();
 
@@ -72,12 +73,12 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   double get _midiY => _invertY ? 1.0 - _normalizedY : _normalizedY;
   String? get _feedbackX =>
       ccFeedbackAddress(_cachedControl?.payload, _channel, _ccX);
-  String? get _feedbackY =>
-      ccFeedbackAddress(_cachedControl?.secondaryPayload, _channel, _ccY);
+  String? get _feedbackY => ccFeedbackAddress(_yPayload, _channel, _ccY);
 
-  String _axisLabel(ActionPayload? payload, int legacyCc) => switch (payload) {
+  String _axisLabel(ActionPayload? payload, int? legacyCc) => switch (payload) {
     CcPayload(:final cc) => 'CC$cc',
-    null => 'CC$legacyCc',
+    null when legacyCc != null && legacyCc >= 0 => 'CC$legacyCc',
+    null => 'UNASSIGNED',
     _ => payload.displayLabel,
   };
 
@@ -86,6 +87,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     super.initState();
     initPerformanceMixin();
     _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
+    _yPayload = _cachedControl?.effectiveSecondaryPayload;
 
     final controlState = ref.read(controlStateProvider);
     final hotX = controlState.ccValues[_feedbackX];
@@ -238,7 +240,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     if (begin) {
       final service = ref.read(midiServiceProvider);
       _xAction.begin(service, _cachedControl?.payload, _midiX);
-      _yAction.begin(service, _cachedControl?.secondaryPayload, _midiY);
+      _yAction.begin(service, _yPayload, _midiY);
     }
     _sendMidi(isFinal: false);
   }
@@ -276,7 +278,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     );
     _yAction.sendPosition(
       service,
-      _cachedControl?.secondaryPayload,
+      _yPayload,
       _midiY,
       legacyChannel: _channel,
       legacyCc: _ccY,
@@ -292,8 +294,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       next,
     ) {
       if (prev?.payload != next?.payload) _xAction.end();
-      if (prev?.secondaryPayload != next?.secondaryPayload) _yAction.end();
+      final nextY = next?.effectiveSecondaryPayload;
+      if (_yPayload != nextY) _yAction.end();
       _cachedControl = next;
+      _yPayload = nextY;
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
@@ -307,12 +311,9 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     );
     final labelX = _axisLabel(
       control?.payload,
-      control?.defaultCc ?? widget.ccX,
+      control == null ? widget.ccX : null,
     );
-    final labelY = _axisLabel(
-      control?.secondaryPayload,
-      control?.secondaryCc ?? widget.ccY,
-    );
+    final labelY = _axisLabel(_yPayload, control == null ? widget.ccY : null);
     final invertX = control?.invertX ?? widget.invertX;
     final invertY = control?.invertY ?? widget.invertY;
 

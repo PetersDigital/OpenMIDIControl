@@ -17,6 +17,7 @@ class FakeMidiService implements MidiService {
   int? lastCcY;
   int? lastValY;
   int? lastChannel;
+  final ccs = <(int, int)>[];
   final pitchBends = <(int, int, bool)>[];
   final notes = <(int, int, bool)>[];
 
@@ -27,6 +28,7 @@ class FakeMidiService implements MidiService {
     int channel = 0,
     bool isFinal = false,
   }) async {
+    ccs.add((channel, cc));
     lastChannel = channel;
     if (cc == 1) {
       lastCcX = cc;
@@ -143,6 +145,50 @@ void main() {
       expect(find.text('X: CC1'), findsOneWidget);
       expect(find.text('Y: CC2'), findsOneWidget);
     });
+
+    testWidgets('resolves the legacy Y mapping from the layout', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        createWidgetUnderTest(
+          control: LayoutControl(
+            id: 'test_xy',
+            type: ControlType.xyPad,
+            defaultCc: 1,
+            channel: 4,
+          ),
+        ),
+      );
+      expect(find.text('Y: CC11'), findsOneWidget);
+
+      final pad = find.byType(HybridXYPad);
+      await tester.drag(pad, const Offset(30, 30));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(fakeMidiService.ccs, contains((4, 11)));
+      expect(fakeMidiService.ccs, isNot(contains((4, 2))));
+    });
+
+    testWidgets(
+      'shows both axes as unassigned when the layout has no channel',
+      (tester) async {
+        await tester.pumpWidget(
+          createWidgetUnderTest(
+            control: LayoutControl(
+              id: 'test_xy',
+              type: ControlType.xyPad,
+              defaultCc: -1,
+              channel: -1,
+            ),
+          ),
+        );
+        expect(find.text('X: UNASSIGNED'), findsOneWidget);
+        expect(find.text('Y: UNASSIGNED'), findsOneWidget);
+
+        await tester.drag(find.byType(HybridXYPad), const Offset(30, 30));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(fakeMidiService.ccs, isEmpty);
+      },
+    );
 
     testWidgets('maps coordinates to CC values correctly without inversion', (
       WidgetTester tester,
