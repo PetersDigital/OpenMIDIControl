@@ -184,32 +184,32 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ---
 
-### ⏳ Current Focus: v0.4.5 – Visual Sovereignty & Expressive Pads
+### ✅ v0.4.5 – Visual Sovereignty & Expressive Pads
 
 **Goal:** Complete the remaining modular surface controls (`Global UI Scaling`, `AftertouchPad`, `LatchPad`) before starting protocol-layer work.
 
 #### Phase 1 – Global UI Scaling (Zoom & Pan)
 
-- **State & Settings (`app/lib/ui/settings/tabs/performance_tab.dart`, `open_midi_screen.dart`):**
-  - Persist `globalUiScale` (`0.75..1.35`, default `1.0`) in `SharedPreferences` via a dedicated Riverpod notifier.
-  - Wrap the performance grid surface in a scale-aware layout container with optional pan/scroll fallback when scale `> 1.0`, ensuring pointer hit-testing and multi-touch coordinate mapping stay exact (no offset drift on faders/XY pads).
+- **State & Settings (`app/lib/ui/global_ui_scale_state.dart`, `app/lib/ui/settings/tabs/performance_tab.dart`, `app/lib/ui/widgets/performance_grid_viewport.dart`, `open_midi_screen.dart`):**
+  - Persist `globalUiScale` (`0.75..1.35`, default `1.0`) in `SharedPreferences` via `globalUiScaleProvider` (`GlobalUiScaleNotifier`).
+  - Wrap the performance grid surface in `PerformanceGridViewport` with a toggleable **Pan grid** button beside the page tabs when scale `> 1.0`, ensuring pointer hit-testing and multi-touch coordinate mapping stay exact (plus scaled Edit Mode drag compensation in `EditorControlWrapper`).
 
 #### Phase 2 – `AftertouchPad` (Expressive Y-Axis Pressure / MPE-Lite)
 
 - **Widget (`app/lib/ui/widgets/aftertouch_pad.dart`, `control_widget_factory.dart`):**
-  - Add `ControlType.aftertouchPad`: emits `Note On` on touch-down (velocity from tap position/pressure) and streams a configurable secondary CC (default `CC 74` Brightness / or Channel Pressure) from vertical `PointerMove` delta while held, emitting `Note Off` on pointer-up/cancel.
-  - Enforce monotonic `Stopwatch` rate-limiting (`60–120Hz`) and `RepaintBoundary` isolation for visual fill feedback.
+  - Add `ControlType.aftertouchPad`: emits `Note On` on touch-down (velocity from touch position/curve or fixed) and streams a configurable expression CC (default `CC 74`) from vertical `PointerMove` delta while held, emitting `Note Off` on pointer-up/cancel, reassignment, page switch, backgrounding, or disposal.
+  - Enforce monotonic `Stopwatch` rate-limiting (`100Hz` / `10ms` window), `RepaintBoundary` + `ValueNotifier` isolation, and 30% unassigned opacity.
 
 #### Phase 3 – `LatchPad` (Timed Smart Trigger)
 
 - **Widget (`app/lib/ui/widgets/latch_pad.dart`, `control_widget_factory.dart`):**
-  - Add `ControlType.latchPad`: triggers active state (`127` / `Note On`) for a configurable duration (e.g., `0.5s – 16.0s`) with a `CustomPainter` countdown ring overlay (`RepaintBoundary` + `PerformanceTickerMixin`).
-  - **Safety Guarantee:** Cancel active timers and send clean release (`0` / `Note Off`) on page switch, widget disposal, or app backgrounding via `appLifecycleStateProvider`.
+  - Add `ControlType.latchPad`: triggers active state (`127` / `Note On`) for a configurable duration (`0.5 s – 16.0 s`, `latchDurationMs`) with a `CustomPainter` countdown ring overlay (`RepaintBoundary` + `PerformanceTickerMixin` + `ValueNotifier`), tap-to-cancel toggling, and 30% unassigned opacity.
+  - **Safety Guarantee:** Cancel active timers and send clean release (`0` / `Note Off`) on page switch, reassignment, widget disposal, or app backgrounding via `appLifecycleStateProvider`.
 
 #### Verification (`v0.4.5`)
 
-- Dart widget tests: `aftertouch_pad_test.dart` (pointer move CC cadence + release), `latch_pad_test.dart` (countdown completion, early cancel, background disposal), and global scale hit-test verification.
-- HITL test via `midi endpoint monitor` confirming clean `Note On` → CC74 stream → `Note Off` bursts and zero stuck notes on page swap.
+- Dart unit & widget tests: `global_ui_scale_state_test.dart`, `performance_grid_scale_test.dart`, `performance_tab_scale_test.dart`, `aftertouch_pad_test.dart`, `latch_pad_test.dart`, `editor_control_wrapper_polish_test.dart`, `layout_document_test.dart`, `page_templates_ui_test.dart`, and `control_config_modal_test.dart`.
+- Full gate & HITL (`R5CX14HSQTT` + `midi endpoint monitor`): `dart format`, `flutter analyze --fatal-infos`, `flutter test` (`291/291`), `:app:testDebugUnitTest`, cold-start `globalUiScale` persistence, live `AftertouchPad` (`Note On → CC 74 stream → Note Off`), `LatchPad` auto-expiry & page-swap release, non-overlapping narrow editor handles, and `UNDO` `SnackBar` auto-dismissal.
 
 ---
 
@@ -223,7 +223,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ---
 
-#### ⏱️ v0.5.0 (Core Logic): Basic MCU Protocol Mapping & Native UMP High-Resolution Control
+#### ⏳ Current Focus: v0.5.0 (Core Logic): Basic MCU Protocol Mapping & Native UMP High-Resolution Control
 
 **Goal:** Deliver deterministic, low-latency 14-bit MCU fader/V-Pot/button/transport control and native high-resolution UMP transport.
 

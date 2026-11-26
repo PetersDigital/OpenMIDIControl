@@ -575,6 +575,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     bool? invertY,
     WidgetStyle? style,
     bool clearStyle = false,
+    int? latchDurationMs,
   }) {
     _editControl(
       controlId,
@@ -587,6 +588,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         invertY: invertY,
         style: style,
         clearStyle: clearStyle,
+        latchDurationMs: latchDurationMs,
       ),
     );
   }
@@ -1119,6 +1121,8 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         defaultHeight = 2;
         break;
       case ControlType.drumPad:
+      case ControlType.aftertouchPad:
+      case ControlType.latchPad:
       case ControlType.encoder:
       case ControlType.trigger:
       case ControlType.toggle:

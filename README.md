@@ -18,7 +18,7 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 ## Current Status
 
 - **v0.4.4** is the current released baseline (Modular Engine Core & MCU Prerequisites), adding polymorphic `ActionPayload` & schema `v2`, global 3×3 header transport assignments, Factory Page Templates, and per-control `WidgetStyle` customization.
-- **v0.4.5** is the next active focus on `dev` for Visual Sovereignty & Expressive Pads (`Global UI Scaling`, `AftertouchPad`, `LatchPad`), leading into **v0.5.x (MCU/HUI & High-Res UMP)**.
+- **v0.4.5** (Visual Sovereignty & Expressive Pads — `Global UI Scaling`, `AftertouchPad`, `LatchPad`) is implemented and hardware-verified on `dev`, ahead of **v0.5.x (MCU/HUI & High-Res UMP)**.
 - See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed phased roadmap.
 
 ## Core Docs

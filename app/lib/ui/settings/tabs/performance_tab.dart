@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/action_payload.dart';
+import '../../global_ui_scale_state.dart';
 import '../../open_midi_screen.dart';
 import '../../header_transport_state.dart';
 import '../../midi_settings_state.dart';
@@ -48,6 +49,8 @@ class PerformanceTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       children: const [
+        _GridScaleSection(),
+        _DividerSection(),
         _FaderBehaviorSection(),
         _DividerSection(),
         _LayoutHandSection(),
@@ -69,6 +72,70 @@ class _DividerSection extends StatelessWidget {
   const _DividerSection();
   @override
   Widget build(BuildContext context) => _divider();
+}
+
+class _GridScaleSection extends ConsumerStatefulWidget {
+  const _GridScaleSection();
+
+  @override
+  ConsumerState<_GridScaleSection> createState() => _GridScaleSectionState();
+}
+
+class _GridScaleSectionState extends ConsumerState<_GridScaleSection> {
+  double? _draft;
+  bool _saving = false;
+
+  Future<void> _save(double scale) async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(globalUiScaleProvider.notifier).setScale(scale);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save the grid scale.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _draft = null;
+        });
+      }
+    }
+  }
+
+  static String _formatScale(double value) => '${(value * 100).round()}%';
+
+  @override
+  Widget build(BuildContext context) {
+    final saved = ref.watch(globalUiScaleProvider);
+    final scale = _draft ?? saved.value ?? GlobalUiScaleNotifier.defaultScale;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('GRID SCALE'),
+        Text(_formatScale(scale), style: AppText.system(color: Colors.white)),
+        Slider(
+          min: GlobalUiScaleNotifier.minScale,
+          max: GlobalUiScaleNotifier.maxScale,
+          divisions: 12,
+          value: scale,
+          label: _formatScale(scale),
+          semanticFormatterCallback: _formatScale,
+          activeColor: _kAccent,
+          onChanged: _saving || !saved.hasValue
+              ? null
+              : (value) => setState(() => _draft = value),
+          onChangeEnd: _save,
+        ),
+        Text(
+          'Above 100%, use Pan grid beside the page tabs to reach the edges.',
+          style: AppText.system(color: Colors.white70),
+        ),
+      ],
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -83,6 +83,37 @@ void main() {
     );
   });
 
+  testWidgets('configures a latch duration and CC assignment together', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'latch',
+      initialControl: LayoutControl(
+        id: 'latch',
+        type: ControlType.latchPad,
+        defaultCc: -1,
+        channel: -1,
+      ),
+    );
+    await select(tester, 'Unassigned', 'CC');
+    final cc = find.widgetWithText(TextFormField, 'CC Number (0-127)');
+    await tester.ensureVisible(cc);
+    await tester.enterText(cc, '71');
+    final slider = find.byType(Slider);
+    await tester.ensureVisible(slider);
+    final bounds = tester.getRect(slider);
+    await tester.tapAt(Offset(bounds.right - 2, bounds.center.dy));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final control = container
+        .read(layoutStateProvider)
+        .getControlById('latch')!;
+    expect(control.payload, const CcPayload(channel: 0, cc: 71));
+    expect(control.latchDurationMs, 16000);
+  });
+
   testWidgets('selects note, velocity mode, and curve', (tester) async {
     final container = await openInspector(tester, 'fader_0');
 
@@ -114,6 +145,59 @@ void main() {
         velocityMode: NoteVelocityMode.touchPosition,
         velocityCurve: NoteVelocityCurve.drumPad,
       ),
+    );
+  });
+
+  testWidgets('configures an aftertouch note and validates its expression CC', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'aftertouch',
+      initialControl: LayoutControl(
+        id: 'aftertouch',
+        type: ControlType.aftertouchPad,
+        defaultCc: -1,
+        channel: -1,
+      ),
+    );
+    final expression = find.widgetWithText(
+      TextFormField,
+      'Expression CC (0-127)',
+    );
+    expect(find.widgetWithText(TextFormField, '74'), findsOneWidget);
+    await select(tester, 'Unassigned', 'Note');
+    await select(tester, 'Channel 1', 'Channel 4');
+    final note = find.widgetWithText(
+      TextFormField,
+      'MIDI Note (e.g., C3 or 60)',
+    );
+    await tester.ensureVisible(note);
+    await tester.enterText(note, 'C3');
+    await tester.ensureVisible(expression);
+    await tester.enterText(expression, '128');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a CC number from 0 to 127'), findsOneWidget);
+    await tester.enterText(expression, '71');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final saved = container
+        .read(layoutStateProvider)
+        .getControlById('aftertouch')!;
+    expect(
+      saved.payload,
+      const NotePayload(
+        channel: 3,
+        note: 60,
+        velocityMode: NoteVelocityMode.touchPosition,
+        velocityCurve: NoteVelocityCurve.drumPad,
+      ),
+    );
+    expect(
+      saved.effectiveSecondaryPayload,
+      const CcPayload(channel: 3, cc: 71),
     );
   });
 

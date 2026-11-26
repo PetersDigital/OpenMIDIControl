@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/layout_models.dart';
 import '../hybrid_touch_fader.dart';
+import 'aftertouch_pad.dart';
+import 'latch_pad.dart';
 import 'hybrid_xy_pad.dart';
 import '../widgets/velocity_drum_pad.dart';
 import '../widgets/endless_encoder.dart';
@@ -74,6 +76,12 @@ class ControlWidgetFactory {
           controlId: control.id,
           isActive: isActive,
         );
+
+      case ControlType.aftertouchPad:
+        return AftertouchPad(key: key, control: control, isActive: isActive);
+
+      case ControlType.latchPad:
+        return LatchPad(key: key, control: control, isActive: isActive);
 
       case ControlType.encoder:
         final cc = control.defaultCc;

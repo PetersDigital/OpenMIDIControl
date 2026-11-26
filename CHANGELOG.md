@@ -8,6 +8,18 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 [Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.4...HEAD)
 
+### Added
+
+- **Global UI Scaling & Panning (`PerformanceGridViewport`)**: Added `globalUiScaleProvider` (`0.75`–`1.35`, default `1.0`) persisted in `SharedPreferences`, a **GRID SCALE** slider in **Settings → Performance**, local-coordinate-preserving viewport scaling, and a toggleable **Pan grid** mode beside page tabs when zoomed above `100%`.
+- **Expressive `AftertouchPad`**: Added `ControlType.aftertouchPad` with Note-only configuration (`MidiActionDraft.noteOnly`), touch-position/fixed velocity, configurable vertical expression CC (default `CC 74`), monotonic `Stopwatch` expression rate limiting, and clean Note Off release on pointer cancel, page switch, reassignment, backgrounding, or disposal.
+- **Timed `LatchPad`**: Added `ControlType.latchPad` supporting Note or CC payloads, configurable `latchDurationMs` (`0.5 s`–`16.0 s`), `ValueNotifier` / `CustomPainter` countdown ring animation, tap-to-cancel toggling, and lifecycle-safe release timers.
+
+### Fixed
+
+- **Sticky Undo `SnackBar`s**: Passed `persist: false` to all action `SnackBar`s (`EditorControlWrapper`, `PageManagementSection`, `WidgetPalettePanel`) so `UNDO` notifications auto-dismiss cleanly after their configured timeout.
+- **Narrow Editor Handles & Scaled Drag**: Laid out Delete, Settings, and Resize handles without overlap on narrow 1-column controls (`boxWidth < 84dp`) and normalized `EditorControlWrapper` single-finger drag deltas by `globalUiScale`.
+- **Unassigned Pad Dimming**: Matched `DESIGN.md` 30% unassigned opacity across `AftertouchPad` and `LatchPad`.
+
 ## [0.4.4] - 2026-11-26
 
 [Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...v0.4.4)

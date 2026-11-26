@@ -205,6 +205,7 @@ class PageManagementSection extends ConsumerWidget {
                   SnackBar(
                     content: Text('${deletedPage.name} deleted'),
                     duration: const Duration(seconds: 4),
+                    persist: false,
                     action: SnackBarAction(
                       label: 'UNDO',
                       onPressed: () {
