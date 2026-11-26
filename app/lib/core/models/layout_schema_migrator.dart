@@ -164,7 +164,8 @@ class LayoutSchemaMigrator {
                 for (final control
                     in (page['controls'] as List<dynamic>)
                         .cast<Map<String, dynamic>>())
-                  _migrateControl(control),
+                  if (control['type'] != 'transportButton')
+                    _migrateControl(control),
               ],
             },
         ],

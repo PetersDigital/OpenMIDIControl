@@ -47,7 +47,6 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
       ControlType.encoder => 'Encoder Name',
       ControlType.trigger => 'Trigger Name',
       ControlType.toggle => 'Toggle Name',
-      ControlType.transportButton => 'Transport Button Name',
     };
 
     showDialog(

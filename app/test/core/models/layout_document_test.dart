@@ -3,11 +3,14 @@
 
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_models.dart';
 import 'package:app/core/models/layout_document.dart';
+import 'package:app/ui/header_transport_state.dart';
 
 void main() {
   group('LayoutDocument Envelope Tests', () {
@@ -58,78 +61,77 @@ void main() {
       expect(parsed.pages.length, 1);
       expect(parsed.pages.first.id, 'p_0');
       expect(parsed.pages.first.controls.first.id, 'ctl_0');
-      expect(parsed.pages.first.controls.first.transportAction, isNull);
       expect(parsed, equals(document));
       expect(parsed.hashCode, equals(document.hashCode));
     });
 
-    test('round-trips transport roles separately from their MIDI mappings', () {
-      const mapping = NotePayload(channel: 2, note: 60);
-      final controls = [
-        for (final action in TransportAction.values)
-          LayoutControl(
-            id: action.name,
-            type: ControlType.transportButton,
-            defaultCc: mapping.note,
-            channel: mapping.channel,
-            payload: mapping,
-            transportAction: action,
-          ),
-      ];
-      final document = LayoutDocument(
-        manifest: LayoutManifest(
-          id: 'transport_doc',
-          name: 'Transport',
-          createdAt: now,
-          updatedAt: now,
-        ),
-        pages: [
-          LayoutPage(
-            id: 'transport_page',
-            type: PageType.utility,
-            name: 'TRANSPORT',
-            controls: controls,
-          ),
-        ],
-      );
+    test(
+      'skips legacy transportButton entries on v1/v2 import without touching global header mappings',
+      () async {
+        const savedHeaderPlay = NotePayload(channel: 0, note: 94);
+        SharedPreferences.setMockInitialValues({
+          HeaderTransportMappingsNotifier.storageKey: jsonEncode({
+            'play': savedHeaderPlay.toJson(),
+          }),
+        });
 
-      final parsed = LayoutDocument.fromJson(
-        jsonDecode(jsonEncode(document.toJson())),
-      );
-      expect(parsed, document);
-      expect(
-        parsed.pages.single.controls.map((control) => control.transportAction),
-        TransportAction.values,
-      );
-      expect(
-        parsed.pages.single.controls.map((control) => control.payload),
-        everyElement(mapping),
-      );
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        await container
+            .read(headerTransportMappingsProvider.notifier)
+            .ensureLoaded();
 
-      final play = controls.first;
-      final stop = play.copyWith(transportAction: TransportAction.stop);
-      expect(stop, isNot(play));
-      expect(stop.payload, mapping);
-      expect(play.copyWith(x: 1).transportAction, TransportAction.play);
-      final cleared = play.withActions(payload: null);
-      expect(cleared.transportAction, TransportAction.play);
-      expect(cleared.payload, isNull);
-    });
+        final v2Json = {
+          'schemaVersion': 2,
+          'manifest': LayoutManifest(
+            id: 'legacy_dev_doc',
+            name: 'Dev Fixture',
+            createdAt: now,
+            updatedAt: now,
+          ).toJson(),
+          'pages': [
+            {
+              'id': 'p_0',
+              'type': 'utility',
+              'name': 'UTILITY',
+              'controls': [
+                {
+                  'id': 'transport_play',
+                  'type': 'transportButton',
+                  'transportAction': 'play',
+                  'defaultCc': 94,
+                  'channel': 0,
+                  'payload': {'type': 'note', 'channel': 0, 'note': 94},
+                },
+                {
+                  'id': 'kept_fader',
+                  'type': 'fader',
+                  'defaultCc': 1,
+                  'channel': 0,
+                },
+              ],
+            },
+          ],
+          'activePageIndex': 0,
+        };
 
-    test('rejects invalid transport roles in a layout control', () {
-      final json = LayoutControl(
-        id: 'transport',
-        type: ControlType.transportButton,
-        defaultCc: -1,
-        channel: -1,
-      ).toJson();
-      for (final invalid in ['unknownAction', 1]) {
-        expect(
-          () => LayoutControl.fromJson({...json, 'transportAction': invalid}),
-          throwsFormatException,
-        );
-      }
-    });
+        final v1Json = {...v2Json, 'schemaVersion': 1};
+
+        final importedV2 = LayoutDocument.fromJson(v2Json);
+        final importedV1 = LayoutDocument.fromJson(v1Json);
+
+        for (final doc in [importedV2, importedV1]) {
+          final controls = doc.pages.single.controls;
+          expect(controls.map((c) => c.id), ['kept_fader']);
+          expect(controls.single.type, ControlType.fader);
+        }
+
+        // Global header transport mappings remain untouched by layout import.
+        expect(container.read(headerTransportMappingsProvider), {
+          HeaderTransportRole.play: savedHeaderPlay,
+        });
+      },
+    );
 
     test('copyWith updates document properties', () {
       final manifest = LayoutManifest(

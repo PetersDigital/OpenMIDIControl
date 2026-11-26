@@ -293,42 +293,6 @@ void main() {
     );
   });
 
-  testWidgets('configures a transport button with a supported MIDI mapping', (
-    tester,
-  ) async {
-    final container = await openInspector(
-      tester,
-      'transport',
-      initialControl: LayoutControl(
-        id: 'transport',
-        type: ControlType.transportButton,
-        defaultCc: -1,
-        channel: -1,
-        transportAction: TransportAction.stop,
-      ),
-    );
-    await tester.tap(find.text('Unassigned'));
-    await tester.pumpAndSettle();
-    expect(find.text('CC'), findsOneWidget);
-    expect(find.text('Note'), findsOneWidget);
-    expect(find.text('Pitch Bend'), findsNothing);
-    expect(find.text('Relative CC'), findsNothing);
-    await tester.tap(find.text('Note'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'MIDI Note (e.g., C3 or 60)'),
-      '60',
-    );
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-
-    final control = container
-        .read(layoutStateProvider)
-        .getControlById('transport')!;
-    expect(control.payload, const NotePayload(channel: 0, note: 60));
-    expect(control.transportAction, TransportAction.stop);
-  });
-
   testWidgets('ControlConfigModal handles Clear action', (
     WidgetTester tester,
   ) async {

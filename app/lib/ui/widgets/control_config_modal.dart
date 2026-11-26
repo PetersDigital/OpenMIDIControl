@@ -46,14 +46,12 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
         .getControlById(widget.controlId);
 
     _controlType = control?.type;
-    final isTransport = _controlType == ControlType.transportButton;
     _primaryAction = MidiActionDraft(
       payload: control?.payload,
       channel: control?.channel ?? 0,
       identifier: control?.defaultCc,
       drumPad: _controlType == ControlType.drumPad,
-      allowUnassigned: _isXy || isTransport,
-      ccAndNoteOnly: isTransport,
+      allowUnassigned: _isXy,
     );
 
     final name = control?.customName;

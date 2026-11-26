@@ -1070,7 +1070,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       case ControlType.encoder:
       case ControlType.trigger:
       case ControlType.toggle:
-      case ControlType.transportButton:
         defaultWidth = 1;
         defaultHeight = 1;
         break;
@@ -1119,9 +1118,6 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       type: type,
       defaultCc: -1,
       channel: -1,
-      transportAction: type == ControlType.transportButton
-          ? TransportAction.play
-          : null,
       x: startX,
       y: startY,
       width: defaultWidth,
