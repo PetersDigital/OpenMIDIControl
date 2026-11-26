@@ -348,6 +348,24 @@ void main() {
       node.dispose();
     });
 
+    test(
+      'forwards the feedback flag separately from gesture finality',
+      () async {
+        final node = NativeTransportSinkNode(
+          channel: channel,
+          useBackgroundWorker: false,
+        );
+        addTearDown(node.dispose);
+
+        node.execute([
+          const MidiEvent(0x20B20A7F, 0, acceptFeedback: true),
+          const MidiEvent(0x20B20A00, 1, isFinal: true, acceptFeedback: true),
+        ]);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(capturedEvents, [0x20B20A7F, 2, 0x20B20A00, 3]);
+      },
+    );
+
     test('ignores non-CC events', () async {
       final node = NativeTransportSinkNode(
         channel: channel,

@@ -49,6 +49,7 @@ class RemapNode extends TransformerNode {
         event.timestamp,
         sourceId: event.sourceId,
         isFinal: event.isFinal,
+        acceptFeedback: event.acceptFeedback,
       );
     }
     return event;
@@ -120,6 +121,7 @@ class RemapNode extends TransformerNode {
             event.timestamp,
             sourceId: event.sourceId,
             isFinal: event.isFinal,
+            acceptFeedback: event.acceptFeedback,
           ),
         );
       } else {

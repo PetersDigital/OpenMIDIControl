@@ -166,7 +166,7 @@ class NativeTransportSinkNode extends SinkNode {
       final buffer = Int64List(requiredCapacity);
       for (int i = 0; i < count; i++) {
         buffer[i * 2] = _eventBuffer[i].ump;
-        buffer[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
+        buffer[i * 2 + 1] = _transportFlags(_eventBuffer[i]);
       }
       final transferable = TransferableTypedData.fromList([buffer]);
       _workerSendPort!.send(transferable);
@@ -174,7 +174,7 @@ class NativeTransportSinkNode extends SinkNode {
       // Main isolate fallback (used during startup or in tests)
       for (int i = 0; i < count; i++) {
         _sharedBuffer[i * 2] = _eventBuffer[i].ump;
-        _sharedBuffer[i * 2 + 1] = _eventBuffer[i].isFinal ? 1 : 0;
+        _sharedBuffer[i * 2 + 1] = _transportFlags(_eventBuffer[i]);
       }
 
       final batch = Int64List.sublistView(_sharedBuffer, 0, requiredCapacity);
@@ -188,6 +188,9 @@ class NativeTransportSinkNode extends SinkNode {
 
     _eventBuffer.clear();
   }
+
+  static int _transportFlags(MidiEvent event) =>
+      (event.isFinal ? 1 : 0) | (event.acceptFeedback ? 2 : 0);
 
   void dispose() {
     _isDisposed = true;
