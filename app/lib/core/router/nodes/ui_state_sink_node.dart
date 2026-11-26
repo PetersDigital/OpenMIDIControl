@@ -161,8 +161,15 @@ class UiStateSinkNode extends SinkNode {
     if (identifier > 127) return;
     final channel = event.channel;
     final index = (channel * 128) + identifier;
-    final value = event.data2;
     final status = event.status;
+    final isMidi2 = event.messageType == 4;
+    if (isMidi2 && event.group != 0) return;
+
+    final value = switch (status) {
+      0xB0 when isMidi2 => (event.ccValue32 ?? 0) >>> 25,
+      0x80 || 0x90 when isMidi2 => event.noteVelocity16 ?? 0,
+      _ => event.data2,
+    };
 
     if (status == 0xB0) {
       if (_ccBuffer[index] != value) {

@@ -22,18 +22,44 @@ import 'midi_settings_state.dart'
 
 class _LazyMidiEventList extends ListBase<MidiEvent> {
   final Int64List _data;
-  final int _usedLongCount;
+  final int _stride;
+  final String _sourceId;
   final List<MidiEvent?> _cache;
 
-  _LazyMidiEventList(this._data, this._usedLongCount)
-    : _cache = List<MidiEvent?>.filled(
-        _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0,
-        null,
-        growable: false,
-      );
+  _LazyMidiEventList(this._data, this._stride, int count, this._sourceId)
+    : _cache = List<MidiEvent?>.filled(count, null, growable: false);
+
+  static _LazyMidiEventList? decode(Int64List data) {
+    if (data.isEmpty) return null;
+    final header = data[0];
+    if (header == -2) {
+      if (data.length < 3 || data[1] <= 0) return null;
+      final count = data[2];
+      if (count <= 0 ||
+          (data.length - 3) % 3 != 0 ||
+          count != (data.length - 3) ~/ 3) {
+        return null;
+      }
+      for (var i = 3; i < data.length; i += 3) {
+        final word0 = data[i];
+        final word1 = data[i + 1];
+        if (word0 < 0 ||
+            word0 > 0xFFFFFFFF ||
+            word1 < 0 ||
+            word1 > 0xFFFFFFFF) {
+          return null;
+        }
+        final type = word0 >>> 28;
+        if (type != 4 && (type != 2 || word1 != 0)) return null;
+      }
+      return _LazyMidiEventList(data, 3, count, 'android:${data[1]}');
+    }
+    if (header <= 0 || header.isOdd || header >= data.length) return null;
+    return _LazyMidiEventList(data, 2, header ~/ 2, 'unknown');
+  }
 
   @override
-  int get length => _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0;
+  int get length => _cache.length;
 
   @override
   set length(int newLength) =>
@@ -48,8 +74,17 @@ class _LazyMidiEventList extends ListBase<MidiEvent> {
       return cached;
     }
 
-    final int i = 1 + (index * 2);
-    final event = MidiEvent(_data[i], _data[i + 1]);
+    final isV2 = _stride == 3;
+    final i = (isV2 ? 3 : 1) + index * _stride;
+    final word0 = _data[i];
+    final timestampNs = isV2 ? _data[i + 2] : null;
+    final event = MidiEvent(
+      word0,
+      timestampNs == null ? _data[i + 1] : timestampNs ~/ 1000000,
+      timestampNs: timestampNs,
+      umpWord1: isV2 && word0 >>> 28 == 4 ? _data[i + 1] : null,
+      sourceId: _sourceId,
+    );
     _cache[index] = event;
     return event;
   }
@@ -202,7 +237,8 @@ class MidiService {
   );
 
   SendPort? _workerSendPort;
-  final List<dynamic> _queuedEvents = [];
+  UiStateSinkNode? _incomingFallbackSink;
+  final List<Int64List> _queuedEvents = [];
   static const int _maxQueuedBatches = 32;
   late final ReceivePort _workerReceivePort;
   StreamSubscription<dynamic>? _workerReceivePortSubscription;
@@ -266,34 +302,38 @@ class MidiService {
 
   final Stopwatch _stopwatch = Stopwatch()..start();
 
-  late final Stream<dynamic> _rawStream;
-  StreamSubscription<dynamic>? _rawStreamSubscription;
+  StreamSubscription<_LazyMidiEventList>? _rawStreamSubscription;
 
   void _initStreams() {
-    _rawStream = _eventsChannel.receiveBroadcastStream();
+    if (!useBackgroundWorker) {
+      _incomingFallbackSink = UiStateSinkNode(
+        onStateUpdate: _handleStateUpdate,
+      );
+    }
+    final batches = _eventsChannel
+        .receiveBroadcastStream(2)
+        .where((event) => event is Int64List)
+        .map((event) => _LazyMidiEventList.decode(event as Int64List))
+        .where((batch) => batch != null)
+        .cast<_LazyMidiEventList>()
+        .asBroadcastStream(onCancel: (subscription) => subscription.cancel());
 
-    midiEventsStream = _rawStream.where((e) => e is Int64List).map((event) {
-      final data = event as Int64List;
-      return _LazyMidiEventList(data, data.isNotEmpty ? data[0] : 0);
-    }).asBroadcastStream();
+    midiEventsStream = batches;
+    _rawStreamSubscription = batches.listen((batch) {
+      if (!_hostLinkConfirmed) {
+        _hostLinkConfirmed = true;
+        _hostConnectionController.add(true);
+      }
 
-    _rawStreamSubscription = _rawStream.listen((event) {
-      if (event is Int64List) {
-        final int usedLongCount = event.isNotEmpty ? event[0] : 0;
-
-        if (usedLongCount > 0 && !_hostLinkConfirmed) {
-          _hostLinkConfirmed = true;
-          _hostConnectionController.add(true);
+      if (_workerSendPort case final worker?) {
+        worker.send(TransferableTypedData.fromList([batch._data]));
+      } else if (_incomingFallbackSink case final sink?) {
+        sink.execute(batch);
+      } else {
+        if (_queuedEvents.length >= _maxQueuedBatches) {
+          _queuedEvents.removeAt(0);
         }
-
-        if (_workerSendPort != null) {
-          _workerSendPort!.send(TransferableTypedData.fromList([event]));
-        } else {
-          if (_queuedEvents.length >= _maxQueuedBatches) {
-            _queuedEvents.removeAt(0); // Drop oldest
-          }
-          _queuedEvents.add(event);
-        }
+        _queuedEvents.add(batch._data);
       }
     });
   }
@@ -383,6 +423,7 @@ class MidiService {
     if (node is UiStateSinkNode) {
       node.setPaused(paused);
     }
+    _incomingFallbackSink?.setPaused(paused);
     _workerSendPort?.send(('set_paused', paused));
   }
 
@@ -419,6 +460,7 @@ class MidiService {
     _isDisposed = true;
     _initTimer?.cancel();
     _rawStreamSubscription?.cancel();
+    _incomingFallbackSink?.dispose();
     _workerReceivePortSubscription?.cancel();
     _uiStateController.close();
     _hostConnectionController.close();
@@ -1439,9 +1481,8 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
       _ => null,
     };
     if (data != null) {
-      final int usedLongCount = data.isNotEmpty ? data[0] : 0;
-      final events = _LazyMidiEventList(data, usedLongCount);
-      incomingRouter.process('source', events);
+      final events = _LazyMidiEventList.decode(data);
+      if (events != null) incomingRouter.process('source', events);
     }
   });
 }

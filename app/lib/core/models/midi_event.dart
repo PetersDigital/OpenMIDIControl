@@ -3,7 +3,9 @@
 
 class MidiEvent {
   final int ump; // 32-bit Universal MIDI Packet integer
-  final int timestamp; // nanoseconds or milliseconds
+  final int timestamp; // milliseconds
+  final int? timestampNs;
+  final int? umpWord1;
   final String sourceId; // e.g., device id or port name
   final bool
   isFinal; // Gesture finality semantics for routing and native transport
@@ -14,6 +16,8 @@ class MidiEvent {
   const MidiEvent(
     this.ump,
     this.timestamp, {
+    this.umpWord1,
+    this.timestampNs,
     this.sourceId = 'unknown',
     this.isFinal = false,
     this.acceptFeedback = false,
@@ -27,6 +31,18 @@ class MidiEvent {
   int get data1 => (ump >>> 8) & 0xFF; // e.g., CC number
   int get data2 => ump & 0xFF; // e.g., CC value
 
+  int? get pitchBend32 => messageType == 4 && status == 0xE0 ? umpWord1 : null;
+  int? get ccValue32 => messageType == 4 && status == 0xB0 ? umpWord1 : null;
+  int? get noteVelocity16 {
+    final word1 = umpWord1;
+    if (messageType != 4 ||
+        (status != 0x80 && status != 0x90) ||
+        word1 == null) {
+      return null;
+    }
+    return word1 >>> 16;
+  }
+
   // Exposing the combined legacy status byte (e.g., 0xB0 for CC on Channel 1)
   int get legacyStatusByte => (ump >>> 16) & 0xFF;
 
@@ -35,18 +51,31 @@ class MidiEvent {
     if (identical(this, other)) return true;
     return other is MidiEvent &&
         other.ump == ump &&
+        other.umpWord1 == umpWord1 &&
         other.timestamp == timestamp &&
+        other.timestampNs == timestampNs &&
         other.sourceId == sourceId &&
         other.isFinal == isFinal &&
         other.acceptFeedback == acceptFeedback;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(ump, timestamp, sourceId, isFinal, acceptFeedback);
+  int get hashCode => Object.hash(
+    ump,
+    umpWord1,
+    timestamp,
+    timestampNs,
+    sourceId,
+    isFinal,
+    acceptFeedback,
+  );
 
   @override
   String toString() {
-    return 'MidiEvent(ump: 0x${ump.toRadixString(16).padLeft(8, '0')}, status: 0x${legacyStatusByte.toRadixString(16)}, ch: $channel, d1: $data1, d2: $data2, src: $sourceId)';
+    final second = umpWord1;
+    final suffix = second == null
+        ? ''
+        : ' 0x${second.toRadixString(16).padLeft(8, '0')}';
+    return 'MidiEvent(ump: 0x${ump.toRadixString(16).padLeft(8, '0')}$suffix, status: 0x${legacyStatusByte.toRadixString(16)}, ch: $channel, d1: $data1, d2: $data2, src: $sourceId)';
   }
 }

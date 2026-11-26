@@ -14,6 +14,60 @@ void main() {
 
   group('EventChannel Multiplexing (Hotplug & Stream Integrations)', () {
     test(
+      'v2 validates packet extent and preserves unsigned MT 4 values',
+      () async {
+        late MockStreamHandlerEventSink native;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(
+                'com.petersdigital.openmidicontrol/midi_events',
+              ),
+              MockStreamHandler.inline(
+                onListen: (arguments, events) {
+                  expect(arguments, 2);
+                  native = events;
+                },
+              ),
+            );
+        final service = MidiService(useBackgroundWorker: false);
+        addTearDown(service.dispose);
+        final received = service.midiEventsStream.first;
+        await Future<void>.delayed(Duration.zero);
+
+        native.success(Int64List.fromList([-2, 42, 2, 0x40E00000, 0, 1]));
+        const timestamp = 12345678901;
+        native.success(
+          Int64List.fromList([
+            -2,
+            42,
+            3,
+            0x40E00000,
+            0,
+            timestamp,
+            0x40E00000,
+            0xFFFFFFFF,
+            timestamp + 1,
+            0x40B04A00,
+            0x80000001,
+            timestamp + 2,
+          ]),
+        );
+
+        final batch = await received;
+        expect(batch.map((event) => event.umpWord1), [
+          0,
+          0xFFFFFFFF,
+          0x80000001,
+        ]);
+        expect(batch.first.timestampNs, timestamp);
+        expect(batch.first.sourceId, 'android:42');
+        expect(batch[1].pitchBend32, 0xFFFFFFFF);
+        expect(batch[2].ccValue32, 0x80000001);
+        expect(service.currentState['ccs'], {'0:74': 64});
+      },
+    );
+
+    test(
       'Stream correctly handles interleaved primitive arrays and legacy Maps without crashing',
       () async {
         final container = ProviderContainer();
@@ -247,14 +301,16 @@ void main() {
         container.read(controlStateProvider); // Initialize CcNotifier listener
 
         // Create a large batch payload with 10000 events mimicking rapid ping-ponging CC values
-        final largeBatch = Int64List(20001);
-        largeBatch[0] = 20000; // used data longs
+        final largeBatch = Int64List(30003);
+        largeBatch[0] = -2;
+        largeBatch[1] = 5;
+        largeBatch[2] = 10000;
         for (int i = 0; i < 10000; i++) {
           final value = i % 128;
-          // UMP representation: MT=2, Grp=0, Status=0xB0, CC=7, Value=value
-          final umpInt = (0x2 << 28) | (0xB0 << 16) | (7 << 8) | value;
-          largeBatch[(i * 2) + 1] = umpInt;
-          largeBatch[(i * 2) + 2] = i * 1000;
+          final offset = 3 + i * 3;
+          largeBatch[offset] = 0x40B00700;
+          largeBatch[offset + 1] = (value << 25) | 1;
+          largeBatch[offset + 2] = i * 1000;
         }
 
         // Send the batch
