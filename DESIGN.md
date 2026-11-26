@@ -125,7 +125,7 @@ Treat the command center as the "instrument cluster" for the console: 30% of the
   * `usbConnected`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB HOST CONNECTED". (DAW traffic detected).
   * `available`: Amber border/title. "MIDI DEVICES AVAILABLE". (Non-peripheral hardware detected).
   * `connectionLost`: Red border/title. "CONNECTION LOST" (transient state).
-* **Control grid:** The 3×3 grid of transport controls serves primarily as a visual anchor and layout testbed for future macros, so keep the glyphs aligned and consistent with the `surface_container` tiers.
+* **Control grid:** The drop-down 3×3 header transport grid (`Rewind / Up / Record`, `Left / Stop / Right`, `Fast Forward / Down / Play`) serves as the dedicated global transport surface rather than a placeable page widget. Preserve the existing glyphs, sizing, spacing, and `surface_container` tiers across portrait and landscape layouts; keep assignment editing inside **Settings → Performance → Transport Assignments** (defaulting every role to Unassigned) so performance-mode taps only send MIDI, and reflect incoming host feedback with a lit state on each assigned cell. In future protocol modes (`v0.5.0` MCU, `v0.5.1` HUI), these 9 semantic roles auto-bind to protocol-native transport and navigation commands with live DAW LED feedback without overwriting manual Generic MIDI assignments.
 * **Connections Branding:**
   * Manual overrides and USB mode toggles use the `primary_container` color for active switches.
   * Device tiles use `surface_container_low` with `primary_container` translucent highlighting (10% alpha) when active.

@@ -133,7 +133,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ### ⏳ Current Focus: v0.4.4 – Modular Engine Core & MCU Prerequisites
 
-**Goal:** Establish the polymorphic message schema, placeable transport widgets, stampable page templates, and per-widget styling so `v0.5.x` (MCU/HUI & MIDI 2.0) builds on a single clean schema without duplicate migrations.
+**Goal:** Establish the polymorphic message schema, global header transport mappings, stampable page templates, and per-widget styling so `v0.5.x` (MCU/HUI & MIDI 2.0) builds on a single clean schema without duplicate migrations.
 
 #### Phase 1 – `ActionPayload` Polymorphism & Schema Migration (`v1 → v2`)
 
@@ -151,17 +151,23 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Inspector (`app/lib/ui/widgets/control_config_modal.dart`):**
   - Add message-type selector (CC / Note / Pitch Bend / Relative CC) with type-specific inputs.
 
-#### Phase 2 – `TransportButton` Widgetization
+#### Phase 2 – Header Transport Grid Wiring & Global Assignments
 
-- **Widget (`app/lib/ui/widgets/transport_button.dart`, `control_widget_factory.dart`):**
-  - Add `ControlType.transportButton` (actions: `play`, `stop`, `record`, `cycle`, `rewind`, `fastForward`, `bankLeft`, `bankRight`).
-  - Render crisp icon/label states with active LED feedback highlight driven by `ControlState.buttonStates`.
-  - Register in `WidgetPalettePanel` so users can drag-and-drop custom transport strips onto any grid page while keeping the header transport bar as fallback.
+- **Global Persistence (`app/lib/ui/header_transport_state.dart`):**
+  - Define 9 fixed `HeaderTransportRole` slots (`rewind`, `up`, `record`, `left`, `stop`, `right`, `fastForward`, `down`, `play`), kept separate from MCU `TransportAction`.
+  - Persist `{role.name: ActionPayload.toJson()}` globally in `SharedPreferences` via `headerTransportMappingsProvider`, accepting CC, Note, or Unassigned (all default to Unassigned on fresh installs/upgrades and remain untouched by layout imports).
+- **Header 3×3 Grid Interaction (`app/lib/ui/open_midi_screen.dart`):**
+  - Wire the 9 roles onto `_GridButton` across both portrait and landscape `MidiTransportGrid` variants while preserving existing glyphs, spacing, sizing, and arrangement.
+  - Reuse `MidiGate.transport()` for momentary sends, subscribe assigned cells to `ControlState.buttonStates` for lit host feedback, and release held assignments on pointer up, cancellation, rebinding, grid closure, or app backgrounding.
+- **Settings Editor (`app/lib/ui/settings/tabs/performance_tab.dart`):**
+  - Add a **Transport Assignments** section under **Settings → Performance** using `MidiActionDraft(allowUnassigned: true, ccAndNoteOnly: true)` and `MidiActionFields`, validating and awaiting persistence on save so performance-mode grid taps only transmit MIDI.
+- **Legacy Layout Compatibility (`app/lib/core/models/layout_models.dart`, `layout_schema_migrator.dart`):**
+  - Skip legacy `transportButton` entries during `v1`/`v2` page decoding while preserving the rest of the page and leaving global header mappings untouched.
 
 #### Phase 3 – Factory Page Template Gallery ("Stamp Logic")
 
 - **Templates (`app/lib/core/models/page_templates.dart`, `app/lib/ui/editor/widget_palette_panel.dart`):**
-  - Define immutable factory page templates (`Factory Fader Bank`, `4x4 Velocity Drum Grid`, `XY + Encoders`, `Transport Strip`, and `8-Track Mixer Stub`).
+  - Define immutable factory page templates (`Factory Fader Bank`, `4x4 Velocity Drum Grid`, `XY + Encoders`, and `8-Track Mixer Stub`).
   - Add a **Templates** tab inside `WidgetPalettePanel` (or `+ ADD NEW PAGE` flow) to stamp complete pages or template groups using existing grid bounds/collision checks.
 
 #### Phase 4 – `WidgetStyle` Visual Sovereignty
@@ -173,7 +179,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 #### Verification (`v0.4.4`)
 
-- Dart unit & widget tests: `action_payload_test.dart`, `layout_schema_migrator_test.dart` (`v0 → v1 → v2` & `v1 → v2` round-trips), `transport_button_test.dart`, `widget_style_test.dart`, `page_templates_test.dart`.
+- Dart unit & widget tests: `action_payload_test.dart`, `layout_schema_migrator_test.dart` (`v0 → v1 → v2` & `v1 → v2` round-trips), `header_transport_state_test.dart`, `header_transport_grid_test.dart`, `performance_tab_transport_test.dart`, `widget_style_test.dart`, `page_templates_test.dart`.
 - Full gate: `flutter analyze --fatal-infos`, `flutter test`, `.\gradlew.bat :app:testDebugUnitTest`, and on-device `.omc` export/import + cold-restart persistence verification.
 
 ---
@@ -247,7 +253,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
   - **Navigation & Transport (Ch 1 Notes):**
     - Bank Left / Right: `0x2E` (`46`) / `0x2F` (`47`)
     - Channel Left / Right: `0x30` (`48`) / `0x31` (`49`)
-    - Cycle (`0x56` / `86`), Rewind (`0x5B` / `91`), FF (`0x5C` / `92`), Stop (`0x5D` / `93`), Play (`0x5E` / `94`), Record (`0x5F` / `95`).
+    - Cycle (`0x56` / `86`), Rewind (`0x5B` / `91`), FF (`0x5C` / `92`), Stop (`0x5D` / `93`), Play (`0x5E` / `94`), Record (`0x5F` / `95`), Cursor Up/Down/Left/Right (`0x60..0x63` / `96..99`).
 - **`mcu_codec.dart` & `mcu_protocol_node.dart` (`TransformerNode`):**
   - Pure normalization (`0.0..1.0` ↔ 14-bit `0..16383` & 32-bit UMP), MCU relative V-Pot delta encoding, and DAW feedback decoding (14-bit fader automation + Note LED states `0`=off, `1`=flash, `127`=on).
   - Implement `McuProtocolNode` as a `MidiRouter` `TransformerNode` so UI widgets remain transport-agnostic.
@@ -256,8 +262,8 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 - **`HybridTouchFader`:** Support 14-bit Pitch Bend / 32-bit UMP smooth rendering without 7-bit stair-stepping; emit Fader Touch `Note On` on pointer-down and `Note Off` on pointer-up/cancel in MCU mode; preserve Jump/Hybrid/Catch-up on incoming 14-bit DAW automation.
 - **`EndlessEncoderWidget`:** Support MCU `RelativeSignedBit` V-Pot output (`CC 16..23`).
-- **`TransportButton` & Strip Buttons:** Bind to MCU Note actions with live DAW LED state feedback.
-- **Starter Template:** Add **"MCU 8-Track Mixer"** template (8 faders + Master + Rec/Solo/Mute/Select + V-Pots + Transport) to the v0.4.4 Template Gallery.
+- **Header Transport Grid & Strip Buttons:** Automatically bind the 9 `HeaderTransportRole` cells in MCU mode to MCU Transport (`0x5B–0x5F`) and Cursor (`0x60–0x63`) Ch 1 Notes alongside channel strip MCU Note buttons with live DAW LED feedback, while keeping custom Generic MIDI `SharedPreferences` assignments intact when switching back.
+- **Starter Template:** Add **"MCU 8-Track Mixer"** template (8 faders + Master + Rec/Solo/Mute/Select + V-Pots, paired with the global header transport grid) to the v0.4.4 Template Gallery.
 
 ##### Verification (`v0.5.0`)
 
@@ -289,7 +295,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 - **HUI Keep-Alive Responder (`hui_handshake.dart`):**
   - Detect DAW HUI ping (`0x90 0x00 0x00` sent every ~1–2s by Pro Tools / HUI hosts) and reply immediately on the native/worker path with `0x90 0x00 0x7F` so the DAW never drops the surface.
-  - Implement HUI Zone/Port Select (`0xB0 0x0F <zone>` + `0xB0 0x2F <port>`) foundational mapping for HUI mode toggle.
+  - Implement HUI Zone/Port Select (`0xB0 0x0F <zone>` + `0xB0 0x2F <port>`) foundational mapping for HUI mode toggle, automatically mapping the 9 `HeaderTransportRole` cells via HUI Transport & Navigation zones while preserving manual Generic MIDI assignments.
 
 ##### Phase 4 – MIDI-CI & UMP Endpoint Discovery (Windows MIDI Services / Cubase 15+)
 
