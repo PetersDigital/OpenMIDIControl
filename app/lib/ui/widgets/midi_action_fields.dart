@@ -7,6 +7,7 @@ import '../../core/midi_utils.dart';
 import '../../core/models/action_payload.dart';
 
 enum _MidiMessageType {
+  unassigned('Unassigned'),
   cc('CC'),
   note('Note'),
   pitchBend('Pitch Bend'),
@@ -25,6 +26,7 @@ class MidiActionDraft {
     int channel = 0,
     int? identifier,
     bool drumPad = false,
+    this.allowUnassigned = false,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -32,6 +34,7 @@ class MidiActionDraft {
       PitchBendPayload() => _MidiMessageType.pitchBend,
       RelativeCcPayload() => _MidiMessageType.relativeCc,
       McuActionPayload() => _MidiMessageType.mcu,
+      null when allowUnassigned => _MidiMessageType.unassigned,
       null => drumPad ? _MidiMessageType.note : _MidiMessageType.cc,
     };
     this.channel = payload?.midiChannel ?? (channel < 0 ? 0 : channel);
@@ -64,6 +67,7 @@ class MidiActionDraft {
   }
 
   late _MidiMessageType _type;
+  final bool allowUnassigned;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
@@ -92,7 +96,8 @@ class MidiActionDraft {
   }
 
   /// Builds the assignment after its form fields have been validated.
-  ActionPayload get payload => switch (_type) {
+  ActionPayload? get payload => switch (_type) {
+    _MidiMessageType.unassigned => null,
     _MidiMessageType.cc => CcPayload(
       channel: channel,
       cc: int.parse(_identifier.text.trim(), radix: 10),
@@ -209,14 +214,19 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           value: type,
           values: [
             for (final option in _MidiMessageType.values)
-              if (option != _MidiMessageType.mcu || _draft._mcuPayload != null)
+              if (switch (option) {
+                _MidiMessageType.unassigned => _draft.allowUnassigned,
+                _MidiMessageType.mcu => _draft._mcuPayload != null,
+                _ => true,
+              })
                 option,
           ],
           optionLabel: (type) => type.label,
           onChanged: (value) => _draft._type = value,
           isEnabled: (type) => type != _MidiMessageType.mcu,
         ),
-        if (type != _MidiMessageType.mcu) ...[
+        if (type != _MidiMessageType.mcu &&
+            type != _MidiMessageType.unassigned) ...[
           const SizedBox(height: 12),
           _dropdown(
             label: 'MIDI Channel',
