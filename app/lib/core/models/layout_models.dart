@@ -8,7 +8,15 @@ import 'action_payload.dart';
 import 'widget_style.dart';
 
 /// Enumeration of supported control types in the layout schema.
-enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
+enum ControlType {
+  fader,
+  xyPad,
+  drumPad,
+  encoder,
+  trigger,
+  toggle,
+  aftertouchPad,
+}
 
 /// Enumeration of supported page types in the layout schema.
 enum PageType { fader, xyPad, drumPad, utility }
@@ -23,6 +31,7 @@ enum PageType { fader, xyPad, drumPad, utility }
 /// - [customName]: Optional custom display name; if empty/null, uses "CC $defaultCc"
 class LayoutControl {
   static const defaultXySecondaryCc = 11;
+  static const defaultAftertouchCc = 74;
 
   final String id;
   final ControlType type;
@@ -35,16 +44,22 @@ class LayoutControl {
 
   final ActionPayload? payload;
 
-  /// Action assignment for the Y-axis of an XY pad.
+  /// Action assignment for an XY pad's Y-axis or an aftertouch pad's expression.
   final ActionPayload? secondaryPayload;
 
-  /// Resolves the implicit CC assignment used by older XY pads with no Y ID.
-  ///
-  /// Reading this leaves the stored assignment and legacy fields intact.
+  bool get supportsSecondaryAction =>
+      type == ControlType.xyPad || type == ControlType.aftertouchPad;
+
+  /// Resolves an implicit CC assignment when no secondary ID was stored.
   ActionPayload? get effectiveSecondaryPayload {
     if (secondaryPayload != null) return secondaryPayload;
-    if (type != ControlType.xyPad || secondaryCc != null) return null;
-    return _legacyPayload(type, channel, defaultXySecondaryCc);
+    if (secondaryCc != null) return null;
+    final cc = switch (type) {
+      ControlType.xyPad => defaultXySecondaryCc,
+      ControlType.aftertouchPad => defaultAftertouchCc,
+      _ => null,
+    };
+    return _legacyPayload(ControlType.xyPad, channel, cc);
   }
 
   /// Whether to invert the primary value (X-axis for XY pads).
@@ -82,8 +97,8 @@ class LayoutControl {
        payload = payload ?? _legacyPayload(type, channel, defaultCc),
        secondaryPayload =
            secondaryPayload ??
-           (type == ControlType.xyPad
-               ? _legacyPayload(type, channel, secondaryCc)
+           (type == ControlType.xyPad || type == ControlType.aftertouchPad
+               ? _legacyPayload(ControlType.xyPad, channel, secondaryCc)
                : null);
 
   static ActionPayload? _legacyPayload(
@@ -98,7 +113,7 @@ class LayoutControl {
         channel > 15) {
       return null;
     }
-    if (type == ControlType.drumPad) {
+    if (type == ControlType.drumPad || type == ControlType.aftertouchPad) {
       return NotePayload(
         channel: channel,
         note: identifier,
@@ -119,7 +134,7 @@ class LayoutControl {
     if (defaultCc == -1) {
       return 'UNASSIGNED';
     }
-    if (type == ControlType.drumPad) {
+    if (type == ControlType.drumPad || type == ControlType.aftertouchPad) {
       return MidiUtils.getNoteName(defaultCc);
     }
     return 'CC $defaultCc';
@@ -177,10 +192,10 @@ class LayoutControl {
     );
   }
 
-  /// Replaces the primary assignment and optionally edits the XY Y-axis.
+  /// Replaces the primary assignment and optionally edits the secondary action.
   ///
   /// A null [payload] clears the primary assignment. Omit [secondaryPayload]
-  /// to retain the Y-axis assignment, or pass [clearSecondary] to clear it.
+  /// to retain the secondary assignment, or pass [clearSecondary] to clear it.
   LayoutControl withActions({
     required ActionPayload? payload,
     ActionPayload? secondaryPayload,
@@ -192,21 +207,26 @@ class LayoutControl {
     bool clearStyle = false,
   }) {
     assert(!clearSecondary || secondaryPayload == null);
-    assert(secondaryPayload == null || type == ControlType.xyPad);
-    final yAction = clearSecondary
+    assert(secondaryPayload == null || supportsSecondaryAction);
+    final secondary = clearSecondary
         ? null
-        : secondaryPayload ?? effectiveSecondaryPayload;
+        : secondaryPayload ??
+              (type == ControlType.xyPad
+                  ? effectiveSecondaryPayload
+                  : this.secondaryPayload);
     return LayoutControl(
       id: id,
       type: type,
       defaultCc: _legacyIdentifier(payload),
-      channel: payload?.midiChannel ?? yAction?.midiChannel ?? -1,
+      channel: payload?.midiChannel ?? secondary?.midiChannel ?? -1,
       customName: customName ?? this.customName,
-      secondaryCc: type == ControlType.xyPad || clearSecondary
-          ? _legacyIdentifier(yAction)
+      secondaryCc: clearSecondary
+          ? -1
+          : secondary != null || type == ControlType.xyPad
+          ? _legacyIdentifier(secondary)
           : secondaryCc,
       payload: payload,
-      secondaryPayload: yAction,
+      secondaryPayload: secondary,
       invertX: invertX ?? this.invertX,
       invertY: invertY ?? this.invertY,
       x: x,

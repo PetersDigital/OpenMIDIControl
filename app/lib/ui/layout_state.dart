@@ -1119,6 +1119,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
         defaultHeight = 2;
         break;
       case ControlType.drumPad:
+      case ControlType.aftertouchPad:
       case ControlType.encoder:
       case ControlType.trigger:
       case ControlType.toggle:

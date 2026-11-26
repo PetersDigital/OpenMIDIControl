@@ -16,6 +16,66 @@ void main() {
   group('LayoutDocument Envelope Tests', () {
     final now = DateTime.now();
 
+    test(
+      'round-trips aftertouch defaults, remaps, and disabled expression',
+      () {
+        final pad = LayoutControl(
+          id: 'aftertouch',
+          type: ControlType.aftertouchPad,
+          defaultCc: 60,
+          channel: 3,
+        );
+        const note = NotePayload(
+          channel: 3,
+          note: 60,
+          velocityMode: NoteVelocityMode.touchPosition,
+          velocityCurve: NoteVelocityCurve.drumPad,
+        );
+        const remapped = CcPayload(channel: 3, cc: 71);
+        expect(pad.payload, note);
+        expect(
+          pad.effectiveSecondaryPayload,
+          const CcPayload(channel: 3, cc: 74),
+        );
+        final page = LayoutPage(
+          id: 'pads',
+          type: PageType.drumPad,
+          name: 'Pads',
+          controls: [
+            pad,
+            pad
+                .copyWith(id: 'remapped')
+                .withActions(payload: note, secondaryPayload: remapped),
+            pad
+                .copyWith(id: 'disabled')
+                .withActions(payload: note, clearSecondary: true),
+          ],
+        );
+        final document = LayoutDocument(
+          manifest: LayoutManifest(
+            id: 'doc',
+            name: 'Pads',
+            createdAt: now,
+            updatedAt: now,
+          ),
+          pages: [page],
+          activePageIndex: 0,
+        );
+        final restored = LayoutDocument.fromJson(
+          jsonDecode(jsonEncode(document.toJson())) as Map<String, dynamic>,
+        );
+        expect(restored, document);
+        expect(
+          restored.pages.single.controls.last.effectiveSecondaryPayload,
+          isNull,
+        );
+        expect(
+          restored.pages.single.controls[1].effectiveSecondaryPayload,
+          remapped,
+        );
+      },
+    );
+
     test('serializes to JSON and round-trips correctly', () {
       final manifest = LayoutManifest(
         id: 'doc_1',
