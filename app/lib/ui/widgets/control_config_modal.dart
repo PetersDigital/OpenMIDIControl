@@ -4,6 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/layout_models.dart';
+import '../../core/models/widget_style.dart';
 import '../design_system.dart';
 import 'midi_action_fields.dart';
 import 'scrollable_dialog_content.dart';
@@ -31,6 +32,10 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   late final TextEditingController _displayNameController;
   bool _invertX = false;
   bool _invertY = false;
+  String? _accentColorHex;
+  String? _fontFamily;
+  bool _showLabel = true;
+  bool _showNumericReadout = true;
 
   bool get _isXy => _controlType == ControlType.xyPad;
   bool get _isContinuous => switch (_controlType) {
@@ -69,6 +74,12 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       _invertX = control.invertX;
       _invertY = control.invertY;
     }
+
+    final style = control?.effectiveStyle ?? WidgetStyle.defaults;
+    _accentColorHex = style.accentColorHex;
+    _fontFamily = style.fontFamily;
+    _showLabel = style.showLabel;
+    _showNumericReadout = style.showNumericReadout;
   }
 
   @override
@@ -86,6 +97,12 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       return;
     }
     final secondary = _secondaryAction?.payload;
+    final nextStyle = WidgetStyle(
+      accentColorHex: _accentColorHex,
+      fontFamily: _fontFamily,
+      showLabel: _showLabel,
+      showNumericReadout: _showNumericReadout,
+    );
 
     ref
         .read(layoutStateProvider.notifier)
@@ -97,6 +114,8 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
           name: _displayNameController.text,
           invertX: _isXy ? _invertX : null,
           invertY: _isXy ? _invertY : null,
+          style: nextStyle.isDefault ? null : nextStyle,
+          clearStyle: nextStyle.isDefault,
         );
 
     Navigator.of(context).pop();
@@ -190,6 +209,81 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   labelText: widget.displayNameLabel,
                 ),
               ),
+              const SizedBox(height: 20),
+              Text(
+                'APPEARANCE',
+                style: AppText.system(
+                  color: const Color(0xFFC3C7CA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.6,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ColorSwatchChip(
+                    key: const ValueKey('style_color_default'),
+                    tooltip: 'Default Accent',
+                    color: null,
+                    selected: _accentColorHex == null,
+                    onTap: () => setState(() => _accentColorHex = null),
+                  ),
+                  for (final swatch in WidgetStyle.curatedPalette)
+                    _ColorSwatchChip(
+                      key: ValueKey('style_color_${swatch.hex}'),
+                      tooltip: swatch.name,
+                      color: Color(swatch.colorValue),
+                      selected: _accentColorHex == swatch.hex,
+                      onTap: () => setState(() => _accentColorHex = swatch.hex),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String?>(
+                key: const ValueKey('style_font_dropdown'),
+                initialValue: _fontFamily,
+                dropdownColor: const Color(0xFF1E2024),
+                style: const TextStyle(color: Colors.white),
+                decoration: MidiActionFields.decoration.copyWith(
+                  labelText: 'Font',
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Default'),
+                  ),
+                  for (final font in WidgetStyle.supportedFonts)
+                    DropdownMenuItem<String?>(value: font, child: Text(font)),
+                ],
+                onChanged: (val) => setState(() => _fontFamily = val),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                key: const ValueKey('style_show_label'),
+                title: const Text(
+                  'Show Label',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: _showLabel,
+                onChanged: (v) => setState(() => _showLabel = v ?? true),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                key: const ValueKey('style_show_numeric_readout'),
+                title: const Text(
+                  'Show Numeric Readout',
+                  style: TextStyle(color: Colors.white),
+                ),
+                value: _showNumericReadout,
+                onChanged: (v) =>
+                    setState(() => _showNumericReadout = v ?? true),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
           ),
         ),
@@ -247,6 +341,60 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ColorSwatchChip extends StatelessWidget {
+  final String tooltip;
+  final Color? color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ColorSwatchChip({
+    super.key,
+    required this.tooltip,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fillColor = color ?? const Color(0xFF282A2E);
+    final iconColor = color == null
+        ? Colors.white70
+        : (ThemeData.estimateBrightnessForColor(fillColor) == Brightness.light
+              ? const Color(0xFF0C0E12)
+              : Colors.white);
+
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: fillColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? Colors.white : Colors.white24,
+              width: selected ? 2.5 : 1.0,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: selected
+              ? Icon(Icons.check, size: 16, color: iconColor)
+              : (color == null
+                    ? const Icon(
+                        Icons.auto_fix_high,
+                        size: 14,
+                        color: Colors.white54,
+                      )
+                    : null),
+        ),
+      ),
     );
   }
 }
