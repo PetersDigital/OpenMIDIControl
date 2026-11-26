@@ -5,12 +5,17 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:io' show Platform;
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/models/action_payload.dart';
+import 'header_transport_state.dart';
+import 'midi_action_dispatcher.dart';
 import 'midi_service.dart';
+import 'performance_ticker_mixin.dart';
 import 'layout_document_state.dart';
 import 'settings_screen.dart';
 import 'midi_settings_screen.dart';
@@ -727,88 +732,120 @@ class MidiTransportGrid extends StatelessWidget {
 
   final bool square;
 
+  static Widget _cell(Widget child, {required bool wrapSquare}) => Expanded(
+    child: wrapSquare ? AspectRatio(aspectRatio: 1, child: child) : child,
+  );
+
+  static Widget _buildRows({required bool wrapSquare}) {
+    return Column(
+      mainAxisSize: MainAxisSize.max,
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.rewind,
+                  icon: Icons.fast_rewind,
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.up,
+                  icon: Icons.keyboard_arrow_up,
+                  bgColor: Color(0xFF282A2E),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.record,
+                  icon: Icons.fiber_manual_record,
+                  bgColor: Color(0xFFFFB59E),
+                  iconColor: Color(0xFF690005),
+                  isSolid: true,
+                  shadowColor: Color(0xFFFFB59E),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.left,
+                  icon: Icons.keyboard_arrow_left,
+                  bgColor: Color(0xFF282A2E),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.stop,
+                  icon: Icons.stop,
+                  bgColor: Color(0xFF33353A),
+                  iconColor: Colors.white,
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.right,
+                  icon: Icons.keyboard_arrow_right,
+                  bgColor: Color(0xFF282A2E),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.fastForward,
+                  icon: Icons.fast_forward,
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.down,
+                  icon: Icons.keyboard_arrow_down,
+                  bgColor: Color(0xFF282A2E),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+              _cell(
+                const _GridButton(
+                  role: HeaderTransportRole.play,
+                  icon: Icons.play_arrow,
+                  bgColor: Color(0xFFA6C9F8),
+                  iconColor: Color(0xFF033258),
+                  isSolid: true,
+                  shadowColor: Color(0xFFA6C9F8),
+                ),
+                wrapSquare: wrapSquare,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!square) {
       return RepaintBoundary(
         child: Container(
           color: Colors.transparent,
-          child: const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(child: _GridButton(icon: Icons.fast_rewind)),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.keyboard_arrow_up,
-                          bgColor: Color(0xFF282A2E),
-                        ),
-                      ),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.fiber_manual_record,
-                          bgColor: Color(0xFFFFB59E),
-                          iconColor: Color(0xFF690005),
-                          isSolid: true,
-                          shadowColor: Color(0xFFFFB59E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.keyboard_arrow_left,
-                          bgColor: Color(0xFF282A2E),
-                        ),
-                      ),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.stop,
-                          bgColor: Color(0xFF33353A),
-                          iconColor: Colors.white,
-                        ),
-                      ),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.keyboard_arrow_right,
-                          bgColor: Color(0xFF282A2E),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(child: _GridButton(icon: Icons.fast_forward)),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.keyboard_arrow_down,
-                          bgColor: Color(0xFF282A2E),
-                        ),
-                      ),
-                      Expanded(
-                        child: _GridButton(
-                          icon: Icons.play_arrow,
-                          bgColor: Color(0xFFA6C9F8),
-                          iconColor: Color(0xFF033258),
-                          isSolid: true,
-                          shadowColor: Color(0xFFA6C9F8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: Center(child: _buildRows(wrapSquare: false)),
         ),
       );
     }
@@ -827,110 +864,7 @@ class MidiTransportGrid extends StatelessWidget {
               child: SizedBox(
                 width: gridSize,
                 height: gridSize,
-                child: const Column(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(icon: Icons.fast_rewind),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_up,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.fiber_manual_record,
-                                bgColor: Color(0xFFFFB59E),
-                                iconColor: Color(0xFF690005),
-                                isSolid: true,
-                                shadowColor: Color(0xFFFFB59E),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_left,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.stop,
-                                bgColor: Color(0xFF33353A),
-                                iconColor: Colors.white,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_right,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(icon: Icons.fast_forward),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.keyboard_arrow_down,
-                                bgColor: Color(0xFF282A2E),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: AspectRatio(
-                              aspectRatio: 1,
-                              child: _GridButton(
-                                icon: Icons.play_arrow,
-                                bgColor: Color(0xFFA6C9F8),
-                                iconColor: Color(0xFF033258),
-                                isSolid: true,
-                                shadowColor: Color(0xFFA6C9F8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                child: _buildRows(wrapSquare: true),
               ),
             ),
           );
@@ -1162,7 +1096,8 @@ class _DynamicConnectionIslandState
   }
 }
 
-class _GridButton extends StatelessWidget {
+class _GridButton extends ConsumerStatefulWidget {
+  final HeaderTransportRole role;
   final IconData icon;
   final Color bgColor;
   final Color iconColor;
@@ -1170,6 +1105,7 @@ class _GridButton extends StatelessWidget {
   final Color shadowColor;
 
   const _GridButton({
+    required this.role,
     required this.icon,
     this.bgColor = const Color(0xFF1E2024),
     this.iconColor = const Color(0xFFC3C7CA),
@@ -1178,39 +1114,162 @@ class _GridButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final baseSize = constraints.smallest.shortestSide;
-          final iconSize = isSolid ? baseSize * 0.38 : baseSize * 0.30;
+  ConsumerState<_GridButton> createState() => _GridButtonState();
+}
 
-          return Container(
-            decoration: BoxDecoration(
-              color: bgColor,
-              border: Border.all(
-                color: const Color(0xFF111318).withValues(alpha: 0.2),
-                width: 0.5,
-              ),
-              boxShadow: isSolid
-                  ? [
-                      BoxShadow(
-                        color: shadowColor.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        blurStyle: BlurStyle.normal,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Center(
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: iconSize.clamp(35.0, 50.0),
-              ),
-            ),
+class _GridButtonState extends ConsumerState<_GridButton>
+    with PerformanceTickerMixin {
+  final _gate = MidiGate.transport();
+  int? _pointer;
+
+  @override
+  void initState() {
+    super.initState();
+    initPerformanceMixin();
+  }
+
+  @override
+  void didUpdateWidget(_GridButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.role != oldWidget.role) _release();
+  }
+
+  @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && _pointer != null) {
+      setState(_release);
+    }
+  }
+
+  @override
+  void dispose() {
+    _release();
+    disposePerformanceMixin();
+    super.dispose();
+  }
+
+  void _release() {
+    _pointer = null;
+    _gate.release();
+  }
+
+  void _handlePointerDown(PointerDownEvent event, ActionPayload payload) {
+    if (_pointer != null || event.buttons != kPrimaryButton) return;
+    setState(() => _pointer = event.pointer);
+    _gate.press(ref.read(midiServiceProvider), payload);
+  }
+
+  void _handlePointerUp(PointerEvent event) {
+    if (event.pointer == _pointer) setState(_release);
+  }
+
+  void _activate(ActionPayload payload) {
+    if (_pointer != null) return;
+    _gate.press(ref.read(midiServiceProvider), payload);
+    _gate.release();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<ActionPayload?>(
+      headerTransportMappingsProvider.select((m) => m[widget.role]),
+      (previous, next) {
+        if (previous != next && _pointer != null) {
+          setState(_release);
+        }
+      },
+    );
+
+    final payload = ref.watch(
+      headerTransportMappingsProvider.select((m) => m[widget.role]),
+    );
+    final address = HeaderTransportMappingsNotifier.feedbackAddress(payload);
+    final enabled = address != null && payload != null;
+    final isLit =
+        enabled &&
+        ref.watch(
+          controlStateProvider.select(
+            (state) => state.buttonStates[address] ?? false,
+          ),
+        );
+    final isPressed = _pointer != null;
+    final accent = widget.role == HeaderTransportRole.record
+        ? const Color(0xFFFFB59E)
+        : const Color(0xFFA6C9F8);
+
+    final effectiveBg = isPressed
+        ? (widget.isSolid
+              ? Color.alphaBlend(
+                  Colors.white.withValues(alpha: 0.25),
+                  widget.bgColor,
+                )
+              : accent)
+        : isLit && !widget.isSolid
+        ? Color.alphaBlend(accent.withValues(alpha: 0.16), widget.bgColor)
+        : widget.bgColor;
+    final effectiveIconColor = isPressed && !widget.isSolid
+        ? const Color(0xFF111318)
+        : isLit && !widget.isSolid
+        ? accent
+        : widget.iconColor;
+    final border = isLit
+        ? Border.all(color: widget.isSolid ? Colors.white : accent, width: 1.5)
+        : Border.all(
+            color: const Color(0xFF111318).withValues(alpha: 0.2),
+            width: 0.5,
           );
-        },
+    final shadows = widget.isSolid || isLit || isPressed
+        ? [
+            BoxShadow(
+              color: (widget.isSolid ? widget.shadowColor : accent).withValues(
+                alpha: isPressed || isLit ? 0.65 : 0.4,
+              ),
+              blurRadius: 20,
+              blurStyle: BlurStyle.normal,
+            ),
+          ]
+        : null;
+
+    return Semantics(
+      button: true,
+      label: widget.role.label,
+      enabled: enabled,
+      selected: isLit,
+      onTap: enabled ? () => _activate(payload) : null,
+      child: ExcludeSemantics(
+        child: RepaintBoundary(
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: enabled
+                ? (event) => _handlePointerDown(event, payload)
+                : null,
+            onPointerUp: _handlePointerUp,
+            onPointerCancel: _handlePointerUp,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final baseSize = constraints.smallest.shortestSide;
+                final iconSize = widget.isSolid
+                    ? baseSize * 0.38
+                    : baseSize * 0.30;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: effectiveBg,
+                    border: border,
+                    boxShadow: shadows,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      widget.icon,
+                      color: effectiveIconColor,
+                      size: iconSize.clamp(35.0, 50.0),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
