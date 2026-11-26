@@ -60,6 +60,11 @@ void _sendMidiGate(
 }
 
 class MidiGate {
+  MidiGate() : _transport = false;
+
+  MidiGate.transport() : _transport = true;
+
+  final bool _transport;
   MidiService? _service;
   ActionPayload? _heldPayload;
 
@@ -74,6 +79,10 @@ class MidiGate {
     if (_heldPayload != null) return;
     _service = service;
     _heldPayload = payload;
+    if (_transport) {
+      service.sendTransportButton(payload, pressed: true);
+      return;
+    }
     _sendMidiGate(
       service,
       payload,
@@ -88,6 +97,10 @@ class MidiGate {
       final service = _service!;
       _heldPayload = null;
       _service = null;
+      if (_transport) {
+        service.sendTransportButton(payload, pressed: false);
+        return;
+      }
       _sendMidiGate(
         service,
         payload,

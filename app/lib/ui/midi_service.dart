@@ -533,12 +533,66 @@ class MidiService {
         channel > 15) {
       return;
     }
+    _sendHighResolutionCcPair(cc, value, channel, 'source');
+  }
+
+  void _sendHighResolutionCcPair(
+    int cc,
+    int value,
+    int channel,
+    String source, {
+    bool acceptFeedback = false,
+  }) {
     // Some receivers reset the LSB when the MSB changes. Deliver both bytes
     // together even when one byte matches the preceding value.
-    outgoingRouter.process('source', [
-      _voiceEvent(0xB0 | channel, cc, value >> 7, true),
-      _voiceEvent(0xB0 | channel, cc + 32, value & 0x7F, true),
+    outgoingRouter.process(source, [
+      _voiceEvent(
+        0xB0 | channel,
+        cc,
+        value >> 7,
+        true,
+        acceptFeedback: acceptFeedback,
+      ),
+      _voiceEvent(
+        0xB0 | channel,
+        cc + 32,
+        value & 0x7F,
+        true,
+        acceptFeedback: acceptFeedback,
+      ),
     ]);
+  }
+
+  /// Sends a momentary transport action without writing it to the feedback state.
+  void sendTransportButton(ActionPayload payload, {required bool pressed}) {
+    final value = pressed ? 127 : 0;
+    switch (payload) {
+      case CcPayload(:final channel, :final cc, :final highResolution):
+        if (channel < 0 || channel > 15 || cc < 0 || cc > 127) return;
+        if (highResolution && cc < 32) {
+          _sendHighResolutionCcPair(
+            cc,
+            pressed ? 16383 : 0,
+            channel,
+            'nativeSink',
+            acceptFeedback: true,
+          );
+        } else {
+          outgoingRouter.processSingle(
+            'nativeSink',
+            _voiceEvent(0xB0 | channel, cc, value, true, acceptFeedback: true),
+          );
+        }
+      case NotePayload(:final channel, :final note):
+        if (channel < 0 || channel > 15 || note < 0 || note > 127) return;
+        final status = (pressed ? 0x90 : 0x80) | channel;
+        outgoingRouter.processSingle(
+          'nativeSink',
+          _voiceEvent(status, note, value, true, acceptFeedback: true),
+        );
+      default:
+        break;
+    }
   }
 
   Future<void> sendRelativeCc(RelativeCcPayload payload, int delta) async {
@@ -574,12 +628,18 @@ class MidiService {
     }
   }
 
-  MidiEvent _voiceEvent(int status, int data1, int data2, bool isFinal) =>
-      MidiEvent(
-        0x20000000 | (status << 16) | (data1 << 8) | data2,
-        _stopwatch.elapsedMilliseconds,
-        isFinal: isFinal,
-      );
+  MidiEvent _voiceEvent(
+    int status,
+    int data1,
+    int data2,
+    bool isFinal, {
+    bool acceptFeedback = false,
+  }) => MidiEvent(
+    0x20000000 | (status << 16) | (data1 << 8) | data2,
+    _stopwatch.elapsedMilliseconds,
+    isFinal: isFinal,
+    acceptFeedback: acceptFeedback,
+  );
 
   Future<void> sendNoteOn(
     int note,

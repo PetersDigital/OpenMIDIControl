@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/models/action_payload.dart';
+import 'package:app/ui/midi_action_dispatcher.dart';
 import 'package:app/ui/midi_service.dart';
 
 void main() {
@@ -80,6 +81,47 @@ void main() {
       await service.sendHighResolutionCc(7, (64 << 7) | 23, channel: 4);
       expect(capturedEvents, [0x20B40740, 1, 0x20B42717, 1]);
     });
+
+    test(
+      'transport gates send reliable CC and notes without local feedback',
+      () {
+        final service = MidiService(useBackgroundWorker: false);
+        addTearDown(service.dispose);
+        final gate = MidiGate.transport();
+        const cc = CcPayload(channel: 2, cc: 10);
+        const note = NotePayload(channel: 3, note: 60);
+        const highResolution = CcPayload(
+          channel: 5,
+          cc: 1,
+          highResolution: true,
+        );
+
+        for (final payload in [cc, note, highResolution]) {
+          gate.press(service, payload);
+          gate.release();
+        }
+
+        expect(allEvents, [
+          0x20B20A7F,
+          3,
+          0x20B20A00,
+          3,
+          0x20933C7F,
+          3,
+          0x20833C00,
+          3,
+          0x20B5017F,
+          3,
+          0x20B5217F,
+          3,
+          0x20B50100,
+          3,
+          0x20B52100,
+          3,
+        ]);
+        expect(service.currentState['buttons'], isNull);
+      },
+    );
 
     test(
       'delivers each relative step without altering absolute CC feedback',
