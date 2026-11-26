@@ -34,6 +34,9 @@ class LayoutControl {
 
   final ActionPayload? payload;
 
+  /// The transport role shown by a control, independently of [payload].
+  final TransportAction? transportAction;
+
   /// Action assignment for the Y-axis of an XY pad.
   final ActionPayload? secondaryPayload;
 
@@ -66,6 +69,7 @@ class LayoutControl {
     this.secondaryCc,
     ActionPayload? payload,
     ActionPayload? secondaryPayload,
+    this.transportAction,
     this.invertX = false,
     this.invertY = false,
     this.x = 0,
@@ -130,6 +134,7 @@ class LayoutControl {
     int? secondaryCc,
     ActionPayload? payload,
     ActionPayload? secondaryPayload,
+    TransportAction? transportAction,
     bool? invertX,
     bool? invertY,
     int? x,
@@ -160,6 +165,7 @@ class LayoutControl {
           (mappingChanged || axisCc != this.secondaryCc
               ? null
               : this.secondaryPayload),
+      transportAction: transportAction ?? this.transportAction,
       invertX: invertX ?? this.invertX,
       invertY: invertY ?? this.invertY,
       x: x ?? this.x,
@@ -197,6 +203,7 @@ class LayoutControl {
           : secondaryCc,
       payload: payload,
       secondaryPayload: yAction,
+      transportAction: transportAction,
       invertX: invertX ?? this.invertX,
       invertY: invertY ?? this.invertY,
       x: x,
@@ -224,6 +231,7 @@ class LayoutControl {
       if (payload != null) 'payload': payload!.toJson(),
       if (secondaryPayload != null)
         'secondaryPayload': secondaryPayload!.toJson(),
+      if (transportAction != null) 'transportAction': transportAction!.name,
       'invertX': invertX,
       'invertY': invertY,
       'x': x,
@@ -244,6 +252,7 @@ class LayoutControl {
       secondaryCc: json['secondaryCc'] as int?,
       payload: _readPayload(json['payload']),
       secondaryPayload: _readPayload(json['secondaryPayload']),
+      transportAction: _readTransportAction(json['transportAction']),
       invertX: json['invertX'] as bool? ?? false,
       invertY: json['invertY'] as bool? ?? false,
       x: json['x'] as int? ?? 0,
@@ -257,6 +266,14 @@ class LayoutControl {
     if (json == null) return null;
     if (json is Map<String, dynamic>) return ActionPayload.fromJson(json);
     throw const FormatException('Action payload must be a JSON object.');
+  }
+
+  static TransportAction? _readTransportAction(Object? value) {
+    if (value == null) return null;
+    for (final action in TransportAction.values) {
+      if (action.name == value) return action;
+    }
+    throw FormatException('Invalid transport action: $value');
   }
 
   @override
@@ -275,6 +292,7 @@ class LayoutControl {
         other.secondaryCc == secondaryCc &&
         other.payload == payload &&
         other.secondaryPayload == secondaryPayload &&
+        other.transportAction == transportAction &&
         other.invertX == invertX &&
         other.invertY == invertY &&
         other.x == x &&
@@ -293,6 +311,7 @@ class LayoutControl {
     secondaryCc,
     payload,
     secondaryPayload,
+    transportAction,
     invertX,
     invertY,
     x,
