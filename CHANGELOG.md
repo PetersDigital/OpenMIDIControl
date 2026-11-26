@@ -6,7 +6,11 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.4...HEAD)
+
+## [0.4.4] - 2026-11-26
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...v0.4.4)
 
 ### Added
 

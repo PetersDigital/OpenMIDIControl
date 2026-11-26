@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current development branch (`dev`): **v0.4.4 – Modular Engine Core & MCU Prerequisites** implemented (`v0.4.3` released; next focus: **v0.4.5 – Visual Sovereignty & Expressive Pads**). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.4.5 – Visual Sovereignty & Expressive Pads** (`v0.4.4` released). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ## Project Structure
 
