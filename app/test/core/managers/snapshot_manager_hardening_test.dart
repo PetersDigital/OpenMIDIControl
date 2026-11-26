@@ -4,12 +4,47 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/managers/snapshot_manager.dart';
 import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_document.dart';
 import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_models.dart';
+
+final class _PickedFile extends PlatformFile {
+  _PickedFile(this.name, this.uri);
+
+  @override
+  final String name;
+
+  @override
+  final Uri uri;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _TestFilePicker extends FilePickerPlatform {
+  List<PlatformFile> files = [];
+
+  @override
+  Future<List<PlatformFile>> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    return files;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +61,34 @@ void main() {
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
+  });
+
+  group('Layout file picker', () {
+    late _TestFilePicker picker;
+
+    setUp(() {
+      final original = FilePickerPlatform.instance;
+      addTearDown(() {
+        FilePickerPlatform.instance = original;
+      });
+      picker = _TestFilePicker();
+      FilePickerPlatform.instance = picker;
+    });
+
+    test(
+      'rejects unsupported picker selections before reading the file',
+      () async {
+        final missingFile = File('${tempDir.path}/not-read.omc');
+        picker.files = [_PickedFile('layout.omc.txt', missingFile.uri)];
+
+        final document = await snapshotManager.importLayoutDocument();
+        final page = await snapshotManager.importLayout();
+
+        expect(document.errorMessage, 'Choose an .omc or .json layout file.');
+        expect(page.errorMessage, 'Choose an .omc or .json layout file.');
+      },
+    );
+
   });
 
   group('Hardened SnapshotManager Import/Export Tests', () {
