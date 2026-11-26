@@ -4,6 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
 import '../hybrid_touch_fader.dart';
 import 'hybrid_xy_pad.dart';
@@ -15,6 +16,7 @@ import '../design_system.dart';
 import 'control_config_modal.dart';
 import 'config_gesture_wrapper.dart';
 import '../layout_state.dart';
+import 'transport_button.dart';
 
 class ControlWidgetFactory {
   static Widget buildControl(
@@ -194,6 +196,17 @@ class ControlWidgetFactory {
           controlId: control.id,
           pageId: pageId,
           mode: MidiButtonMode.cc,
+        );
+
+      case ControlType.transportButton:
+        return TransportButton(
+          key: key,
+          action: control.transportAction ?? TransportAction.play,
+          payload: control.payload,
+          customName: control.customName == 'Unassigned'
+              ? null
+              : control.customName,
+          isActive: isActive,
         );
     }
   }

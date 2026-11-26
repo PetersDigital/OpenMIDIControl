@@ -69,7 +69,7 @@ void main() {
         for (final action in TransportAction.values)
           LayoutControl(
             id: action.name,
-            type: ControlType.trigger,
+            type: ControlType.transportButton,
             defaultCc: mapping.note,
             channel: mapping.channel,
             payload: mapping,
@@ -119,7 +119,7 @@ void main() {
     test('rejects invalid transport roles in a layout control', () {
       final json = LayoutControl(
         id: 'transport',
-        type: ControlType.trigger,
+        type: ControlType.transportButton,
         defaultCc: -1,
         channel: -1,
       ).toJson();

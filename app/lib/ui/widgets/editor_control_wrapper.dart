@@ -47,6 +47,7 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
       ControlType.encoder => 'Encoder Name',
       ControlType.trigger => 'Trigger Name',
       ControlType.toggle => 'Toggle Name',
+      ControlType.transportButton => 'Transport Button Name',
     };
 
     showDialog(
@@ -64,11 +65,10 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
       selectedControlProvider.select((id) => id == widget.control.id),
     );
 
-    final bool isCompact =
-        widget.control.type == ControlType.drumPad ||
-        widget.control.type == ControlType.encoder ||
-        widget.control.type == ControlType.trigger ||
-        widget.control.type == ControlType.toggle;
+    final isCompact = switch (widget.control.type) {
+      ControlType.fader || ControlType.xyPad => false,
+      _ => true,
+    };
     final double handleSize = isCompact ? 36.0 : 60.0;
     final double innerPadding = isCompact ? 5.0 : 8.0;
     final double iconSize = isCompact ? 12.0 : 20.0;

@@ -7,7 +7,15 @@ import '../midi_utils.dart';
 import 'action_payload.dart';
 
 /// Enumeration of supported control types in the layout schema.
-enum ControlType { fader, xyPad, drumPad, encoder, trigger, toggle }
+enum ControlType {
+  fader,
+  xyPad,
+  drumPad,
+  encoder,
+  trigger,
+  toggle,
+  transportButton,
+}
 
 /// Enumeration of supported page types in the layout schema.
 enum PageType { fader, xyPad, drumPad, utility }

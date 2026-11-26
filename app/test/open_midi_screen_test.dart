@@ -15,6 +15,8 @@ import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/widgets/editor_control_wrapper.dart';
+import 'package:app/ui/widgets/transport_button.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_models.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,6 +97,39 @@ void main() {
       expect(find.byType(EndlessEncoderWidget), findsWidgets);
       expect(find.byType(Trigger), findsWidgets);
       expect(find.byType(Toggle), findsWidgets);
+    });
+
+    testWidgets('renders a saved transport button on the active page', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildWidget());
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(OpenMIDIMainScreen)),
+      );
+      final page = container.read(layoutStateProvider).activePage!;
+      container
+          .read(layoutStateProvider.notifier)
+          .overwriteActivePage(
+            page.copyWith(
+              controls: [
+                LayoutControl.fromJson({
+                  'id': 'bank_right',
+                  'type': 'transportButton',
+                  'transportAction': 'bankRight',
+                  'defaultCc': 24,
+                  'channel': 2,
+                }),
+              ],
+            ),
+          );
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<TransportButton>(
+        find.byType(TransportButton),
+      );
+      expect(button.action, TransportAction.bankRight);
+      expect(button.payload, const CcPayload(channel: 2, cc: 24));
+      expect(find.text('BANK RIGHT'), findsOneWidget);
     });
 
     testWidgets('shows DeviceOfflineOverlay when connection is lost', (
