@@ -14,6 +14,7 @@ import 'config_gesture_wrapper.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 import '../../core/models/action_payload.dart';
+import '../../core/models/widget_style.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -23,6 +24,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
   final bool invertX;
   final bool invertY;
   final Color padColor;
+  final WidgetStyle style;
 
   const HybridXYPad({
     super.key,
@@ -34,6 +36,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
     this.invertY = true, // By default, Y=0 is usually bottom in audio software
     this.padColor = const Color(0xFF282A2E),
     this.isActive = true,
+    this.style = WidgetStyle.defaults,
   });
 
   final bool isActive;
@@ -316,6 +319,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     final labelY = _axisLabel(_yPayload, control == null ? widget.ccY : null);
     final invertX = control?.invertX ?? widget.invertX;
     final invertY = control?.invertY ?? widget.invertY;
+    final style = control?.effectiveStyle ?? widget.style;
+    final accentColor = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : const Color(0xFFA6C9F8);
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -347,7 +354,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                 borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _isDragging
-                      ? const Color(0xFFA6C9F8)
+                      ? accentColor
                       : const Color(0xFF111318).withValues(alpha: 0.5),
                   width: _isDragging ? 2.0 : 1.0,
                 ),
@@ -385,10 +392,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: Container(
                                     width: 1,
                                     color: _isDragging
-                                        ? const Color(0xFFA6C9F8)
-                                        : const Color(
-                                            0xFFA6C9F8,
-                                          ).withValues(alpha: 0.3),
+                                        ? accentColor
+                                        : accentColor.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 Positioned(
@@ -398,10 +403,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: Container(
                                     height: 1,
                                     color: _isDragging
-                                        ? const Color(0xFFA6C9F8)
-                                        : const Color(
-                                            0xFFA6C9F8,
-                                          ).withValues(alpha: 0.3),
+                                        ? accentColor
+                                        : accentColor.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 Positioned(
@@ -413,14 +416,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: _isDragging
-                                          ? const Color(
-                                              0xFFA6C9F8,
-                                            ).withValues(alpha: 0.8)
-                                          : const Color(
-                                              0xFFA6C9F8,
-                                            ).withValues(alpha: 0.4),
+                                          ? accentColor.withValues(alpha: 0.8)
+                                          : accentColor.withValues(alpha: 0.4),
                                       border: Border.all(
-                                        color: const Color(0xFFA6C9F8),
+                                        color: accentColor,
                                         width: 2,
                                       ),
                                     ),
@@ -449,35 +448,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             crossAxisAlignment: CrossAxisAlignment.end,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              RepaintBoundary(
-                                child: ValueListenableBuilder<Offset>(
-                                  valueListenable: _posNotifier,
-                                  builder: (_, pos, _) {
-                                    final val =
-                                        ((invertX ? (1.0 - pos.dx) : pos.dx) *
-                                                127)
-                                            .round()
-                                            .toString()
-                                            .padLeft(3, '0');
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'DSEG7Modern',
-                                        color: Color(0xFFA6C9F8),
-                                        fontSize: 16,
-                                      ),
-                                    );
-                                  },
+                              if (style.showNumericReadout)
+                                RepaintBoundary(
+                                  child: ValueListenableBuilder<Offset>(
+                                    valueListenable: _posNotifier,
+                                    builder: (_, pos, _) {
+                                      final val =
+                                          ((invertX ? (1.0 - pos.dx) : pos.dx) *
+                                                  127)
+                                              .round()
+                                              .toString()
+                                              .padLeft(3, '0');
+                                      return Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontFamily:
+                                              style.fontFamily ?? 'DSEG7Modern',
+                                          color: accentColor,
+                                          fontSize: 16,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'X: $labelX',
-                                style: AppText.performance(
-                                  color: Colors.white24,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
+                              if (style.showLabel)
+                                Text(
+                                  'X: $labelX',
+                                  style: AppText.performance(
+                                    color: Colors.white24,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ).copyWith(fontFamily: style.fontFamily),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -499,35 +501,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                'Y: $labelY',
-                                style: AppText.performance(
-                                  color: Colors.white24,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
+                              if (style.showLabel)
+                                Text(
+                                  'Y: $labelY',
+                                  style: AppText.performance(
+                                    color: Colors.white24,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ).copyWith(fontFamily: style.fontFamily),
                                 ),
-                              ),
-                              RepaintBoundary(
-                                child: ValueListenableBuilder<Offset>(
-                                  valueListenable: _posNotifier,
-                                  builder: (_, pos, _) {
-                                    final val =
-                                        ((invertY ? (1.0 - pos.dy) : pos.dy) *
-                                                127)
-                                            .round()
-                                            .toString()
-                                            .padLeft(3, '0');
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'DSEG7Modern',
-                                        color: Color(0xFFA6C9F8),
-                                        fontSize: 16,
-                                      ),
-                                    );
-                                  },
+                              if (style.showNumericReadout)
+                                RepaintBoundary(
+                                  child: ValueListenableBuilder<Offset>(
+                                    valueListenable: _posNotifier,
+                                    builder: (_, pos, _) {
+                                      final val =
+                                          ((invertY ? (1.0 - pos.dy) : pos.dy) *
+                                                  127)
+                                              .round()
+                                              .toString()
+                                              .padLeft(3, '0');
+                                      return Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontFamily:
+                                              style.fontFamily ?? 'DSEG7Modern',
+                                          color: accentColor,
+                                          fontSize: 16,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),

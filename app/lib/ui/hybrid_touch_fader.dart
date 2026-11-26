@@ -16,6 +16,7 @@ import 'widgets/config_gesture_wrapper.dart';
 import 'layout_state.dart';
 import '../core/models/layout_models.dart';
 import '../core/models/action_payload.dart';
+import '../core/models/widget_style.dart';
 
 const _kFaderSmoothingDuration = Duration(milliseconds: 45);
 
@@ -28,6 +29,7 @@ class HybridTouchFader extends ConsumerStatefulWidget {
   final double initialValue;
   final bool isMobile;
   final FaderBehavior behavior;
+  final WidgetStyle style;
 
   const HybridTouchFader({
     super.key,
@@ -40,6 +42,7 @@ class HybridTouchFader extends ConsumerStatefulWidget {
     this.isMobile = true,
     this.behavior = FaderBehavior.jump,
     this.isActive = true,
+    this.style = WidgetStyle.defaults,
   });
 
   final bool isActive;
@@ -55,6 +58,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   int _midiChannel = 0;
   late String _ccLabel;
   ActionPayload? _payload;
+  late WidgetStyle _style;
   final _midiAction = MidiActionDispatcher();
 
   // Monotonic clock for reliable MIDI throttling (immune to system clock changes)
@@ -111,6 +115,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _midiChannel = control?.channel ?? 0;
     _ccLabel = control?.displayName ?? widget.displayName;
     _payload = control?.payload;
+    _style = control?.effectiveStyle ?? widget.style;
 
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = ref.read(controlStateProvider).ccValues[_feedbackAddress];
@@ -157,6 +162,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           _midiChannel = next?.channel ?? 0;
           _ccLabel = next?.displayName ?? widget.displayName;
           _payload = next?.payload;
+          _style = next?.effectiveStyle ?? widget.style;
         });
         if (previousAddress != _feedbackAddress) {
           _lastPolledValue = null;
@@ -452,7 +458,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       color: Colors.red.withValues(alpha: 0.06),
       height: 1.0,
     );
-    final Widget activeTrack = Container(color: widget.activeColor);
+    final effectiveColor = _style.accentColorValue != null
+        ? Color(_style.accentColorValue!)
+        : widget.activeColor;
+    final Widget activeTrack = Container(color: effectiveColor);
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -507,41 +516,47 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Black readout box — full width, top-padded
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(displayPad),
-                            color: const Color(0xFF0C0E12),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Ghost segments — very faint
-                                  Text(
-                                    "888",
-                                    textAlign: TextAlign.center,
-                                    style: ghostDisplayTextStyle,
-                                  ),
-                                  // Active value
-                                  AnimatedBuilder(
-                                    animation: _animationController,
-                                    builder: (context, child) => Text(
-                                      ((_animationController.value * 127)
-                                              .round())
-                                          .toString()
-                                          .padLeft(3, ' '),
+                          if (_style.showNumericReadout) ...[
+                            // Black readout box — full width, top-padded
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(displayPad),
+                              color: const Color(0xFF0C0E12),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Ghost segments — very faint
+                                    Text(
+                                      "888",
                                       textAlign: TextAlign.center,
-                                      style: displayTextStyle,
+                                      style: ghostDisplayTextStyle.copyWith(
+                                        fontFamily: _style.fontFamily,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    // Active value
+                                    AnimatedBuilder(
+                                      animation: _animationController,
+                                      builder: (context, child) => Text(
+                                        ((_animationController.value * 127)
+                                                .round())
+                                            .toString()
+                                            .padLeft(3, ' '),
+                                        textAlign: TextAlign.center,
+                                        style: displayTextStyle.copyWith(
+                                          fontFamily: _style.fontFamily,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                          ],
 
-                          // CC Name Label (long-press to open CC picker, double-tap to rename)
-                          const SizedBox(height: 8),
+                          // CC Name Label (long-press to open CC picker)
                           ConfigGestureWrapper(
                             id: widget.controlId,
                             onConfigRequested: _showConfigMenu,
@@ -552,19 +567,28 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                                 minHeight: 44,
                               ),
                               alignment: Alignment.center,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _ccLabel,
-                                  textAlign: TextAlign.center,
-                                  style: AppText.performance(
-                                    color: Colors.white,
-                                    fontSize: isCompact ? 11.0 : labelFontSize,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: isCompact ? 0.3 : 1.0,
-                                  ),
-                                ),
-                              ),
+                              child: _style.showLabel
+                                  ? FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _ccLabel,
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            AppText.performance(
+                                              color: Colors.white,
+                                              fontSize: isCompact
+                                                  ? 11.0
+                                                  : labelFontSize,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: isCompact
+                                                  ? 0.3
+                                                  : 1.0,
+                                            ).copyWith(
+                                              fontFamily: _style.fontFamily,
+                                            ),
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
                             ),
                           ),
                         ],

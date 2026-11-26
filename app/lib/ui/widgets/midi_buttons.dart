@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
+import '../../core/models/widget_style.dart';
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
@@ -137,68 +138,23 @@ class _TriggerState extends ConsumerState<Trigger>
         behavior: HitTestBehavior.opaque,
         child: Opacity(
           opacity: isUnassigned ? 0.3 : 1.0,
-          child: AnimatedContainer(
+          child: _MidiButtonFace(
+            wrapperKey: ValueKey('config_wrapper_trigger_${control.id}'),
+            configId: 'trigger_${control.id}',
+            onConfigRequested: isLocked
+                ? null
+                : () => showUtilityConfigModal(context, ref, control.id),
+            isLit: _isPressed,
+            activeColor: widget.activeColor,
+            inactiveColor: widget.inactiveColor,
+            defaultActiveFg: const Color(0xFF033258),
             duration: const Duration(milliseconds: 50),
-            decoration: BoxDecoration(
-              color: _isPressed ? widget.activeColor : widget.inactiveColor,
-              borderRadius: BorderRadius.zero,
-              border: Border.all(
-                color: _isPressed
-                    ? widget.activeColor
-                    : const Color(0xFF111318),
-                width: 1.0,
-              ),
-            ),
-            child: Stack(
-              children: [
-                _ButtonHeaderLabel(
-                  wrapperKey: ValueKey('config_wrapper_trigger_${control.id}'),
-                  configId: 'trigger_${control.id}',
-                  onConfigRequested: isLocked
-                      ? null
-                      : () => showUtilityConfigModal(context, ref, control.id),
-                  text: isUnassigned
-                      ? 'UNASSIGNED'
-                      : control.payload?.displayLabel ?? 'CC $identifier',
-                  color: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                ),
-                Center(
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    alignment: Alignment.center,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: AppText.performance(
-                          color: _isPressed
-                              ? const Color(0xFF033258)
-                              : const Color(0xFFC3C7CA),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                _ButtonFooterRow(
-                  statusText: _isPressed ? 'ON' : 'OFF',
-                  statusColor: _isPressed
-                      ? const Color(0xFF033258)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  channelText: isUnassigned ? null : 'CH${channel + 1}',
-                  channelColor: _isPressed
-                      ? const Color(0xFF033258).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                ),
-              ],
-            ),
+            style: control.effectiveStyle,
+            headerText: isUnassigned
+                ? 'UNASSIGNED'
+                : control.payload?.displayLabel ?? 'CC $identifier',
+            label: label,
+            channelText: isUnassigned ? null : 'CH${channel + 1}',
           ),
         ),
       ),
@@ -323,68 +279,127 @@ class _ToggleState extends ConsumerState<Toggle>
         behavior: HitTestBehavior.opaque,
         child: Opacity(
           opacity: isUnassigned ? 0.3 : 1.0,
-          child: AnimatedContainer(
+          child: _MidiButtonFace(
+            wrapperKey: ValueKey('config_wrapper_toggle_${control.id}'),
+            configId: 'toggle_${control.id}',
+            onConfigRequested: isLocked
+                ? null
+                : () => showUtilityConfigModal(context, ref, control.id),
+            isLit: _isActive,
+            activeColor: widget.activeColor,
+            inactiveColor: widget.inactiveColor,
+            defaultActiveFg: const Color(0xFF690005),
             duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: _isActive ? widget.activeColor : widget.inactiveColor,
-              borderRadius: BorderRadius.zero,
-              border: Border.all(
-                color: _isActive ? widget.activeColor : const Color(0xFF111318),
-                width: 1.0,
-              ),
-            ),
-            child: Stack(
-              children: [
-                _ButtonHeaderLabel(
-                  wrapperKey: ValueKey('config_wrapper_toggle_${control.id}'),
-                  configId: 'toggle_${control.id}',
-                  onConfigRequested: isLocked
-                      ? null
-                      : () => showUtilityConfigModal(context, ref, control.id),
-                  text: isUnassigned
-                      ? 'UNASSIGNED'
-                      : control.payload?.displayLabel ?? 'CC $identifier',
-                  color: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                ),
-                Center(
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 44,
-                    ),
-                    alignment: Alignment.center,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: AppText.performance(
-                          color: _isActive
-                              ? const Color(0xFF690005)
-                              : const Color(0xFFC3C7CA),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                _ButtonFooterRow(
-                  statusText: _isActive ? 'ON' : 'OFF',
-                  statusColor: _isActive
-                      ? const Color(0xFF690005)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                  channelText: isUnassigned ? null : 'CH${channel + 1}',
-                  channelColor: _isActive
-                      ? const Color(0xFF690005).withValues(alpha: 0.6)
-                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                ),
-              ],
-            ),
+            style: control.effectiveStyle,
+            headerText: isUnassigned
+                ? 'UNASSIGNED'
+                : control.payload?.displayLabel ?? 'CC $identifier',
+            label: label,
+            channelText: isUnassigned ? null : 'CH${channel + 1}',
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MidiButtonFace extends StatelessWidget {
+  final Key wrapperKey;
+  final String configId;
+  final VoidCallback? onConfigRequested;
+  final bool isLit;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Color defaultActiveFg;
+  final Duration duration;
+  final WidgetStyle style;
+  final String headerText;
+  final String label;
+  final String? channelText;
+
+  const _MidiButtonFace({
+    required this.wrapperKey,
+    required this.configId,
+    required this.onConfigRequested,
+    required this.isLit,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.defaultActiveFg,
+    required this.duration,
+    required this.style,
+    required this.headerText,
+    required this.label,
+    required this.channelText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color? customAccent = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : null;
+    final Color activeBg = customAccent ?? activeColor;
+    final Color activeFg = customAccent != null
+        ? (ThemeData.estimateBrightnessForColor(customAccent) ==
+                  Brightness.light
+              ? const Color(0xFF0C0E12)
+              : Colors.white)
+        : defaultActiveFg;
+    final String? fontFamily = style.fontFamily;
+
+    return AnimatedContainer(
+      duration: duration,
+      decoration: BoxDecoration(
+        color: isLit ? activeBg : inactiveColor,
+        borderRadius: BorderRadius.zero,
+        border: Border.all(
+          color: isLit ? activeBg : const Color(0xFF111318),
+          width: 1.0,
+        ),
+      ),
+      child: Stack(
+        children: [
+          _ButtonHeaderLabel(
+            wrapperKey: wrapperKey,
+            configId: configId,
+            onConfigRequested: onConfigRequested,
+            text: headerText,
+            visible: style.showNumericReadout,
+            fontFamily: fontFamily,
+            color: isLit
+                ? activeFg.withValues(alpha: 0.6)
+                : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+          ),
+          if (style.showLabel)
+            Center(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                alignment: Alignment.center,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: AppText.performance(
+                      color: isLit ? activeFg : const Color(0xFFC3C7CA),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ).copyWith(fontFamily: fontFamily),
+                  ),
+                ),
+              ),
+            ),
+          _ButtonFooterRow(
+            statusText: isLit ? 'ON' : 'OFF',
+            statusColor: isLit
+                ? activeFg
+                : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+            channelText: style.showNumericReadout ? channelText : null,
+            channelColor: isLit
+                ? activeFg.withValues(alpha: 0.6)
+                : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+            fontFamily: fontFamily,
+          ),
+        ],
       ),
     );
   }
@@ -395,6 +410,8 @@ class _ButtonHeaderLabel extends StatelessWidget {
   final String configId;
   final VoidCallback? onConfigRequested;
   final String text;
+  final bool visible;
+  final String? fontFamily;
   final Color color;
 
   const _ButtonHeaderLabel({
@@ -402,6 +419,8 @@ class _ButtonHeaderLabel extends StatelessWidget {
     required this.configId,
     required this.onConfigRequested,
     required this.text,
+    required this.visible,
+    required this.fontFamily,
     required this.color,
   });
 
@@ -419,18 +438,20 @@ class _ButtonHeaderLabel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
           constraints: const BoxConstraints(minHeight: 44),
           alignment: Alignment.topLeft,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.topLeft,
-            child: Text(
-              text,
-              style: AppText.performance(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          child: visible
+              ? FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    text,
+                    style: AppText.performance(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ).copyWith(fontFamily: fontFamily),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ),
     );
@@ -442,12 +463,14 @@ class _ButtonFooterRow extends StatelessWidget {
   final Color statusColor;
   final String? channelText;
   final Color channelColor;
+  final String? fontFamily;
 
   const _ButtonFooterRow({
     required this.statusText,
     required this.statusColor,
     required this.channelText,
     required this.channelColor,
+    required this.fontFamily,
   });
 
   @override
@@ -466,7 +489,7 @@ class _ButtonFooterRow extends StatelessWidget {
               child: Text(
                 statusText,
                 style: TextStyle(
-                  fontFamily: 'Space Grotesk',
+                  fontFamily: fontFamily ?? 'Space Grotesk',
                   color: statusColor,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -483,7 +506,7 @@ class _ButtonFooterRow extends StatelessWidget {
                 child: Text(
                   channelText!,
                   style: TextStyle(
-                    fontFamily: 'Space Grotesk',
+                    fontFamily: fontFamily ?? 'Space Grotesk',
                     color: channelColor,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,

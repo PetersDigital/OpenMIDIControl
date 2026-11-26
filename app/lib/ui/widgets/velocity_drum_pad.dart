@@ -190,6 +190,17 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
           )
         : configured;
     final displayLabel = control.displayName;
+    final style = control.effectiveStyle;
+    final customAccent = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : null;
+    final pressedBg = customAccent ?? const Color(0xFFE9C46A);
+    final pressedFg =
+        customAccent != null &&
+            ThemeData.estimateBrightnessForColor(customAccent) ==
+                Brightness.dark
+        ? Colors.white
+        : const Color(0xFF1E2024);
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -205,11 +216,11 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
               scale: _scaleController,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
+                  color: _isPressed ? pressedBg : widget.padColor,
                   borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: _isPressed
-                        ? widget.padColor.withValues(alpha: 0.8)
+                        ? pressedBg.withValues(alpha: 0.85)
                         : const Color(0xFF111318).withValues(alpha: 0.5),
                     width: _isPressed ? 2.0 : 1.0,
                   ),
@@ -240,57 +251,63 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                             minHeight: 60,
                           ),
                           alignment: Alignment.topLeft,
-                          child: Text(
-                            payload?.displayLabel ??
-                                MidiUtils.getNoteName(note),
-                            style: AppText.performance(
-                              color: _isPressed
-                                  ? const Color(
-                                      0xFF1E2024,
-                                    ).withValues(alpha: 0.8)
-                                  : const Color(
-                                      0xFFC3C7CA,
-                                    ).withValues(alpha: 0.5),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
+                          child: style.showNumericReadout
+                              ? Text(
+                                  payload?.displayLabel ??
+                                      MidiUtils.getNoteName(note),
+                                  style: AppText.performance(
+                                    color: _isPressed
+                                        ? pressedFg.withValues(alpha: 0.8)
+                                        : const Color(
+                                            0xFFC3C7CA,
+                                          ).withValues(alpha: 0.5),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.1,
+                                  ).copyWith(fontFamily: style.fontFamily),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
                     ),
 
                     // MIDI Channel (Bottom Right)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: Text(
-                        'CH${(payload?.midiChannel ?? channel) + 1}',
-                        style: AppText.system(
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.6)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                    if (style.showNumericReadout)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Text(
+                          'CH${(payload?.midiChannel ?? channel) + 1}',
+                          style: AppText.system(
+                            color: _isPressed
+                                ? pressedFg.withValues(alpha: 0.6)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.3),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ).copyWith(fontFamily: style.fontFamily),
                         ),
                       ),
-                    ),
 
                     // Velocity (Bottom Left)
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: Text(
-                        'V:${_lastVelocity ?? 0}',
-                        style: AppText.performance(
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                    if (style.showNumericReadout)
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        child: Text(
+                          'V:${_lastVelocity ?? 0}',
+                          style: AppText.performance(
+                            color: _isPressed
+                                ? pressedFg.withValues(alpha: 0.8)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.4),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ).copyWith(fontFamily: style.fontFamily),
                         ),
                       ),
-                    ),
 
                     // Ghost hit indicator
                     if (widget.showVelocityGhost &&
@@ -310,26 +327,29 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
 
                     // Central Label (Static display)
-                    Center(
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          minHeight: 44,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          displayLabel.isNotEmpty ? displayLabel : 'PAD $note',
-                          textAlign: TextAlign.center,
-                          style: AppText.performance(
-                            color: _isPressed
-                                ? const Color(0xFF1E2024)
-                                : const Color(0xFFC3C7CA),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                    if (style.showLabel)
+                      Center(
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 60,
+                            minHeight: 44,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            displayLabel.isNotEmpty
+                                ? displayLabel
+                                : 'PAD $note',
+                            textAlign: TextAlign.center,
+                            style: AppText.performance(
+                              color: _isPressed
+                                  ? pressedFg
+                                  : const Color(0xFFC3C7CA),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ).copyWith(fontFamily: style.fontFamily),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),

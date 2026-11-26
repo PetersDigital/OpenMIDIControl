@@ -26,6 +26,10 @@ class ControlWidgetFactory {
     WidgetRef ref,
   ) {
     final key = ValueKey(control.id);
+    final style = control.effectiveStyle;
+    final accentColor = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : null;
 
     switch (control.type) {
       case ControlType.fader:
@@ -35,9 +39,11 @@ class ControlWidgetFactory {
           controlId: control.id,
           ccNumber: control.defaultCc,
           displayName: control.displayName,
-          activeColor: isEvenColumn
-              ? const Color(0xFFA6C9F8)
-              : const Color(0xFFA1CFCE),
+          activeColor:
+              accentColor ??
+              (isEvenColumn
+                  ? const Color(0xFFA6C9F8)
+                  : const Color(0xFFA1CFCE)),
           labelColor: isEvenColumn
               ? const Color(0xFF033258)
               : const Color(0xFF013737),
@@ -45,6 +51,7 @@ class ControlWidgetFactory {
           isMobile: isMobile,
           behavior: ref.watch(faderBehaviorProvider),
           isActive: isActive,
+          style: style,
         );
 
       case ControlType.xyPad:
@@ -56,6 +63,7 @@ class ControlWidgetFactory {
             ccX: control.defaultCc,
             ccY: control.secondaryCc ?? LayoutControl.defaultXySecondaryCc,
             isActive: isActive,
+            style: style,
           ),
         );
 
@@ -96,6 +104,9 @@ class ControlWidgetFactory {
                       payload: control.payload,
                       showChannelLabel: false,
                       isActive: isActive,
+                      accentColor: accentColor,
+                      fontFamily: style.fontFamily,
+                      showNumericReadout: style.showNumericReadout,
                     ),
                   ),
                 ),
@@ -125,16 +136,20 @@ class ControlWidgetFactory {
                         minHeight: 60,
                       ),
                       alignment: Alignment.topLeft,
-                      child: Text(
-                        isUnassigned
-                            ? 'UNASSIGNED'
-                            : control.payload?.displayLabel ?? 'CC $cc',
-                        style: AppText.performance(
-                          color: const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: style.showNumericReadout
+                          ? Text(
+                              isUnassigned
+                                  ? 'UNASSIGNED'
+                                  : control.payload?.displayLabel ?? 'CC $cc',
+                              style: AppText.performance(
+                                color: const Color(
+                                  0xFFC3C7CA,
+                                ).withValues(alpha: 0.3),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ).copyWith(fontFamily: style.fontFamily),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -147,24 +162,27 @@ class ControlWidgetFactory {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          control.displayName,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: const Color(
-                              0xFFC3C7CA,
-                            ).withValues(alpha: 0.3),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: style.showLabel
+                            ? Text(
+                                control.displayName,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily:
+                                      style.fontFamily ?? 'Space Grotesk',
+                                  color: const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.3),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                      if (!isUnassigned)
+                      if (!isUnassigned && style.showNumericReadout)
                         Text(
                           'CH${channel + 1}',
                           style: TextStyle(
-                            fontFamily: 'Space Grotesk',
+                            fontFamily: style.fontFamily ?? 'Space Grotesk',
                             color: const Color(
                               0xFFC3C7CA,
                             ).withValues(alpha: 0.3),
