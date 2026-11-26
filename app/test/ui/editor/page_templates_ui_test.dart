@@ -11,10 +11,11 @@ import 'package:app/ui/editor/widget_palette_panel.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/widgets/aftertouch_pad.dart';
 import 'package:app/ui/widgets/dynamic_grid_renderer.dart';
+import 'package:app/ui/widgets/latch_pad.dart';
 import 'package:app/ui/widgets/page_management.dart';
 
 void main() {
-  testWidgets('palette places an unassigned aftertouch pad on the grid', (
+  testWidgets('palette places both expressive pads on the grid', (
     tester,
   ) async {
     final container = ProviderContainer.test();
@@ -62,6 +63,20 @@ void main() {
     expect(placed.type, ControlType.aftertouchPad);
     expect(placed.payload, isNull);
     expect(find.byType(AftertouchPad), findsOneWidget);
+
+    final latch = find.text('Latch Pad');
+    await tester.scrollUntilVisible(latch, 150);
+    await tester.tap(latch);
+    await tester.pumpAndSettle();
+    final newPad = container
+        .read(layoutStateProvider)
+        .activePage!
+        .controls
+        .last;
+    expect(newPad.type, ControlType.latchPad);
+    expect(newPad.payload, isNull);
+    expect(newPad.latchDurationMs, LayoutControl.defaultLatchDurationMs);
+    expect(find.byType(LatchPad), findsOneWidget);
   });
 
   group('Template UI integration', () {

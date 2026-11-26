@@ -188,6 +188,12 @@ class _WidgetPalettePanelState extends ConsumerState<WidgetPalettePanel> {
                         label: 'Aftertouch Pad',
                         subtitle: 'Note pad with vertical CC expression',
                       ),
+                      _PaletteItem(
+                        type: ControlType.latchPad,
+                        icon: Icons.timer_outlined,
+                        label: 'Latch Pad',
+                        subtitle: 'Timed CC or note gate',
+                      ),
                       SizedBox(height: 24),
                     ],
                   ),
