@@ -4,6 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/layout_models.dart';
+import '../../core/models/page_templates.dart';
 import '../layout_state.dart';
 import '../design_system.dart';
 
@@ -302,7 +303,7 @@ class _AddPageFormState extends ConsumerState<_AddPageForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -398,6 +399,91 @@ class _AddPageFormState extends ConsumerState<_AddPageForm> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
+          const SizedBox(height: 24),
+          Text(
+            'OR START FROM TEMPLATE',
+            style: AppText.system(
+              color: const Color(0xFFC3C7CA),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.6,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final template in FactoryPageTemplates.all)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                key: ValueKey('add_page_template_${template.id.name}'),
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  final customName = _nameController.text.trim();
+                  final created = ref
+                      .read(layoutStateProvider.notifier)
+                      .addPageFromTemplate(
+                        template,
+                        customName: customName.isEmpty ? null : customName,
+                      );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.maybeOf(context)
+                    ?..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text('Added page "${created.name}"'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2024),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              template.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              template.description,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${template.gridColumns}x${template.gridRows}',
+                        style: const TextStyle(
+                          color: Color(0xFFA6C9F8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

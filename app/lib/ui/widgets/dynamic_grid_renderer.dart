@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
 
 import '../../core/models/layout_models.dart';
+import '../../core/models/page_templates.dart';
 import '../layout_state.dart';
 import '../editor_state.dart';
 import 'control_widget_factory.dart';
@@ -101,6 +102,79 @@ class _DynamicGridRendererState extends ConsumerState<DynamicGridRenderer> {
     );
   }
 
+  (int, int)? _cellFromGlobalOffset(
+    Offset globalOffset,
+    double cellWidth,
+    double cellHeight,
+    int cols,
+    int rows,
+  ) {
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box == null ||
+        !box.hasSize ||
+        box.size.width <= 0 ||
+        box.size.height <= 0) {
+      return null;
+    }
+    final local = box.globalToLocal(globalOffset);
+    final col = (local.dx / cellWidth).floor().clamp(0, cols - 1);
+    final row = (local.dy / cellHeight).floor().clamp(0, rows - 1);
+    return (col, row);
+  }
+
+  void _updateHoverFromOffset(
+    Offset globalOffset,
+    double cellWidth,
+    double cellHeight,
+    int cols,
+    int rows,
+  ) {
+    final cell = _cellFromGlobalOffset(
+      globalOffset,
+      cellWidth,
+      cellHeight,
+      cols,
+      rows,
+    );
+    if (cell == null) return;
+    if (_hoverCol != cell.$1 || _hoverRow != cell.$2) {
+      setState(() {
+        _hoverCol = cell.$1;
+        _hoverRow = cell.$2;
+      });
+    }
+  }
+
+  void _clearHover() {
+    if (_hoverCol != null || _hoverRow != null) {
+      setState(() {
+        _hoverCol = null;
+        _hoverRow = null;
+      });
+    }
+  }
+
+  (int, int) _resolveTargetCell(
+    Offset globalOffset,
+    double cellWidth,
+    double cellHeight,
+    int cols,
+    int rows,
+  ) {
+    final cell = _cellFromGlobalOffset(
+      globalOffset,
+      cellWidth,
+      cellHeight,
+      cols,
+      rows,
+    );
+    if (cell != null) return cell;
+    if (_hoverCol != null && _hoverRow != null) {
+      return (_hoverCol!, _hoverRow!);
+    }
+    return (0, 0);
+  }
+
   Widget _buildBackgroundGrid(
     double cellWidth,
     double cellHeight,
@@ -109,86 +183,110 @@ class _DynamicGridRendererState extends ConsumerState<DynamicGridRenderer> {
     double totalWidth,
     double totalHeight,
   ) {
-    return DragTarget<ControlType>(
+    return DragTarget<PageTemplate>(
       onWillAcceptWithDetails: (details) {
-        final RenderBox? box = context.findRenderObject() as RenderBox?;
-        if (box != null &&
-            box.hasSize &&
-            box.size.width > 0 &&
-            box.size.height > 0) {
-          final local = box.globalToLocal(details.offset);
-          final c = (local.dx / cellWidth).floor().clamp(0, cols - 1);
-          final r = (local.dy / cellHeight).floor().clamp(0, rows - 1);
-          if (_hoverCol != c || _hoverRow != r) {
-            setState(() {
-              _hoverCol = c;
-              _hoverRow = r;
-            });
-          }
-        }
+        _updateHoverFromOffset(
+          details.offset,
+          cellWidth,
+          cellHeight,
+          cols,
+          rows,
+        );
         return true;
       },
-      onMove: (details) {
-        final RenderBox? box = context.findRenderObject() as RenderBox?;
-        if (box != null &&
-            box.hasSize &&
-            box.size.width > 0 &&
-            box.size.height > 0) {
-          final local = box.globalToLocal(details.offset);
-          final c = (local.dx / cellWidth).floor().clamp(0, cols - 1);
-          final r = (local.dy / cellHeight).floor().clamp(0, rows - 1);
-          if (_hoverCol != c || _hoverRow != r) {
-            setState(() {
-              _hoverCol = c;
-              _hoverRow = r;
-            });
-          }
-        }
-      },
-      onLeave: (_) {
-        if (_hoverCol != null || _hoverRow != null) {
-          setState(() {
-            _hoverCol = null;
-            _hoverRow = null;
-          });
-        }
-      },
+      onMove: (details) => _updateHoverFromOffset(
+        details.offset,
+        cellWidth,
+        cellHeight,
+        cols,
+        rows,
+      ),
+      onLeave: (_) => _clearHover(),
       onAcceptWithDetails: (details) {
-        final RenderBox? box = context.findRenderObject() as RenderBox?;
-        int targetCol = 0;
-        int targetRow = 0;
-        if (box != null &&
-            box.hasSize &&
-            box.size.width > 0 &&
-            box.size.height > 0) {
-          final local = box.globalToLocal(details.offset);
-          targetCol = (local.dx / cellWidth).floor().clamp(0, cols - 1);
-          targetRow = (local.dy / cellHeight).floor().clamp(0, rows - 1);
-        } else if (_hoverCol != null && _hoverRow != null) {
-          targetCol = _hoverCol!;
-          targetRow = _hoverRow!;
-        }
+        final target = _resolveTargetCell(
+          details.offset,
+          cellWidth,
+          cellHeight,
+          cols,
+          rows,
+        );
+        _clearHover();
 
-        setState(() {
-          _hoverCol = null;
-          _hoverRow = null;
-        });
-
-        ref
+        final result = ref
             .read(layoutStateProvider.notifier)
-            .addControlToActivePage(details.data, x: targetCol, y: targetRow);
-      },
-      builder: (context, candidateData, rejectedData) {
-        return CustomPaint(
-          size: Size(totalWidth, totalHeight),
-          painter: _GridPainter(
-            cols: cols,
-            rows: rows,
-            cellWidth: cellWidth,
-            cellHeight: cellHeight,
-            hoverCol: candidateData.isNotEmpty ? _hoverCol : null,
-            hoverRow: candidateData.isNotEmpty ? _hoverRow : null,
+            .stampTemplateOnActivePage(
+              details.data,
+              originX: target.$1,
+              originY: target.$2,
+            );
+        if (!mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              result.isSuccess
+                  ? 'Stamped ${details.data.name} onto active page'
+                  : 'Not enough open space at that slot — try an empty spot or NEW PAGE',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
+        );
+      },
+      builder: (context, templateCandidates, _) {
+        return DragTarget<ControlType>(
+          onWillAcceptWithDetails: (details) {
+            _updateHoverFromOffset(
+              details.offset,
+              cellWidth,
+              cellHeight,
+              cols,
+              rows,
+            );
+            return true;
+          },
+          onMove: (details) => _updateHoverFromOffset(
+            details.offset,
+            cellWidth,
+            cellHeight,
+            cols,
+            rows,
+          ),
+          onLeave: (_) => _clearHover(),
+          onAcceptWithDetails: (details) {
+            final target = _resolveTargetCell(
+              details.offset,
+              cellWidth,
+              cellHeight,
+              cols,
+              rows,
+            );
+            _clearHover();
+
+            ref
+                .read(layoutStateProvider.notifier)
+                .addControlToActivePage(
+                  details.data,
+                  x: target.$1,
+                  y: target.$2,
+                );
+          },
+          builder: (context, controlCandidates, _) {
+            final isHovering =
+                controlCandidates.isNotEmpty || templateCandidates.isNotEmpty;
+            return CustomPaint(
+              size: Size(totalWidth, totalHeight),
+              painter: _GridPainter(
+                cols: cols,
+                rows: rows,
+                cellWidth: cellWidth,
+                cellHeight: cellHeight,
+                hoverCol: isHovering ? _hoverCol : null,
+                hoverRow: isHovering ? _hoverRow : null,
+              ),
+            );
+          },
         );
       },
     );
