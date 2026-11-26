@@ -413,9 +413,11 @@ class MainActivity : FlutterActivity() {
                         try {
                             for (i in 0 until events.size step 2) {
                                 val umpInt = events[i].toInt()
-                                val isFinal = events[i + 1] != 0L
+                                val flags = events[i + 1]
+                                val isFinal = (flags and 1L) != 0L
+                                val acceptFeedback = (flags and 2L) != 0L
                                 // Use individual timestamp per event to maintain order and length
-                                processMidiEvent(umpInt, isFinal, System.nanoTime())
+                                processMidiEvent(umpInt, isFinal, System.nanoTime(), acceptFeedback)
                             }
                             result.success(true)
                         } catch (e: Exception) {
@@ -456,12 +458,17 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun processMidiEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
+    private fun processMidiEvent(
+        umpInt: Int,
+        isFinal: Boolean,
+        nowNs: Long,
+        acceptFeedback: Boolean = false,
+    ) {
         val status = (umpInt ushr 16) and 0xFF
         val data1 = (umpInt ushr 8) and 0xFF
         val data2 = umpInt and 0xFF
 
-        if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs)) {
+        if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs, acceptFeedback)) {
             sendToBackends(umpInt, status, data1, data2, nowNs)
         }
     }

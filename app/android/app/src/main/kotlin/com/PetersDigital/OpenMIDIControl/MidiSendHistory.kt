@@ -30,10 +30,21 @@ internal class MidiSendHistory(
         data2: Int,
         isFinal: Boolean,
         nowNs: Long,
+        acceptFeedback: Boolean = false,
     ): Boolean {
         if (data1 !in 0..127) return false
         val index = midiSendSlot(status, data1)
         if (index !in lastSentTime.indices) return true
+
+        if (acceptFeedback) {
+            // Transport commands expect a host reply, including on the same address.
+            clearSlot(index)
+            val messageType = status and 0xF0
+            if (messageType == 0x80 || messageType == 0x90) {
+                clearSlot(midiSendSlot(status xor 0x10, data1))
+            }
+            return true
+        }
 
         val value = if ((status and 0xF0) == 0xE0) (data2 shl 7) or data1 else data2
         val previousValue = lastSentValue[index]
@@ -49,5 +60,10 @@ internal class MidiSendHistory(
         lastSentValue[index] = value
         lastSentTime[index] = nowNs
         return true
+    }
+
+    private fun clearSlot(index: Int) {
+        lastSentValue[index] = -1
+        lastSentTime[index] = 0
     }
 }

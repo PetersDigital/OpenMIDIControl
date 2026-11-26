@@ -173,6 +173,29 @@ class MidiParserTest {
     }
 
     @Test
+    fun transportCommandsAllowImmediateFeedbackOnTheirAddress() {
+        val sink = TestIncomingEventsSink()
+        val window = 75_000_000L
+        val history = MidiSendHistory(suppressionWindowNs = window, rateLimitNs = 8_333_333L)
+        val now = 100_000_000L
+        assertTrue(history.shouldSend(0xB2, 10, 127, true, now))
+        assertTrue(history.shouldSend(0x93, 60, 127, true, now))
+        assertTrue(history.shouldSend(0x83, 60, 0, true, now))
+        assertTrue(history.shouldSend(0xB2, 11, 127, true, now))
+
+        assertTrue(history.shouldSend(0xB2, 10, 127, true, now + 1, acceptFeedback = true))
+        assertTrue(history.shouldSend(0x93, 60, 127, true, now + 1, acceptFeedback = true))
+        for (ump in listOf(0x20B20A00, 0x20933C7F, 0x20833C00, 0x20B20B7F)) {
+            MidiParser.processSingleUmp(ump, now + 2, true, sink, window, history.lastSentTime)
+        }
+
+        assertEquals(
+            listOf(0x20B20A00, 0x20933C7F, 0x20833C00),
+            sink.events.map { (it ushr 32).toInt() },
+        )
+    }
+
+    @Test
     fun testBatchingLoopBounds() = runBlocking {
         // Exceed max size. If capacity is 2000 items,
         // simulating a flood where the buffer has more than the batch array can hold
