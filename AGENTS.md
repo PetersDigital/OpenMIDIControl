@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current milestone: **v0.4.4 – Modular Engine Core & MCU Prerequisites** (`v0.4.3` released). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current development branch (`dev`): **v0.4.4 – Modular Engine Core & MCU Prerequisites** implemented (`v0.4.3` released; next focus: **v0.4.5 – Visual Sovereignty & Expressive Pads**). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ## Project Structure
 
@@ -35,8 +35,12 @@ OpenMIDIControl/
 | `app/lib/core/models/midi_event.dart` | Immutable 32-bit UMP-ready MIDI event model |
 | `app/lib/core/models/control_state.dart` | Scalable Riverpod state for UI controls |
 | `app/lib/core/models/layout_document.dart` | Versioned `.omc` layout document envelope & manifest |
-| `app/lib/core/models/layout_schema_migrator.dart` | Automated schema migration pipeline (`v0 → v1+`) |
+| `app/lib/core/models/layout_schema_migrator.dart` | Automated schema migration pipeline (`v0 → v1 → v2`) |
+| `app/lib/core/models/action_payload.dart` | Polymorphic MIDI action payloads (CC, Note, Pitch Bend, Relative CC, MCU) |
+| `app/lib/core/models/page_templates.dart` | Immutable factory page templates & control stamp blueprints |
+| `app/lib/core/models/widget_style.dart` | Per-control visual style (`WidgetStyle`, curated palette, typography) |
 | `app/lib/core/managers/layout_storage_manager.dart` | Local `.omc` layout repository & persistence |
+| `app/lib/ui/header_transport_state.dart` | Global 9-slot header transport persistence & role state |
 | `app/lib/ui/open_midi_screen.dart` | Main performance screen |
 | `app/lib/ui/hybrid_touch_fader.dart` | Expressive fader (Jump/Hybrid/Catch-up) |
 | `app/lib/ui/midi_settings_screen.dart` | Port configuration with active highlighting |

@@ -131,7 +131,7 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 - **Local Storage Persistence**: `LayoutStorageManager` saving `.omc` layout documents under `<app_documents>/layouts/{id}.omc`, `SharedPreferences` active document tracking, 1000ms debounced auto-save, lifecycle background flush, startup restoration, and `LayoutLibraryModal` for browsing/switching/deleting saved layouts.
 - **Hardened Import / Export**: Envelope-wrapped `.omc` sharing and validated imports with automatic legacy migration and SnackBar feedback.
 
-### ⏳ Current Focus: v0.4.4 – Modular Engine Core & MCU Prerequisites
+### ✅ v0.4.4 – Modular Engine Core & MCU Prerequisites
 
 **Goal:** Establish the polymorphic message schema, global header transport mappings, stampable page templates, and per-widget styling so `v0.5.x` (MCU/HUI & MIDI 2.0) builds on a single clean schema without duplicate migrations.
 
@@ -167,24 +167,24 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 #### Phase 3 – Factory Page Template Gallery ("Stamp Logic")
 
 - **Templates (`app/lib/core/models/page_templates.dart`, `app/lib/ui/editor/widget_palette_panel.dart`):**
-  - Define immutable factory page templates (`Factory Fader Bank`, `4x4 Velocity Drum Grid`, `XY + Encoders`, and `8-Track Mixer Stub`).
-  - Add a **Templates** tab inside `WidgetPalettePanel` (or `+ ADD NEW PAGE` flow) to stamp complete pages or template groups using existing grid bounds/collision checks.
+  - Define immutable factory page templates (`Factory Fader Bank`, `4x4 Velocity Drum Grid`, `XY + Encoders`, and `8-Track Mixer Stub` / `8-CH MIXER`).
+  - Add a **Templates** tab inside `WidgetPalettePanel` and **Add Page** template selection (`PageManagementSection`) to stamp complete pages or template groups using existing grid bounds/collision checks, compact 1-column mixer strip scaling, and post-frame tab strip scrolling.
 
 #### Phase 4 – `WidgetStyle` Visual Sovereignty
 
 - **Model & UI (`app/lib/core/models/widget_style.dart`, `control_config_modal.dart`):**
-  - Add immutable `WidgetStyle` to `LayoutControl` (`accentColorHex`, `fontFamily` in `['Inter', 'Space Grotesk', 'DSEG7Modern']`, `showLabel`, `showNumericReadout`).
-  - Add a curated 12-color high-contrast palette picker (aligned with `DESIGN.md`), font picker, and visibility toggles in `ControlConfigModal`.
-  - Wire `WidgetStyle` into `HybridTouchFader`, `HybridXYPad`, `VelocityDrumPad`, `EndlessEncoderWidget`, and `MidiButton` without introducing extra widget rebuilds.
+  - Add immutable `WidgetStyle` to `LayoutControl` (`accentColorHex`, `fontFamily` in `['Inter', 'Space Grotesk', 'DSEG7Modern']`, `showLabel`, `showNumericReadout`), omitting default values from `.omc` JSON.
+  - Add a curated 12-color high-contrast palette picker (aligned with `DESIGN.md`), font picker, and visibility toggles in `ControlConfigModal` (`APPEARANCE`).
+  - Wire `WidgetStyle` into `HybridTouchFader`, `HybridXYPad`, `VelocityDrumPad`, `EndlessEncoderWidget`, `Trigger`, and `Toggle` (`midi_buttons.dart`) via `ControlWidgetFactory` without introducing extra widget rebuilds.
 
 #### Verification (`v0.4.4`)
 
-- Dart unit & widget tests: `action_payload_test.dart`, `layout_schema_migrator_test.dart` (`v0 → v1 → v2` & `v1 → v2` round-trips), `header_transport_state_test.dart`, `header_transport_grid_test.dart`, `performance_tab_transport_test.dart`, `widget_style_test.dart`, `page_templates_test.dart`.
-- Full gate: `flutter analyze --fatal-infos`, `flutter test`, `.\gradlew.bat :app:testDebugUnitTest`, and on-device `.omc` export/import + cold-restart persistence verification.
+- Dart unit & widget tests: `action_payload_test.dart`, `layout_schema_migrator_test.dart` (`v0 → v1 → v2` & `v1 → v2` round-trips), `header_transport_state_test.dart`, `header_transport_grid_test.dart`, `performance_tab_transport_test.dart`, `page_templates_test.dart`, `page_templates_ui_test.dart`, `widget_style_test.dart`, `widget_style_controls_test.dart`, `control_config_modal_style_test.dart`.
+- Full gate: `flutter analyze --fatal-infos`, `flutter test`, `.\gradlew.bat :app:testDebugUnitTest`, and on-device `.omc` export/import, header transport, template stamping, and `WidgetStyle` cold-restart persistence verification.
 
 ---
 
-### ⏳ v0.4.5 – Visual Sovereignty & Expressive Pads
+### ⏳ Current Focus: v0.4.5 – Visual Sovereignty & Expressive Pads
 
 **Goal:** Complete the remaining modular surface controls (`Global UI Scaling`, `AftertouchPad`, `LatchPad`) before starting protocol-layer work.
 
@@ -229,8 +229,8 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ##### Phase 1 – Native Kotlin & Core Dart High-Res UMP Foundation
 
-- **Fix Pitch Bend Echo Suppression Bug (`app/android/.../MidiParser.kt`):**
-  - In `forwardMidiEvent()`, `lastSentTime` is currently indexed with `data1` (`LSB` for Pitch Bend `0xE0..0xEF`), which changes on every fader tick and breaks bidirectional echo suppression. Normalize suppression key to `data1 = 0` whenever `(status and 0xF0) == 0xE0`.
+- **Pitch Bend Echo Suppression (`app/android/.../MidiParser.kt`):**
+  - *(Baseline channel-keyed `0xE0` normalization shipped in `v0.4.4`; verify 14-bit high-res round-trip coverage here.)* Normalize suppression key to `data1 = 0` whenever `(status and 0xF0) == 0xE0` so changing LSB ticks never bypass bidirectional echo suppression.
 - **14-Bit Pitch Bend & 64-Bit `MT=0x4` UMP Pipeline (`MidiParser.kt`, `UmpPacket.kt`, `MainActivity.kt`, `midi_event.dart`):**
   - Add `buildUmpPitchBendPacket(channel, value14Bit, group)` (`0x2<g>E<ch><lsb><msb>`) and `MidiEvent.pitchBendValue14Bit` (`(data2 << 7) | data1`, range `0..16383`).
   - Extend `MidiEvent` (optional `int umpWord2 = 0`) and `MidiParser.kt` / `IncomingEventsBuffer` to preserve **64-bit MIDI 2.0 Channel Voice (`MT=0x4`)** packets (`word0` header + `word1` 32-bit value) instead of dropping word 2, with deterministic down-translation to `MT=0x2` (14-bit Pitch Bend / 7-bit CC) when targeting MIDI 1.0 endpoints.

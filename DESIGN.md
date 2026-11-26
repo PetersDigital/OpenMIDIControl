@@ -33,6 +33,12 @@ Treat the UI as a series of physical layers. Use the surface-container tiers to 
 * **Token:** Use `surface_variant` at 60% opacity with a `20px` backdrop blur.
 * **Signature Glow:** For primary CTAs, do not use flat fills. Use a subtle inner-glow effect using `on_primary_container` to give the button a "powered-on" hardware feel.
 
+### Per-Control Visual Sovereignty (`WidgetStyle`)
+
+* **Curated Accent Palette:** Controls accept an optional `accentColorHex` selected from 12 high-contrast Console swatches (Ice Blue `#A6C9F8`, Mint Teal `#A1CFCE`, Warm Amber `#E9C46A`, Coral Peach `#FFB59E`, Studio Cyan `#80CBC4`, Signal Green `#81C784`, Synth Violet `#CE93D8`, Rose Pink `#F48FB1`, Tangerine `#FF8A65`, Record Red `#EF5350`, Solar Gold `#FFD54F`, Console Silver `#E0E3E7`), plus Default (`null`).
+* **Contrast-Aware Surfaces:** `Trigger` and `Toggle` active fills adapt label/icon contrast automatically from swatch luminance so custom fills stay legible against obsidian backgrounds.
+* **Typography & Readout Sovereignty:** Per-control overrides support bundled fonts (`Inter`, `Space Grotesk`, `DSEG7Modern`) and independent `Show Label` / `Show Numeric Readout` visibility toggles inside `ControlConfigModal`.
+
 ---
 
 ## 3. Typography: Technical Authority

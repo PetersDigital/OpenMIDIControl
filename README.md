@@ -17,8 +17,8 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 ## Current Status
 
-- **v0.4.3** is the current released baseline, introducing versioned `.omc` layout persistence (`LayoutDocument` schema v1, `LayoutManifest` metadata, `LayoutSchemaMigrator`, local `LayoutLibraryModal`, and hardened import/export) plus Flutter 3.50 / Gradle 9.5 toolchain upgrades.
-- **v0.4.4** is the next active focus for Modular Engine Core & MCU Prerequisites (`ActionPayload` polymorphism, global header transport mappings, Factory Page Templates, and `WidgetStyle` inspector), leading into **v0.5.x (MCU/HUI & High-Res UMP)**.
+- **v0.4.3** is the latest released baseline, introducing versioned `.omc` layout persistence (`LayoutDocument` schema v1, `LayoutManifest` metadata, `LayoutSchemaMigrator`, local `LayoutLibraryModal`, and hardened import/export) plus Flutter 3.50 / Gradle 9.5 toolchain upgrades.
+- **v0.4.4** (Modular Engine Core & MCU Prerequisites) is implemented on `dev`, adding polymorphic `ActionPayload` & schema `v2`, global 3×3 header transport assignments, Factory Page Templates, and per-control `WidgetStyle` customization ahead of **v0.4.5** and **v0.5.x (MCU/HUI & High-Res UMP)**.
 - See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed phased roadmap.
 
 ## Core Docs
