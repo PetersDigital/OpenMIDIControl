@@ -6,7 +6,29 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.4...HEAD)
+
+## [0.4.4] - 2026-11-26
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.3...v0.4.4)
+
+### Added
+
+- **Polymorphic `ActionPayload` & Schema `v2`**: Added immutable `CcPayload`, `NotePayload`, `PitchBendPayload`, `RelativeCcPayload`, and `McuActionPayload` models plus shared `TransportAction`, automatic `v1 → v2` migration in `LayoutSchemaMigrator`, and typed MIDI dispatch across faders, XY pads (independent X/Y axis assignments), drum pads, encoders, triggers, and toggles.
+- **Typed Inspector Controls**: Added reusable `MidiActionFields` and `MidiActionDraft` widgets in `ControlConfigModal` with message-type selection, unassigned gating, and octave range validation.
+- **Global Header Transport Grid**: Added 9-slot `HeaderTransportRole` persistence (`headerTransportMappingsProvider` in `SharedPreferences`), wired both portrait and landscape 3×3 `MidiTransportGrid` instances with momentary sends and incoming host feedback states, and added **Settings → Performance → Transport Assignments**.
+- **Factory Page Templates**: Added immutable page templates (`Factory Fader Bank`, `4x4 Velocity Drum Grid`, `XY + Encoders`, and `8-Track Mixer Stub` / `8-CH MIXER`) in `page_templates.dart`, stampable via the `WidgetPalettePanel` **Templates** tab (tap or long-press drag) and `+ ADD NEW PAGE` flow.
+- **`WidgetStyle` Visual Sovereignty**: Added optional immutable `WidgetStyle` (`accentColorHex` from 12 curated high-contrast swatches, `fontFamily` in `Inter`, `Space Grotesk`, or `DSEG7Modern`, `showLabel`, and `showNumericReadout`), omitted from `.omc` JSON when default, editable in `ControlConfigModal` (`APPEARANCE`), and wired into fader, XY pad, drum pad, encoder, trigger, and toggle widgets.
+
+### Changed
+
+- **Header Transport Normalization**: Removed placeable `transportButton` controls from the grid/palette in favor of the dedicated 3×3 global header transport grid, while safely skipping legacy `transportButton` entries during `v1`/`v2` layout decoding.
+- **Compact Mixer & Tab Ergonomics**: Scaled narrow 1-column mixer strips cleanly across `HybridTouchFader`, `Trigger`, and `Toggle`, and auto-scrolled the header tab strip to reveal newly created pages.
+
+### Fixed
+
+- **Android Layout Picker & Imports**: Enabled `.omc` extension matching in Android's system file picker, validated imported layout extensions, and surfaced `LayoutSchemaMigrator` version upgrade feedback on import.
+- **Feedback, Echo Suppression & Assigned Gating**: Normalized Pitch Bend (`0xE0`) echo suppression keys by channel in `MidiParser`, propagated the host feedback flag with off-state button feedback publishing, gated CC transmission for unassigned controls and cleared encoders, and rejected out-of-range note octaves.
 
 ## [0.4.3] - 2026-11-20
 

@@ -33,6 +33,12 @@ Treat the UI as a series of physical layers. Use the surface-container tiers to 
 * **Token:** Use `surface_variant` at 60% opacity with a `20px` backdrop blur.
 * **Signature Glow:** For primary CTAs, do not use flat fills. Use a subtle inner-glow effect using `on_primary_container` to give the button a "powered-on" hardware feel.
 
+### Per-Control Visual Sovereignty (`WidgetStyle`)
+
+* **Curated Accent Palette:** Controls accept an optional `accentColorHex` selected from 12 high-contrast Console swatches (Ice Blue `#A6C9F8`, Mint Teal `#A1CFCE`, Warm Amber `#E9C46A`, Coral Peach `#FFB59E`, Studio Cyan `#80CBC4`, Signal Green `#81C784`, Synth Violet `#CE93D8`, Rose Pink `#F48FB1`, Tangerine `#FF8A65`, Record Red `#EF5350`, Solar Gold `#FFD54F`, Console Silver `#E0E3E7`), plus Default (`null`).
+* **Contrast-Aware Surfaces:** `Trigger` and `Toggle` active fills adapt label/icon contrast automatically from swatch luminance so custom fills stay legible against obsidian backgrounds.
+* **Typography & Readout Sovereignty:** Per-control overrides support bundled fonts (`Inter`, `Space Grotesk`, `DSEG7Modern`) and independent `Show Label` / `Show Numeric Readout` visibility toggles inside `ControlConfigModal`.
+
 ---
 
 ## 3. Typography: Technical Authority
@@ -125,7 +131,7 @@ Treat the command center as the "instrument cluster" for the console: 30% of the
   * `usbConnected`: Deep green border (`Colors.green.shade900`), `Colors.green.shade400` icon/title. "USB HOST CONNECTED". (DAW traffic detected).
   * `available`: Amber border/title. "MIDI DEVICES AVAILABLE". (Non-peripheral hardware detected).
   * `connectionLost`: Red border/title. "CONNECTION LOST" (transient state).
-* **Control grid:** The 3×3 grid of transport controls serves primarily as a visual anchor and layout testbed for future macros, so keep the glyphs aligned and consistent with the `surface_container` tiers.
+* **Control grid:** The drop-down 3×3 header transport grid (`Rewind / Up / Record`, `Left / Stop / Right`, `Fast Forward / Down / Play`) serves as the dedicated global transport surface rather than a placeable page widget. Preserve the existing glyphs, sizing, spacing, and `surface_container` tiers across portrait and landscape layouts; keep assignment editing inside **Settings → Performance → Transport Assignments** (defaulting every role to Unassigned) so performance-mode taps only send MIDI, and reflect incoming host feedback with a lit state on each assigned cell. In future protocol modes (`v0.5.0` MCU, `v0.5.1` HUI), these 9 semantic roles auto-bind to protocol-native transport and navigation commands with live DAW LED feedback without overwriting manual Generic MIDI assignments.
 * **Connections Branding:**
   * Manual overrides and USB mode toggles use the `primary_container` color for active switches.
   * Device tiles use `surface_container_low` with `primary_container` translucent highlighting (10% alpha) when active.

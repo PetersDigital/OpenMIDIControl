@@ -13,9 +13,9 @@ import 'package:app/ui/widgets/endless_encoder.dart';
 import 'package:app/ui/widgets/midi_buttons.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_screen.dart';
+import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/widgets/editor_control_wrapper.dart';
-import 'package:app/core/models/layout_models.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 

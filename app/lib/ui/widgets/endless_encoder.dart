@@ -5,23 +5,33 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/action_payload.dart';
+import '../midi_action_dispatcher.dart';
 import '../midi_service.dart';
 import '../performance_ticker_mixin.dart';
 
 class EndlessEncoderWidget extends ConsumerStatefulWidget {
   final int channel;
   final int cc;
+  final ActionPayload? payload;
   final double sensitivity;
   final bool showChannelLabel;
   final bool isActive;
+  final Color? accentColor;
+  final String? fontFamily;
+  final bool showNumericReadout;
 
   const EndlessEncoderWidget({
     super.key,
     this.channel = 0,
     required this.cc,
+    this.payload,
     this.sensitivity = 1.5,
     this.showChannelLabel = true,
     this.isActive = true,
+    this.accentColor,
+    this.fontFamily,
+    this.showNumericReadout = true,
   });
 
   @override
@@ -37,6 +47,10 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   Timer? _throttleTimer;
   int? _lastPolledValue;
   double _visualRotation = 0.0;
+  final _midiAction = MidiActionDispatcher();
+  int _pendingRelativeDelta = 0;
+  String? get _feedbackAddress =>
+      ccFeedbackAddress(widget.payload, widget.channel, widget.cc);
 
   @override
   void initState() {
@@ -50,9 +64,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   void _syncFromControlState() {
-    final hotValue = ref
-        .read(controlStateProvider)
-        .ccValues["${widget.channel}:${widget.cc}"];
+    final hotValue = ref.read(controlStateProvider).ccValues[_feedbackAddress];
     if (hotValue != null) {
       _currentValue = hotValue;
       _lastPolledValue = hotValue;
@@ -61,11 +73,10 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
 
   void _setupMidiListener() {
     clearManagedSubscriptions();
+    final address = _feedbackAddress;
+    if (address == null) return;
     addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("${widget.channel}:${widget.cc}"), (
-        previous,
-        next,
-      ) {
+      ref.listenManual(hotCcValueProvider(address), (previous, next) {
         if (!widget.isActive) return;
         if (next is AsyncData) {
           final val = next.value;
@@ -86,6 +97,11 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   @override
   void didUpdateWidget(EndlessEncoderWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.payload != widget.payload || !widget.isActive) {
+      _throttleTimer?.cancel();
+      _pendingRelativeDelta = 0;
+      _midiAction.end();
+    }
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
         _setupMidiListener();
@@ -95,7 +111,8 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
         _throttleTimer?.cancel();
       }
     } else if (oldWidget.channel != widget.channel ||
-        oldWidget.cc != widget.cc) {
+        oldWidget.cc != widget.cc ||
+        oldWidget.payload != widget.payload) {
       _lastPolledValue = null;
       _syncFromControlState();
       if (widget.isActive) {
@@ -105,16 +122,34 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   }
 
   @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _throttleTimer?.cancel();
+      _pendingRelativeDelta = 0;
+      _midiAction.end();
+    }
+  }
+
+  @override
   void dispose() {
     _throttleTimer?.cancel();
+    _midiAction.end();
     disposePerformanceMixin();
     super.dispose();
   }
 
   void _sendMidiUpdate() {
-    ref
-        .read(midiServiceProvider)
-        .sendCC(widget.cc, _currentValue, channel: widget.channel);
+    if (widget.payload == null && widget.cc == -1) return;
+    final delta = _pendingRelativeDelta;
+    _pendingRelativeDelta = 0;
+    _midiAction.sendPosition(
+      ref.read(midiServiceProvider),
+      widget.payload,
+      _currentValue / 127,
+      legacyChannel: widget.channel,
+      legacyCc: widget.cc,
+      relativeDelta: delta,
+    );
   }
 
   static const int _kTransmissionThrottleMs = 8;
@@ -132,12 +167,21 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
   void _handleDragStart(DragStartDetails details) {
     _isDragging = true;
     _accumulatedDelta = 0.0;
+    if (widget.payload is NotePayload) {
+      _midiAction.begin(
+        ref.read(midiServiceProvider),
+        widget.payload,
+        _currentValue / 127,
+      );
+    }
   }
 
-  void _handleDragCancel() {
+  void _finishDrag() {
     _isDragging = false;
     _accumulatedDelta = 0.0;
-    _sendMidiUpdate(); // Final update
+    if (widget.payload is RelativeCcPayload) _throttleTimer?.cancel();
+    _sendMidiUpdate();
+    _midiAction.end();
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -146,6 +190,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
     if (_accumulatedDelta.abs() >= widget.sensitivity) {
       int steps = (_accumulatedDelta / widget.sensitivity).truncate();
       _accumulatedDelta -= steps * widget.sensitivity;
+      if (widget.payload is RelativeCcPayload) _pendingRelativeDelta += steps;
 
       setState(() {
         _currentValue = (_currentValue + steps).clamp(0, 127);
@@ -154,12 +199,6 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
       });
       _throttledSendMidiUpdate();
     }
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    _isDragging = false;
-    _accumulatedDelta = 0.0;
-    _sendMidiUpdate(); // Final update
   }
 
   @override
@@ -173,8 +212,8 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
           return GestureDetector(
             onPanStart: _handleDragStart,
             onPanUpdate: _handleDragUpdate,
-            onPanEnd: _handleDragEnd,
-            onPanCancel: _handleDragCancel,
+            onPanEnd: (_) => _finishDrag(),
+            onPanCancel: _finishDrag,
             behavior: HitTestBehavior.opaque,
             child: SizedBox(
               width: effectiveSize,
@@ -202,6 +241,7 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                       painter: _LedRingPainter(
                         value: _currentValue,
                         inactiveColor: const Color(0xFF0C0E12),
+                        accentColor: widget.accentColor,
                       ),
                     ),
                   ),
@@ -215,20 +255,21 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '$_currentValue',
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: Colors.white,
-                            fontSize: effectiveSize * 0.2,
-                            fontWeight: FontWeight.bold,
+                        if (widget.showNumericReadout)
+                          Text(
+                            '$_currentValue',
+                            style: TextStyle(
+                              fontFamily: widget.fontFamily ?? 'Space Grotesk',
+                              color: Colors.white,
+                              fontSize: effectiveSize * 0.2,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
                         if (widget.showChannelLabel)
                           Text(
                             'CH${widget.channel + 1}',
                             style: TextStyle(
-                              fontFamily: 'Space Grotesk',
+                              fontFamily: widget.fontFamily ?? 'Space Grotesk',
                               color: Colors.white.withValues(alpha: 0.5),
                               fontSize: effectiveSize * 0.1,
                               fontWeight: FontWeight.bold,
@@ -250,8 +291,13 @@ class _EndlessEncoderWidgetState extends ConsumerState<EndlessEncoderWidget>
 class _LedRingPainter extends CustomPainter {
   final int value;
   final Color inactiveColor;
+  final Color? accentColor;
 
-  _LedRingPainter({required this.value, required this.inactiveColor});
+  _LedRingPainter({
+    required this.value,
+    required this.inactiveColor,
+    this.accentColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -259,9 +305,11 @@ class _LedRingPainter extends CustomPainter {
     final strokeWidth = size.width * 0.02;
     final radius = size.width / 2 - (strokeWidth / 2 + 2.0);
 
-    // Audio dB Meter color scheme
-    Color meterColor;
-    if (value <= 88) {
+    // Custom accent overrides the dynamic dB meter color scheme.
+    final Color meterColor;
+    if (accentColor != null) {
+      meterColor = accentColor!;
+    } else if (value <= 88) {
       meterColor = const Color(0xFF4CAF50); // Green (0-70%)
     } else if (value <= 114) {
       meterColor = const Color(0xFFFFB300); // Amber (70-90%)
@@ -311,7 +359,8 @@ class _LedRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LedRingPainter oldDelegate) {
     return oldDelegate.value != value ||
-        oldDelegate.inactiveColor != inactiveColor;
+        oldDelegate.inactiveColor != inactiveColor ||
+        oldDelegate.accentColor != accentColor;
   }
 }
 

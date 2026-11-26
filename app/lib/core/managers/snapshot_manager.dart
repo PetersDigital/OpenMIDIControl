@@ -49,7 +49,18 @@ class PageImportResult {
   bool get isSuccess => page != null && errorMessage == null;
 }
 
+class _UnsupportedLayoutFile implements Exception {
+  const _UnsupportedLayoutFile();
+
+  static const message = 'Choose an .omc or .json layout file.';
+
+  @override
+  String toString() => message;
+}
+
 class SnapshotManager {
+  static const _layoutExtensions = ['omc', 'json'];
+
   Future<Directory> get _presetsDir async {
     final docDir = await getApplicationDocumentsDirectory();
     final presetsDir = Directory('${docDir.path}/presets');
@@ -163,14 +174,21 @@ class SnapshotManager {
 
   /// Picks a `.omc` or `.json` file via the system file picker.
   Future<File?> _pickLayoutFile() async {
+    // Android maps extension filters to MIME types and drops unknown types
+    // such as .omc when a recognized extension also appears in the filter.
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final List<PlatformFile> files = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['omc', 'json'],
+      type: isAndroid ? FileType.any : FileType.custom,
+      allowedExtensions: isAndroid ? null : _layoutExtensions,
     );
-    if (files.isNotEmpty && files.first.path != null) {
-      return File(files.first.path!);
+    if (files.isEmpty) return null;
+
+    final file = files.first;
+    if (!_layoutExtensions.contains(file.extension?.toLowerCase())) {
+      throw const _UnsupportedLayoutFile();
     }
-    return null;
+    final path = file.path;
+    return path == null ? null : File(path);
   }
 
   /// Imports a layout document with validation and schema migration.
@@ -190,13 +208,19 @@ class SnapshotManager {
         );
       }
 
-      final bool isLegacy = !decoded.containsKey('schemaVersion');
       final LayoutDocument document = LayoutDocument.fromJson(
         decoded,
         defaultName: 'Imported Layout',
       );
 
-      return LayoutImportResult(document: document, wasUpgraded: isLegacy);
+      return LayoutImportResult(
+        document: document,
+        wasUpgraded: decoded['schemaVersion'] != document.schemaVersion,
+      );
+    } on _UnsupportedLayoutFile {
+      return const LayoutImportResult(
+        errorMessage: _UnsupportedLayoutFile.message,
+      );
     } on UnsupportedSchemaVersionException catch (e) {
       return LayoutImportResult(errorMessage: e.message);
     } on FormatException catch (e) {
@@ -244,6 +268,10 @@ class SnapshotManager {
 
       return const PageImportResult(
         errorMessage: 'File does not contain valid layout page controls.',
+      );
+    } on _UnsupportedLayoutFile {
+      return const PageImportResult(
+        errorMessage: _UnsupportedLayoutFile.message,
       );
     } on UnsupportedSchemaVersionException catch (e) {
       return PageImportResult(errorMessage: e.message);

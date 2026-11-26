@@ -9,6 +9,7 @@ import '../../models/midi_event.dart';
 import 'sink_node.dart';
 
 class UiStateSinkNode extends SinkNode {
+  static const int _addressCount = 16 * 128;
   static final List<String> _addressKeys = List<String>.generate(2048, (index) {
     final channel = index ~/ 128;
     final cc = index % 128;
@@ -30,13 +31,13 @@ class UiStateSinkNode extends SinkNode {
   final Int32List _ccBuffer = Int32List(2048)..fillRange(0, 2048, -1);
   final Set<int> _dirtyCcIndices = {};
 
-  // For discrete Note On/Off tracking and Button states
   final Map<int, Set<int>> _noteStates = {};
-  final Map<int, Set<int>> _buttonNoteStates = {};
-  final Set<int> _activeCcButtons = {};
+  // CC addresses followed by note addresses. -1 means no state received yet.
+  final Int8List _buttonBuffer = Int8List(_addressCount * 2)
+    ..fillRange(0, _addressCount * 2, -1);
+  final Set<int> _dirtyButtonIndices = {};
 
   bool _hasNoteUpdates = false;
-  bool _hasButtonUpdates = false;
 
   UiStateSinkNode({required this.onStateUpdate, this.useTimerOnly = false});
 
@@ -71,21 +72,16 @@ class UiStateSinkNode extends SinkNode {
       _hasNoteUpdates = false;
     }
 
-    if (_hasButtonUpdates) {
+    if (_dirtyButtonIndices.isNotEmpty) {
       final buttonMap = <String, bool>{};
-      // Note buttons
-      for (final entry in _buttonNoteStates.entries) {
-        final channel = entry.key;
-        for (final note in entry.value) {
-          buttonMap[_noteAddressKeys[(channel * 128) + note]] = true;
-        }
+      for (final index in _dirtyButtonIndices) {
+        final address = index < _addressCount
+            ? _addressKeys[index]
+            : _noteAddressKeys[index - _addressCount];
+        buttonMap[address] = _buttonBuffer[index] == 1;
       }
-      // CC buttons
-      for (final index in _activeCcButtons) {
-        buttonMap[_addressKeys[index]] = true;
-      }
+      _dirtyButtonIndices.clear();
       payload['buttons'] = buttonMap;
-      _hasButtonUpdates = false;
     }
 
     onStateUpdate(payload);
@@ -93,7 +89,9 @@ class UiStateSinkNode extends SinkNode {
 
   void _throttledEmit() {
     if (_disposed) return;
-    if (_dirtyCcIndices.isEmpty && !_hasNoteUpdates && !_hasButtonUpdates) {
+    if (_dirtyCcIndices.isEmpty &&
+        !_hasNoteUpdates &&
+        _dirtyButtonIndices.isEmpty) {
       return;
     }
 
@@ -151,64 +149,34 @@ class UiStateSinkNode extends SinkNode {
     });
   }
 
-  void _processEvent(MidiEvent event) {
-    if (event.legacyStatusByte >= 0xB0 && event.legacyStatusByte <= 0xBF) {
-      // CC Event
-      final channel = event.channel;
-      final cc = event.data1;
-      final value = event.data2;
-      final index = (channel * 128) + cc;
+  void _updateButton(int index, bool isOn) {
+    final value = isOn ? 1 : 0;
+    if (_buttonBuffer[index] == value) return;
+    _buttonBuffer[index] = value;
+    _dirtyButtonIndices.add(index);
+  }
 
+  void _processEvent(MidiEvent event) {
+    final identifier = event.data1;
+    if (identifier > 127) return;
+    final channel = event.channel;
+    final index = (channel * 128) + identifier;
+    final value = event.data2;
+    final status = event.status;
+
+    if (status == 0xB0) {
       if (_ccBuffer[index] != value) {
         _ccBuffer[index] = value;
         _dirtyCcIndices.add(index);
-
-        // Update button state (>= 64 is active)
-        if (value >= 64) {
-          if (_activeCcButtons.add(index)) {
-            _hasButtonUpdates = true;
-          }
-        } else {
-          if (_activeCcButtons.remove(index)) {
-            _hasButtonUpdates = true;
-          }
-        }
       }
-    } else if (event.legacyStatusByte >= 0x90 &&
-        event.legacyStatusByte <= 0x9F) {
-      // Note On Event
-      final channel = event.channel;
-      final note = event.data1;
-      final velocity = event.data2;
-
-      if (velocity > 0) {
-        if (_noteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
-          _hasNoteUpdates = true;
-        }
-        if (_buttonNoteStates.putIfAbsent(channel, () => <int>{}).add(note)) {
-          _hasButtonUpdates = true;
-        }
-      } else {
-        // Note On with 0 velocity acts as Note Off
-        if (_noteStates[channel]?.remove(note) ?? false) {
-          _hasNoteUpdates = true;
-        }
-        if (_buttonNoteStates[channel]?.remove(note) ?? false) {
-          _hasButtonUpdates = true;
-        }
-      }
-    } else if (event.legacyStatusByte >= 0x80 &&
-        event.legacyStatusByte <= 0x8F) {
-      // Note Off Event
-      final channel = event.channel;
-      final note = event.data1;
-
-      if (_noteStates[channel]?.remove(note) ?? false) {
-        _hasNoteUpdates = true;
-      }
-      if (_buttonNoteStates[channel]?.remove(note) ?? false) {
-        _hasButtonUpdates = true;
-      }
+      _updateButton(index, value >= 64);
+    } else if (status == 0x90 || status == 0x80) {
+      final isOn = status == 0x90 && value > 0;
+      final changed = isOn
+          ? _noteStates.putIfAbsent(channel, () => <int>{}).add(identifier)
+          : (_noteStates[channel]?.remove(identifier) ?? false);
+      if (changed) _hasNoteUpdates = true;
+      _updateButton(_addressCount + index, isOn);
     }
   }
 

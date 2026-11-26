@@ -46,7 +46,7 @@ void main() {
         addTearDown(container.dispose);
 
         final doc = container.read(layoutDocumentProvider);
-        expect(doc.schemaVersion, 1);
+        expect(doc.schemaVersion, 2);
         expect(doc.manifest.name, 'Default Layout');
         expect(doc.manifest.author, 'Anonymous');
         expect(doc.manifest.version, '1.0.0');

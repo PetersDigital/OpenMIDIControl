@@ -55,11 +55,15 @@ The trajectory prioritizes architectural purity and deterministic routing before
 - **O(1) Rendering Engine:** Refactored the UI to use index-based leaf subscriptions and decoupled Render Pulls, ensuring that high-frequency MIDI events only rebuild specific widgets rather than the entire grid.
 - **Snapshot Manager & Persistence**: Integrated a unified persistence architecture where `PresetSnapshot` encapsulates both volatile control values (`ControlState`) and structural layout mappings (`List<LayoutPage>`). This ensures atomic session restoration.
   - **OMC Ecosystem Unification**: Standardized all preset and layout management under the `.omc` format for both internal snapshots and external exports.
-- **Layout Schema Versioning & Storage Engine (v0.4.3)**:
-  - **LayoutDocument Envelope**: Versioned root container (`schemaVersion: 1`, `manifest`, `pages`, `activePageIndex`) strictly applied at I/O boundaries to keep the hot-path state manager (`LayoutStateNotifier`) fast and unencumbered.
-  - **LayoutSchemaMigrator Pipeline**: Extensible migration pipeline that automatically inspects input JSON, detects legacy unversioned layouts (raw `{ "pages": [...] }`) or `PresetSnapshot` objects (v0), synthesizes default manifest metadata, and upgrades them to the current `LayoutDocument` schema version (v1). Rejects unsupported or corrupted schemas with `UnsupportedSchemaVersionException`.
+- **Layout Schema Versioning & Storage Engine (v0.4.3–v0.4.4)**:
+  - **LayoutDocument Envelope**: Versioned root container (`schemaVersion: 2`, `manifest`, `pages`, `activePageIndex`) strictly applied at I/O boundaries to keep the hot-path state manager (`LayoutStateNotifier`) fast and unencumbered.
+  - **LayoutSchemaMigrator Pipeline**: Extensible migration pipeline that automatically inspects input JSON, detects legacy unversioned layouts (raw `{ "pages": [...] }`) or `PresetSnapshot` objects (`v0 → v1`) and `v1 → v2` control layouts, synthesizes default manifest metadata and polymorphic `ActionPayload` models (`CcPayload`, `NotePayload`, `PitchBendPayload`, `RelativeCcPayload`, `McuActionPayload`), skips legacy `transportButton` items cleanly, and rejects unsupported/corrupted schemas with `UnsupportedSchemaVersionException`.
   - **LayoutStorageManager Repository**: Local file persistence service managing `.omc` layout files under `<app_documents>/layouts/{id}.omc`, with active document ID tracking persisted via `SharedPreferences` and browsable via `LayoutLibraryModal`.
   - **LayoutDocumentNotifier & State Isolation**: Separate Riverpod notifier managing document envelope metadata, debounced writes (1000ms debounce), and immediate lifecycle flushes on app backgrounding (`appLifecycleStateProvider`), synchronizing with `LayoutStateNotifier` without coupling runtime control interactions to storage I/O.
+- **Modular Engine Core & Visual Sovereignty (v0.4.4)**:
+  - **Global Header Transport Mappings**: The 9 fixed `HeaderTransportRole` cells in `MidiTransportGrid` are stored globally in `SharedPreferences` (`headerTransportMappingsProvider`) rather than per-`.omc` layout, routing momentary sends through `MidiGate.transport()` with incoming host LED feedback.
+  - **Factory Page Templates**: Immutable `PageTemplate` definitions (`page_templates.dart`) materialize controls or stamp entire pages through `LayoutStateNotifier` using existing grid boundary and collision checks.
+  - **WidgetStyle Forwarding**: Optional immutable `WidgetStyle` overrides on `LayoutControl` (omitted from JSON when default) are resolved once via `ControlWidgetFactory` and forwarded to controls without adding extra Riverpod subscriptions.
 - **PerformanceTickerMixin Stability**: Centralized lifecycle management for interactive widgets with managed disposal, background recovery, and **safeStartTicker** guards to prevent "already active" or "disposed" assertion crashes during rapid UI updates.
 - **Single Source of Truth (SSoT)**: Migrated all UI components to read MIDI identifiers and behaviors directly from the central `LayoutState` notifier, eliminating redundant state synchronization and configuration drift.
 - **Protocol & Scripting (v0.5.x - v0.6.0)**: Native MCU/HUI support followed by official DAW remote scripts (Ableton/Cubase/Logic).
@@ -283,25 +287,30 @@ State machine must be explicit and testable.
 - **Stream Throttling**: The `ControlStateNotifier` implements a throttled per-CC update stream, deduplicating high-frequency redundant MIDI events before they are dispatched to the UI bridge.
 - **O(1) State Equality**: The `ControlState` model implements equality checks based strictly on a monotonically increasing `version` counter, eliminating $O(N)$ collection comparisons during Riverpod state transitions.
 - **Native Deduplication Buffers**: `MainActivity.kt` maintains 16k-entry `IntArray` and `LongArray` buffers to perform O(1) deduplication and rate-limiting for every possible MIDI CC/Channel combination at the native boundary.
-- **Performance Evaluation (Planned v0.5.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations.
+- **Performance Evaluation (Planned v0.6.0):** Strict benchmarking of the Kotlin Coroutine pipeline against native DAW integrations and Windows MIDI Services `<1µs` timestamps.
 - **C++ Audio Layer (Conditional, Later):** If Kotlin limits are hit, migrate the hot data path to Android's native `AMidi` C API and Dart FFI shared memory. The internal data model is already **32-bit UMP-aligned** (v0.2.1) to support this transition.
 
 ### G. Lifecycle & Performance Hardening (v0.3.0)
 
 #### 1. PerformanceTickerMixin
+
 Standardized lifecycle management for high-frequency interactive widgets (`HybridTouchFader`, `HybridXYPad`, `EndlessEncoder`).
+
 - **Managed Disposal**: Automatically cancels `ProviderSubscription` and stops `Ticker` instances when widgets are unmounted or the app enters the background.
 - **Riverpod Lifecycle Bridge**: Now utilizes `appLifecycleStateProvider` via Riverpod `listenManual` instead of native `WidgetsBindingObserver`, consolidating lifecycle management and reducing the number of global observers.
 - **Resource Recovery**: Centralizes background suspension to pause heavy UI logic during inactivity, significantly reducing idle battery drain.
 - **Disposal Guards**: Enforces mandatory `_disposed` checks in all asynchronous callbacks (`addPostFrameCallback`, `scheduleFrameCallback`) to prevent state mutations on unmounted widgets.
 
 #### 2. Monotonic Timing Guards
-- **Stopwatch Reliance**: All gesture detection (Double-tap, Long-press) and MIDI rate-limiting must use `Stopwatch.elapsedMilliseconds`. 
+
+- **Stopwatch Reliance**: All gesture detection (Double-tap, Long-press) and MIDI rate-limiting must use `Stopwatch.elapsedMilliseconds`.
 - **NTP Immunity**: By avoiding `DateTime.now()`, the system is immune to "wall clock" jumps during Network Time Protocol syncs, ensuring deterministic interaction timing.
 
 #### 3. Bounded Object Pooling
+
 The `MidiRouter` DAG implements strictly bounded object pools for `WorkItem` and `MidiEvent` envelopes.
-- **Allocation Cap**: `_MAX_POOL_SIZE = 256`. 
+
+- **Allocation Cap**: `_MAX_POOL_SIZE = 256`.
 - **Determinism**: By capping the pool, the engine prevents memory inflation during high-frequency MIDI bursts while maintaining near-zero GC churn on the hot-path.
 
 ---

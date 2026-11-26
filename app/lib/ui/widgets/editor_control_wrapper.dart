@@ -40,44 +40,19 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
   final Stopwatch _resizeThrottle = Stopwatch()..start();
 
   void _openConfigModal(BuildContext context) {
-    String identifierLabel = 'MIDI ID (e.g., C3 or 60)';
-    String? secondaryIdentifierLabel;
-    String displayNameLabel = 'Display Name';
-
-    switch (widget.control.type) {
-      case ControlType.fader:
-        identifierLabel = 'CC Number (0-127)';
-        displayNameLabel = 'Fader Name';
-        break;
-      case ControlType.xyPad:
-        identifierLabel = 'X-Axis CC Number (0-127)';
-        secondaryIdentifierLabel = 'Y-Axis CC Number (0-127)';
-        displayNameLabel = 'XY Pad Name';
-        break;
-      case ControlType.drumPad:
-        identifierLabel = 'Note (0-127 or C-1 to G9)';
-        displayNameLabel = 'Pad Label';
-        break;
-      case ControlType.encoder:
-        identifierLabel = 'CC Number (0-127)';
-        displayNameLabel = 'Encoder Name';
-        break;
-      case ControlType.trigger:
-        identifierLabel = 'CC Number (0-127)';
-        displayNameLabel = 'Trigger Name';
-        break;
-      case ControlType.toggle:
-        identifierLabel = 'CC Number (0-127)';
-        displayNameLabel = 'Toggle Name';
-        break;
-    }
+    final displayNameLabel = switch (widget.control.type) {
+      ControlType.fader => 'Fader Name',
+      ControlType.xyPad => 'XY Pad Name',
+      ControlType.drumPad => 'Pad Label',
+      ControlType.encoder => 'Encoder Name',
+      ControlType.trigger => 'Trigger Name',
+      ControlType.toggle => 'Toggle Name',
+    };
 
     showDialog(
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: widget.control.id,
-        identifierLabel: identifierLabel,
-        secondaryIdentifierLabel: secondaryIdentifierLabel,
         displayNameLabel: displayNameLabel,
       ),
     );
@@ -89,11 +64,10 @@ class _EditorControlWrapperState extends ConsumerState<EditorControlWrapper> {
       selectedControlProvider.select((id) => id == widget.control.id),
     );
 
-    final bool isCompact =
-        widget.control.type == ControlType.drumPad ||
-        widget.control.type == ControlType.encoder ||
-        widget.control.type == ControlType.trigger ||
-        widget.control.type == ControlType.toggle;
+    final isCompact = switch (widget.control.type) {
+      ControlType.fader || ControlType.xyPad => false,
+      _ => true,
+    };
     final double handleSize = isCompact ? 36.0 : 60.0;
     final double innerPadding = isCompact ? 5.0 : 8.0;
     final double iconSize = isCompact ? 12.0 : 20.0;

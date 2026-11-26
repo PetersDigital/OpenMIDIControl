@@ -8,11 +8,15 @@ class MidiEvent {
   final bool
   isFinal; // Gesture finality semantics for routing and native transport
 
+  /// Accepts an immediate host response at the sent MIDI address.
+  final bool acceptFeedback;
+
   const MidiEvent(
     this.ump,
     this.timestamp, {
     this.sourceId = 'unknown',
     this.isFinal = false,
+    this.acceptFeedback = false,
   });
 
   // Bitwise extraction getters for standard MIDI 1.0 Voice fields
@@ -33,11 +37,13 @@ class MidiEvent {
         other.ump == ump &&
         other.timestamp == timestamp &&
         other.sourceId == sourceId &&
-        other.isFinal == isFinal;
+        other.isFinal == isFinal &&
+        other.acceptFeedback == acceptFeedback;
   }
 
   @override
-  int get hashCode => Object.hash(ump, timestamp, sourceId, isFinal);
+  int get hashCode =>
+      Object.hash(ump, timestamp, sourceId, isFinal, acceptFeedback);
 
   @override
   String toString() {

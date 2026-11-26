@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_models.dart';
+import 'package:app/core/models/page_templates.dart';
+import 'package:app/core/models/widget_style.dart';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
 
@@ -55,7 +58,53 @@ class LayoutState {
   }
 }
 
+/// Outcome status of stamping a [PageTemplate] onto an existing active page.
+enum TemplateStampStatus { stamped, noActivePage, insufficientSpace }
+
+/// Result returned by [LayoutStateNotifier.stampTemplateOnActivePage].
+class TemplateStampResult {
+  final TemplateStampStatus status;
+  final int addedCount;
+  final int? originX;
+  final int? originY;
+
+  const TemplateStampResult._({
+    required this.status,
+    this.addedCount = 0,
+    this.originX,
+    this.originY,
+  });
+
+  const TemplateStampResult.stamped({
+    required int addedCount,
+    required int originX,
+    required int originY,
+  }) : this._(
+         status: TemplateStampStatus.stamped,
+         addedCount: addedCount,
+         originX: originX,
+         originY: originY,
+       );
+
+  const TemplateStampResult.noActivePage()
+    : this._(status: TemplateStampStatus.noActivePage);
+
+  const TemplateStampResult.insufficientSpace()
+    : this._(status: TemplateStampStatus.insufficientSpace);
+
+  bool get isSuccess => status == TemplateStampStatus.stamped;
+}
+
 class LayoutStateNotifier extends Notifier<LayoutState> {
+  int _idSequence = 0;
+
+  String _nextUniqueSuffix() {
+    _idSequence += 1;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final randomSuffix = math.Random().nextInt(1000000);
+    return '${timestamp}_${randomSuffix}_$_idSequence';
+  }
+
   @override
   LayoutState build() {
     return LayoutState(
@@ -258,7 +307,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
           id: 'xy_main',
           type: ControlType.xyPad,
           defaultCc: 1, // X-axis
-          secondaryCc: 11, // Y-axis
+          secondaryCc: LayoutControl.defaultXySecondaryCc,
           channel: 0,
           invertY:
               true, // Default to true for standard DAW behavior (bottom=0, top=127)
@@ -513,6 +562,59 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
       return page.copyWith(controls: updatedControls);
     }).toList();
     state = state.copyWith(pages: updatedPages);
+  }
+
+  /// Saves a typed assignment and its editor settings in one state update.
+  void updateControlActions(
+    String controlId, {
+    required ActionPayload? payload,
+    ActionPayload? secondaryPayload,
+    bool clearSecondary = false,
+    String? name,
+    bool? invertX,
+    bool? invertY,
+    WidgetStyle? style,
+    bool clearStyle = false,
+  }) {
+    _editControl(
+      controlId,
+      (control) => control.withActions(
+        payload: payload,
+        secondaryPayload: secondaryPayload,
+        clearSecondary: clearSecondary,
+        customName: name,
+        invertX: invertX,
+        invertY: invertY,
+        style: style,
+        clearStyle: clearStyle,
+      ),
+    );
+  }
+
+  void _editControl(
+    String controlId,
+    LayoutControl Function(LayoutControl) edit,
+  ) {
+    final pages = state.pages;
+    List<LayoutPage>? updatedPages;
+    for (var pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+      final page = pages[pageIndex];
+      final controls = page.controls;
+      List<LayoutControl>? updatedControls;
+      for (var index = 0; index < controls.length; index++) {
+        final control = controls[index];
+        if (control.id != controlId) continue;
+        final updated = edit(control);
+        if (updated == control) continue;
+        (updatedControls ??= [...controls])[index] = updated;
+      }
+      if (updatedControls != null) {
+        (updatedPages ??= [...pages])[pageIndex] = page.copyWith(
+          controls: updatedControls,
+        );
+      }
+    }
+    if (updatedPages != null) state = state.copyWith(pages: updatedPages);
   }
 
   void resetControl(String controlId) {
@@ -1085,16 +1187,7 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
     if (pageIndex == -1) return;
     final page = state.pages[pageIndex];
-    final updatedControls = page.controls.map((control) {
-      return control.copyWith(
-        defaultCc: -1,
-        secondaryCc: -1,
-        channel: -1,
-        customName: 'Unassigned',
-        invertX: false,
-        invertY: false,
-      );
-    }).toList();
+    final updatedControls = page.controls.map(_clearControlActions).toList();
 
     final updatedPages = [...state.pages];
     updatedPages[pageIndex] = page.copyWith(controls: updatedControls);
@@ -1102,24 +1195,17 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
   }
 
   void clearControl(String controlId) {
-    final updatedPages = state.pages.map((page) {
-      final updatedControls = page.controls.map((control) {
-        if (control.id == controlId) {
-          return control.copyWith(
-            defaultCc: -1,
-            secondaryCc: -1,
-            channel: -1,
-            customName: 'Unassigned',
-            invertX: false,
-            invertY: false,
-          );
-        }
-        return control;
-      }).toList();
-      return page.copyWith(controls: updatedControls);
-    }).toList();
-    state = state.copyWith(pages: updatedPages);
+    _editControl(controlId, _clearControlActions);
   }
+
+  static LayoutControl _clearControlActions(LayoutControl control) =>
+      control.withActions(
+        payload: null,
+        clearSecondary: true,
+        customName: 'Unassigned',
+        invertX: false,
+        invertY: false,
+      );
 
   LayoutControl? deleteControl(String pageId, String controlId) {
     final pageIndex = state.pages.indexWhere((p) => p.id == pageId);
@@ -1157,12 +1243,135 @@ class LayoutStateNotifier extends Notifier<LayoutState> {
     state = state.copyWith(pages: updatedPages);
   }
 
+  static bool _rectanglesOverlap(
+    int ax,
+    int ay,
+    int aw,
+    int ah,
+    LayoutControl b,
+  ) {
+    return ax < b.x + b.width &&
+        ax + aw > b.x &&
+        ay < b.y + b.height &&
+        ay + ah > b.y;
+  }
+
+  /// Checks whether [template] fits inside [page] at ([originX], [originY])
+  /// without overlapping any existing controls.
+  static bool canStampTemplate(
+    LayoutPage page,
+    PageTemplate template, {
+    required int originX,
+    required int originY,
+  }) {
+    if (!template.isValid || originX < 0 || originY < 0) return false;
+    for (final spec in template.controls) {
+      final sx = spec.x + originX;
+      final sy = spec.y + originY;
+      if (sx < 0 ||
+          sy < 0 ||
+          sx + spec.width > page.gridColumns ||
+          sy + spec.height > page.gridRows) {
+        return false;
+      }
+      for (final existing in page.controls) {
+        if (_rectanglesOverlap(sx, sy, spec.width, spec.height, existing)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   void addPage(PageType type, String name) {
     final newPage = _buildBlankPage(type, name);
     final updatedPages = [...state.pages, newPage];
     state = state.copyWith(
       pages: updatedPages,
       activePageIndex: updatedPages.length - 1,
+    );
+  }
+
+  /// Appends a new page instantiated from [template] and selects it.
+  LayoutPage addPageFromTemplate(PageTemplate template, {String? customName}) {
+    final suffix = _nextUniqueSuffix();
+    final newPage = template.instantiatePage(
+      pageId: 'page_$suffix',
+      idSuffix: suffix,
+      customName: customName,
+    );
+    final updatedPages = [...state.pages, newPage];
+    state = state.copyWith(
+      pages: updatedPages,
+      activePageIndex: updatedPages.length - 1,
+    );
+    return newPage;
+  }
+
+  /// Stamps [template] controls onto the active page without colliding with
+  /// existing controls.
+  ///
+  /// When [originX] and [originY] are provided, validates that exact origin;
+  /// otherwise scans top-to-bottom, left-to-right for the first open slot.
+  TemplateStampResult stampTemplateOnActivePage(
+    PageTemplate template, {
+    int? originX,
+    int? originY,
+  }) {
+    if (state.pages.isEmpty) {
+      return const TemplateStampResult.noActivePage();
+    }
+
+    final pageIndex = state.activePageIndex;
+    final page = state.pages[pageIndex];
+
+    int? resolvedX;
+    int? resolvedY;
+
+    if (originX != null && originY != null) {
+      if (canStampTemplate(
+        page,
+        template,
+        originX: originX,
+        originY: originY,
+      )) {
+        resolvedX = originX;
+        resolvedY = originY;
+      }
+    } else if (template.isValid) {
+      final maxRow = page.gridRows - template.boundingHeight;
+      final maxCol = page.gridColumns - template.boundingWidth;
+      for (var r = 0; r <= maxRow && resolvedX == null; r++) {
+        for (var c = 0; c <= maxCol; c++) {
+          if (canStampTemplate(page, template, originX: c, originY: r)) {
+            resolvedX = c;
+            resolvedY = r;
+            break;
+          }
+        }
+      }
+    }
+
+    if (resolvedX == null || resolvedY == null) {
+      return const TemplateStampResult.insufficientSpace();
+    }
+
+    final suffix = _nextUniqueSuffix();
+    final stampedControls = template.instantiateControls(
+      idSuffix: suffix,
+      xOffset: resolvedX,
+      yOffset: resolvedY,
+    );
+    final updatedPages = [...state.pages];
+    updatedPages[pageIndex] = page.copyWith(
+      controls: [...page.controls, ...stampedControls],
+    );
+    state = state.copyWith(pages: updatedPages);
+
+    return TemplateStampResult.stamped(
+      addedCount: stampedControls.length,
+      originX: resolvedX,
+      originY: resolvedY,
     );
   }
 

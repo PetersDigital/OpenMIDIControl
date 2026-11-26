@@ -4,11 +4,52 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/managers/snapshot_manager.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_document.dart';
 import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_models.dart';
+
+final class _PickedFile extends PlatformFile {
+  _PickedFile(this.name, this.uri);
+
+  @override
+  final String name;
+
+  @override
+  final Uri uri;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _TestFilePicker extends FilePickerPlatform {
+  List<PlatformFile> files = [];
+  FileType? requestedType;
+  List<String>? requestedExtensions;
+
+  @override
+  Future<List<PlatformFile>> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    requestedType = type;
+    requestedExtensions = allowedExtensions;
+    return files;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -27,11 +68,67 @@ void main() {
     }
   });
 
+  group('Layout file picker', () {
+    late _TestFilePicker picker;
+
+    setUp(() {
+      final original = FilePickerPlatform.instance;
+      final platform = debugDefaultTargetPlatformOverride;
+      addTearDown(() {
+        FilePickerPlatform.instance = original;
+        debugDefaultTargetPlatformOverride = platform;
+      });
+      picker = _TestFilePicker();
+      FilePickerPlatform.instance = picker;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    });
+
+    for (final name in ['layout.OMC', 'layout.json']) {
+      test('Android can import $name without a MIME filter', () async {
+        final cachedFile = File('${tempDir.path}/picker-cache-copy');
+        await cachedFile.writeAsString('{"pages": []}');
+        picker.files = [_PickedFile(name, cachedFile.uri)];
+
+        final result = await snapshotManager.importLayoutDocument();
+
+        expect(picker.requestedType, FileType.any);
+        expect(picker.requestedExtensions, isNull);
+        expect(result.isSuccess, isTrue);
+        expect(result.document!.schemaVersion, 2);
+      });
+    }
+
+    test(
+      'rejects unsupported picker selections before reading the file',
+      () async {
+        final missingFile = File('${tempDir.path}/not-read.omc');
+        picker.files = [_PickedFile('layout.omc.txt', missingFile.uri)];
+
+        final document = await snapshotManager.importLayoutDocument();
+        final page = await snapshotManager.importLayout();
+
+        expect(document.errorMessage, 'Choose an .omc or .json layout file.');
+        expect(page.errorMessage, 'Choose an .omc or .json layout file.');
+      },
+    );
+
+    test('retains the native extension filter outside Android', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+      final result = await snapshotManager.importLayoutDocument();
+
+      expect(picker.requestedType, FileType.custom);
+      expect(picker.requestedExtensions, ['omc', 'json']);
+      expect(result.document, isNull);
+      expect(result.errorMessage, isNull);
+    });
+  });
+
   group('Hardened SnapshotManager Import/Export Tests', () {
     test(
-      'importLayoutDocument imports version 1 LayoutDocument successfully',
+      'importLayoutDocument imports current documents and upgrades v1',
       () async {
-        final docFile = File('${tempDir.path}/valid_v1.omc');
+        final docFile = File('${tempDir.path}/layout.omc');
         final doc = LayoutDocument(
           manifest: LayoutManifest(
             id: 'v1_doc_id',
@@ -44,7 +141,14 @@ void main() {
               id: 'page_1',
               type: PageType.fader,
               name: 'FADERS',
-              controls: [],
+              controls: [
+                LayoutControl(
+                  id: 'volume',
+                  type: ControlType.fader,
+                  defaultCc: 7,
+                  channel: 0,
+                ),
+              ],
             ),
           ],
           activePageIndex: 0,
@@ -59,11 +163,29 @@ void main() {
         expect(result.wasUpgraded, isFalse);
         expect(result.document!.manifest.name, 'Stage Layout');
         expect(result.document!.pages.length, 1);
+
+        final legacyJson = doc.toJson();
+        legacyJson['schemaVersion'] = 1;
+        final legacyPages = legacyJson['pages'] as List<Map<String, dynamic>>;
+        final legacyControls =
+            legacyPages.single['controls'] as List<Map<String, dynamic>>;
+        legacyControls.single.remove('payload');
+        await docFile.writeAsString(jsonEncode(legacyJson));
+
+        final upgraded = await snapshotManager.importLayoutDocument(
+          fileOverride: docFile,
+        );
+        expect(upgraded.wasUpgraded, isTrue);
+        expect(upgraded.document, doc);
+        expect(
+          upgraded.document!.pages.single.controls.single.payload,
+          const CcPayload(channel: 0, cc: 7),
+        );
       },
     );
 
     test(
-      'importLayoutDocument upgrades legacy raw layout JSON (v0 -> v1)',
+      'importLayoutDocument upgrades legacy raw layout JSON to v2',
       () async {
         final legacyFile = File('${tempDir.path}/legacy_raw.omc');
         final legacyJson = {
@@ -84,7 +206,7 @@ void main() {
         );
         expect(result.isSuccess, isTrue);
         expect(result.wasUpgraded, isTrue);
-        expect(result.document!.schemaVersion, 1);
+        expect(result.document!.schemaVersion, 2);
         expect(result.document!.manifest.name, 'Imported Layout');
         expect(result.document!.pages.first.name, 'DRUMS');
       },

@@ -1,10 +1,16 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_manifest.dart';
 import 'package:app/core/models/layout_models.dart';
 import 'package:app/core/models/layout_document.dart';
+import 'package:app/ui/header_transport_state.dart';
 
 void main() {
   group('LayoutDocument Envelope Tests', () {
@@ -37,20 +43,20 @@ void main() {
       );
 
       final document = LayoutDocument(
-        schemaVersion: 1,
         manifest: manifest,
         pages: [page],
         activePageIndex: 0,
       );
 
       final json = document.toJson();
-      expect(json['schemaVersion'], 1);
+      expect(json['schemaVersion'], 2);
       expect(json['manifest']['id'], 'doc_1');
       expect(json['pages'].length, 1);
       expect(json['activePageIndex'], 0);
+      expect(control.toJson().containsKey('transportAction'), isFalse);
 
       final parsed = LayoutDocument.fromJson(json);
-      expect(parsed.schemaVersion, 1);
+      expect(parsed.schemaVersion, 2);
       expect(parsed.manifest.name, 'Main Layout');
       expect(parsed.pages.length, 1);
       expect(parsed.pages.first.id, 'p_0');
@@ -58,6 +64,74 @@ void main() {
       expect(parsed, equals(document));
       expect(parsed.hashCode, equals(document.hashCode));
     });
+
+    test(
+      'skips legacy transportButton entries on v1/v2 import without touching global header mappings',
+      () async {
+        const savedHeaderPlay = NotePayload(channel: 0, note: 94);
+        SharedPreferences.setMockInitialValues({
+          HeaderTransportMappingsNotifier.storageKey: jsonEncode({
+            'play': savedHeaderPlay.toJson(),
+          }),
+        });
+
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        await container
+            .read(headerTransportMappingsProvider.notifier)
+            .ensureLoaded();
+
+        final v2Json = {
+          'schemaVersion': 2,
+          'manifest': LayoutManifest(
+            id: 'legacy_dev_doc',
+            name: 'Dev Fixture',
+            createdAt: now,
+            updatedAt: now,
+          ).toJson(),
+          'pages': [
+            {
+              'id': 'p_0',
+              'type': 'utility',
+              'name': 'UTILITY',
+              'controls': [
+                {
+                  'id': 'transport_play',
+                  'type': 'transportButton',
+                  'transportAction': 'play',
+                  'defaultCc': 94,
+                  'channel': 0,
+                  'payload': {'type': 'note', 'channel': 0, 'note': 94},
+                },
+                {
+                  'id': 'kept_fader',
+                  'type': 'fader',
+                  'defaultCc': 1,
+                  'channel': 0,
+                },
+              ],
+            },
+          ],
+          'activePageIndex': 0,
+        };
+
+        final v1Json = {...v2Json, 'schemaVersion': 1};
+
+        final importedV2 = LayoutDocument.fromJson(v2Json);
+        final importedV1 = LayoutDocument.fromJson(v1Json);
+
+        for (final doc in [importedV2, importedV1]) {
+          final controls = doc.pages.single.controls;
+          expect(controls.map((c) => c.id), ['kept_fader']);
+          expect(controls.single.type, ControlType.fader);
+        }
+
+        // Global header transport mappings remain untouched by layout import.
+        expect(container.read(headerTransportMappingsProvider), {
+          HeaderTransportRole.play: savedHeaderPlay,
+        });
+      },
+    );
 
     test('copyWith updates document properties', () {
       final manifest = LayoutManifest(
@@ -74,7 +148,7 @@ void main() {
 
       final updated = doc.copyWith(activePageIndex: 0);
       expect(updated.manifest.name, 'Main');
-      expect(updated.schemaVersion, 1);
+      expect(updated.schemaVersion, 2);
     });
 
     test(

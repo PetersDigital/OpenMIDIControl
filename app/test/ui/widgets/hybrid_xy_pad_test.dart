@@ -5,6 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:app/core/models/action_payload.dart';
+import 'package:app/core/models/layout_models.dart';
+import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/widgets/hybrid_xy_pad.dart';
 
@@ -14,6 +17,9 @@ class FakeMidiService implements MidiService {
   int? lastCcY;
   int? lastValY;
   int? lastChannel;
+  final ccs = <(int, int)>[];
+  final pitchBends = <(int, int, bool)>[];
+  final notes = <(int, int, bool)>[];
 
   @override
   Future<void> sendCC(
@@ -22,6 +28,7 @@ class FakeMidiService implements MidiService {
     int channel = 0,
     bool isFinal = false,
   }) async {
+    ccs.add((channel, cc));
     lastChannel = channel;
     if (cc == 1) {
       lastCcX = cc;
@@ -30,6 +37,34 @@ class FakeMidiService implements MidiService {
       lastCcY = cc;
       lastValY = value;
     }
+  }
+
+  @override
+  Future<void> sendPitchBend(
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    pitchBends.add((channel, value, isFinal));
+  }
+
+  @override
+  Future<void> sendNoteOn(
+    int note,
+    int velocity, {
+    int channel = 9,
+    bool isFinal = false,
+  }) async {
+    notes.add((channel, note, true));
+  }
+
+  @override
+  Future<void> sendNoteOff(
+    int note, {
+    int channel = 9,
+    bool isFinal = false,
+  }) async {
+    notes.add((channel, note, false));
   }
 
   @override
@@ -42,6 +77,26 @@ class FakeMidiService implements MidiService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _TestLayoutState extends LayoutStateNotifier {
+  final LayoutControl control;
+
+  _TestLayoutState(this.control);
+
+  @override
+  LayoutState build() => LayoutState(
+    activePageIndex: 0,
+    isPerformanceLocked: false,
+    pages: [
+      LayoutPage(
+        id: 'xy',
+        type: PageType.xyPad,
+        name: 'XY',
+        controls: [control],
+      ),
+    ],
+  );
+}
+
 void main() {
   group('HybridXYPad', () {
     late FakeMidiService fakeMidiService;
@@ -50,9 +105,17 @@ void main() {
       fakeMidiService = FakeMidiService();
     });
 
-    Widget createWidgetUnderTest({bool invertX = false, bool invertY = true}) {
+    Widget createWidgetUnderTest({
+      bool invertX = false,
+      bool invertY = true,
+      LayoutControl? control,
+    }) {
       return ProviderScope(
-        overrides: [midiServiceProvider.overrideWithValue(fakeMidiService)],
+        overrides: [
+          midiServiceProvider.overrideWithValue(fakeMidiService),
+          if (control != null)
+            layoutStateProvider.overrideWith(() => _TestLayoutState(control)),
+        ],
         child: MaterialApp(
           home: Scaffold(
             body: Center(
@@ -82,6 +145,50 @@ void main() {
       expect(find.text('X: CC1'), findsOneWidget);
       expect(find.text('Y: CC2'), findsOneWidget);
     });
+
+    testWidgets('resolves the legacy Y mapping from the layout', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        createWidgetUnderTest(
+          control: LayoutControl(
+            id: 'test_xy',
+            type: ControlType.xyPad,
+            defaultCc: 1,
+            channel: 4,
+          ),
+        ),
+      );
+      expect(find.text('Y: CC11'), findsOneWidget);
+
+      final pad = find.byType(HybridXYPad);
+      await tester.drag(pad, const Offset(30, 30));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(fakeMidiService.ccs, contains((4, 11)));
+      expect(fakeMidiService.ccs, isNot(contains((4, 2))));
+    });
+
+    testWidgets(
+      'shows both axes as unassigned when the layout has no channel',
+      (tester) async {
+        await tester.pumpWidget(
+          createWidgetUnderTest(
+            control: LayoutControl(
+              id: 'test_xy',
+              type: ControlType.xyPad,
+              defaultCc: -1,
+              channel: -1,
+            ),
+          ),
+        );
+        expect(find.text('X: UNASSIGNED'), findsOneWidget);
+        expect(find.text('Y: UNASSIGNED'), findsOneWidget);
+
+        await tester.drag(find.byType(HybridXYPad), const Offset(30, 30));
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(fakeMidiService.ccs, isEmpty);
+      },
+    );
 
     testWidgets('maps coordinates to CC values correctly without inversion', (
       WidgetTester tester,
@@ -163,5 +270,36 @@ void main() {
 
       await gesture.up();
     });
+
+    testWidgets(
+      'dispatches independent typed actions and releases the held note',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          createWidgetUnderTest(
+            control: LayoutControl(
+              id: 'test_xy',
+              type: ControlType.xyPad,
+              defaultCc: 1,
+              secondaryCc: 2,
+              channel: 0,
+              payload: const PitchBendPayload(channel: 4),
+              secondaryPayload: const NotePayload(channel: 9, note: 36),
+            ),
+          ),
+        );
+        final pad = find.byType(HybridXYPad);
+        final gesture = await tester.startGesture(tester.getCenter(pad));
+        await gesture.moveBy(const Offset(40, 10));
+        await tester.pump(const Duration(milliseconds: 16));
+        await gesture.moveTo(tester.getBottomRight(pad));
+        await tester.pump(const Duration(milliseconds: 16));
+        await gesture.up();
+
+        expect(fakeMidiService.pitchBends.last, (4, 16383, true));
+        expect(fakeMidiService.notes, [(9, 36, true), (9, 36, false)]);
+        expect(fakeMidiService.lastChannel, isNull);
+        await tester.pump(const Duration(milliseconds: 20));
+      },
+    );
   });
 }

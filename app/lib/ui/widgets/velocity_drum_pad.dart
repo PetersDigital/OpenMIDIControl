@@ -5,6 +5,9 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:collection/collection.dart';
+import '../../core/models/action_payload.dart';
+import '../../core/models/layout_models.dart';
+import '../midi_action_dispatcher.dart';
 import '../midi_service.dart';
 import '../design_system.dart';
 import '../performance_ticker_mixin.dart';
@@ -43,6 +46,8 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   bool _isPressed = false;
   int? _lastVelocity;
   Offset? _lastTouchPosition;
+  int? _activePointer;
+  final _midiGate = MidiGate();
 
   late AnimationController _scaleController;
 
@@ -65,6 +70,7 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive && !widget.isActive) {
       _scaleController.stop();
+      _resetPress();
     }
   }
 
@@ -74,11 +80,13 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     // the animation thread and prevent resource drain on suspended views.
     if (state != AppLifecycleState.resumed) {
       _scaleController.stop();
+      setState(_resetPress);
     }
   }
 
   @override
   void dispose() {
+    _midiGate.release();
     _scaleController.dispose();
     disposePerformanceMixin();
     super.dispose();
@@ -87,10 +95,10 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
   void _handlePointerDown(
     PointerDownEvent event,
     Size size,
-    int note,
-    int channel,
+    ActionPayload? payload,
   ) {
-    if (_isPressed) return;
+    if (_activePointer != null) return;
+    _activePointer = event.pointer;
 
     final center = Offset(size.width / 2, size.height / 2);
     final touchOffset = event.localPosition;
@@ -106,8 +114,12 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     // Calculate velocity (1.0 at center, 0.0 at edge)
     double intensity = 1.0 - (distance / maxDistance).clamp(0.0, 1.0);
 
-    // Apply a slight curve to make the "sweet spot" at the center feel more natural
-    intensity = math.pow(intensity, 1.5).toDouble();
+    if (payload case NotePayload(velocityMode: NoteVelocityMode.fixed)) {
+      intensity = 1.0;
+    } else if (payload is! NotePayload ||
+        payload.velocityCurve == NoteVelocityCurve.drumPad) {
+      intensity = math.pow(intensity, 1.5).toDouble();
+    }
 
     final velocity =
         widget.minVelocity +
@@ -121,23 +133,28 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
 
     _scaleController.reverse();
 
-    ref
-        .read(midiServiceProvider)
-        .sendNoteOn(note, velocity, channel: channel, isFinal: true);
+    if (payload != null) {
+      _midiGate.press(
+        ref.read(midiServiceProvider),
+        payload,
+        velocity: velocity,
+      );
+    }
   }
 
-  void _handlePointerUpOrCancel(PointerEvent event, int note, int channel) {
-    setState(() {
-      _isPressed = false;
-      _lastVelocity = null;
-      _lastTouchPosition = null;
-    });
+  void _resetPress() {
+    _activePointer = null;
+    _isPressed = false;
+    _lastVelocity = null;
+    _lastTouchPosition = null;
+    _midiGate.release();
+  }
+
+  void _handlePointerUpOrCancel(PointerEvent event) {
+    if (event.pointer != _activePointer) return;
+    setState(_resetPress);
 
     _scaleController.forward();
-
-    ref
-        .read(midiServiceProvider)
-        .sendNoteOff(note, channel: channel, isFinal: true);
   }
 
   @override
@@ -157,7 +174,33 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
     );
     final note = control.defaultCc;
     final channel = control.channel;
+    final configured = control.payload;
+    // The legacy drum grid renders all of its controls as note pads.
+    final payload =
+        control.type != ControlType.drumPad &&
+            configured is CcPayload &&
+            !configured.highResolution &&
+            configured.channel == channel &&
+            configured.cc == note
+        ? NotePayload(
+            channel: channel,
+            note: note,
+            velocityMode: NoteVelocityMode.touchPosition,
+            velocityCurve: NoteVelocityCurve.drumPad,
+          )
+        : configured;
     final displayLabel = control.displayName;
+    final style = control.effectiveStyle;
+    final customAccent = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : null;
+    final pressedBg = customAccent ?? const Color(0xFFE9C46A);
+    final pressedFg =
+        customAccent != null &&
+            ThemeData.estimateBrightnessForColor(customAccent) ==
+                Brightness.dark
+        ? Colors.white
+        : const Color(0xFF1E2024);
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -165,22 +208,19 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
           final size = Size(constraints.maxWidth, constraints.maxHeight);
 
           return Listener(
-            onPointerDown: (event) =>
-                _handlePointerDown(event, size, note, channel),
-            onPointerUp: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
-            onPointerCancel: (event) =>
-                _handlePointerUpOrCancel(event, note, channel),
+            onPointerDown: (event) => _handlePointerDown(event, size, payload),
+            onPointerUp: _handlePointerUpOrCancel,
+            onPointerCancel: _handlePointerUpOrCancel,
             behavior: HitTestBehavior.opaque,
             child: ScaleTransition(
               scale: _scaleController,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _isPressed ? const Color(0xFFE9C46A) : widget.padColor,
+                  color: _isPressed ? pressedBg : widget.padColor,
                   borderRadius: BorderRadius.zero,
                   border: Border.all(
                     color: _isPressed
-                        ? widget.padColor.withValues(alpha: 0.8)
+                        ? pressedBg.withValues(alpha: 0.85)
                         : const Color(0xFF111318).withValues(alpha: 0.5),
                     width: _isPressed ? 2.0 : 1.0,
                   ),
@@ -211,56 +251,63 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                             minHeight: 60,
                           ),
                           alignment: Alignment.topLeft,
-                          child: Text(
-                            MidiUtils.getNoteName(note),
-                            style: AppText.performance(
-                              color: _isPressed
-                                  ? const Color(
-                                      0xFF1E2024,
-                                    ).withValues(alpha: 0.8)
-                                  : const Color(
-                                      0xFFC3C7CA,
-                                    ).withValues(alpha: 0.5),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
+                          child: style.showNumericReadout
+                              ? Text(
+                                  payload?.displayLabel ??
+                                      MidiUtils.getNoteName(note),
+                                  style: AppText.performance(
+                                    color: _isPressed
+                                        ? pressedFg.withValues(alpha: 0.8)
+                                        : const Color(
+                                            0xFFC3C7CA,
+                                          ).withValues(alpha: 0.5),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.1,
+                                  ).copyWith(fontFamily: style.fontFamily),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
                     ),
 
                     // MIDI Channel (Bottom Right)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: Text(
-                        'CH${channel + 1}',
-                        style: AppText.system(
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.6)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                    if (style.showNumericReadout)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Text(
+                          'CH${(payload?.midiChannel ?? channel) + 1}',
+                          style: AppText.system(
+                            color: _isPressed
+                                ? pressedFg.withValues(alpha: 0.6)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.3),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ).copyWith(fontFamily: style.fontFamily),
                         ),
                       ),
-                    ),
 
                     // Velocity (Bottom Left)
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      child: Text(
-                        'V:${_lastVelocity ?? 0}',
-                        style: AppText.performance(
-                          color: _isPressed
-                              ? const Color(0xFF1E2024).withValues(alpha: 0.8)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.4),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                    if (style.showNumericReadout)
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        child: Text(
+                          'V:${_lastVelocity ?? 0}',
+                          style: AppText.performance(
+                            color: _isPressed
+                                ? pressedFg.withValues(alpha: 0.8)
+                                : const Color(
+                                    0xFFC3C7CA,
+                                  ).withValues(alpha: 0.4),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ).copyWith(fontFamily: style.fontFamily),
                         ),
                       ),
-                    ),
 
                     // Ghost hit indicator
                     if (widget.showVelocityGhost &&
@@ -280,26 +327,29 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
                       ),
 
                     // Central Label (Static display)
-                    Center(
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          minHeight: 44,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          displayLabel.isNotEmpty ? displayLabel : 'PAD $note',
-                          textAlign: TextAlign.center,
-                          style: AppText.performance(
-                            color: _isPressed
-                                ? const Color(0xFF1E2024)
-                                : const Color(0xFFC3C7CA),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                    if (style.showLabel)
+                      Center(
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 60,
+                            minHeight: 44,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            displayLabel.isNotEmpty
+                                ? displayLabel
+                                : 'PAD $note',
+                            textAlign: TextAlign.center,
+                            style: AppText.performance(
+                              color: _isPressed
+                                  ? pressedFg
+                                  : const Color(0xFFC3C7CA),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ).copyWith(fontFamily: style.fontFamily),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -319,7 +369,6 @@ class _VelocityDrumPadState extends ConsumerState<VelocityDrumPad>
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: controlId,
-        identifierLabel: 'MIDI Note (e.g., C3 or 36)',
         displayNameLabel: 'Pad Name',
       ),
     );

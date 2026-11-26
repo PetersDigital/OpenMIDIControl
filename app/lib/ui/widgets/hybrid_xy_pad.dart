@@ -7,11 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system.dart';
 import '../midi_service.dart';
+import '../midi_action_dispatcher.dart';
 import '../performance_ticker_mixin.dart';
 import 'control_config_modal.dart';
 import 'config_gesture_wrapper.dart';
 import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
+import '../../core/models/action_payload.dart';
+import '../../core/models/widget_style.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -21,6 +24,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
   final bool invertX;
   final bool invertY;
   final Color padColor;
+  final WidgetStyle style;
 
   const HybridXYPad({
     super.key,
@@ -32,6 +36,7 @@ class HybridXYPad extends ConsumerStatefulWidget {
     this.invertY = true, // By default, Y=0 is usually bottom in audio software
     this.padColor = const Color(0xFF282A2E),
     this.isActive = true,
+    this.style = WidgetStyle.defaults,
   });
 
   final bool isActive;
@@ -58,19 +63,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
   int? _lastPolledY;
 
   LayoutControl? _cachedControl;
+  ActionPayload? _yPayload;
+  final _xAction = MidiActionDispatcher();
+  final _yAction = MidiActionDispatcher();
+
+  int get _channel => _cachedControl?.channel ?? widget.channel;
+  int get _ccX => _cachedControl?.defaultCc ?? widget.ccX;
+  int get _ccY => _cachedControl?.secondaryCc ?? widget.ccY;
+  bool get _invertX => _cachedControl?.invertX ?? widget.invertX;
+  bool get _invertY => _cachedControl?.invertY ?? widget.invertY;
+  double get _midiX => _invertX ? 1.0 - _normalizedX : _normalizedX;
+  double get _midiY => _invertY ? 1.0 - _normalizedY : _normalizedY;
+  String? get _feedbackX =>
+      ccFeedbackAddress(_cachedControl?.payload, _channel, _ccX);
+  String? get _feedbackY => ccFeedbackAddress(_yPayload, _channel, _ccY);
+
+  String _axisLabel(ActionPayload? payload, int? legacyCc) => switch (payload) {
+    CcPayload(:final cc) => 'CC$cc',
+    null when legacyCc != null && legacyCc >= 0 => 'CC$legacyCc',
+    null => 'UNASSIGNED',
+    _ => payload.displayLabel,
+  };
 
   @override
   void initState() {
     super.initState();
     initPerformanceMixin();
-    final control = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channel = control?.channel ?? widget.channel;
-    final ccX = control?.defaultCc ?? widget.ccX;
-    final ccY = control?.secondaryCc ?? widget.ccY;
+    _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
+    _yPayload = _cachedControl?.effectiveSecondaryPayload;
 
     final controlState = ref.read(controlStateProvider);
-    final hotX = controlState.ccValues["$channel:$ccX"];
-    final hotY = controlState.ccValues["$channel:$ccY"];
+    final hotX = controlState.ccValues[_feedbackX];
+    final hotY = controlState.ccValues[_feedbackY];
 
     final double initX = hotX != null ? hotX / 127.0 : 0.5;
     final double initY = hotY != null ? hotY / 127.0 : 0.5;
@@ -81,43 +105,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     }
   }
 
-  void _setupMidiListeners({int? channel, int? ccX, int? ccY}) {
+  void _setupMidiListeners() {
     clearManagedSubscriptions();
-    final controlSub = ref.read(layoutStateProvider).getControlById(widget.id);
-    final channelSub = channel ?? controlSub?.channel ?? widget.channel;
-    final ccXSub = ccX ?? controlSub?.defaultCc ?? widget.ccX;
-    final ccYSub = ccY ?? controlSub?.secondaryCc ?? widget.ccY;
-
-    addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channelSub:$ccXSub"), (
-        previous,
-        next,
-      ) {
-        if (!widget.isActive) return;
-        if (next is AsyncData) {
-          final valX = next.value;
-          if (valX != null && valX != _lastPolledX) {
-            _lastPolledX = valX;
-            _handleXUpdate(valX);
+    final feedbackX = _feedbackX;
+    final feedbackY = _feedbackY;
+    if (feedbackX != null) {
+      addManagedSubscription(
+        ref.listenManual(hotCcValueProvider(feedbackX), (previous, next) {
+          if (!widget.isActive) return;
+          if (next is AsyncData) {
+            final valX = next.value;
+            if (valX != null && valX != _lastPolledX) {
+              _lastPolledX = valX;
+              _handleXUpdate(valX);
+            }
           }
-        }
-      }),
-    );
-    addManagedSubscription(
-      ref.listenManual(hotCcValueProvider("$channelSub:$ccYSub"), (
-        previous,
-        next,
-      ) {
-        if (!widget.isActive) return;
-        if (next is AsyncData) {
-          final valY = next.value;
-          if (valY != null && valY != _lastPolledY) {
-            _lastPolledY = valY;
-            _handleYUpdate(valY);
+        }),
+      );
+    }
+    if (feedbackY != null) {
+      addManagedSubscription(
+        ref.listenManual(hotCcValueProvider(feedbackY), (previous, next) {
+          if (!widget.isActive) return;
+          if (next is AsyncData) {
+            final valY = next.value;
+            if (valY != null && valY != _lastPolledY) {
+              _lastPolledY = valY;
+              _handleYUpdate(valY);
+            }
           }
-        }
-      }),
-    );
+        }),
+      );
+    }
   }
 
   @override
@@ -128,39 +147,49 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
         // Re-setup listeners
         _setupMidiListeners();
         // Re-sync values when coming back to foreground
-        final control = ref.read(layoutStateProvider).getControlById(widget.id);
-        final channel = control?.channel ?? widget.channel;
-        final ccX = control?.defaultCc ?? widget.ccX;
-        final ccY = control?.secondaryCc ?? widget.ccY;
-        final invertX = control?.invertX ?? widget.invertX;
-        final invertY = control?.invertY ?? widget.invertY;
-
         final controlState = ref.read(controlStateProvider);
-        final hotX = controlState.ccValues["$channel:$ccX"];
-        final hotY = controlState.ccValues["$channel:$ccY"];
+        final hotX = controlState.ccValues[_feedbackX];
+        final hotY = controlState.ccValues[_feedbackY];
 
         double nextX = _normalizedX;
         double nextY = _normalizedY;
         if (hotX != null) {
           final normX = hotX / 127.0;
-          nextX = invertX ? 1.0 - normX : normX;
+          nextX = _invertX ? 1.0 - normX : normX;
         }
         if (hotY != null) {
           final normY = hotY / 127.0;
-          nextY = invertY ? 1.0 - normY : normY;
+          nextY = _invertY ? 1.0 - normY : normY;
         }
         _posNotifier.value = Offset(nextX, nextY);
       } else {
         // Suspend resources
         clearManagedSubscriptions();
         _throttleTimer?.cancel();
+        _canSend = true;
+        _hasPendingSend = false;
+        _xAction.end();
+        _yAction.end();
       }
+    }
+  }
+
+  @override
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _throttleTimer?.cancel();
+      _canSend = true;
+      _hasPendingSend = false;
+      _xAction.end();
+      _yAction.end();
     }
   }
 
   @override
   void dispose() {
     _throttleTimer?.cancel();
+    _xAction.end();
+    _yAction.end();
     _posNotifier.dispose();
     disposePerformanceMixin();
     super.dispose();
@@ -171,8 +200,6 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       context: context,
       builder: (context) => ControlConfigModal(
         controlId: widget.id,
-        identifierLabel: 'X Axis MIDI ID (e.g., 20 or C3)',
-        secondaryIdentifierLabel: 'Y Axis MIDI ID (e.g., 21 or C#3)',
         displayNameLabel: 'XY Pad Name',
       ),
     );
@@ -204,21 +231,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
     setState(() {
       _isDragging = true;
     });
-    _cachedControl = ref.read(layoutStateProvider).getControlById(widget.id);
-    _updatePosition(details.localPosition, size, isFinal: false);
+    _updatePosition(details.localPosition, size, begin: true);
   }
 
-  void _updatePosition(
-    Offset localPosition,
-    Size size, {
-    required bool isFinal,
-  }) {
+  void _updatePosition(Offset localPosition, Size size, {bool begin = false}) {
     final double nx = (localPosition.dx / size.width).clamp(0.0, 1.0);
     final double ny = (localPosition.dy / size.height).clamp(0.0, 1.0);
 
     _posNotifier.value = Offset(nx, ny);
 
-    _sendMidi(isFinal: isFinal);
+    if (begin) {
+      final service = ref.read(midiServiceProvider);
+      _xAction.begin(service, _cachedControl?.payload, _midiX);
+      _yAction.begin(service, _yPayload, _midiY);
+    }
+    _sendMidi(isFinal: false);
   }
 
   static const int _kTransmissionThrottleMs = 8;
@@ -243,31 +270,21 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       },
     );
 
-    final effectiveCcX = _cachedControl?.defaultCc ?? widget.ccX;
-    final effectiveCcY = _cachedControl?.secondaryCc ?? widget.ccY;
-    final effectiveChannel = _cachedControl?.channel ?? widget.channel;
-    final effectiveInvertX = _cachedControl?.invertX ?? widget.invertX;
-    final effectiveInvertY = _cachedControl?.invertY ?? widget.invertY;
-
-    final effectiveX = effectiveInvertX ? 1.0 - _normalizedX : _normalizedX;
-    final effectiveY = effectiveInvertY ? 1.0 - _normalizedY : _normalizedY;
-
-    final valX = (effectiveX * 127).round().clamp(0, 127);
-    final valY = (effectiveY * 127).round().clamp(0, 127);
-
     final service = ref.read(midiServiceProvider);
-
-    // Batch these closely together
-    service.sendCC(
-      effectiveCcX,
-      valX,
-      channel: effectiveChannel,
+    _xAction.sendPosition(
+      service,
+      _cachedControl?.payload,
+      _midiX,
+      legacyChannel: _channel,
+      legacyCc: _ccX,
       isFinal: isFinal,
     );
-    service.sendCC(
-      effectiveCcY,
-      valY,
-      channel: effectiveChannel,
+    _yAction.sendPosition(
+      service,
+      _yPayload,
+      _midiY,
+      legacyChannel: _channel,
+      legacyCc: _ccY,
       isFinal: isFinal,
     );
   }
@@ -279,27 +296,33 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
       prev,
       next,
     ) {
+      if (prev?.payload != next?.payload) _xAction.end();
+      final nextY = next?.effectiveSecondaryPayload;
+      if (_yPayload != nextY) _yAction.end();
       _cachedControl = next;
+      _yPayload = nextY;
       if (prev != next) {
         _lastPolledX = null;
         _lastPolledY = null;
-        clearManagedSubscriptions();
         if (!widget.isActive) return;
-        _setupMidiListeners(
-          channel: next?.channel ?? widget.channel,
-          ccX: next?.defaultCc ?? widget.ccX,
-          ccY: next?.secondaryCc ?? widget.ccY,
-        );
+        _setupMidiListeners();
       }
     });
 
     final control = ref.watch(
       layoutStateProvider.select((s) => s.getControlById(widget.id)),
     );
-    final ccX = control?.defaultCc ?? widget.ccX;
-    final ccY = control?.secondaryCc ?? widget.ccY;
+    final labelX = _axisLabel(
+      control?.payload,
+      control == null ? widget.ccX : null,
+    );
+    final labelY = _axisLabel(_yPayload, control == null ? widget.ccY : null);
     final invertX = control?.invertX ?? widget.invertX;
     final invertY = control?.invertY ?? widget.invertY;
+    final style = control?.effectiveStyle ?? widget.style;
+    final accentColor = style.accentColorValue != null
+        ? Color(style.accentColorValue!)
+        : const Color(0xFFA6C9F8);
 
     return RepaintBoundary(
       child: LayoutBuilder(
@@ -309,7 +332,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
           return GestureDetector(
             onPanStart: (details) => _handleDragStart(details, size),
             onPanUpdate: (details) {
-              _updatePosition(details.localPosition, size, isFinal: false);
+              _updatePosition(details.localPosition, size);
             },
             onPanEnd: (details) {
               setState(() {
@@ -331,7 +354,7 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                 borderRadius: BorderRadius.zero,
                 border: Border.all(
                   color: _isDragging
-                      ? const Color(0xFFA6C9F8)
+                      ? accentColor
                       : const Color(0xFF111318).withValues(alpha: 0.5),
                   width: _isDragging ? 2.0 : 1.0,
                 ),
@@ -369,10 +392,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: Container(
                                     width: 1,
                                     color: _isDragging
-                                        ? const Color(0xFFA6C9F8)
-                                        : const Color(
-                                            0xFFA6C9F8,
-                                          ).withValues(alpha: 0.3),
+                                        ? accentColor
+                                        : accentColor.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 Positioned(
@@ -382,10 +403,8 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: Container(
                                     height: 1,
                                     color: _isDragging
-                                        ? const Color(0xFFA6C9F8)
-                                        : const Color(
-                                            0xFFA6C9F8,
-                                          ).withValues(alpha: 0.3),
+                                        ? accentColor
+                                        : accentColor.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 Positioned(
@@ -397,14 +416,10 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: _isDragging
-                                          ? const Color(
-                                              0xFFA6C9F8,
-                                            ).withValues(alpha: 0.8)
-                                          : const Color(
-                                              0xFFA6C9F8,
-                                            ).withValues(alpha: 0.4),
+                                          ? accentColor.withValues(alpha: 0.8)
+                                          : accentColor.withValues(alpha: 0.4),
                                       border: Border.all(
-                                        color: const Color(0xFFA6C9F8),
+                                        color: accentColor,
                                         width: 2,
                                       ),
                                     ),
@@ -433,35 +448,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             crossAxisAlignment: CrossAxisAlignment.end,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              RepaintBoundary(
-                                child: ValueListenableBuilder<Offset>(
-                                  valueListenable: _posNotifier,
-                                  builder: (_, pos, _) {
-                                    final val =
-                                        ((invertX ? (1.0 - pos.dx) : pos.dx) *
-                                                127)
-                                            .round()
-                                            .toString()
-                                            .padLeft(3, '0');
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'DSEG7Modern',
-                                        color: Color(0xFFA6C9F8),
-                                        fontSize: 16,
-                                      ),
-                                    );
-                                  },
+                              if (style.showNumericReadout)
+                                RepaintBoundary(
+                                  child: ValueListenableBuilder<Offset>(
+                                    valueListenable: _posNotifier,
+                                    builder: (_, pos, _) {
+                                      final val =
+                                          ((invertX ? (1.0 - pos.dx) : pos.dx) *
+                                                  127)
+                                              .round()
+                                              .toString()
+                                              .padLeft(3, '0');
+                                      return Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontFamily:
+                                              style.fontFamily ?? 'DSEG7Modern',
+                                          color: accentColor,
+                                          fontSize: 16,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'X: CC$ccX',
-                                style: AppText.performance(
-                                  color: Colors.white24,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
+                              if (style.showLabel)
+                                Text(
+                                  'X: $labelX',
+                                  style: AppText.performance(
+                                    color: Colors.white24,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ).copyWith(fontFamily: style.fontFamily),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -483,35 +501,38 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                'Y: CC$ccY',
-                                style: AppText.performance(
-                                  color: Colors.white24,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
+                              if (style.showLabel)
+                                Text(
+                                  'Y: $labelY',
+                                  style: AppText.performance(
+                                    color: Colors.white24,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ).copyWith(fontFamily: style.fontFamily),
                                 ),
-                              ),
-                              RepaintBoundary(
-                                child: ValueListenableBuilder<Offset>(
-                                  valueListenable: _posNotifier,
-                                  builder: (_, pos, _) {
-                                    final val =
-                                        ((invertY ? (1.0 - pos.dy) : pos.dy) *
-                                                127)
-                                            .round()
-                                            .toString()
-                                            .padLeft(3, '0');
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'DSEG7Modern',
-                                        color: Color(0xFFA6C9F8),
-                                        fontSize: 16,
-                                      ),
-                                    );
-                                  },
+                              if (style.showNumericReadout)
+                                RepaintBoundary(
+                                  child: ValueListenableBuilder<Offset>(
+                                    valueListenable: _posNotifier,
+                                    builder: (_, pos, _) {
+                                      final val =
+                                          ((invertY ? (1.0 - pos.dy) : pos.dy) *
+                                                  127)
+                                              .round()
+                                              .toString()
+                                              .padLeft(3, '0');
+                                      return Text(
+                                        val,
+                                        style: TextStyle(
+                                          fontFamily:
+                                              style.fontFamily ?? 'DSEG7Modern',
+                                          color: accentColor,
+                                          fontSize: 16,
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),

@@ -25,7 +25,7 @@ class UnsupportedSchemaVersionException implements Exception {
 /// Applied strictly at I/O boundaries (file persistence and import/export),
 /// keeping the hot-path state manager (`LayoutStateNotifier`) fast and unencumbered.
 class LayoutDocument {
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
 
   final int schemaVersion;
   final LayoutManifest manifest;

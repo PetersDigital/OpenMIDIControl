@@ -78,11 +78,11 @@ class UtilityGridPanel extends ConsumerWidget {
               itemBuilder: (context, index) {
                 if (pageIndex == -1) return const SizedBox.shrink();
                 final control = page!.controls[index];
-                final channel = control.channel;
+                final channel = control.payload?.midiChannel ?? control.channel;
                 final cc = control.defaultCc;
                 final displayName = control.displayName;
 
-                final bool isUnassigned = cc == -1;
+                final bool isUnassigned = cc == -1 && control.payload == null;
 
                 switch (control.type) {
                   case ControlType.encoder:
@@ -111,7 +111,8 @@ class UtilityGridPanel extends ConsumerWidget {
                                       child: EndlessEncoderWidget(
                                         key: ValueKey('encoder_$index'),
                                         channel: channel,
-                                        cc: isUnassigned ? 0 : cc,
+                                        cc: cc,
+                                        payload: control.payload,
                                         showChannelLabel: false,
                                       ),
                                     ),
@@ -142,7 +143,8 @@ class UtilityGridPanel extends ConsumerWidget {
                                         child: Text(
                                           isUnassigned
                                               ? 'UNASSIGNED'
-                                              : 'CC $cc',
+                                              : control.payload?.displayLabel ??
+                                                    'CC $cc',
                                           style: AppText.performance(
                                             color: const Color(
                                               0xFFC3C7CA,

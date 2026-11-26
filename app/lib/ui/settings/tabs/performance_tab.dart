@@ -4,10 +4,14 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/action_payload.dart';
 import '../../open_midi_screen.dart';
+import '../../header_transport_state.dart';
 import '../../midi_settings_state.dart';
 import '../../side_panel_state.dart';
 import '../../design_system.dart';
+import '../../widgets/midi_action_fields.dart';
+import '../../widgets/scrollable_dialog_content.dart';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -53,6 +57,8 @@ class PerformanceTab extends StatelessWidget {
         _SafetyHoldSection(),
         _DividerSection(),
         _ConfigGestureSection(),
+        _DividerSection(),
+        _TransportAssignmentsSection(),
         SizedBox(height: 32),
       ],
     );
@@ -272,6 +278,293 @@ class _ConfigGestureSection extends ConsumerWidget {
           onTap: () => ref
               .read(configGestureModeProvider.notifier)
               .update(ConfigGestureMode.doubleTapHold),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transport Assignments
+// ---------------------------------------------------------------------------
+
+class _TransportAssignmentsSection extends ConsumerWidget {
+  const _TransportAssignmentsSection();
+
+  static IconData _roleIcon(HeaderTransportRole role) => switch (role) {
+    HeaderTransportRole.rewind => Icons.fast_rewind,
+    HeaderTransportRole.up => Icons.keyboard_arrow_up,
+    HeaderTransportRole.record => Icons.fiber_manual_record,
+    HeaderTransportRole.left => Icons.keyboard_arrow_left,
+    HeaderTransportRole.stop => Icons.stop,
+    HeaderTransportRole.right => Icons.keyboard_arrow_right,
+    HeaderTransportRole.fastForward => Icons.fast_forward,
+    HeaderTransportRole.down => Icons.keyboard_arrow_down,
+    HeaderTransportRole.play => Icons.play_arrow,
+  };
+
+  static String _describeAssignment(
+    ActionPayload? payload,
+  ) => switch (payload) {
+    null => 'Unassigned',
+    CcPayload(:final channel, :final highResolution) =>
+      '${payload.displayLabel}${highResolution ? ' (14-bit)' : ''} • CH ${channel + 1}',
+    NotePayload(:final channel) =>
+      '${payload.displayLabel} • CH ${channel + 1}',
+    _ => payload.displayLabel,
+  };
+
+  Future<void> _editRole(
+    BuildContext context,
+    HeaderTransportRole role,
+    ActionPayload? current,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          _HeaderTransportAssignmentDialog(role: role, initialPayload: current),
+    );
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${role.label} assignment saved'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mappings = ref.watch(headerTransportMappingsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('TRANSPORT ASSIGNMENTS'),
+        for (final role in HeaderTransportRole.values)
+          _TransportAssignmentCard(
+            key: ValueKey('transport_assignment_${role.name}'),
+            icon: _roleIcon(role),
+            title: role.label,
+            subtitle: _describeAssignment(mappings[role]),
+            assigned: mappings[role] != null,
+            accentColor: role == HeaderTransportRole.record
+                ? const Color(0xFFFFB59E)
+                : _kAccent,
+            onTap: () => _editRole(context, role, mappings[role]),
+          ),
+      ],
+    );
+  }
+}
+
+class _TransportAssignmentCard extends StatelessWidget {
+  const _TransportAssignmentCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.assigned,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool assigned;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: assigned
+                    ? accentColor.withValues(alpha: 0.45)
+                    : _kBorderNormal,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (assigned ? accentColor : Colors.white24).withValues(
+                      alpha: 0.14,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: assigned ? accentColor : Colors.white54,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontFamily: 'Space Grotesk',
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: assigned ? accentColor : Colors.white38,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white38,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderTransportAssignmentDialog extends ConsumerStatefulWidget {
+  const _HeaderTransportAssignmentDialog({
+    required this.role,
+    required this.initialPayload,
+  });
+
+  final HeaderTransportRole role;
+  final ActionPayload? initialPayload;
+
+  @override
+  ConsumerState<_HeaderTransportAssignmentDialog> createState() =>
+      _HeaderTransportAssignmentDialogState();
+}
+
+class _HeaderTransportAssignmentDialogState
+    extends ConsumerState<_HeaderTransportAssignmentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final MidiActionDraft _draft;
+  bool _isSaving = false;
+  String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = MidiActionDraft(
+      payload: widget.initialPayload,
+      allowUnassigned: true,
+      ccAndNoteOnly: true,
+    );
+  }
+
+  @override
+  void dispose() {
+    _draft.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_isSaving) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    final payload = _draft.payload;
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await ref
+          .read(headerTransportMappingsProvider.notifier)
+          .setAssignment(widget.role, payload);
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _saveError = 'Failed to save transport assignment.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E2024),
+      title: Text(
+        'Assign ${widget.role.label}',
+        style: AppText.performance(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: ScrollableDialogContent(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              MidiActionFields(
+                draft: _draft,
+                usesPitchBendPosition: false,
+                supportsVariableVelocity: false,
+              ),
+              if (_saveError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _saveError!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _kAccent,
+            foregroundColor: const Color(0xFF0C0E12),
+          ),
+          child: Text(_isSaving ? 'Saving...' : 'Save'),
         ),
       ],
     );

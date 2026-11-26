@@ -65,10 +65,10 @@ class MainActivity : FlutterActivity() {
     private var cachedDevicesList: List<Map<String, Any>>? = null
 
     // Rate-limiting and Deduplication state
-    private val lastSentValue = IntArray(16384) { -1 }
-    private val lastSentTime = LongArray(16384)
     private val suppressionWindowNs = 75_000_000L // 75ms
     private val rateLimitNs = 8_333_333L // ~120Hz (8.3ms)
+    private val sendHistory = MidiSendHistory(suppressionWindowNs, rateLimitNs)
+    private val lastSentTime = sendHistory.lastSentTime
 
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
@@ -355,8 +355,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "resetMidiTransport" -> {
-                    lastSentValue.fill(-1)
-                    lastSentTime.fill(0)
+                    sendHistory.clear()
                     Log.i("MainActivity", "MIDI Transport state reset (deduplication buffers cleared)")
                     result.success(true)
                 }
@@ -414,9 +413,11 @@ class MainActivity : FlutterActivity() {
                         try {
                             for (i in 0 until events.size step 2) {
                                 val umpInt = events[i].toInt()
-                                val isFinal = events[i + 1] != 0L
+                                val flags = events[i + 1]
+                                val isFinal = (flags and 1L) != 0L
+                                val acceptFeedback = (flags and 2L) != 0L
                                 // Use individual timestamp per event to maintain order and length
-                                processMidiEvent(umpInt, isFinal, System.nanoTime())
+                                processMidiEvent(umpInt, isFinal, System.nanoTime(), acceptFeedback)
                             }
                             result.success(true)
                         } catch (e: Exception) {
@@ -457,42 +458,17 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun processMidiEvent(umpInt: Int, isFinal: Boolean, nowNs: Long) {
-        val group = (umpInt ushr 24) and 0xF
+    private fun processMidiEvent(
+        umpInt: Int,
+        isFinal: Boolean,
+        nowNs: Long,
+        acceptFeedback: Boolean = false,
+    ) {
         val status = (umpInt ushr 16) and 0xFF
         val data1 = (umpInt ushr 8) and 0xFF
         val data2 = umpInt and 0xFF
 
-        if (data1 !in 0..127) return
-
-        // Unique index per message type + channel + data1
-        val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
-        
-        if (index < 0 || index >= 16384) {
-            // Send immediately if out of voice message range (unlikely for MT 0x2)
-            sendToBackends(umpInt, status, data1, data2, nowNs)
-            return
-        }
-
-        val lastTime = lastSentTime[index]
-        val timeDiff = nowNs - lastTime
-
-        // Rate-limiting and Deduplication checks unless it's the final message
-        var shouldSend = true
-        if (!isFinal) {
-            // Deduplication: if value hasn't changed and within suppression window, drop it
-            if (lastSentValue[index] == data2 && timeDiff < suppressionWindowNs) {
-                shouldSend = false
-            }
-            // Rate Limiting: ensure we don't send faster than ~120Hz
-            else if (timeDiff < rateLimitNs) {
-                shouldSend = false
-            }
-        }
-
-        if (shouldSend) {
-            lastSentValue[index] = data2
-            lastSentTime[index] = nowNs
+        if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs, acceptFeedback)) {
             sendToBackends(umpInt, status, data1, data2, nowNs)
         }
     }

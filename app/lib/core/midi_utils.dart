@@ -47,7 +47,8 @@ class MidiUtils {
     if (match == null) return null;
 
     String notePart = match.group(1)!.toUpperCase();
-    final int octavePart = int.parse(match.group(2)!);
+    final octavePart = int.tryParse(match.group(2)!);
+    if (octavePart == null || octavePart < -2 || octavePart > 8) return null;
 
     // Normalize enharmonics
     if (notePart == 'DB') notePart = 'C#';

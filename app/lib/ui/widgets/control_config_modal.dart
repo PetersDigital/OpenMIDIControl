@@ -3,22 +3,20 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/layout_models.dart';
+import '../../core/models/widget_style.dart';
 import '../design_system.dart';
+import 'midi_action_fields.dart';
 import 'scrollable_dialog_content.dart';
-import '../../core/midi_utils.dart';
 import '../layout_state.dart';
 
 class ControlConfigModal extends ConsumerStatefulWidget {
   final String controlId;
-  final String identifierLabel;
-  final String? secondaryIdentifierLabel;
   final String displayNameLabel;
 
   const ControlConfigModal({
     super.key,
     required this.controlId,
-    this.identifierLabel = 'MIDI ID (e.g., C3 or 60)',
-    this.secondaryIdentifierLabel,
     this.displayNameLabel = 'Display Name',
   });
 
@@ -27,12 +25,23 @@ class ControlConfigModal extends ConsumerStatefulWidget {
 }
 
 class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
-  late int _selectedChannel;
-  late TextEditingController _identifierController;
-  TextEditingController? _secondaryIdentifierController;
-  TextEditingController? _displayNameController;
+  final _formKey = GlobalKey<FormState>();
+  late final ControlType? _controlType;
+  late final MidiActionDraft _primaryAction;
+  MidiActionDraft? _secondaryAction;
+  late final TextEditingController _displayNameController;
   bool _invertX = false;
   bool _invertY = false;
+  String? _accentColorHex;
+  String? _fontFamily;
+  bool _showLabel = true;
+  bool _showNumericReadout = true;
+
+  bool get _isXy => _controlType == ControlType.xyPad;
+  bool get _isContinuous => switch (_controlType) {
+    ControlType.fader || ControlType.xyPad || ControlType.encoder => true,
+    _ => false,
+  };
 
   @override
   void initState() {
@@ -41,59 +50,72 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
         .read(layoutStateProvider)
         .getControlById(widget.controlId);
 
-    _selectedChannel = control?.channel ?? 0;
-    _identifierController = TextEditingController(
-      text: control?.defaultCc == -1 ? '' : control?.defaultCc.toString() ?? '',
+    _controlType = control?.type;
+    _primaryAction = MidiActionDraft(
+      payload: control?.payload,
+      channel: control?.channel ?? 0,
+      identifier: control?.defaultCc,
+      drumPad: _controlType == ControlType.drumPad,
+      allowUnassigned: _isXy,
     );
 
-    if (control?.customName != null && control?.customName != 'Unassigned') {
-      _displayNameController = TextEditingController(text: control!.customName);
-    } else {
-      _displayNameController = TextEditingController();
+    final name = control?.customName;
+    _displayNameController = TextEditingController(
+      text: name == 'Unassigned' ? null : name,
+    );
+
+    if (_isXy && control != null) {
+      _secondaryAction = MidiActionDraft(
+        payload: control.effectiveSecondaryPayload,
+        channel: control.channel,
+        identifier: control.secondaryCc,
+        allowUnassigned: true,
+      );
+      _invertX = control.invertX;
+      _invertY = control.invertY;
     }
 
-    if (widget.secondaryIdentifierLabel != null) {
-      _secondaryIdentifierController = TextEditingController(
-        text: control?.secondaryCc?.toString() ?? '',
-      );
-      _invertX = control?.invertX ?? false;
-      _invertY = control?.invertY ?? false;
-    }
+    final style = control?.effectiveStyle ?? WidgetStyle.defaults;
+    _accentColorHex = style.accentColorHex;
+    _fontFamily = style.fontFamily;
+    _showLabel = style.showLabel;
+    _showNumericReadout = style.showNumericReadout;
   }
 
   @override
   void dispose() {
-    _identifierController.dispose();
-    _secondaryIdentifierController?.dispose();
-    _displayNameController?.dispose();
+    _primaryAction.dispose();
+    _secondaryAction?.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
   void _save() {
-    final identifier = MidiUtils.parseNoteIdentifier(
-      _identifierController.text,
-    );
-    final secondaryIdentifier = _secondaryIdentifierController != null
-        ? MidiUtils.parseNoteIdentifier(_secondaryIdentifierController!.text)
-        : null;
-
-    if (identifier == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid MIDI identifier')));
+    final invalidFields = _formKey.currentState!.validateGranularly();
+    if (invalidFields.isNotEmpty) {
+      Scrollable.ensureVisible(invalidFields.first.context, alignment: 0.15);
       return;
     }
+    final secondary = _secondaryAction?.payload;
+    final nextStyle = WidgetStyle(
+      accentColorHex: _accentColorHex,
+      fontFamily: _fontFamily,
+      showLabel: _showLabel,
+      showNumericReadout: _showNumericReadout,
+    );
 
     ref
         .read(layoutStateProvider.notifier)
-        .updateControl(
+        .updateControlActions(
           widget.controlId,
-          channel: _selectedChannel,
-          identifier: identifier,
-          name: _displayNameController?.text,
-          secondaryIdentifier: secondaryIdentifier,
-          invertX: _invertX,
-          invertY: _invertY,
+          payload: _primaryAction.payload,
+          secondaryPayload: secondary,
+          clearSecondary: _secondaryAction != null && secondary == null,
+          name: _displayNameController.text,
+          invertX: _isXy ? _invertX : null,
+          invertY: _isXy ? _invertY : null,
+          style: nextStyle.isDefault ? null : nextStyle,
+          clearStyle: nextStyle.isDefault,
         );
 
     Navigator.of(context).pop();
@@ -124,168 +146,146 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
         ],
       ),
       content: ScrollableDialogContent(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'MIDI Channel',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: Color(0xFFC3C7CA),
-                fontSize: 14,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_isXy) ...[
+                const Text(
+                  'X Axis',
+                  style: TextStyle(color: Color(0xFFC3C7CA)),
+                ),
+                const SizedBox(height: 8),
+              ],
+              MidiActionFields(
+                key: _isXy ? const ValueKey('xy-x-action') : null,
+                draft: _primaryAction,
+                usesPitchBendPosition: _isContinuous,
+                supportsVariableVelocity:
+                    _isContinuous || _controlType == ControlType.drumPad,
               ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              initialValue: _selectedChannel < 0 ? 0 : _selectedChannel,
-              dropdownColor: const Color(0xFF282A2E),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: Color(0xFF111318),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF282A2E)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-              items: List.generate(16, (index) {
-                return DropdownMenuItem(
-                  value: index,
-                  child: Text(
-                    'Channel ${index + 1}',
-                    style: const TextStyle(color: Colors.white),
+              if (_secondaryAction case final secondary?) ...[
+                CheckboxListTile(
+                  title: const Text(
+                    'Invert X',
+                    style: TextStyle(color: Colors.white),
                   ),
-                );
-              }),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedChannel = value;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            Text(
-              widget.identifierLabel,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                color: Color(0xFFC3C7CA),
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _identifierController,
-              keyboardType: TextInputType.text,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: Color(0xFF111318),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF282A2E)),
+                  value: _invertX,
+                  onChanged: (v) => setState(() => _invertX = v ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
+                const SizedBox(height: 12),
+                const Text(
+                  'Y Axis',
+                  style: TextStyle(color: Color(0xFFC3C7CA)),
                 ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                const SizedBox(height: 8),
+                MidiActionFields(
+                  key: const ValueKey('xy-y-action'),
+                  draft: secondary,
+                  usesPitchBendPosition: true,
+                  supportsVariableVelocity: true,
                 ),
-              ),
-            ),
-            if (widget.secondaryIdentifierLabel != null) ...[
+                CheckboxListTile(
+                  title: const Text(
+                    'Invert Y',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  value: _invertY,
+                  onChanged: (v) => setState(() => _invertY = v ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
               const SizedBox(height: 16),
-              Text(
-                widget.secondaryIdentifierLabel!,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: Color(0xFFC3C7CA),
-                  fontSize: 14,
+              TextFormField(
+                controller: _displayNameController,
+                textInputAction: TextInputAction.done,
+                style: const TextStyle(color: Colors.white),
+                decoration: MidiActionFields.decoration.copyWith(
+                  labelText: widget.displayNameLabel,
                 ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'APPEARANCE',
+                style: AppText.system(
+                  color: const Color(0xFFC3C7CA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.6,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ColorSwatchChip(
+                    key: const ValueKey('style_color_default'),
+                    tooltip: 'Default Accent',
+                    color: null,
+                    selected: _accentColorHex == null,
+                    onTap: () => setState(() => _accentColorHex = null),
+                  ),
+                  for (final swatch in WidgetStyle.curatedPalette)
+                    _ColorSwatchChip(
+                      key: ValueKey('style_color_${swatch.hex}'),
+                      tooltip: swatch.name,
+                      color: Color(swatch.colorValue),
+                      selected: _accentColorHex == swatch.hex,
+                      onTap: () => setState(() => _accentColorHex = swatch.hex),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String?>(
+                key: const ValueKey('style_font_dropdown'),
+                initialValue: _fontFamily,
+                dropdownColor: const Color(0xFF1E2024),
+                style: const TextStyle(color: Colors.white),
+                decoration: MidiActionFields.decoration.copyWith(
+                  labelText: 'Font',
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Default'),
+                  ),
+                  for (final font in WidgetStyle.supportedFonts)
+                    DropdownMenuItem<String?>(value: font, child: Text(font)),
+                ],
+                onChanged: (val) => setState(() => _fontFamily = val),
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _secondaryIdentifierController,
-                keyboardType: TextInputType.text,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  filled: true,
-                  fillColor: Color(0xFF111318),
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF282A2E)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               CheckboxListTile(
+                key: const ValueKey('style_show_label'),
                 title: const Text(
-                  'Invert X',
+                  'Show Label',
                   style: TextStyle(color: Colors.white),
                 ),
-                value: _invertX,
-                onChanged: (v) => setState(() => _invertX = v ?? false),
+                value: _showLabel,
+                onChanged: (v) => setState(() => _showLabel = v ?? true),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
               CheckboxListTile(
+                key: const ValueKey('style_show_numeric_readout'),
                 title: const Text(
-                  'Invert Y',
+                  'Show Numeric Readout',
                   style: TextStyle(color: Colors.white),
                 ),
-                value: _invertY,
-                onChanged: (v) => setState(() => _invertY = v ?? false),
+                value: _showNumericReadout,
+                onChanged: (v) =>
+                    setState(() => _showNumericReadout = v ?? true),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
             ],
-            const SizedBox(height: 16),
-            Text(
-              widget.displayNameLabel,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                color: Color(0xFFC3C7CA),
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _displayNameController,
-              textInputAction: TextInputAction.done,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                filled: true,
-                fillColor: Color(0xFF111318),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF282A2E)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFA6C9F8)),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
       actions: [
@@ -301,7 +301,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   Navigator.of(context).pop();
                 },
                 child: Text(
-                  'Clear',
+                  _isXy ? 'Clear All' : 'Clear',
                   style: AppText.system(color: Colors.redAccent),
                 ),
               ),
@@ -341,6 +341,60 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ColorSwatchChip extends StatelessWidget {
+  final String tooltip;
+  final Color? color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ColorSwatchChip({
+    super.key,
+    required this.tooltip,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fillColor = color ?? const Color(0xFF282A2E);
+    final iconColor = color == null
+        ? Colors.white70
+        : (ThemeData.estimateBrightnessForColor(fillColor) == Brightness.light
+              ? const Color(0xFF0C0E12)
+              : Colors.white);
+
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: fillColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? Colors.white : Colors.white24,
+              width: selected ? 2.5 : 1.0,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: selected
+              ? Icon(Icons.check, size: 16, color: iconColor)
+              : (color == null
+                    ? const Icon(
+                        Icons.auto_fix_high,
+                        size: 14,
+                        color: Colors.white54,
+                      )
+                    : null),
+        ),
+      ),
     );
   }
 }
