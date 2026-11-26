@@ -117,6 +117,59 @@ void main() {
     );
   });
 
+  testWidgets('configures an aftertouch note and validates its expression CC', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'aftertouch',
+      initialControl: LayoutControl(
+        id: 'aftertouch',
+        type: ControlType.aftertouchPad,
+        defaultCc: -1,
+        channel: -1,
+      ),
+    );
+    final expression = find.widgetWithText(
+      TextFormField,
+      'Expression CC (0-127)',
+    );
+    expect(find.widgetWithText(TextFormField, '74'), findsOneWidget);
+    await select(tester, 'Unassigned', 'Note');
+    await select(tester, 'Channel 1', 'Channel 4');
+    final note = find.widgetWithText(
+      TextFormField,
+      'MIDI Note (e.g., C3 or 60)',
+    );
+    await tester.ensureVisible(note);
+    await tester.enterText(note, 'C3');
+    await tester.ensureVisible(expression);
+    await tester.enterText(expression, '128');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a CC number from 0 to 127'), findsOneWidget);
+    await tester.enterText(expression, '71');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final saved = container
+        .read(layoutStateProvider)
+        .getControlById('aftertouch')!;
+    expect(
+      saved.payload,
+      const NotePayload(
+        channel: 3,
+        note: 60,
+        velocityMode: NoteVelocityMode.touchPosition,
+        velocityCurve: NoteVelocityCurve.drumPad,
+      ),
+    );
+    expect(
+      saved.effectiveSecondaryPayload,
+      const CcPayload(channel: 3, cc: 71),
+    );
+  });
+
   testWidgets('restricts 14-bit CC to the paired controller range', (
     tester,
   ) async {

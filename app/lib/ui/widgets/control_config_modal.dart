@@ -3,6 +3,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
 import '../../core/models/widget_style.dart';
 import '../design_system.dart';
@@ -29,6 +30,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   late final ControlType? _controlType;
   late final MidiActionDraft _primaryAction;
   MidiActionDraft? _secondaryAction;
+  TextEditingController? _expressionCc;
   late final TextEditingController _displayNameController;
   bool _invertX = false;
   bool _invertY = false;
@@ -38,6 +40,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   bool _showNumericReadout = true;
 
   bool get _isXy => _controlType == ControlType.xyPad;
+  bool get _isAftertouch => _controlType == ControlType.aftertouchPad;
   bool get _isContinuous => switch (_controlType) {
     ControlType.fader || ControlType.xyPad || ControlType.encoder => true,
     _ => false,
@@ -52,11 +55,14 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
 
     _controlType = control?.type;
     _primaryAction = MidiActionDraft(
-      payload: control?.payload,
+      payload: _isAftertouch && control?.payload is! NotePayload
+          ? null
+          : control?.payload,
       channel: control?.channel ?? 0,
       identifier: control?.defaultCc,
-      drumPad: _controlType == ControlType.drumPad,
-      allowUnassigned: _isXy,
+      drumPad: _controlType == ControlType.drumPad || _isAftertouch,
+      allowUnassigned: _isXy || _isAftertouch,
+      noteOnly: _isAftertouch,
     );
 
     final name = control?.customName;
@@ -74,6 +80,14 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       _invertX = control.invertX;
       _invertY = control.invertY;
     }
+    if (_isAftertouch && control != null) {
+      final cc = switch (control.effectiveSecondaryPayload) {
+        CcPayload(:final cc) => cc,
+        _ when control.secondaryCc == null => LayoutControl.defaultAftertouchCc,
+        _ => null,
+      };
+      _expressionCc = TextEditingController(text: cc?.toString());
+    }
 
     final style = control?.effectiveStyle ?? WidgetStyle.defaults;
     _accentColorHex = style.accentColorHex;
@@ -86,6 +100,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   void dispose() {
     _primaryAction.dispose();
     _secondaryAction?.dispose();
+    _expressionCc?.dispose();
     _displayNameController.dispose();
     super.dispose();
   }
@@ -96,7 +111,14 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       Scrollable.ensureVisible(invalidFields.first.context, alignment: 0.15);
       return;
     }
-    final secondary = _secondaryAction?.payload;
+    final primary = _primaryAction.payload;
+    final expression = int.tryParse(
+      _expressionCc?.text.trim() ?? '',
+      radix: 10,
+    );
+    final secondary = expression == null
+        ? _secondaryAction?.payload
+        : CcPayload(channel: primary?.midiChannel ?? 0, cc: expression);
     final nextStyle = WidgetStyle(
       accentColorHex: _accentColorHex,
       fontFamily: _fontFamily,
@@ -108,9 +130,11 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
         .read(layoutStateProvider.notifier)
         .updateControlActions(
           widget.controlId,
-          payload: _primaryAction.payload,
+          payload: primary,
           secondaryPayload: secondary,
-          clearSecondary: _secondaryAction != null && secondary == null,
+          clearSecondary:
+              (_secondaryAction != null || _expressionCc != null) &&
+              secondary == null,
           name: _displayNameController.text,
           invertX: _isXy ? _invertX : null,
           invertY: _isXy ? _invertY : null,
@@ -164,7 +188,9 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                 draft: _primaryAction,
                 usesPitchBendPosition: _isContinuous,
                 supportsVariableVelocity:
-                    _isContinuous || _controlType == ControlType.drumPad,
+                    _isContinuous ||
+                    _controlType == ControlType.drumPad ||
+                    _isAftertouch,
               ),
               if (_secondaryAction case final secondary?) ...[
                 CheckboxListTile(
@@ -198,6 +224,26 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                   onChanged: (v) => setState(() => _invertY = v ?? false),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
+                ),
+              ],
+              if (_expressionCc case final controller?) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: MidiActionFields.decoration.copyWith(
+                    labelText: 'Expression CC (0-127)',
+                    helperText: 'Leave blank to send notes only.',
+                  ),
+                  validator: (text) {
+                    final input = text?.trim() ?? '';
+                    if (input.isEmpty) return null;
+                    final cc = int.tryParse(input, radix: 10);
+                    return cc == null || cc < 0 || cc > 127
+                        ? 'Enter a CC number from 0 to 127'
+                        : null;
+                  },
                 ),
               ],
               const SizedBox(height: 16),

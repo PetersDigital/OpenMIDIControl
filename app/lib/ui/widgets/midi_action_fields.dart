@@ -28,6 +28,7 @@ class MidiActionDraft {
     bool drumPad = false,
     this.allowUnassigned = false,
     this.ccAndNoteOnly = false,
+    this.noteOnly = false,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -70,6 +71,7 @@ class MidiActionDraft {
   late _MidiMessageType _type;
   final bool allowUnassigned;
   final bool ccAndNoteOnly;
+  final bool noteOnly;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
@@ -81,8 +83,10 @@ class MidiActionDraft {
 
   bool _canSelect(_MidiMessageType type) => switch (type) {
     _MidiMessageType.unassigned => allowUnassigned,
-    _MidiMessageType.cc || _MidiMessageType.note => true,
-    _MidiMessageType.pitchBend || _MidiMessageType.relativeCc => !ccAndNoteOnly,
+    _MidiMessageType.cc => !noteOnly,
+    _MidiMessageType.note => true,
+    _MidiMessageType.pitchBend ||
+    _MidiMessageType.relativeCc => !ccAndNoteOnly && !noteOnly,
     _MidiMessageType.mcu => false,
   };
 
