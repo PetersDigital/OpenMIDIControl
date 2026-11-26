@@ -151,42 +151,18 @@ class _TriggerState extends ConsumerState<Trigger>
             ),
             child: Stack(
               children: [
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: ConfigGestureWrapper(
-                    key: ValueKey('config_wrapper_trigger_${control.id}'),
-                    id: 'trigger_${control.id}',
-                    onConfigRequested: isLocked
-                        ? null
-                        : () =>
-                              showUtilityConfigModal(context, ref, control.id),
-                    child: Container(
-                      padding: const EdgeInsets.only(
-                        top: 4,
-                        left: 6,
-                        bottom: 20,
-                        right: 20,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 64,
-                        minHeight: 60,
-                      ),
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        isUnassigned
-                            ? 'UNASSIGNED'
-                            : control.payload?.displayLabel ?? 'CC $identifier',
-                        style: AppText.performance(
-                          color: _isPressed
-                              ? const Color(0xFF033258).withValues(alpha: 0.6)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
+                _ButtonHeaderLabel(
+                  wrapperKey: ValueKey('config_wrapper_trigger_${control.id}'),
+                  configId: 'trigger_${control.id}',
+                  onConfigRequested: isLocked
+                      ? null
+                      : () => showUtilityConfigModal(context, ref, control.id),
+                  text: isUnassigned
+                      ? 'UNASSIGNED'
+                      : control.payload?.displayLabel ?? 'CC $identifier',
+                  color: _isPressed
+                      ? const Color(0xFF033258).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
                 ),
                 Center(
                   child: Container(
@@ -195,53 +171,31 @@ class _TriggerState extends ConsumerState<Trigger>
                       minHeight: 44,
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: AppText.performance(
-                        color: _isPressed
-                            ? const Color(0xFF033258)
-                            : const Color(0xFFC3C7CA),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: AppText.performance(
+                          color: _isPressed
+                              ? const Color(0xFF033258)
+                              : const Color(0xFFC3C7CA),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                // Status (Bottom Left)
-                Positioned(
-                  bottom: 4,
-                  left: 4,
-                  child: Text(
-                    _isPressed ? 'ON' : 'OFF',
-                    style: TextStyle(
-                      fontFamily: 'Space Grotesk',
-                      color: _isPressed
-                          ? const Color(0xFF033258)
-                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: isUnassigned
-                      ? const SizedBox.shrink()
-                      : Text(
-                          'CH${channel + 1}',
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: _isPressed
-                                ? const Color(0xFF033258).withValues(alpha: 0.6)
-                                : const Color(
-                                    0xFFC3C7CA,
-                                  ).withValues(alpha: 0.3),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                _ButtonFooterRow(
+                  statusText: _isPressed ? 'ON' : 'OFF',
+                  statusColor: _isPressed
+                      ? const Color(0xFF033258)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  channelText: isUnassigned ? null : 'CH${channel + 1}',
+                  channelColor: _isPressed
+                      ? const Color(0xFF033258).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
                 ),
               ],
             ),
@@ -381,42 +335,18 @@ class _ToggleState extends ConsumerState<Toggle>
             ),
             child: Stack(
               children: [
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: ConfigGestureWrapper(
-                    key: ValueKey('config_wrapper_toggle_${control.id}'),
-                    id: 'toggle_${control.id}',
-                    onConfigRequested: isLocked
-                        ? null
-                        : () =>
-                              showUtilityConfigModal(context, ref, control.id),
-                    child: Container(
-                      padding: const EdgeInsets.only(
-                        top: 4,
-                        left: 6,
-                        bottom: 20,
-                        right: 20,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 64,
-                        minHeight: 60,
-                      ),
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        isUnassigned
-                            ? 'UNASSIGNED'
-                            : control.payload?.displayLabel ?? 'CC $identifier',
-                        style: AppText.performance(
-                          color: _isActive
-                              ? const Color(0xFF690005).withValues(alpha: 0.6)
-                              : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
+                _ButtonHeaderLabel(
+                  wrapperKey: ValueKey('config_wrapper_toggle_${control.id}'),
+                  configId: 'toggle_${control.id}',
+                  onConfigRequested: isLocked
+                      ? null
+                      : () => showUtilityConfigModal(context, ref, control.id),
+                  text: isUnassigned
+                      ? 'UNASSIGNED'
+                      : control.payload?.displayLabel ?? 'CC $identifier',
+                  color: _isActive
+                      ? const Color(0xFF690005).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
                 ),
                 Center(
                   child: Container(
@@ -425,58 +355,144 @@ class _ToggleState extends ConsumerState<Toggle>
                       minHeight: 44,
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: AppText.performance(
-                        color: _isActive
-                            ? const Color(0xFF690005)
-                            : const Color(0xFFC3C7CA),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: AppText.performance(
+                          color: _isActive
+                              ? const Color(0xFF690005)
+                              : const Color(0xFFC3C7CA),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                // Status (Bottom Left)
-                Positioned(
-                  bottom: 4,
-                  left: 4,
-                  child: Text(
-                    _isActive ? 'ON' : 'OFF',
-                    style: TextStyle(
-                      fontFamily: 'Space Grotesk',
-                      color: _isActive
-                          ? const Color(0xFF690005)
-                          : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: isUnassigned
-                      ? const SizedBox.shrink()
-                      : Text(
-                          'CH${channel + 1}',
-                          style: TextStyle(
-                            fontFamily: 'Space Grotesk',
-                            color: _isActive
-                                ? const Color(0xFF690005).withValues(alpha: 0.6)
-                                : const Color(
-                                    0xFFC3C7CA,
-                                  ).withValues(alpha: 0.3),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                _ButtonFooterRow(
+                  statusText: _isActive ? 'ON' : 'OFF',
+                  statusColor: _isActive
+                      ? const Color(0xFF690005)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
+                  channelText: isUnassigned ? null : 'CH${channel + 1}',
+                  channelColor: _isActive
+                      ? const Color(0xFF690005).withValues(alpha: 0.6)
+                      : const Color(0xFFC3C7CA).withValues(alpha: 0.3),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ButtonHeaderLabel extends StatelessWidget {
+  final Key wrapperKey;
+  final String configId;
+  final VoidCallback? onConfigRequested;
+  final String text;
+  final Color color;
+
+  const _ButtonHeaderLabel({
+    required this.wrapperKey,
+    required this.configId,
+    required this.onConfigRequested,
+    required this.text,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: ConfigGestureWrapper(
+        key: wrapperKey,
+        id: configId,
+        onConfigRequested: onConfigRequested,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+          constraints: const BoxConstraints(minHeight: 44),
+          alignment: Alignment.topLeft,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.topLeft,
+            child: Text(
+              text,
+              style: AppText.performance(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ButtonFooterRow extends StatelessWidget {
+  final String statusText;
+  final Color statusColor;
+  final String? channelText;
+  final Color channelColor;
+
+  const _ButtonFooterRow({
+    required this.statusText,
+    required this.statusColor,
+    required this.channelText,
+    required this.channelColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 4,
+      left: 4,
+      right: 4,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  fontFamily: 'Space Grotesk',
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          if (channelText != null) ...[
+            const SizedBox(width: 4),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  channelText!,
+                  style: TextStyle(
+                    fontFamily: 'Space Grotesk',
+                    color: channelColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

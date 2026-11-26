@@ -457,6 +457,10 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final bool isCompact = constraints.maxWidth < 80;
+          final double horizontalInset = isCompact ? 3.0 : 16.0;
+          final double displayPad = isCompact ? 4.0 : 12.0;
+
           return Listener(
             onPointerDown: (e) {
               _handlePanDown(
@@ -498,37 +502,41 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                     // Full-width TM1637 Display pinned at top with visible gap
                     Positioned(
                       top: 16,
-                      left: 16,
-                      right: 16,
+                      left: horizontalInset,
+                      right: horizontalInset,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // Black readout box — full width, top-padded
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                            padding: EdgeInsets.all(displayPad),
                             color: const Color(0xFF0C0E12),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // Ghost segments — very faint
-                                Text(
-                                  "888",
-                                  textAlign: TextAlign.center,
-                                  style: ghostDisplayTextStyle,
-                                ),
-                                // Active value
-                                AnimatedBuilder(
-                                  animation: _animationController,
-                                  builder: (context, child) => Text(
-                                    ((_animationController.value * 127).round())
-                                        .toString()
-                                        .padLeft(3, ' '),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Ghost segments — very faint
+                                  Text(
+                                    "888",
                                     textAlign: TextAlign.center,
-                                    style: displayTextStyle,
+                                    style: ghostDisplayTextStyle,
                                   ),
-                                ),
-                              ],
+                                  // Active value
+                                  AnimatedBuilder(
+                                    animation: _animationController,
+                                    builder: (context, child) => Text(
+                                      ((_animationController.value * 127)
+                                              .round())
+                                          .toString()
+                                          .padLeft(3, ' '),
+                                      textAlign: TextAlign.center,
+                                      style: displayTextStyle,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
@@ -539,19 +547,22 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                             onConfigRequested: _showConfigMenu,
                             onRenameRequested: null,
                             child: Container(
-                              constraints: const BoxConstraints(
-                                minWidth: 64,
+                              constraints: BoxConstraints(
+                                minWidth: isCompact ? 0 : 64,
                                 minHeight: 44,
                               ),
                               alignment: Alignment.center,
-                              child: Text(
-                                _ccLabel,
-                                textAlign: TextAlign.center,
-                                style: AppText.performance(
-                                  color: Colors.white,
-                                  fontSize: labelFontSize,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.0,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _ccLabel,
+                                  textAlign: TextAlign.center,
+                                  style: AppText.performance(
+                                    color: Colors.white,
+                                    fontSize: isCompact ? 11.0 : labelFontSize,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: isCompact ? 0.3 : 1.0,
+                                  ),
                                 ),
                               ),
                             ),

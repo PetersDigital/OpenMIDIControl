@@ -1312,20 +1312,23 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       previous,
       next,
     ) {
-      final currentPages = ref.read(layoutStateProvider).pages;
-      if (_tabScrollController.hasClients && currentPages.length > 4) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_tabScrollController.hasClients) return;
+        final currentPages = ref.read(layoutStateProvider).pages;
+        if (currentPages.length <= 4) return;
         final maxScroll = _tabScrollController.position.maxScrollExtent;
-        // Approximate tab width is 80. Center the active tab in viewport.
-        final targetOffset =
-            (next * 80.0) -
-            (_tabScrollController.position.viewportDimension / 2) +
-            40.0;
+        // Approximate tab width is 80; reveal trailing newly added tabs completely.
+        final targetOffset = next == currentPages.length - 1
+            ? maxScroll
+            : (next * 80.0) -
+                  (_tabScrollController.position.viewportDimension / 2) +
+                  40.0;
         _tabScrollController.animateTo(
           targetOffset.clamp(0.0, maxScroll),
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
         );
-      }
+      });
     });
 
     final isScrollable = pages.length > 4;
