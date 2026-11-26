@@ -174,9 +174,12 @@ class SnapshotManager {
 
   /// Picks a `.omc` or `.json` file via the system file picker.
   Future<File?> _pickLayoutFile() async {
+    // Android maps extension filters to MIME types and drops unknown types
+    // such as .omc when a recognized extension also appears in the filter.
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     final List<PlatformFile> files = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: _layoutExtensions,
+      type: isAndroid ? FileType.any : FileType.custom,
+      allowedExtensions: isAndroid ? null : _layoutExtensions,
     );
     if (files.isEmpty) return null;
 

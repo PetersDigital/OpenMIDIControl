@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/managers/snapshot_manager.dart';
 import 'package:app/core/models/action_payload.dart';
@@ -27,6 +28,8 @@ final class _PickedFile extends PlatformFile {
 
 class _TestFilePicker extends FilePickerPlatform {
   List<PlatformFile> files = [];
+  FileType? requestedType;
+  List<String>? requestedExtensions;
 
   @override
   Future<List<PlatformFile>> pickFiles({
@@ -42,6 +45,8 @@ class _TestFilePicker extends FilePickerPlatform {
     LinuxOptions linuxOptions = const LinuxOptions(),
     WebOptions webOptions = const WebOptions(),
   }) async {
+    requestedType = type;
+    requestedExtensions = allowedExtensions;
     return files;
   }
 }
@@ -68,12 +73,30 @@ void main() {
 
     setUp(() {
       final original = FilePickerPlatform.instance;
+      final platform = debugDefaultTargetPlatformOverride;
       addTearDown(() {
         FilePickerPlatform.instance = original;
+        debugDefaultTargetPlatformOverride = platform;
       });
       picker = _TestFilePicker();
       FilePickerPlatform.instance = picker;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
     });
+
+    for (final name in ['layout.OMC', 'layout.json']) {
+      test('Android can import $name without a MIME filter', () async {
+        final cachedFile = File('${tempDir.path}/picker-cache-copy');
+        await cachedFile.writeAsString('{"pages": []}');
+        picker.files = [_PickedFile(name, cachedFile.uri)];
+
+        final result = await snapshotManager.importLayoutDocument();
+
+        expect(picker.requestedType, FileType.any);
+        expect(picker.requestedExtensions, isNull);
+        expect(result.isSuccess, isTrue);
+        expect(result.document!.schemaVersion, 2);
+      });
+    }
 
     test(
       'rejects unsupported picker selections before reading the file',
@@ -89,6 +112,16 @@ void main() {
       },
     );
 
+    test('retains the native extension filter outside Android', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+
+      final result = await snapshotManager.importLayoutDocument();
+
+      expect(picker.requestedType, FileType.custom);
+      expect(picker.requestedExtensions, ['omc', 'json']);
+      expect(result.document, isNull);
+      expect(result.errorMessage, isNull);
+    });
   });
 
   group('Hardened SnapshotManager Import/Export Tests', () {
