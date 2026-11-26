@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models/action_payload.dart';
+import 'global_ui_scale_state.dart';
 import 'header_transport_state.dart';
 import 'midi_action_dispatcher.dart';
 import 'midi_service.dart';
@@ -26,6 +27,7 @@ import 'layout_state.dart';
 import 'editor_state.dart';
 import 'side_panel_state.dart';
 import 'widgets/dynamic_grid_renderer.dart';
+import 'widgets/performance_grid_viewport.dart';
 import 'editor/widget_palette_panel.dart';
 import 'editor/page_settings_panel.dart';
 
@@ -1285,6 +1287,7 @@ class PerformanceZone extends ConsumerStatefulWidget {
 
 class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
   late final ScrollController _tabScrollController;
+  bool _panMode = false;
 
   @override
   void initState() {
@@ -1307,16 +1310,27 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
     final isLocked = ref.watch(
       layoutStateProvider.select((s) => s.isPerformanceLocked),
     );
+    final scale =
+        ref.watch(globalUiScaleProvider).value ??
+        GlobalUiScaleNotifier.defaultScale;
+    final canPan = scale > 1 && pages.isNotEmpty;
+
+    ref.listen(globalUiScaleProvider, (_, next) {
+      if (_panMode && (next.value ?? 1) <= 1) {
+        setState(() => _panMode = false);
+      }
+    });
 
     ref.listen<int>(layoutStateProvider.select((s) => s.activePageIndex), (
       previous,
       next,
     ) {
+      if (_panMode) setState(() => _panMode = false);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_tabScrollController.hasClients) return;
         final currentPages = ref.read(layoutStateProvider).pages;
-        if (currentPages.length <= 4) return;
         final maxScroll = _tabScrollController.position.maxScrollExtent;
+        if (maxScroll == 0) return;
         // Approximate tab width is 80; reveal trailing newly added tabs completely.
         final targetOffset = next == currentPages.length - 1
             ? maxScroll
@@ -1331,7 +1345,7 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
       });
     });
 
-    final isScrollable = pages.length > 4;
+    final isScrollable = pages.length > 4 || canPan;
 
     return Column(
       children: [
@@ -1364,6 +1378,23 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                 else
                   for (int i = 0; i < pages.length; i++)
                     _buildTabButton(i, pages[i].name, currentPage, false),
+                if (canPan)
+                  SizedBox(
+                    width: 44,
+                    height: 38,
+                    child: IconButton(
+                      tooltip: _panMode ? 'Finish panning' : 'Pan grid',
+                      icon: Icon(
+                        _panMode ? Icons.check : Icons.open_with,
+                        size: 18,
+                      ),
+                      color: _panMode
+                          ? const Color(0xFFA6C9F8)
+                          : Colors.white54,
+                      padding: EdgeInsets.zero,
+                      onPressed: () => setState(() => _panMode = !_panMode),
+                    ),
+                  ),
               ],
             ),
             const GlobalConfigProgressBar(),
@@ -1378,22 +1409,23 @@ class _PerformanceZoneState extends ConsumerState<PerformanceZone> {
                     style: AppText.system(color: Colors.white54),
                   ),
                 )
-              : IndexedStack(
-                  index: currentPage,
-                  children: pages.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final page = entry.value;
-                    final isActive = currentPage == index;
-                    final key = ValueKey(page.id);
-
-                    return DynamicGridRenderer(
-                      key: key,
-                      controls: page.controls,
-                      pageId: page.id,
-                      isActive: isActive,
-                      isMobile: widget.isMobile,
-                    );
-                  }).toList(),
+              : PerformanceGridViewport(
+                  scale: scale,
+                  panEnabled: _panMode,
+                  child: IndexedStack(
+                    index: currentPage,
+                    children: pages.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final page = entry.value;
+                      return DynamicGridRenderer(
+                        key: ValueKey(page.id),
+                        controls: page.controls,
+                        pageId: page.id,
+                        isActive: currentPage == index,
+                        isMobile: widget.isMobile,
+                      );
+                    }).toList(),
+                  ),
                 ),
         ),
       ],
