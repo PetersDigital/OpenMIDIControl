@@ -159,89 +159,93 @@ class _AftertouchPadState extends ConsumerState<AftertouchPad>
     final control = widget.control;
     final style = control.effectiveStyle;
     final note = control.payload;
+    final isUnassigned = note is! NotePayload;
     final accent = Color(style.accentColorValue ?? 0xFFA6C9F8);
     final isLocked = ref.watch(
       layoutStateProvider.select((state) => state.isPerformanceLocked),
     );
 
     return RepaintBoundary(
-      child: LayoutBuilder(
-        builder: (context, constraints) => DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFF282A2E),
-            border: Border.all(
-              color: _pointer == null ? const Color(0xFF111318) : accent,
+      child: Opacity(
+        opacity: isUnassigned ? 0.3 : 1.0,
+        child: LayoutBuilder(
+          builder: (context, constraints) => DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF282A2E),
+              border: Border.all(
+                color: _pointer == null ? const Color(0xFF111318) : accent,
+              ),
             ),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: widget.isActive && note is NotePayload
-                    ? (event) => _press(event, constraints.biggest, note)
-                    : null,
-                onPointerMove: _move,
-                onPointerUp: _finishPointer,
-                onPointerCancel: _finishPointer,
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _expression,
-                  builder: (context, value, _) => Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      FractionallySizedBox(
-                        widthFactor: 1,
-                        heightFactor: value / 127,
-                        child: ColoredBox(
-                          color: accent.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      if (style.showNumericReadout &&
-                          _pointer != null &&
-                          _cc != null)
-                        Center(
-                          child: Text(
-                            '$value',
-                            style: AppText.performance(
-                              color: Colors.white,
-                            ).copyWith(fontFamily: style.fontFamily),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: widget.isActive && note is NotePayload
+                      ? (event) => _press(event, constraints.biggest, note)
+                      : null,
+                  onPointerMove: _move,
+                  onPointerUp: _finishPointer,
+                  onPointerCancel: _finishPointer,
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _expression,
+                    builder: (context, value, _) => Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        FractionallySizedBox(
+                          widthFactor: 1,
+                          heightFactor: value / 127,
+                          child: ColoredBox(
+                            color: accent.withValues(alpha: 0.35),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-              ),
-              if (style.showLabel)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: ConfigGestureWrapper(
-                    id: control.id,
-                    onConfigRequested: isLocked || !widget.isActive
-                        ? null
-                        : () => showDialog<void>(
-                            context: context,
-                            builder: (_) => ControlConfigModal(
-                              controlId: control.id,
-                              displayNameLabel: 'Pad Label',
+                        if (style.showNumericReadout &&
+                            _pointer != null &&
+                            _cc != null)
+                          Center(
+                            child: Text(
+                              '$value',
+                              style: AppText.performance(
+                                color: Colors.white,
+                              ).copyWith(fontFamily: style.fontFamily),
                             ),
                           ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Text(
-                        control.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.performance(
-                          color: Colors.white70,
-                          fontSize: 11,
-                        ).copyWith(fontFamily: style.fontFamily),
-                      ),
+                      ],
                     ),
                   ),
                 ),
-            ],
+                if (style.showLabel)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: ConfigGestureWrapper(
+                      id: control.id,
+                      onConfigRequested: isLocked || !widget.isActive
+                          ? null
+                          : () => showDialog<void>(
+                              context: context,
+                              builder: (_) => ControlConfigModal(
+                                controlId: control.id,
+                                displayNameLabel: 'Pad Label',
+                              ),
+                            ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(
+                          control.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.performance(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ).copyWith(fontFamily: style.fontFamily),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

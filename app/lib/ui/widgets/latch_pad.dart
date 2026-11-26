@@ -112,9 +112,9 @@ class _LatchPadState extends ConsumerState<LatchPad>
   Widget build(BuildContext context) {
     final control = widget.control;
     final style = control.effectiveStyle;
-    final canTrigger =
-        widget.isActive &&
-        (control.payload is CcPayload || control.payload is NotePayload);
+    final isUnassigned =
+        control.payload is! CcPayload && control.payload is! NotePayload;
+    final canTrigger = widget.isActive && !isUnassigned;
     final isLocked = ref.watch(
       layoutStateProvider.select((state) => state.isPerformanceLocked),
     );
@@ -122,73 +122,76 @@ class _LatchPadState extends ConsumerState<LatchPad>
     final durationSeconds = control.latchDurationMs / 1000;
 
     return RepaintBoundary(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFF282A2E),
-          border: Border.all(color: const Color(0xFF111318)),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Semantics(
-              button: true,
-              enabled: canTrigger,
-              label: _running ? 'Cancel latch' : 'Start latch',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: canTrigger ? _toggle : null,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: CustomPaint(
-                    painter: _CountdownPainter(_remaining, accent),
-                    child: Center(
-                      child: style.showNumericReadout
-                          ? Text(
-                              '$durationSeconds s',
-                              style: AppText.performance(
-                                color: canTrigger
-                                    ? Colors.white
-                                    : Colors.white54,
-                                fontSize: 11,
-                              ).copyWith(fontFamily: style.fontFamily),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (style.showLabel)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: ConfigGestureWrapper(
-                  id: control.id,
-                  onConfigRequested: isLocked || !widget.isActive
-                      ? null
-                      : () => showDialog<void>(
-                          context: context,
-                          builder: (_) => ControlConfigModal(
-                            controlId: control.id,
-                            displayNameLabel: 'Pad Label',
-                          ),
-                        ),
+      child: Opacity(
+        opacity: isUnassigned ? 0.3 : 1.0,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFF282A2E),
+            border: Border.all(color: const Color(0xFF111318)),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Semantics(
+                button: true,
+                enabled: canTrigger,
+                label: _running ? 'Cancel latch' : 'Start latch',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: canTrigger ? _toggle : null,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: Text(
-                      control.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.performance(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ).copyWith(fontFamily: style.fontFamily),
+                    child: CustomPaint(
+                      painter: _CountdownPainter(_remaining, accent),
+                      child: Center(
+                        child: style.showNumericReadout
+                            ? Text(
+                                '$durationSeconds s',
+                                style: AppText.performance(
+                                  color: canTrigger
+                                      ? Colors.white
+                                      : Colors.white54,
+                                  fontSize: 11,
+                                ).copyWith(fontFamily: style.fontFamily),
+                              )
+                            : null,
+                      ),
                     ),
                   ),
                 ),
               ),
-          ],
+              if (style.showLabel)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: ConfigGestureWrapper(
+                    id: control.id,
+                    onConfigRequested: isLocked || !widget.isActive
+                        ? null
+                        : () => showDialog<void>(
+                            context: context,
+                            builder: (_) => ControlConfigModal(
+                              controlId: control.id,
+                              displayNameLabel: 'Pad Label',
+                            ),
+                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Text(
+                        control.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.performance(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ).copyWith(fontFamily: style.fontFamily),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

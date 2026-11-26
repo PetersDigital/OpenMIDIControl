@@ -161,4 +161,18 @@ void main() {
       ]);
     },
   );
+
+  testWidgets('dims unassigned pads to 30% opacity', (tester) async {
+    await pumpPad(tester, ccPad);
+    final assignedOpacity = tester.widget<Opacity>(
+      find.descendant(of: pad, matching: find.byType(Opacity)),
+    );
+    expect(assignedOpacity.opacity, 1.0);
+
+    await pumpPad(tester, ccPad.withActions(payload: null));
+    final unassignedOpacity = tester.widget<Opacity>(
+      find.descendant(of: pad, matching: find.byType(Opacity)),
+    );
+    expect(unassignedOpacity.opacity, 0.3);
+  });
 }

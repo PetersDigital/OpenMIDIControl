@@ -183,4 +183,18 @@ void main() {
     await touch.up();
     expect(midi.events, [('on', 3, 60, 64), ('off', 3, 60, 0)]);
   });
+
+  testWidgets('dims unassigned pads to 30% opacity', (tester) async {
+    await pumpPad(tester);
+    final assignedOpacity = tester.widget<Opacity>(
+      find.descendant(of: pad, matching: find.byType(Opacity)),
+    );
+    expect(assignedOpacity.opacity, 1.0);
+
+    await pumpPad(tester, mapped: control.withActions(payload: null));
+    final unassignedOpacity = tester.widget<Opacity>(
+      find.descendant(of: pad, matching: find.byType(Opacity)),
+    );
+    expect(unassignedOpacity.opacity, 0.3);
+  });
 }
