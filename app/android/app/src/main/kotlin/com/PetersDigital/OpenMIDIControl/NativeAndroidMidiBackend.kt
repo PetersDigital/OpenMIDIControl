@@ -13,8 +13,15 @@ import java.io.IOException
 class NativeAndroidMidiBackend(
     val device: MidiDevice,
     val inputPort: MidiInputPort?,
-    val outputPort: MidiOutputPort?
+    val outputPort: MidiOutputPort?,
+    val isUmp: Boolean
 ) : MidiPortBackend {
+
+    val supportsMidi2: Boolean = isUmp && when (device.info.defaultProtocol) {
+        MidiDeviceInfo.PROTOCOL_UMP_MIDI_2_0,
+        MidiDeviceInfo.PROTOCOL_UMP_MIDI_2_0_AND_JRTS -> true
+        else -> false
+    }
 
     private var midiReceiver: MidiReceiver? = null
 

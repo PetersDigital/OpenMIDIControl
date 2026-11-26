@@ -52,7 +52,7 @@ class MainActivity : FlutterActivity() {
     private var midiManager: MidiManager? = null
 
     // Abstracted Host and Peripheral Backends
-    private var hostMidiBackend: MidiPortBackend? = null
+    private var hostMidiBackend: NativeAndroidMidiBackend? = null
     private var peripheralMidiBackend: MidiPortBackend? = null
 
     private var eventSink: EventChannel.EventSink? = null
@@ -145,6 +145,7 @@ class MainActivity : FlutterActivity() {
     private val duplicateDeviceEventWindowMs = 1000L
     private val legacyMsgBuffer = ByteArray(3)
     private val umpMsgBuffer = ByteArray(4)
+    private val midi2MsgBuffer = ByteArray(8)
 
     private fun shouldSuppressDuplicateDeviceEvent(type: String, id: String): Boolean {
         val nowMs = SystemClock.elapsedRealtime()
@@ -431,6 +432,27 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "Events batch is required", null)
                     }
                 }
+                "sendMidiBatchV2" -> {
+                    val events = call.argument<LongArray>("events")
+                    if (events == null || !isValidMidi2Batch(events)) {
+                        result.error("INVALID_ARGUMENT", "Invalid versioned MIDI batch", null)
+                    } else {
+                        for (i in 1 until events.size step 3) {
+                            val word0 = events[i].toInt()
+                            val word1 = events[i + 1].toInt()
+                            val flags = events[i + 2]
+                            val isFinal = (flags and 1L) != 0L
+                            val acceptFeedback = (flags and 2L) != 0L
+                            val nowNs = System.nanoTime()
+                            if (word0 ushr 28 == 4) {
+                                processMidi2Controller(word0, word1, isFinal, nowNs, acceptFeedback)
+                            } else {
+                                processMidiEvent(word0, isFinal, nowNs, acceptFeedback)
+                            }
+                        }
+                        result.success(true)
+                    }
+                }
                 "vibrate" -> {
                     val patternRaw = call.argument<List<*>>("pattern")
                     val amplitudeRaw = call.argument<List<*>>("amplitude")
@@ -462,36 +484,71 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isValidMidi2Batch(events: LongArray): Boolean {
+        if (events.size < 4 || events[0] != -2L || (events.size - 1) % 3 != 0) return false
+        for (i in 1 until events.size step 3) {
+            if (events[i] !in 0L..0xFFFFFFFFL || events[i + 1] !in 0L..0xFFFFFFFFL ||
+                events[i + 2] !in 0L..3L
+            ) return false
+            val word0 = events[i].toInt()
+            when (word0 ushr 28) {
+                2 -> {
+                    val status = (word0 ushr 16) and 0xF0
+                    if (events[i + 1] != 0L || (word0 and 0x8080) != 0 ||
+                        (status != 0x80 && status != 0x90 && status != 0xB0 && status != 0xE0)
+                    ) return false
+                }
+                4 -> if (!MidiChannelVoiceEncoding.supportsMidi2Controller(word0)) return false
+                else -> return false
+            }
+        }
+        return true
+    }
+
+    private fun processMidi2Controller(word0: Int, word1: Int, isFinal: Boolean, nowNs: Long, acceptFeedback: Boolean) {
+        val host = hostMidiBackend
+        val nativeMidi2 = host?.supportsMidi2 == true
+        if (host != null && nativeMidi2) {
+            MidiChannelVoiceEncoding.writeWord(word0, midi2MsgBuffer)
+            MidiChannelVoiceEncoding.writeWord(word1, midi2MsgBuffer, 4)
+            host.send(midi2MsgBuffer, 0, midi2MsgBuffer.size, nowNs)
+        }
+
+        processMidiEvent(
+            MidiChannelVoiceEncoding.toMidi1Controller(word0, word1),
+            isFinal, nowNs, acceptFeedback, sendToHost = !nativeMidi2
+        )
+    }
+
     private fun processMidiEvent(
         umpInt: Int,
         isFinal: Boolean,
         nowNs: Long,
         acceptFeedback: Boolean = false,
+        sendToHost: Boolean = true,
     ) {
         val status = (umpInt ushr 16) and 0xFF
         val data1 = (umpInt ushr 8) and 0xFF
         val data2 = umpInt and 0xFF
 
         if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs, acceptFeedback)) {
-            sendToBackends(umpInt, status, data1, data2, nowNs)
+            sendToBackends(umpInt, status, data1, data2, nowNs, sendToHost)
         }
     }
 
-    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long) {
+    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long, sendToHost: Boolean) {
         legacyMsgBuffer[0] = status.toByte()
         legacyMsgBuffer[1] = data1.toByte()
         legacyMsgBuffer[2] = data2.toByte()
 
-        umpMsgBuffer[0] = (umpInt ushr 24).toByte()
-        umpMsgBuffer[1] = (umpInt ushr 16).toByte()
-        umpMsgBuffer[2] = (umpInt ushr 8).toByte()
-        umpMsgBuffer[3] = umpInt.toByte()
+        MidiChannelVoiceEncoding.writeWord(umpInt, umpMsgBuffer)
 
-        // Send to physically connected hardware (if any)
-        if (hostMidiBackend != null) {
-            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        val host = hostMidiBackend
+        if (sendToHost && host != null) {
+            val bytes = if (host.isUmp) umpMsgBuffer else legacyMsgBuffer
+            host.send(bytes, 0, bytes.size, timestamp)
         }
-        
+
         // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
         if (currentUsbMode != "peripheral") {
             // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
@@ -639,7 +696,7 @@ class MainActivity : FlutterActivity() {
                     inputPort = device.openInputPort(inPortToOpen)
                 }
 
-                hostMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort)
+                hostMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort, selectedDevice.isUmp)
                 setupMidiReceiver(selectedDevice.isUmp)
 
                 result.success(true)
