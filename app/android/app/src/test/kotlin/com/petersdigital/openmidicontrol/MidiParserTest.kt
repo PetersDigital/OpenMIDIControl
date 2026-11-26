@@ -4,6 +4,7 @@ package com.petersdigital.openmidicontrol
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -135,6 +136,42 @@ class MidiParserTest {
         val parsedTimestamp = packed and 0xFFFFFFFFL
         assertEquals(1600L, parsedTimestamp)
     }
+    @Test
+    fun pitchBendRateLimitsPerChannelAndDeduplicatesTheFullValue() {
+        val history = MidiSendHistory(suppressionWindowNs = 75, rateLimitNs = 8)
+        val status = 0xE3
+
+        assertTrue(history.shouldSend(status, 0, 64, false, 100))
+        assertFalse(history.shouldSend(status, 1, 64, false, 104))
+        assertTrue(history.shouldSend(0xE4, 1, 64, false, 104))
+        assertTrue(history.shouldSend(status, 1, 64, false, 109))
+        assertTrue(history.shouldSend(status, 0, 64, false, 118))
+        assertFalse(history.shouldSend(status, 0, 64, false, 127))
+        assertTrue(history.shouldSend(status, 0, 64, true, 128))
+        history.clear()
+        assertTrue(history.shouldSend(status, 0, 64, false, 129))
+    }
+
+    @Test
+    fun pitchBendEchoSuppressionUsesTheChannelAcrossDifferentLsbs() {
+        val sink = TestIncomingEventsSink()
+        val window = 75_000_000L
+        val history = MidiSendHistory(suppressionWindowNs = window, rateLimitNs = 8_333_333L)
+        val now = 100_000_000L
+        assertTrue(history.shouldSend(0xE3, 1, 64, false, now))
+
+        val sameChannel = 0x20E30240
+        val otherChannel = 0x20E40240
+        MidiParser.processSingleUmp(sameChannel, now + 1, true, sink, window, history.lastSentTime)
+        MidiParser.processSingleUmp(otherChannel, now + 1, true, sink, window, history.lastSentTime)
+        MidiParser.processSingleUmp(sameChannel, now + window, true, sink, window, history.lastSentTime)
+
+        assertEquals(
+            listOf(otherChannel, sameChannel),
+            sink.events.map { (it ushr 32).toInt() },
+        )
+    }
+
     @Test
     fun testBatchingLoopBounds() = runBlocking {
         // Exceed max size. If capacity is 2000 items,

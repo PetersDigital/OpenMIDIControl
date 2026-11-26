@@ -188,12 +188,12 @@ object MidiParser {
         if (isVirtual) {
             // Bidirectional Feedback Loop Prevention
             if (data1 in 0..127) {
-                val index = (((status ushr 4) - 8) shl 11) or ((status and 0x0F) shl 7) or data1
-                if (index in 0 until 16384) {
+                val index = midiSendSlot(status, data1)
+                if (index in lastSentTime.indices) {
                     val lastTime = lastSentTime[index]
                     val timeDiff = timestamp - lastTime
 
-                    if (timeDiff < suppressionWindowNs) {
+                    if (lastTime != 0L && timeDiff < suppressionWindowNs) {
                         // Ignore message from host if we recently sent *any* value for this event.
                         // This prevents delayed echoes from older values causing oscillation during rapid movement.
                         return
