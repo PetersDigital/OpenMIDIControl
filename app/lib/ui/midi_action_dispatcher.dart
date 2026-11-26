@@ -141,7 +141,21 @@ class MidiActionDispatcher {
     int? relativeDelta,
   }) {
     switch (payload) {
-      case CcPayload(:final channel, :final cc, :final highResolution):
+      case CcPayload(
+        :final channel,
+        :final cc,
+        :final highResolution,
+        :final midi2,
+      ):
+        if (midi2) {
+          service.sendAbsoluteCc32(
+            cc,
+            (position * 0xFFFFFFFF).round(),
+            channel: channel,
+            isFinal: isFinal,
+          );
+          break;
+        }
         if (highResolution && cc < 32) {
           service.sendHighResolutionCc(
             cc,
@@ -156,6 +170,12 @@ class MidiActionDispatcher {
             isFinal: isFinal,
           );
         }
+      case PitchBendPayload(:final channel, midi2: true):
+        service.sendPitchBend32(
+          (position * 0xFFFFFFFF).round(),
+          channel: channel,
+          isFinal: isFinal,
+        );
       case PitchBendPayload(:final channel):
         service.sendPitchBend(
           (position * 16383).round(),

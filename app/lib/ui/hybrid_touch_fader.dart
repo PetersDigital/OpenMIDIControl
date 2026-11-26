@@ -120,7 +120,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = ref.read(controlStateProvider).ccValues[_feedbackAddress];
     final startValue = hotValue != null
-        ? hotValue / 127.0
+        ? _normalizeFeedback(hotValue)
         : widget.initialValue;
 
     _animationController = AnimationController(
@@ -165,6 +165,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           _style = next?.effectiveStyle ?? widget.style;
         });
         if (previousAddress != _feedbackAddress) {
+          _pendingIncomingNormalized = null;
+          _animationController.stop();
           _lastPolledValue = null;
           if (widget.isActive) {
             _setupMidiListeners();
@@ -174,8 +176,16 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     );
   }
 
-  String? get _feedbackAddress =>
-      ccFeedbackAddress(_payload, _midiChannel, _ccNumber);
+  String? get _feedbackAddress => switch (_payload) {
+    CcPayload(:final channel, :final cc, midi2: true) => 'cc32:$channel:$cc',
+    PitchBendPayload(:final channel) => 'bend:$channel',
+    _ => ccFeedbackAddress(_payload, _midiChannel, _ccNumber),
+  };
+
+  double _normalizeFeedback(int value) => switch (_payload) {
+    CcPayload(midi2: true) || PitchBendPayload() => value / 0xFFFFFFFF,
+    _ => value / 127.0,
+  };
 
   void _setupMidiListeners() {
     clearManagedSubscriptions();
@@ -187,9 +197,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         if (next is AsyncData) {
           final val = next.value;
           if (val != null && val != _lastPolledValue) {
-            final prev = _lastPolledValue;
             _lastPolledValue = val;
-            _handleCcUpdate(prev, val);
+            _handleCcUpdate(val);
           }
         }
       }),
@@ -216,8 +225,8 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
             .read(controlStateProvider)
             .ccValues[_feedbackAddress];
         if (hotValue != null) {
-          final target = hotValue / 127.0;
-          if ((_animationController.value - target).abs() > 0.001) {
+          final target = _normalizeFeedback(hotValue);
+          if (_animationController.value != target) {
             _animationController.value = target;
           }
         }
@@ -383,7 +392,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     }
   }
 
-  void _handleCcUpdate(int? prev, int next) {
+  void _handleCcUpdate(int next) {
     if (_isDragging) {
       // De-sync: The hardware is overriding the app state, but the user is dragging.
       // Set the catchup flag so when they release the app will catchup to the HW state
@@ -394,7 +403,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
     // Always schedule standard non-physics update if the user isn't touching it.
     // Physics handles smoothing for 'FaderBehavior.jump'.
-    _pendingIncomingNormalized = (next / 127.0).clamp(0.0, 1.0);
+    _pendingIncomingNormalized = _normalizeFeedback(next).clamp(0.0, 1.0);
 
     if (_isVisualUpdateQueued) return;
 

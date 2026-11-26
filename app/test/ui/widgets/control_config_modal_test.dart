@@ -245,6 +245,31 @@ void main() {
     );
   });
 
+  testWidgets('saves and reopens a 32-bit CC fader assignment', (tester) async {
+    final container = await openInspector(tester, 'fader_0');
+    await tester.tap(find.text('32-bit MIDI 2.0'));
+    await tester.pumpAndSettle();
+
+    final cc = find.widgetWithText(
+      TextFormField,
+      'CC Number (64–95 or 102–119)',
+    );
+    await tester.enterText(cc, '98');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter a CC from 64 to 95 or 102 to 119'), findsOneWidget);
+
+    await tester.enterText(cc, '74');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final payload = container
+        .read(layoutStateProvider)
+        .getControlById('fader_0')!
+        .payload!;
+    expect(payload, const CcPayload(channel: 0, cc: 74, midi2: true));
+    expect(ActionPayload.fromJson(payload.toJson()), payload);
+  });
+
   testWidgets('saves relative X without rewriting the existing Y action', (
     tester,
   ) async {

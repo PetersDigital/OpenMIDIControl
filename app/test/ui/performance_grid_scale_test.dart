@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
+import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/layout_models.dart';
 import 'package:app/ui/global_ui_scale_state.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
@@ -16,6 +17,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _RecordingMidiService extends MidiService {
   final lastValues = <int, int>{};
+  final cc32Updates = <(int, int, bool)>[];
+
+  @override
+  Future<void> sendAbsoluteCc32(
+    int cc,
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    cc32Updates.add((cc, value, isFinal));
+  }
 
   @override
   Future<void> sendCC(
@@ -29,6 +41,10 @@ class _RecordingMidiService extends MidiService {
 }
 
 class _TestLayout extends LayoutStateNotifier {
+  _TestLayout({this.faderPayload});
+
+  final ActionPayload? faderPayload;
+
   @override
   LayoutState build() => LayoutState(
     pages: [
@@ -44,6 +60,7 @@ class _TestLayout extends LayoutStateNotifier {
             type: ControlType.fader,
             defaultCc: 1,
             channel: 0,
+            payload: faderPayload,
           ),
           LayoutControl(
             id: 'xy',
@@ -65,6 +82,43 @@ Offset _point(Rect rect, double x, double y) =>
     rect.topLeft + Offset(rect.width * x, rect.height * y);
 
 void main() {
+  testWidgets('32-bit fader sends a high-resolution final position', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final midi = _RecordingMidiService();
+    addTearDown(midi.dispose);
+    final container = ProviderContainer.test(
+      overrides: [
+        layoutStateProvider.overrideWith(
+          () => _TestLayout(
+            faderPayload: const CcPayload(channel: 0, cc: 74, midi2: true),
+          ),
+        ),
+        midiServiceProvider.overrideWithValue(midi),
+      ],
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: PerformanceZone())),
+      ),
+    );
+
+    final rect = tester.getRect(find.byType(HybridTouchFader));
+    final touch = await tester.startGesture(_point(rect, 0.6, 0.8));
+    await touch.moveTo(_point(rect, 0.6, 0.5));
+    await touch.moveTo(_point(rect, 0.6, 0.3));
+    await touch.up();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    final (cc, value, isFinal) = midi.cc32Updates.last;
+    expect(cc, 74);
+    expect(value, inInclusiveRange(128, 0xFFFFFFFF));
+    expect(isFinal, isTrue);
+    expect(midi.lastValues, isEmpty);
+  });
+
   testWidgets(
     'fader and XY output agree across scale and pan with two touches',
     (tester) async {

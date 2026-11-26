@@ -54,6 +54,7 @@ sealed class ActionPayload {
         channel: _readInt(json, 'channel', 15),
         cc: _readInt(json, 'cc', 127),
         highResolution: _readBool(json, 'highResolution'),
+        midi2: _readBool(json, 'midi2'),
       ),
       'note' => NotePayload(
         channel: _readInt(json, 'channel', 15),
@@ -68,6 +69,7 @@ sealed class ActionPayload {
       'pitchBend' => PitchBendPayload(
         channel: _readInt(json, 'channel', 15),
         value: _readInt(json, 'value', 16383),
+        midi2: _readBool(json, 'midi2'),
       ),
       'relativeCc' => RelativeCcPayload(
         channel: _readInt(json, 'channel', 15),
@@ -126,16 +128,18 @@ final class CcPayload extends ActionPayload {
   final int channel;
   final int cc;
   final bool highResolution;
+  final bool midi2;
 
   const CcPayload({
     required this.channel,
     required this.cc,
     this.highResolution = false,
+    this.midi2 = false,
   }) : assert(channel >= 0 && channel <= 15),
        assert(cc >= 0 && cc <= 127);
 
   @override
-  Object get _fields => (channel, cc, highResolution);
+  Object get _fields => (channel, cc, highResolution, midi2);
 
   @override
   Map<String, dynamic> toJson() => {
@@ -143,6 +147,7 @@ final class CcPayload extends ActionPayload {
     'channel': channel,
     'cc': cc,
     if (highResolution) 'highResolution': true,
+    if (midi2) 'midi2': true,
   };
 }
 
@@ -176,19 +181,24 @@ final class NotePayload extends ActionPayload {
 final class PitchBendPayload extends ActionPayload {
   final int channel;
   final int value;
+  final bool midi2;
 
-  const PitchBendPayload({required this.channel, this.value = 8192})
-    : assert(channel >= 0 && channel <= 15),
-      assert(value >= 0 && value <= 16383);
+  const PitchBendPayload({
+    required this.channel,
+    this.value = 8192,
+    this.midi2 = false,
+  }) : assert(channel >= 0 && channel <= 15),
+       assert(value >= 0 && value <= 16383);
 
   @override
-  Object get _fields => (channel, value);
+  Object get _fields => (channel, value, midi2);
 
   @override
   Map<String, dynamic> toJson() => {
     'type': 'pitchBend',
     'channel': channel,
     'value': value,
+    if (midi2) 'midi2': true,
   };
 }
 

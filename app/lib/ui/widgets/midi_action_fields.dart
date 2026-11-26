@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/midi_utils.dart';
 import '../../core/models/action_payload.dart';
+import '../../core/models/midi_event.dart';
 
 enum _MidiMessageType {
   unassigned('Unassigned'),
@@ -29,6 +30,7 @@ class MidiActionDraft {
     this.allowUnassigned = false,
     this.ccAndNoteOnly = false,
     this.noteOnly = false,
+    this.supportsMidi2 = false,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -51,6 +53,10 @@ class MidiActionDraft {
     _pitchValue = TextEditingController(
       text: (payload is PitchBendPayload ? payload.value : 8192).toString(),
     );
+    _midi2 = switch (payload) {
+      CcPayload(:final midi2) || PitchBendPayload(:final midi2) => midi2,
+      _ => false,
+    };
     _highResolution = payload is CcPayload && payload.highResolution;
     _velocityMode = payload is NotePayload
         ? payload.velocityMode
@@ -72,10 +78,12 @@ class MidiActionDraft {
   final bool allowUnassigned;
   final bool ccAndNoteOnly;
   final bool noteOnly;
+  final bool supportsMidi2;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
   late bool _highResolution;
+  late bool _midi2;
   late NoteVelocityMode _velocityMode;
   late NoteVelocityCurve _velocityCurve;
   late RelativeCcEncoding _encoding;
@@ -102,6 +110,12 @@ class MidiActionDraft {
           ? 'Enter a note name or a number from 0 to 127'
           : null;
     }
+    if (_type == _MidiMessageType.cc && _midi2) {
+      final cc = _parseNumber(input, 127);
+      return cc != null && MidiEvent.isMidi2AbsoluteCc(cc)
+          ? null
+          : 'Enter a CC from 64 to 95 or 102 to 119';
+    }
     final max = _type == _MidiMessageType.cc && _highResolution ? 31 : 127;
     return _parseNumber(input, max) == null
         ? 'Enter a CC number from 0 to $max'
@@ -114,7 +128,8 @@ class MidiActionDraft {
     _MidiMessageType.cc => CcPayload(
       channel: channel,
       cc: int.parse(_identifier.text.trim(), radix: 10),
-      highResolution: _highResolution,
+      highResolution: _highResolution && !_midi2,
+      midi2: _midi2,
     ),
     _MidiMessageType.note => NotePayload(
       channel: channel,
@@ -124,6 +139,7 @@ class MidiActionDraft {
     ),
     _MidiMessageType.pitchBend => PitchBendPayload(
       channel: channel,
+      midi2: _midi2,
       value: int.parse(_pitchValue.text.trim(), radix: 10),
     ),
     _MidiMessageType.relativeCc => RelativeCcPayload(
@@ -268,6 +284,8 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           _numberField(
             label: type == _MidiMessageType.note
                 ? 'MIDI Note (e.g., C3 or 60)'
+                : _draft._midi2 && type == _MidiMessageType.cc
+                ? 'CC Number (64–95 or 102–119)'
                 : _draft._highResolution && type == _MidiMessageType.cc
                 ? 'CC Number (0-31)'
                 : 'CC Number (0-127)',
@@ -278,7 +296,22 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
                 : TextInputType.number,
           ),
         ],
-        if (type == _MidiMessageType.cc)
+        if (_draft.supportsMidi2 &&
+            (type == _MidiMessageType.cc || type == _MidiMessageType.pitchBend))
+          CheckboxListTile(
+            title: const Text(
+              '32-bit MIDI 2.0',
+              style: TextStyle(color: Colors.white),
+            ),
+            value: _draft._midi2,
+            onChanged: (value) => setState(() {
+              _draft._midi2 = value ?? false;
+              if (_draft._midi2) _draft._highResolution = false;
+            }),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        if (type == _MidiMessageType.cc && !_draft._midi2)
           CheckboxListTile(
             title: const Text(
               '14-bit CC',

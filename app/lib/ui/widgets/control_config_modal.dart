@@ -70,6 +70,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       allowUnassigned: _isXy || _isAftertouch || _isLatch,
       noteOnly: _isAftertouch,
       ccAndNoteOnly: _isLatch,
+      supportsMidi2: _controlType == ControlType.fader,
     );
 
     final name = control?.customName;
