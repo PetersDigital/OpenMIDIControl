@@ -83,6 +83,37 @@ void main() {
     );
   });
 
+  testWidgets('configures a latch duration and CC assignment together', (
+    tester,
+  ) async {
+    final container = await openInspector(
+      tester,
+      'latch',
+      initialControl: LayoutControl(
+        id: 'latch',
+        type: ControlType.latchPad,
+        defaultCc: -1,
+        channel: -1,
+      ),
+    );
+    await select(tester, 'Unassigned', 'CC');
+    final cc = find.widgetWithText(TextFormField, 'CC Number (0-127)');
+    await tester.ensureVisible(cc);
+    await tester.enterText(cc, '71');
+    final slider = find.byType(Slider);
+    await tester.ensureVisible(slider);
+    final bounds = tester.getRect(slider);
+    await tester.tapAt(Offset(bounds.right - 2, bounds.center.dy));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final control = container
+        .read(layoutStateProvider)
+        .getControlById('latch')!;
+    expect(control.payload, const CcPayload(channel: 0, cc: 71));
+    expect(control.latchDurationMs, 16000);
+  });
+
   testWidgets('selects note, velocity mode, and curve', (tester) async {
     final container = await openInspector(tester, 'fader_0');
 

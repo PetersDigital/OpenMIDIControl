@@ -31,6 +31,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
   late final MidiActionDraft _primaryAction;
   MidiActionDraft? _secondaryAction;
   TextEditingController? _expressionCc;
+  int? _latchDurationMs;
   late final TextEditingController _displayNameController;
   bool _invertX = false;
   bool _invertY = false;
@@ -41,6 +42,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
 
   bool get _isXy => _controlType == ControlType.xyPad;
   bool get _isAftertouch => _controlType == ControlType.aftertouchPad;
+  bool get _isLatch => _controlType == ControlType.latchPad;
   bool get _isContinuous => switch (_controlType) {
     ControlType.fader || ControlType.xyPad || ControlType.encoder => true,
     _ => false,
@@ -55,14 +57,19 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
 
     _controlType = control?.type;
     _primaryAction = MidiActionDraft(
-      payload: _isAftertouch && control?.payload is! NotePayload
-          ? null
-          : control?.payload,
+      payload: switch (control?.payload) {
+        final payload when _isAftertouch && payload is! NotePayload => null,
+        final payload
+            when _isLatch && payload is! NotePayload && payload is! CcPayload =>
+          null,
+        final payload => payload,
+      },
       channel: control?.channel ?? 0,
       identifier: control?.defaultCc,
       drumPad: _controlType == ControlType.drumPad || _isAftertouch,
-      allowUnassigned: _isXy || _isAftertouch,
+      allowUnassigned: _isXy || _isAftertouch || _isLatch,
       noteOnly: _isAftertouch,
+      ccAndNoteOnly: _isLatch,
     );
 
     final name = control?.customName;
@@ -88,6 +95,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       };
       _expressionCc = TextEditingController(text: cc?.toString());
     }
+    if (_isLatch) _latchDurationMs = control!.latchDurationMs;
 
     final style = control?.effectiveStyle ?? WidgetStyle.defaults;
     _accentColorHex = style.accentColorHex;
@@ -140,6 +148,7 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
           invertY: _isXy ? _invertY : null,
           style: nextStyle.isDefault ? null : nextStyle,
           clearStyle: nextStyle.isDefault,
+          latchDurationMs: _latchDurationMs,
         );
 
     Navigator.of(context).pop();
@@ -244,6 +253,24 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
                         ? 'Enter a CC number from 0 to 127'
                         : null;
                   },
+                ),
+              ],
+              if (_latchDurationMs case final duration?) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Latch duration · ${duration / 1000} s',
+                  style: AppText.system(color: Colors.white),
+                ),
+                Slider(
+                  min: LayoutControl.minLatchDurationMs.toDouble(),
+                  max: LayoutControl.maxLatchDurationMs.toDouble(),
+                  divisions: 31,
+                  value: duration.toDouble(),
+                  label: '${duration / 1000} s',
+                  semanticFormatterCallback: (value) =>
+                      '${value / 1000} seconds',
+                  onChanged: (value) =>
+                      setState(() => _latchDurationMs = value.round()),
                 ),
               ],
               const SizedBox(height: 16),
