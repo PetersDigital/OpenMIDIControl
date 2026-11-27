@@ -419,13 +419,16 @@ class MainActivity : FlutterActivity() {
                     val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
-                            for (i in 0 until events.size step 2) {
-                                val umpInt = events[i].toInt()
-                                val flags = events[i + 1]
-                                val isFinal = (flags and 1L) != 0L
-                                val acceptFeedback = (flags and 2L) != 0L
-                                // Use individual timestamp per event to maintain order and length
-                                processMidiEvent(umpInt, isFinal, System.nanoTime(), acceptFeedback)
+                            withUsbCcBatch { batch ->
+                                for (i in 0 until events.size step 2) {
+                                    val umpInt = events[i].toInt()
+                                    val flags = events[i + 1]
+                                    val isFinal = (flags and 1L) != 0L
+                                    val acceptFeedback = (flags and 2L) != 0L
+                                    processMidiEvent(
+                                        umpInt, isFinal, System.nanoTime(), acceptFeedback, usbCcBatch = batch
+                                    )
+                                }
                             }
                             result.success(true)
                         } catch (e: Exception) {
@@ -465,17 +468,19 @@ class MainActivity : FlutterActivity() {
                     if (events == null || !isValidMidi2Batch(events)) {
                         result.error("INVALID_ARGUMENT", "Invalid versioned MIDI batch", null)
                     } else {
-                        for (i in 1 until events.size step 3) {
-                            val word0 = events[i].toInt()
-                            val word1 = events[i + 1].toInt()
-                            val flags = events[i + 2]
-                            val isFinal = (flags and 1L) != 0L
-                            val acceptFeedback = (flags and 2L) != 0L
-                            val nowNs = System.nanoTime()
-                            if (word0 ushr 28 == 4) {
-                                processMidi2Controller(word0, word1, isFinal, nowNs, acceptFeedback)
-                            } else {
-                                processMidiEvent(word0, isFinal, nowNs, acceptFeedback)
+                        withUsbCcBatch { batch ->
+                            for (i in 1 until events.size step 3) {
+                                val word0 = events[i].toInt()
+                                val word1 = events[i + 1].toInt()
+                                val flags = events[i + 2]
+                                val isFinal = (flags and 1L) != 0L
+                                val acceptFeedback = (flags and 2L) != 0L
+                                val nowNs = System.nanoTime()
+                                if (word0 ushr 28 == 4) {
+                                    processMidi2Controller(word0, word1, isFinal, nowNs, acceptFeedback, batch)
+                                } else {
+                                    processMidiEvent(word0, isFinal, nowNs, acceptFeedback, usbCcBatch = batch)
+                                }
                             }
                         }
                         result.success(true)
@@ -563,7 +568,19 @@ class MainActivity : FlutterActivity() {
         return true
     }
 
-    private fun processMidi2Controller(word0: Int, word1: Int, isFinal: Boolean, nowNs: Long, acceptFeedback: Boolean) {
+    private inline fun withUsbCcBatch(dispatch: (UsbMidiCcBatch?) -> Unit) {
+        val batch = hostMidiBackend?.usbCcBatch
+        try {
+            dispatch(batch)
+        } finally {
+            batch?.flush()
+        }
+    }
+
+    private fun processMidi2Controller(
+        word0: Int, word1: Int, isFinal: Boolean, nowNs: Long, acceptFeedback: Boolean,
+        usbCcBatch: UsbMidiCcBatch?,
+    ) {
         val host = hostMidiBackend
         val nativeMidi2 = host?.supportsMidi2 == true
         if (host != null && nativeMidi2) {
@@ -574,7 +591,7 @@ class MainActivity : FlutterActivity() {
 
         processMidiEvent(
             MidiChannelVoiceEncoding.toMidi1Controller(word0, word1),
-            isFinal, nowNs, acceptFeedback, sendToHost = !nativeMidi2
+            isFinal, nowNs, acceptFeedback, sendToHost = !nativeMidi2, usbCcBatch = usbCcBatch
         )
     }
 
@@ -584,17 +601,27 @@ class MainActivity : FlutterActivity() {
         nowNs: Long,
         acceptFeedback: Boolean = false,
         sendToHost: Boolean = true,
+        usbCcBatch: UsbMidiCcBatch? = null,
     ) {
         val status = (umpInt ushr 16) and 0xFF
         val data1 = (umpInt ushr 8) and 0xFF
         val data2 = umpInt and 0xFF
 
         if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs, acceptFeedback)) {
-            sendToBackends(umpInt, status, data1, data2, nowNs, sendToHost)
+            sendToBackends(umpInt, status, data1, data2, nowNs, sendToHost, isFinal, usbCcBatch)
         }
     }
 
-    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long, sendToHost: Boolean) {
+    private fun sendToBackends(
+        umpInt: Int,
+        status: Int,
+        data1: Int,
+        data2: Int,
+        timestamp: Long,
+        sendToHost: Boolean,
+        isFinal: Boolean,
+        usbCcBatch: UsbMidiCcBatch?,
+    ) {
         legacyMsgBuffer[0] = status.toByte()
         legacyMsgBuffer[1] = data1.toByte()
         legacyMsgBuffer[2] = data2.toByte()
@@ -604,7 +631,11 @@ class MainActivity : FlutterActivity() {
         val host = hostMidiBackend
         if (sendToHost && host != null) {
             val bytes = if (host.isUmp) umpMsgBuffer else legacyMsgBuffer
-            host.send(bytes, 0, bytes.size, timestamp)
+            if (usbCcBatch != null) {
+                usbCcBatch.send(bytes, timestamp, bufferCc = !isFinal && (status and 0xF0) == 0xB0)
+            } else {
+                host.send(bytes, 0, bytes.size, timestamp)
+            }
         }
 
         // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
@@ -754,7 +785,10 @@ class MainActivity : FlutterActivity() {
                     inputPort = device.openInputPort(inPortToOpen)
                 }
 
-                hostMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort, selectedDevice.isUmp)
+                hostMidiBackend = NativeAndroidMidiBackend(
+                    device, inputPort, outputPort, selectedDevice.isUmp,
+                    isUsbPeripheral = isUsbPeripheral(selectedDevice.info),
+                )
                 setupMidiReceiver(selectedDevice.isUmp)
 
                 result.success(true)
