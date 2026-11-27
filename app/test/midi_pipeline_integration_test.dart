@@ -7,12 +7,114 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app/core/models/midi_event.dart';
+import 'package:app/core/models/action_payload.dart';
+import 'package:app/core/protocol/mcu/mcu_codec.dart';
 import 'package:app/ui/midi_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('EventChannel Multiplexing (Hotplug & Stream Integrations)', () {
+    test(
+      'MCU routes gestures to the selected generation and consumes host feedback',
+      () async {
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        const midiChannel = MethodChannel(
+          'com.petersdigital.openmidicontrol/midi',
+        );
+        const eventsChannel = EventChannel(
+          'com.petersdigital.openmidicontrol/midi_events',
+        );
+        late MockStreamHandlerEventSink native;
+        messenger.setMockStreamHandler(
+          eventsChannel,
+          MockStreamHandler.inline(onListen: (_, events) => native = events),
+        );
+        final outbound = <Map<dynamic, dynamic>>[];
+        messenger.setMockMethodCallHandler(midiChannel, (call) async {
+          if (call.method == 'getMcuRouteGeneration') return 42;
+          if (call.method == 'sendMcuBatch' ||
+              call.method == 'sendMidiCCBatch') {
+            outbound.add(call.arguments as Map<dynamic, dynamic>);
+          }
+          return null;
+        });
+        addTearDown(() {
+          messenger.setMockMethodCallHandler(midiChannel, null);
+          messenger.setMockStreamHandler(eventsChannel, null);
+        });
+        final service = MidiService(useBackgroundWorker: false);
+        addTearDown(service.dispose);
+        expect(await service.startMcuSession(), isTrue);
+
+        const fader = McuActionPayload.fader(0);
+        service.sendMcuSwitch(fader, pressed: true);
+        service.sendMcuFader(0, 8192);
+        service.sendMcuFader(0, 8193, isFinal: true);
+        service.sendMcuSwitch(fader, pressed: false);
+        service.turnMcuVPot(7, 1);
+        service.turnMcuVPot(7, 1);
+        service.tapMcuSwitch(
+          const McuActionPayload.transport(TransportAction.play),
+        );
+        expect(outbound.map((batch) => batch['generation']).toSet(), {42});
+        expect(
+          outbound.expand((batch) {
+            final events = batch['events'] as Int64List;
+            return [for (var i = 0; i < events.length; i += 2) events[i]];
+          }),
+          [
+            0x2090687F,
+            0x20E00040,
+            0x20E00140,
+            0x20806800,
+            0x20B01701,
+            0x20B01701,
+            0x20905E7F,
+            0x20805E00,
+          ],
+        );
+        outbound.clear();
+
+        native.success(
+          Int64List.fromList([
+            -2,
+            42,
+            3,
+            0x40E70000,
+            0x80040001,
+            2500000,
+            0x40905E00,
+            0xFFFF0000,
+            2500001,
+            0x40BF4500,
+            0x62000000,
+            2500002,
+          ]),
+        );
+        native.success(Int64List.fromList([-2, 43, 1, 0x20905E00, 0, 2500003]));
+        native.success(Int64List.fromList([-2, 42, 1, 0x2190187F, 0, 2500004]));
+        await Future<void>.delayed(Duration.zero);
+        expect(service.mcuFaderValue(7), 8193);
+        expect(service.mcuLampState(0x5E), McuLampState.on);
+        expect(service.mcuTimeDigit(5), 0x31);
+        expect(service.mcuLampState(0x18), isNull);
+        final notes = service.currentState['notes'] as Map<int, List<int>>;
+        expect(notes[0], [0x18]);
+        expect(outbound, isEmpty);
+
+        service.stopMcuSession();
+        native.success(Int64List.fromList([-2, 42, 1, 0x20905E7F, 0, 2500005]));
+        await Future<void>.delayed(Duration.zero);
+        expect(service.mcuLampState(0x5E), isNull);
+        final genericNotes =
+            service.currentState['notes'] as Map<int, List<int>>;
+        expect(genericNotes[0], [0x18, 0x5E]);
+        expect(outbound, isEmpty);
+      },
+    );
+
     test(
       'v2 validates packet extent and preserves unsigned MT 4 values',
       () async {

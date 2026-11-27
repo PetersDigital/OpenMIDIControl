@@ -13,6 +13,8 @@ import 'dart:isolate';
 import '../core/models/control_state.dart';
 import '../core/models/action_payload.dart';
 import '../core/models/midi_event.dart';
+import '../core/protocol/mcu/mcu_codec.dart';
+import '../core/protocol/mcu/mcu_protocol_node.dart';
 import '../core/router/midi_router.dart';
 import '../core/router/nodes/native_transport_sink_node.dart';
 import '../core/router/nodes/split_node.dart';
@@ -238,13 +240,26 @@ class MidiService {
 
   SendPort? _workerSendPort;
   UiStateSinkNode? _incomingFallbackSink;
-  final List<Int64List> _queuedEvents = [];
+  final List<Object> _queuedEvents = [];
   static const int _maxQueuedBatches = 32;
   late final ReceivePort _workerReceivePort;
   StreamSubscription<dynamic>? _workerReceivePortSubscription;
   Isolate? _workerIsolate;
 
   final MidiRouter outgoingRouter = MidiRouter();
+
+  final _mcuIngress = MidiRouter();
+  final _mcuFeedback = StreamController<McuFeedback>.broadcast();
+  final _mcuFaders = <int, int>{};
+  final _mcuLamps = <int, McuLampState>{};
+  final _mcuTimeDigits = <int, int>{};
+  McuProtocolNode? _mcuProtocol;
+  int _mcuSessionRequest = 0;
+
+  Stream<McuFeedback> get mcuFeedback => _mcuFeedback.stream;
+  int? mcuFaderValue(int strip) => _mcuFaders[strip];
+  McuLampState? mcuLampState(int note) => _mcuLamps[note];
+  int? mcuTimeDigit(int digit) => _mcuTimeDigits[digit];
 
   late final StreamController<Map<String, dynamic>> _uiStateController;
   Stream<Map<String, dynamic>> get uiStateUpdates => _uiStateController.stream;
@@ -325,17 +340,160 @@ class MidiService {
         _hostConnectionController.add(true);
       }
 
-      if (_workerSendPort case final worker?) {
-        worker.send(TransferableTypedData.fromList([batch._data]));
-      } else if (_incomingFallbackSink case final sink?) {
-        sink.execute(batch);
+      if (_mcuProtocol?.sourceId == batch._sourceId) {
+        _mcuIngress.process('protocol', batch);
       } else {
-        if (_queuedEvents.length >= _maxQueuedBatches) {
-          _queuedEvents.removeAt(0);
-        }
-        _queuedEvents.add(batch._data);
+        _dispatchGenericIncoming(batch);
       }
     });
+  }
+
+  void _dispatchGenericIncoming(List<MidiEvent> events) {
+    final fallback = _incomingFallbackSink;
+    if (fallback != null) {
+      fallback.execute(events);
+      return;
+    }
+    final batch = events is _LazyMidiEventList ? events._data : events;
+    if (_workerSendPort case final worker?) {
+      _sendIncomingToWorker(worker, batch);
+    } else {
+      if (_queuedEvents.length >= _maxQueuedBatches) {
+        _queuedEvents.removeAt(0);
+      }
+      _queuedEvents.add(batch);
+    }
+  }
+
+  void _sendIncomingToWorker(SendPort worker, Object batch) {
+    worker.send(
+      batch is Int64List ? TransferableTypedData.fromList([batch]) : batch,
+    );
+  }
+
+  Future<bool> startMcuSession({int group = 0}) async {
+    RangeError.checkValueInInterval(group, 0, 15, 'group');
+    if (_isDisposed) return false;
+    stopMcuSession();
+    final request = _mcuSessionRequest;
+    final int? generation;
+    try {
+      generation = await _channel.invokeMethod<int>('getMcuRouteGeneration', {
+        'group': group,
+      });
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+    if (_isDisposed ||
+        request != _mcuSessionRequest ||
+        generation == null ||
+        generation <= 0) {
+      return false;
+    }
+    final protocol = McuProtocolNode(
+      sourceId: 'android:$generation',
+      group: group,
+      onGenericEvents: _dispatchGenericIncoming,
+      onFeedback: (feedback) {
+        switch (feedback) {
+          case McuFaderFeedback(:final strip, :final value):
+            _mcuFaders[strip] = value;
+          case McuLampFeedback(:final note, :final state):
+            _mcuLamps[note] = state;
+          case McuTimeDigitFeedback(:final digit, :final value):
+            _mcuTimeDigits[digit] = value;
+        }
+        _mcuFeedback.add(feedback);
+      },
+    );
+    _mcuIngress.addNode('protocol', protocol);
+    outgoingRouter.addNode(
+      'mcuNativeSink',
+      NativeTransportSinkNode(
+        channel: _channel,
+        mcuGeneration: generation,
+        useBackgroundWorker: useBackgroundWorker,
+      ),
+    );
+    _mcuProtocol = protocol;
+    return true;
+  }
+
+  void stopMcuSession() {
+    _mcuSessionRequest++;
+    _mcuProtocol = null;
+    _mcuIngress.removeNode('protocol');
+    final sink = outgoingRouter.getNode('mcuNativeSink');
+    if (sink is NativeTransportSinkNode) sink.dispose();
+    outgoingRouter.removeNode('mcuNativeSink');
+    _mcuFaders.clear();
+    _mcuLamps.clear();
+    _mcuTimeDigits.clear();
+  }
+
+  void sendMcuSwitch(McuActionPayload target, {required bool pressed}) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.processSingle(
+        'mcuNativeSink',
+        McuCodec.switchEvent(
+          target,
+          pressed,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+        ),
+      );
+    }
+  }
+
+  void tapMcuSwitch(McuActionPayload target) {
+    if (_mcuProtocol case final protocol?) {
+      final timestamp = _stopwatch.elapsedMilliseconds;
+      outgoingRouter.process('mcuNativeSink', [
+        McuCodec.switchEvent(
+          target,
+          true,
+          timestamp: timestamp,
+          group: protocol.group,
+        ),
+        McuCodec.switchEvent(
+          target,
+          false,
+          timestamp: timestamp,
+          group: protocol.group,
+        ),
+      ]);
+    }
+  }
+
+  void sendMcuFader(int strip, int value, {bool isFinal = false}) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.processSingle(
+        'mcuNativeSink',
+        McuCodec.faderPosition(
+          strip,
+          value,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+          isFinal: isFinal,
+        ),
+      );
+    }
+  }
+
+  void turnMcuVPot(int strip, int delta) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.process(
+        'mcuNativeSink',
+        McuCodec.vPotTurn(
+          strip,
+          delta,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+        ),
+      );
+    }
   }
 
   Future<void> _initWorker() async {
@@ -349,7 +507,7 @@ class MidiService {
         }
         if (_queuedEvents.isNotEmpty) {
           for (final e in _queuedEvents) {
-            _workerSendPort!.send(TransferableTypedData.fromList([e]));
+            _sendIncomingToWorker(message, e);
           }
           _queuedEvents.clear();
         }
@@ -470,6 +628,8 @@ class MidiService {
 
   void dispose() {
     _isDisposed = true;
+    stopMcuSession();
+    _mcuFeedback.close();
     _initTimer?.cancel();
     _rawStreamSubscription?.cancel();
     _incomingFallbackSink?.dispose();
@@ -517,6 +677,7 @@ class MidiService {
     int? inputPort,
     int? outputPort,
   }) async {
+    stopMcuSession();
     try {
       final bool? result = await _channel.invokeMethod(
         'connectToDevice',
@@ -531,6 +692,7 @@ class MidiService {
   }
 
   Future<void> disconnectDevice() async {
+    stopMcuSession();
     try {
       await _channel.invokeMethod('disconnectDevice');
     } catch (e) {
@@ -700,13 +862,7 @@ class MidiService {
     final events = <MidiEvent>[];
     while (remaining > 0) {
       final magnitude = remaining.clamp(1, 63);
-      final value = switch (payload.encoding) {
-        RelativeCcEncoding.signedBit =>
-          direction < 0 ? 64 + magnitude : magnitude,
-        RelativeCcEncoding.twosComplement =>
-          direction < 0 ? 128 - magnitude : magnitude,
-        RelativeCcEncoding.binaryOffset => 64 + direction * magnitude,
-      };
+      final value = payload.encoding.encodeStep(direction * magnitude);
       // Every delta counts. The native delivery flag bypasses deduplication,
       // and the native-only route keeps deltas out of absolute CC feedback.
       events.add(_voiceEvent(status, payload.cc, value, true));
@@ -1527,6 +1683,10 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
   receivePort.listen((message) {
     if (message is (String, dynamic) && message.$1 == 'set_paused') {
       uiStateSink.setPaused(message.$2 as bool);
+      return;
+    }
+    if (message is List<MidiEvent>) {
+      incomingRouter.process('source', message);
       return;
     }
     final Int64List? data = switch (message) {

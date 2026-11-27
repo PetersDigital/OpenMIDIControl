@@ -13,6 +13,7 @@ import 'sink_node.dart';
 void _nativeTransportWorker(List<dynamic> args) {
   final SendPort sendPort = args[0] as SendPort;
   final RootIsolateToken token = args[1] as RootIsolateToken;
+  final generation = args[2] as int?;
 
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
   const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
@@ -23,16 +24,23 @@ void _nativeTransportWorker(List<dynamic> args) {
   receivePort.listen((message) {
     if (message is TransferableTypedData) {
       final batch = message.materialize().asInt64List();
-      _sendBatch(channel, batch);
+      _sendBatch(channel, batch, generation);
     }
   });
 }
 
-void _sendBatch(MethodChannel channel, Int64List batch) {
-  final method = batch[0] == -2 ? 'sendMidiBatchV2' : 'sendMidiCCBatch';
+void _sendBatch(MethodChannel channel, Int64List batch, int? generation) {
+  final method = generation != null
+      ? 'sendMcuBatch'
+      : batch[0] == -2
+      ? 'sendMidiBatchV2'
+      : 'sendMidiCCBatch';
   unawaited(
     channel
-        .invokeMethod<bool>(method, {'events': batch})
+        .invokeMethod<bool>(method, {
+          'events': batch,
+          'generation': ?generation,
+        })
         .then<void>(
           (_) {},
           onError: (Object error) =>
@@ -43,6 +51,7 @@ void _sendBatch(MethodChannel channel, Int64List batch) {
 
 class NativeTransportSinkNode extends SinkNode {
   final MethodChannel channel;
+  final int? mcuGeneration;
 
   static const int _maxBufferSize = 10;
   static const Duration _flushInterval = Duration(milliseconds: 16);
@@ -64,6 +73,7 @@ class NativeTransportSinkNode extends SinkNode {
 
   NativeTransportSinkNode({
     required this.channel,
+    this.mcuGeneration,
     this.useBackgroundWorker = true,
   }) {
     if (useBackgroundWorker) {
@@ -81,6 +91,7 @@ class NativeTransportSinkNode extends SinkNode {
       _workerIsolate = await Isolate.spawn(_nativeTransportWorker, [
         receivePort.sendPort,
         token,
+        mcuGeneration,
       ], debugName: 'NativeTransportWorker');
 
       if (_isDisposed) {
@@ -171,7 +182,7 @@ class NativeTransportSinkNode extends SinkNode {
     }
 
     if (worker == null) {
-      _sendBatch(channel, batch);
+      _sendBatch(channel, batch, mcuGeneration);
     } else {
       worker.send(TransferableTypedData.fromList([batch]));
     }
@@ -179,7 +190,7 @@ class NativeTransportSinkNode extends SinkNode {
     _usesMidi2 = false;
   }
 
-  static bool _supports(MidiEvent event) {
+  bool _supports(MidiEvent event) {
     if (event.messageType == 2) {
       return switch (event.status) {
         0x80 || 0x90 || 0xB0 || 0xE0 => true,
@@ -187,7 +198,8 @@ class NativeTransportSinkNode extends SinkNode {
       };
     }
     final value = event.umpWord1;
-    if (event.messageType != 4 ||
+    if (mcuGeneration != null ||
+        event.messageType != 4 ||
         value == null ||
         value < 0 ||
         value > 0xFFFFFFFF) {

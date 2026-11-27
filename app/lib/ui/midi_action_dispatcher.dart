@@ -54,8 +54,8 @@ void _sendMidiGate(
       if (pressed || relativeOnRelease) {
         service.sendRelativeCc(relative, pressed ? 1 : -1);
       }
-    case McuActionPayload():
-      break;
+    case final McuActionPayload target:
+      service.sendMcuSwitch(target, pressed: pressed);
   }
 }
 
@@ -187,6 +187,17 @@ class MidiActionDispatcher {
         final delta = relativeDelta ?? (step - (_lastPosition ?? step));
         _lastPosition = step;
         if (delta != 0) service.sendRelativeCc(relative, delta);
+      case McuActionPayload(target: McuTarget.fader, :final strip):
+        service.sendMcuFader(
+          strip!,
+          (position * 16383).round(),
+          isFinal: isFinal,
+        );
+      case McuActionPayload(target: McuTarget.vPot, :final strip):
+        final step = (position * 127).round();
+        final delta = relativeDelta ?? (step - (_lastPosition ?? step));
+        _lastPosition = step;
+        if (delta != 0) service.turnMcuVPot(strip!, delta);
       case NotePayload() || McuActionPayload():
         break;
       case null:

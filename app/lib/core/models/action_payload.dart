@@ -7,7 +7,17 @@ enum NoteVelocityMode { fixed, touchPosition }
 
 enum NoteVelocityCurve { linear, drumPad }
 
-enum RelativeCcEncoding { signedBit, twosComplement, binaryOffset }
+enum RelativeCcEncoding {
+  signedBit,
+  twosComplement,
+  binaryOffset;
+
+  int encodeStep(int step) => switch (this) {
+    signedBit => step < 0 ? 64 - step : step,
+    twosComplement => step < 0 ? 128 + step : step,
+    binaryOffset => 64 + step,
+  };
+}
 
 enum McuTarget { fader, vPot, channelButton, transport }
 
@@ -23,6 +33,12 @@ enum TransportAction {
   fastForward,
   bankLeft,
   bankRight,
+  up,
+  left,
+  right,
+  down,
+  channelLeft,
+  channelRight,
 }
 
 /// Source compatibility for callers using the original MCU enum name.
@@ -226,7 +242,7 @@ final class RelativeCcPayload extends ActionPayload {
   };
 }
 
-/// An MCU target reserved for the protocol engine.
+/// An MCU target for the protocol engine.
 final class McuActionPayload extends ActionPayload {
   final McuTarget target;
   final int? strip;
