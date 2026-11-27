@@ -224,11 +224,11 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 ---
 
-#### ⏳ Current Focus: v0.5.0 (Core Logic): Basic MCU Protocol Mapping & Native UMP High-Resolution Control
+### ✅ v0.5.0 – Basic MCU Protocol Mapping & Native UMP High-Resolution Control
 
 **Goal:** Deliver 14-bit MCU faders, relative V-Pots, strip and transport buttons, host feedback and native high-resolution UMP transport.
 
-Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin v0.5.0 Phase 1. Keep handshake work in v0.5.1. MCU ingress must decode MT 2 and MT 4 bend, Note and CC feedback, including channel 16 time digits. Use the [series implementation and verification plan](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md) for the released-code audit, wire vectors, commit boundaries and hardware criteria. The local [reference index](REFERENCES.md) and [bundled Cubase mappings](references/cubase/README.md) provide background. For the November 2026 bench, record the installed Windows service, Preview 14 components, native endpoint format, Cubase build and script revision separately. Cubase 16 adds Windows MIDI Services and independently updatable factory scripts. [Microsoft Preview 14](https://github.com/microsoft/MIDI/releases/tag/inbox-preview-14) · [Steinberg Cubase 16 release notes](https://www.steinberg.net/cubase/release-notes/16/)
+Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification (`v0.5.0` complete). Keep handshake work in `v0.5.1`. MCU ingress decodes MT 2 and MT 4 bend, Note and CC feedback, including channel 16 time digits and V-Pot LED rings. Use the [series implementation and verification plan](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md) for the released-code audit, wire vectors, commit boundaries and hardware criteria. The local [reference index](REFERENCES.md) and [bundled Cubase mappings](references/cubase/README.md) provide background. For the November 2026 bench, record the installed Windows service, Preview 14 components, native endpoint format, Cubase build and script revision separately. Cubase 16 adds Windows MIDI Services and independently updatable factory scripts. [Microsoft Preview 14](https://github.com/microsoft/MIDI/releases/tag/inbox-preview-14) · [Steinberg Cubase 16 release notes](https://www.steinberg.net/cubase/release-notes/16/)
 
 ##### ✅ Phase 1 – Native Kotlin & Core Dart High-Res UMP Foundation
 
@@ -265,22 +265,25 @@ Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin
   - Pure normalization (`0.0..1.0` ↔ 14-bit `0..16383` & 32-bit UMP), MCU relative V-Pot delta encoding, and DAW feedback decoding (14-bit fader automation + Note LED states `0`=off, `1`=flash, `127`=on).
   - Implement `McuProtocolNode` as a `MidiRouter` `TransformerNode` so UI widgets remain transport-agnostic.
 
-##### Phase 3 – Widget Wiring & Built-In MCU Starter Template
+##### ✅ Phase 3 – Widget Wiring & Built-In MCU Starter Template
 
-- **`HybridTouchFader`:** Support 14-bit Pitch Bend / 32-bit UMP smooth rendering without 7-bit stair-stepping; emit Fader Touch `Note On` on pointer-down and `Note Off` on pointer-up/cancel in MCU mode; preserve Jump/Hybrid/Catch-up on incoming 14-bit DAW automation.
-- **`EndlessEncoderWidget`:** Support MCU `RelativeSignedBit` V-Pot output (`CC 16..23`).
+*Complete (`fb04111f`..`c453a411`). See [qualification findings](docs/V0.5.0_QUALIFICATION_FINDINGS.md#11-phase-3-follow-up-on-the-galaxy).*
+
+- **`HybridTouchFader`:** Support 14-bit Pitch Bend / 32-bit UMP smooth rendering without 7-bit stair-stepping; emit Fader Touch `Note On` on pointer-down and `Note Off` on pointer-up/cancel in MCU mode; preserve Jump/Hybrid/Catch-up on incoming 14-bit DAW automation; calibrate Cubase unity gain (`12864` → `0.00` dB) and display unknown (`—`) before first session position.
+- **`EndlessEncoderWidget`:** Support MCU `RelativeSignedBit` V-Pot output (`CC 16..23`) with split Monitor fill (knob body) / Pan LED ring (outer 270°) and `6.0` px/step sensitivity.
 - **Header Transport Grid & Strip Buttons:** Automatically bind the 9 `HeaderTransportRole` cells in MCU mode to MCU Transport (`0x5B–0x5F`) and Cursor (`0x60–0x63`) Ch 1 Notes alongside channel strip MCU Note buttons with live DAW LED feedback, while keeping custom Generic MIDI `SharedPreferences` assignments intact when switching back.
-- **Starter Template:** Add **"MCU 8-Track Mixer"** template (8 faders + Master + Rec/Solo/Mute/Select + V-Pots, paired with the global header transport grid) to the v0.4.4 Template Gallery.
+- **Starter Template & Adaptive Readouts:** Added **"MCU 8-Track Mixer"** (`PageTemplateId.mcuMixer8Track`) and `ControlValueFormatter` (`<=5`-char tabular numerals), plus wired USB MIDI 1.0 batching (`6d85a5e1`) and Android Back/Recents preservation (`d8c0c61d`).
 
 ##### Verification (`v0.5.0`)
 
-- Kotlin JUnit (`MidiParserTest.kt`, `UmpPacketTest.kt`): 14-bit Pitch Bend parsing, `0xE0` echo-suppression fix, `MT=0x4` 64-bit word preservation + down-translation.
-- Dart unit/widget tests: `mcu_codec_test.dart`, `mcu_protocol_node_test.dart`, `hybrid_touch_fader` 14-bit & Fader Touch tests, `endless_encoder` relative V-Pot tests.
-- HITL (`R5CX14HSQTT` + `midi.exe`): capture outbound `0x20E0....` (14-bit fader) + `0x2090687F`/`0x20806800` (Fader Touch) + `0x20B01001`/`0x20B01041` (V-Pot) via `midi endpoint monitor`; inject 14-bit automation & LED feedback via `midi endpoint send-message` and verify 0 echo loops.
+- **Automated Suites:** `flutter analyze --fatal-infos` (no issues), full `flutter test` suite, and Android JUnit (`.\gradlew.bat :app:testDebugUnitTest`, `22` unit tests including batch boundary/ordering, `MidiParserTest`, `UmpPacketTest`).
+- **HITL & Qualification ([findings](docs/V0.5.0_QUALIFICATION_FINDINGS.md)):**
+  - **Cubase 15 (WinRT) & Cubase 16 (Windows MIDI Services):** Runs A, B, and D passed (`MT=0x2` and `MT=0x4` MCU mixer sweeps, Touch automation write/Read replay with `0` reflected packets, and bit-exact `0x80000001` vs. `0x80000002` MIDI 2.0 precision).
+  - **Galaxy S24 Ultra (`R5CX14HSQTT`):** Passed Phase 1 USB HITL (`731` outbound packets, `0` echoes), Android virtual UMP peer (Run C: exact `MT=0x4` round trips & 53 two-word CC 74 packets), Android Back/Recents preservation (`LaunchState: HOT`, same PID, `0` reflected packets), and Run E (`v0.4.5` layout compat + batched wired USB load: `0` missing / `0` altered CCs across `38,504` messages in `4,925` Android writes; physical native USB MIDI 2.0 peripheral mode remains unqualified).
 
 ---
 
-#### ⏱️ v0.5.1 – Surface discovery, SysEx7 and UMP endpoint configuration
+#### ⏳ Current Focus: v0.5.1 – Surface discovery, SysEx7 and UMP endpoint configuration
 
 **Deliverable:** a reconnect-safe session that identifies MCU or HUI on a selected surface port and reports the opened MIDI transport and protocol. Begin with directional startup captures from Cubase 15 and 16. [Detailed phases, packets and exit tests](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md#v051-discovery-and-handshake)
 

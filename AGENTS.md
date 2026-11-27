@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current development branch (`dev`): **v0.4.5 – Visual Sovereignty & Expressive Pads** implemented (`v0.4.4` released; next focus: **v0.5.0 – Basic MCU Protocol & High-Res UMP**). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
+OpenMIDIControl is a performance-first, multi-touch MIDI control surface built with Flutter/Dart (UI) and Kotlin (native Android MIDI layer). Current development branch (`dev`): **v0.5.0 – Basic MCU Protocol & High-Res UMP** implemented (next focus: **v0.5.1 – Surface Discovery, SysEx7 & UMP Endpoint Configuration**). See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the full roadmap and [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 ## Project Structure
 
@@ -40,6 +40,10 @@ OpenMIDIControl/
 | `app/lib/core/models/page_templates.dart` | Immutable factory page templates & control stamp blueprints |
 | `app/lib/core/models/widget_style.dart` | Per-control visual style (`WidgetStyle`, curated palette, typography) |
 | `app/lib/core/managers/layout_storage_manager.dart` | Local `.omc` layout repository & persistence |
+| `app/lib/core/protocol/mcu/mcu_codec.dart` | Pure-Dart Mackie Control encoder/decoder (`MT=0x2` & `MT=0x4`) |
+| `app/lib/core/protocol/mcu/mcu_protocol_node.dart` | Stateful `TransformerNode` isolating MCU inbound feedback |
+| `app/lib/core/utils/control_value_formatter.dart` | Adaptive ≤5-char tabular readouts (MCU dB, V-Pot pan, bend, CC, note) |
+| `app/lib/ui/midi_settings_state.dart` | Persistent Generic/MCU selector & MCU stream providers |
 | `app/lib/ui/global_ui_scale_state.dart` | Persistent `globalUiScale` notifier (`0.75–1.35`) in `SharedPreferences` |
 | `app/lib/ui/header_transport_state.dart` | Global 9-slot header transport persistence & role state |
 | `app/lib/ui/open_midi_screen.dart` | Main performance screen |

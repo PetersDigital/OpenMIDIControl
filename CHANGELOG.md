@@ -6,7 +6,31 @@ The format is based on **Keep a Changelog**, and this project adheres to **Seman
 
 ## [Unreleased]
 
-[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.4...HEAD)
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.5.0...HEAD)
+
+## [0.5.0] - 2026-11-28
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.5...v0.5.0)
+
+### Added
+
+- **Native 64-Bit UMP (`MT=0x4`) & 14-Bit Pitch Bend Pipeline**: Framed incoming UMP streams by port transport and published versioned two-word receive batches across `MainActivity.kt`, `MidiParser.kt`, `NativeAndroidMidiBackend.kt`, `MidiEvent`, `UiStateSinkNode`, and `NativeTransportSinkNode`, plus 32-bit MIDI 2.0 Pitch Bend and absolute CC assignments in the fader inspector.
+- **Pure-Dart Mackie Control Core (`McuCodec` & `McuProtocolNode`)**: Implemented MCU 14-bit faders (`0..8`), fader touch (`0x68..0x70`), V-Pot signed-bit turns/push (`CC 0x10..0x17`, `Note 0x20..0x27`), strip switches, navigation/transport notes, port-scoped native egress (`sendMcuBatch`), `MT=0x2`/`MT=0x4` host feedback decoding (including V-Pot LED rings `CC 0x30..0x37` and Channel 16 timecode digits), and inbound graph isolation.
+- **Persistent Generic/MCU Protocol Selector**: Added `midiProtocolModeProvider` in MIDI Settings (defaulting to Generic) with bidirectional port binding and automatic reconnect restoration.
+- **Global 3×3 Header Transport MCU Wiring**: Mapped all nine `HeaderTransportRole` cells to MCU transport/cursor notes (`0x5B..0x63`) with live host lamp feedback while preserving custom Generic assignments when switching back.
+- **`MCU 8-Track Mixer` Template & Inspector Authoring**: Added the built-in 49-control 9×9 `PageTemplateId.mcuMixer8Track` template and full MCU strip/V-Pot/fader assignment support in `ControlConfigModal` and `MidiActionFields`.
+- **Adaptive Control Value Readouts (`ControlValueFormatter`)**: Replaced fixed 3-digit `DSEG7` displays across faders, pads, and encoders with fitted tabular `Space Grotesk` readouts (`<=5` chars) showing Cubase-calibrated MCU dB, V-Pot pan buckets, pitch bend percentages, high-res/7-bit CCs, and note names.
+- **MCU V-Pot Indicators, Sensitivity & Cold-Start Faders**: Split V-Pot indicators between knob background fill (amber Monitor ON/OFF) and the outer 270° blue LED ring (Pan position) with `6.0` logical px/step touch sensitivity, and rendered unknown MCU fader positions (`—`) prior to first host feedback or gesture.
+
+### Fixed
+
+- **Wired USB MIDI 1.0 Controller Batching**: Grouped up to 8 complete CC messages per Android write in `MainActivity.kt` with edge/final flushing, cutting send calls `7.8×` and achieving `0` missing and `0` altered CCs across `38,504` sustained messages in Run E.
+- **Android Back/Recents State Preservation & Resume Re-Sync**: Routed root Back through `PopScope` → `moveTaskToBack(true)` to prevent `Activity.finish()` from tearing down `MidiSystemManager` and in-memory control state, and snapped `HybridTouchFader` to cached feedback on `AppLifecycleState.resumed`.
+- **Cubase Unity Calibration & Diagnostics Pitch Bend**: Calibrated Cubase unity gain (`12864` → `0.00` dB) with exact spring settlement and added readable MIDI 1.0 Pitch Bend decoding (`MidiEvent.pitchBend14`) in `DiagnosticsLogger`.
+
+## [0.4.5] - 2026-11-27
+
+[Full Changelog](https://github.com/PetersDigital/OpenMIDIControl/compare/v0.4.4...v0.4.5)
 
 ### Added
 
