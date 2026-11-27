@@ -29,6 +29,35 @@ void main() {
       expect(event.data2, 127);
       expect(event.legacyStatusByte, 0xBF);
     });
+
+    test(
+      'Extracts pitchBend14 and MT=0x4 32-bit/16-bit host fields accurately',
+      () {
+        expect(const MidiEvent(0x20E00000, 0).pitchBend14, 0);
+        expect(const MidiEvent(0x20E00040, 0).pitchBend14, 8192);
+        expect(const MidiEvent(0x20E00140, 0).pitchBend14, 8193);
+        expect(const MidiEvent(0x20E07F7F, 0).pitchBend14, 16383);
+        expect(const MidiEvent(0x20B04A60, 0).pitchBend14, isNull);
+        expect(
+          const MidiEvent(0x40E00000, 0, umpWord1: 0x80000001).pitchBend14,
+          isNull,
+        );
+
+        const bend32 = MidiEvent(0x40E70000, 0, umpWord1: 0xBE31F18F);
+        expect(bend32.channel, 7);
+        expect(bend32.pitchBend32, 0xBE31F18F);
+
+        const ccLow1 = MidiEvent(0x40B04A00, 0, umpWord1: 0x80000001);
+        const ccLow2 = MidiEvent(0x40B04A00, 0, umpWord1: 0x80000002);
+        expect(ccLow1.ccValue32, 0x80000001);
+        expect(ccLow2.ccValue32, 0x80000002);
+
+        const ledOn = MidiEvent(0x40905E00, 0, umpWord1: 0xFFFF0000);
+        const ledOff = MidiEvent(0x40805D00, 0, umpWord1: 0x80000000);
+        expect(ledOn.noteVelocity16, 0xFFFF);
+        expect(ledOff.noteVelocity16, 0x8000);
+      },
+    );
   });
 
   group('Riverpod Equality Overrides', () {

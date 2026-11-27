@@ -13,6 +13,8 @@ import 'dart:isolate';
 import '../core/models/control_state.dart';
 import '../core/models/action_payload.dart';
 import '../core/models/midi_event.dart';
+import '../core/protocol/mcu/mcu_codec.dart';
+import '../core/protocol/mcu/mcu_protocol_node.dart';
 import '../core/router/midi_router.dart';
 import '../core/router/nodes/native_transport_sink_node.dart';
 import '../core/router/nodes/split_node.dart';
@@ -22,18 +24,44 @@ import 'midi_settings_state.dart'
 
 class _LazyMidiEventList extends ListBase<MidiEvent> {
   final Int64List _data;
-  final int _usedLongCount;
+  final int _stride;
+  final String _sourceId;
   final List<MidiEvent?> _cache;
 
-  _LazyMidiEventList(this._data, this._usedLongCount)
-    : _cache = List<MidiEvent?>.filled(
-        _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0,
-        null,
-        growable: false,
-      );
+  _LazyMidiEventList(this._data, this._stride, int count, this._sourceId)
+    : _cache = List<MidiEvent?>.filled(count, null, growable: false);
+
+  static _LazyMidiEventList? decode(Int64List data) {
+    if (data.isEmpty) return null;
+    final header = data[0];
+    if (header == -2) {
+      if (data.length < 3 || data[1] <= 0) return null;
+      final count = data[2];
+      if (count <= 0 ||
+          (data.length - 3) % 3 != 0 ||
+          count != (data.length - 3) ~/ 3) {
+        return null;
+      }
+      for (var i = 3; i < data.length; i += 3) {
+        final word0 = data[i];
+        final word1 = data[i + 1];
+        if (word0 < 0 ||
+            word0 > 0xFFFFFFFF ||
+            word1 < 0 ||
+            word1 > 0xFFFFFFFF) {
+          return null;
+        }
+        final type = word0 >>> 28;
+        if (type != 4 && (type != 2 || word1 != 0)) return null;
+      }
+      return _LazyMidiEventList(data, 3, count, 'android:${data[1]}');
+    }
+    if (header <= 0 || header.isOdd || header >= data.length) return null;
+    return _LazyMidiEventList(data, 2, header ~/ 2, 'unknown');
+  }
 
   @override
-  int get length => _usedLongCount > 0 ? _usedLongCount ~/ 2 : 0;
+  int get length => _cache.length;
 
   @override
   set length(int newLength) =>
@@ -48,8 +76,17 @@ class _LazyMidiEventList extends ListBase<MidiEvent> {
       return cached;
     }
 
-    final int i = 1 + (index * 2);
-    final event = MidiEvent(_data[i], _data[i + 1]);
+    final isV2 = _stride == 3;
+    final i = (isV2 ? 3 : 1) + index * _stride;
+    final word0 = _data[i];
+    final timestampNs = isV2 ? _data[i + 2] : null;
+    final event = MidiEvent(
+      word0,
+      timestampNs == null ? _data[i + 1] : timestampNs ~/ 1000000,
+      timestampNs: timestampNs,
+      umpWord1: isV2 && word0 >>> 28 == 4 ? _data[i + 1] : null,
+      sourceId: _sourceId,
+    );
     _cache[index] = event;
     return event;
   }
@@ -190,6 +227,13 @@ bool isPeripheralPort(MidiDevice device) {
       (name.contains('usb') && name.contains('midi'));
 }
 
+class _HeldMcuGesture {
+  _HeldMcuGesture(this.owner);
+
+  final Object owner;
+  int? position;
+}
+
 class MidiService {
   static const MethodChannel _channel = MethodChannel(
     'com.petersdigital.openmidicontrol/midi',
@@ -202,13 +246,41 @@ class MidiService {
   );
 
   SendPort? _workerSendPort;
-  final List<dynamic> _queuedEvents = [];
+  UiStateSinkNode? _incomingFallbackSink;
+  final List<Object> _queuedEvents = [];
   static const int _maxQueuedBatches = 32;
   late final ReceivePort _workerReceivePort;
   StreamSubscription<dynamic>? _workerReceivePortSubscription;
   Isolate? _workerIsolate;
 
   final MidiRouter outgoingRouter = MidiRouter();
+
+  final _mcuIngress = MidiRouter();
+  final _mcuFeedback = StreamController<McuFeedback>.broadcast();
+  final _mcuRouteChanges = StreamController<bool>.broadcast();
+  final _mcuFaders = <int, int>{};
+  final _mcuLamps = <int, McuLampState>{};
+  final _mcuTimeDigits = <int, int>{};
+  final _mcuVPotRings = <int, McuVPotRingFeedback>{};
+  final _heldMcuGestures = <McuActionPayload, _HeldMcuGesture>{};
+  McuProtocolNode? _mcuProtocol;
+  int _mcuSessionRequest = 0;
+  bool _mcuModeRequested = false;
+
+  Stream<McuFeedback> get mcuFeedback => _mcuFeedback.stream;
+  bool get hasMcuRoute => _mcuProtocol != null;
+  Stream<bool> get mcuRouteChanges => Stream.multi((listener) {
+    final subscription = _mcuRouteChanges.stream.listen(
+      listener.addSync,
+      onDone: listener.closeSync,
+    );
+    listener.onCancel = subscription.cancel;
+    listener.addSync(hasMcuRoute);
+  });
+  int? mcuFaderValue(int strip) => _mcuFaders[strip];
+  McuLampState? mcuLampState(int note) => _mcuLamps[note];
+  int? mcuTimeDigit(int digit) => _mcuTimeDigits[digit];
+  McuVPotRingFeedback? mcuVPotRing(int strip) => _mcuVPotRings[strip];
 
   late final StreamController<Map<String, dynamic>> _uiStateController;
   Stream<Map<String, dynamic>> get uiStateUpdates => _uiStateController.stream;
@@ -266,36 +338,234 @@ class MidiService {
 
   final Stopwatch _stopwatch = Stopwatch()..start();
 
-  late final Stream<dynamic> _rawStream;
-  StreamSubscription<dynamic>? _rawStreamSubscription;
+  StreamSubscription<_LazyMidiEventList>? _rawStreamSubscription;
 
   void _initStreams() {
-    _rawStream = _eventsChannel.receiveBroadcastStream();
+    if (!useBackgroundWorker) {
+      _incomingFallbackSink = UiStateSinkNode(
+        onStateUpdate: _handleStateUpdate,
+      );
+    }
+    final batches = _eventsChannel
+        .receiveBroadcastStream(2)
+        .where((event) => event is Int64List)
+        .map((event) => _LazyMidiEventList.decode(event as Int64List))
+        .where((batch) => batch != null)
+        .cast<_LazyMidiEventList>()
+        .asBroadcastStream(onCancel: (subscription) => subscription.cancel());
 
-    midiEventsStream = _rawStream.where((e) => e is Int64List).map((event) {
-      final data = event as Int64List;
-      return _LazyMidiEventList(data, data.isNotEmpty ? data[0] : 0);
-    }).asBroadcastStream();
+    midiEventsStream = batches;
+    _rawStreamSubscription = batches.listen((batch) {
+      if (!_hostLinkConfirmed) {
+        _hostLinkConfirmed = true;
+        _hostConnectionController.add(true);
+      }
 
-    _rawStreamSubscription = _rawStream.listen((event) {
-      if (event is Int64List) {
-        final int usedLongCount = event.isNotEmpty ? event[0] : 0;
-
-        if (usedLongCount > 0 && !_hostLinkConfirmed) {
-          _hostLinkConfirmed = true;
-          _hostConnectionController.add(true);
-        }
-
-        if (_workerSendPort != null) {
-          _workerSendPort!.send(TransferableTypedData.fromList([event]));
-        } else {
-          if (_queuedEvents.length >= _maxQueuedBatches) {
-            _queuedEvents.removeAt(0); // Drop oldest
-          }
-          _queuedEvents.add(event);
-        }
+      if (_mcuProtocol?.sourceId == batch._sourceId) {
+        _mcuIngress.process('protocol', batch);
+      } else {
+        _dispatchGenericIncoming(batch);
       }
     });
+  }
+
+  void _dispatchGenericIncoming(List<MidiEvent> events) {
+    final fallback = _incomingFallbackSink;
+    if (fallback != null) {
+      fallback.execute(events);
+      return;
+    }
+    final batch = events is _LazyMidiEventList ? events._data : events;
+    if (_workerSendPort case final worker?) {
+      _sendIncomingToWorker(worker, batch);
+    } else {
+      if (_queuedEvents.length >= _maxQueuedBatches) {
+        _queuedEvents.removeAt(0);
+      }
+      _queuedEvents.add(batch);
+    }
+  }
+
+  void _sendIncomingToWorker(SendPort worker, Object batch) {
+    worker.send(
+      batch is Int64List ? TransferableTypedData.fromList([batch]) : batch,
+    );
+  }
+
+  Future<void> setMcuMode(bool enabled) async {
+    _mcuModeRequested = enabled;
+    if (enabled) {
+      await startMcuSession();
+    } else {
+      stopMcuSession();
+    }
+  }
+
+  Future<bool> startMcuSession({int group = 0}) async {
+    RangeError.checkValueInInterval(group, 0, 15, 'group');
+    if (_isDisposed) return false;
+    stopMcuSession();
+    final request = _mcuSessionRequest;
+    final int? generation;
+    try {
+      generation = await _channel.invokeMethod<int>('getMcuRouteGeneration', {
+        'group': group,
+      });
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+    if (_isDisposed ||
+        request != _mcuSessionRequest ||
+        generation == null ||
+        generation <= 0) {
+      return false;
+    }
+    final protocol = McuProtocolNode(
+      sourceId: 'android:$generation',
+      group: group,
+      onGenericEvents: _dispatchGenericIncoming,
+      onFeedback: (feedback) {
+        switch (feedback) {
+          case McuFaderFeedback(:final strip, :final value):
+            _mcuFaders[strip] = value;
+          case McuLampFeedback(:final note, :final state):
+            _mcuLamps[note] = state;
+          case McuTimeDigitFeedback(:final digit, :final value):
+            _mcuTimeDigits[digit] = value;
+          case McuVPotRingFeedback(:final strip):
+            _mcuVPotRings[strip] = feedback;
+        }
+        _mcuFeedback.add(feedback);
+      },
+    );
+    _mcuIngress.addNode('protocol', protocol);
+    outgoingRouter.addNode(
+      'mcuNativeSink',
+      NativeTransportSinkNode(
+        channel: _channel,
+        mcuGeneration: generation,
+        // Keep releases ordered before a native port disconnect or rebind.
+        useBackgroundWorker: false,
+      ),
+    );
+    _mcuProtocol = protocol;
+    _mcuRouteChanges.add(true);
+    return true;
+  }
+
+  void stopMcuSession({bool releaseGestures = true}) {
+    _mcuSessionRequest++;
+    final hadRoute = hasMcuRoute;
+    if (releaseGestures) {
+      for (final target in _heldMcuGestures.keys.toList(growable: false)) {
+        endMcuGesture(target, _heldMcuGestures[target]!.owner);
+      }
+    }
+    _heldMcuGestures.clear();
+    _mcuProtocol = null;
+    _mcuIngress.removeNode('protocol');
+    final sink = outgoingRouter.getNode('mcuNativeSink');
+    if (sink is NativeTransportSinkNode) sink.dispose();
+    outgoingRouter.removeNode('mcuNativeSink');
+    _mcuFaders.clear();
+    _mcuLamps.clear();
+    _mcuTimeDigits.clear();
+    _mcuVPotRings.clear();
+    if (hadRoute) _mcuRouteChanges.add(false);
+  }
+
+  bool beginMcuGesture(McuActionPayload target, Object owner) {
+    if (!hasMcuRoute || _heldMcuGestures.containsKey(target)) return false;
+    _heldMcuGestures[target] = _HeldMcuGesture(owner);
+    sendMcuSwitch(target, pressed: true);
+    return true;
+  }
+
+  void updateMcuFaderGesture(
+    McuActionPayload target,
+    Object owner,
+    int value, {
+    required bool isFinal,
+  }) {
+    final gesture = _heldMcuGestures[target];
+    if (gesture == null || !identical(gesture.owner, owner)) return;
+    gesture.position = value;
+    if (!isFinal) sendMcuFader(target.strip!, value);
+  }
+
+  void endMcuGesture(McuActionPayload target, Object owner) {
+    final gesture = _heldMcuGestures[target];
+    if (gesture == null || !identical(gesture.owner, owner)) return;
+    _heldMcuGestures.remove(target);
+    if (gesture.position case final position?) {
+      sendMcuFader(target.strip!, position, isFinal: true);
+    }
+    sendMcuSwitch(target, pressed: false);
+  }
+
+  void sendMcuSwitch(McuActionPayload target, {required bool pressed}) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.processSingle(
+        'mcuNativeSink',
+        McuCodec.switchEvent(
+          target,
+          pressed,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+        ),
+      );
+    }
+  }
+
+  void tapMcuSwitch(McuActionPayload target) {
+    if (_mcuProtocol case final protocol?) {
+      final timestamp = _stopwatch.elapsedMilliseconds;
+      outgoingRouter.process('mcuNativeSink', [
+        McuCodec.switchEvent(
+          target,
+          true,
+          timestamp: timestamp,
+          group: protocol.group,
+        ),
+        McuCodec.switchEvent(
+          target,
+          false,
+          timestamp: timestamp,
+          group: protocol.group,
+        ),
+      ]);
+    }
+  }
+
+  void sendMcuFader(int strip, int value, {bool isFinal = false}) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.processSingle(
+        'mcuNativeSink',
+        McuCodec.faderPosition(
+          strip,
+          value,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+          isFinal: isFinal,
+        ),
+      );
+    }
+  }
+
+  void turnMcuVPot(int strip, int delta) {
+    if (_mcuProtocol case final protocol?) {
+      outgoingRouter.process(
+        'mcuNativeSink',
+        McuCodec.vPotTurn(
+          strip,
+          delta,
+          timestamp: _stopwatch.elapsedMilliseconds,
+          group: protocol.group,
+        ),
+      );
+    }
   }
 
   Future<void> _initWorker() async {
@@ -309,7 +579,7 @@ class MidiService {
         }
         if (_queuedEvents.isNotEmpty) {
           for (final e in _queuedEvents) {
-            _workerSendPort!.send(TransferableTypedData.fromList([e]));
+            _sendIncomingToWorker(message, e);
           }
           _queuedEvents.clear();
         }
@@ -349,6 +619,18 @@ class MidiService {
       unmodifiableUpdates['ccs'] = Map<String, int>.unmodifiable(ccs);
     }
 
+    final controllers = updates['controllers'] as Map<String, int>?;
+    if (controllers != null && controllers.isNotEmpty) {
+      final existing = _cachedState['controllers'] as Map<String, int>?;
+      _cachedState['controllers'] = Map<String, int>.unmodifiable({
+        ...?existing,
+        ...controllers,
+      });
+      unmodifiableUpdates['controllers'] = Map<String, int>.unmodifiable(
+        controllers,
+      );
+    }
+
     final notes = updates['notes'] as Map<int, List<int>>?;
     if (notes != null) {
       final nextNotes = Map<int, List<int>>.unmodifiable(
@@ -383,6 +665,7 @@ class MidiService {
     if (node is UiStateSinkNode) {
       node.setPaused(paused);
     }
+    _incomingFallbackSink?.setPaused(paused);
     _workerSendPort?.send(('set_paused', paused));
   }
 
@@ -417,8 +700,12 @@ class MidiService {
 
   void dispose() {
     _isDisposed = true;
+    stopMcuSession();
+    _mcuFeedback.close();
+    _mcuRouteChanges.close();
     _initTimer?.cancel();
     _rawStreamSubscription?.cancel();
+    _incomingFallbackSink?.dispose();
     _workerReceivePortSubscription?.cancel();
     _uiStateController.close();
     _hostConnectionController.close();
@@ -463,12 +750,16 @@ class MidiService {
     int? inputPort,
     int? outputPort,
   }) async {
+    stopMcuSession();
     try {
       final bool? result = await _channel.invokeMethod(
         'connectToDevice',
         {'id': id, 'inputPort': inputPort, 'outputPort': outputPort}
           ..removeWhere((key, value) => value == null),
       );
+      if (result == true && _mcuModeRequested && !_isDisposed) {
+        await startMcuSession();
+      }
       return result ?? false;
     } catch (e) {
       debugPrint('Failed to connect to device $id: $e');
@@ -477,10 +768,20 @@ class MidiService {
   }
 
   Future<void> disconnectDevice() async {
+    stopMcuSession();
     try {
       await _channel.invokeMethod('disconnectDevice');
     } catch (e) {
       debugPrint('Failed to disconnect device: $e');
+    }
+  }
+
+  Future<void> moveToBackground() async {
+    if (_isDisposed) return;
+    try {
+      await _channel.invokeMethod('moveToBackground');
+    } catch (e) {
+      debugPrint('Failed to move app to background: $e');
     }
   }
 
@@ -517,6 +818,43 @@ class MidiService {
     outgoingRouter.processSingle(
       'source',
       _voiceEvent(0xE0 | channel, value & 0x7F, value >> 7, isFinal),
+    );
+  }
+
+  Future<void> sendPitchBend32(
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    _sendMidi2Controller(0xE0, 0, value, channel, isFinal);
+  }
+
+  Future<void> sendAbsoluteCc32(
+    int cc,
+    int value, {
+    required int channel,
+    bool isFinal = false,
+  }) async {
+    if (!MidiEvent.isMidi2AbsoluteCc(cc)) return;
+    _sendMidi2Controller(0xB0, cc, value, channel, isFinal);
+  }
+
+  void _sendMidi2Controller(
+    int status,
+    int address,
+    int value,
+    int channel,
+    bool isFinal,
+  ) {
+    if (value < 0 || value > 0xFFFFFFFF || channel < 0 || channel > 15) return;
+    outgoingRouter.processSingle(
+      'source',
+      MidiEvent(
+        0x40000000 | ((status | channel) << 16) | (address << 8),
+        _stopwatch.elapsedMilliseconds,
+        umpWord1: value,
+        isFinal: isFinal,
+      ),
     );
   }
 
@@ -609,13 +947,7 @@ class MidiService {
     final events = <MidiEvent>[];
     while (remaining > 0) {
       final magnitude = remaining.clamp(1, 63);
-      final value = switch (payload.encoding) {
-        RelativeCcEncoding.signedBit =>
-          direction < 0 ? 64 + magnitude : magnitude,
-        RelativeCcEncoding.twosComplement =>
-          direction < 0 ? 128 - magnitude : magnitude,
-        RelativeCcEncoding.binaryOffset => 64 + direction * magnitude,
-      };
+      final value = payload.encoding.encodeStep(direction * magnitude);
       // Every delta counts. The native delivery flag bypasses deduplication,
       // and the native-only route keeps deltas out of absolute CC feedback.
       events.add(_voiceEvent(status, payload.cc, value, true));
@@ -978,6 +1310,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         if (state.connectedDevice?.id == id || type == 'DISCONNECT') {
           final isTargetDevice = id == null || state.connectedDevice?.id == id;
           if (isTargetDevice) {
+            service.stopMcuSession(releaseGestures: false);
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],
@@ -1025,6 +1358,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // Only trigger "Connection Lost" if we were actually connected to something.
           // This prevents the overlay from appearing on every app launch when no device is present.
           if (state.connectedDevice != null) {
+            service.stopMcuSession(releaseGestures: false);
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],
@@ -1175,6 +1509,8 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (current.isNotEmpty) {
       final ccs = current['ccs'] as Map<String, int>? ?? {};
       _hotCcState.addAll(ccs);
+      final controllers = current['controllers'] as Map<String, int>?;
+      if (controllers != null) _hotCcState.addAll(controllers);
 
       final notes = current['notes'] as Map<int, List<int>>? ?? {};
       for (final entry in notes.entries) {
@@ -1229,6 +1565,9 @@ class ControlStateNotifier extends Notifier<ControlState> {
     if (ccs != null && ccs.isNotEmpty) {
       if (_applyCcUpdates(ccs)) hasChanges = true;
     }
+
+    final controllers = updates['controllers'] as Map<String, int>?;
+    if (controllers != null && _applyCcUpdates(controllers)) hasChanges = true;
 
     final notes = updates['notes'] as Map<int, List<int>>?;
     if (notes != null) {
@@ -1433,15 +1772,18 @@ void _midiWorkerEntryPoint(SendPort mainSendPort) {
       uiStateSink.setPaused(message.$2 as bool);
       return;
     }
+    if (message is List<MidiEvent>) {
+      incomingRouter.process('source', message);
+      return;
+    }
     final Int64List? data = switch (message) {
       TransferableTypedData ttd => ttd.materialize().asInt64List(),
       Int64List list => list,
       _ => null,
     };
     if (data != null) {
-      final int usedLongCount = data.isNotEmpty ? data[0] : 0;
-      final events = _LazyMidiEventList(data, usedLongCount);
-      incomingRouter.process('source', events);
+      final events = _LazyMidiEventList.decode(data);
+      if (events != null) incomingRouter.process('source', events);
     }
   });
 }

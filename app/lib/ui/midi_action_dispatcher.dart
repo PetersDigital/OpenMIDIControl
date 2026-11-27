@@ -77,8 +77,13 @@ class MidiGate {
     bool isFinal = true,
   }) {
     if (_heldPayload != null) return;
+    if (payload is McuActionPayload &&
+        !service.beginMcuGesture(payload, this)) {
+      return;
+    }
     _service = service;
     _heldPayload = payload;
+    if (payload is McuActionPayload) return;
     if (_transport) {
       service.sendTransportButton(payload, pressed: true);
       return;
@@ -97,6 +102,10 @@ class MidiGate {
       final service = _service!;
       _heldPayload = null;
       _service = null;
+      if (payload is McuActionPayload) {
+        service.endMcuGesture(payload, this);
+        return;
+      }
       if (_transport) {
         service.sendTransportButton(payload, pressed: false);
         return;
@@ -115,9 +124,14 @@ class MidiGate {
 class MidiActionDispatcher {
   int? _lastPosition;
   final _noteGate = MidiGate();
+  bool get holdsMcuFader => _noteGate.heldPayload is McuActionPayload;
 
   void begin(MidiService service, ActionPayload? payload, double position) {
     _lastPosition = (position * 127).round();
+    if (payload case McuActionPayload(target: McuTarget.fader)) {
+      _noteGate.press(service, payload);
+      return;
+    }
     if (payload case final NotePayload note) {
       final velocity = note.velocityMode == NoteVelocityMode.fixed
           ? 127
@@ -141,7 +155,21 @@ class MidiActionDispatcher {
     int? relativeDelta,
   }) {
     switch (payload) {
-      case CcPayload(:final channel, :final cc, :final highResolution):
+      case CcPayload(
+        :final channel,
+        :final cc,
+        :final highResolution,
+        :final midi2,
+      ):
+        if (midi2) {
+          service.sendAbsoluteCc32(
+            cc,
+            (position * 0xFFFFFFFF).round(),
+            channel: channel,
+            isFinal: isFinal,
+          );
+          break;
+        }
         if (highResolution && cc < 32) {
           service.sendHighResolutionCc(
             cc,
@@ -156,6 +184,12 @@ class MidiActionDispatcher {
             isFinal: isFinal,
           );
         }
+      case PitchBendPayload(:final channel, midi2: true):
+        service.sendPitchBend32(
+          (position * 0xFFFFFFFF).round(),
+          channel: channel,
+          isFinal: isFinal,
+        );
       case PitchBendPayload(:final channel):
         service.sendPitchBend(
           (position * 16383).round(),
@@ -167,6 +201,18 @@ class MidiActionDispatcher {
         final delta = relativeDelta ?? (step - (_lastPosition ?? step));
         _lastPosition = step;
         if (delta != 0) service.sendRelativeCc(relative, delta);
+      case McuActionPayload(target: McuTarget.fader):
+        service.updateMcuFaderGesture(
+          payload,
+          _noteGate,
+          (position * 16383).round(),
+          isFinal: isFinal,
+        );
+      case McuActionPayload(target: McuTarget.vPot, :final strip):
+        final step = (position * 127).round();
+        final delta = relativeDelta ?? (step - (_lastPosition ?? step));
+        _lastPosition = step;
+        if (delta != 0) service.turnMcuVPot(strip!, delta);
       case NotePayload() || McuActionPayload():
         break;
       case null:
@@ -182,7 +228,16 @@ class MidiActionDispatcher {
     if (isFinal) end();
   }
 
-  void end() {
+  void end({double? mcuPosition}) {
+    if (_noteGate.heldPayload case final McuActionPayload target
+        when mcuPosition != null) {
+      _noteGate._service!.updateMcuFaderGesture(
+        target,
+        _noteGate,
+        (mcuPosition * 16383).round(),
+        isFinal: true,
+      );
+    }
     _noteGate.release();
     _lastPosition = null;
   }

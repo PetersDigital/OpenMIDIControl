@@ -52,7 +52,7 @@ class MainActivity : FlutterActivity() {
     private var midiManager: MidiManager? = null
 
     // Abstracted Host and Peripheral Backends
-    private var hostMidiBackend: MidiPortBackend? = null
+    private var hostMidiBackend: NativeAndroidMidiBackend? = null
     private var peripheralMidiBackend: MidiPortBackend? = null
 
     private var eventSink: EventChannel.EventSink? = null
@@ -73,11 +73,13 @@ class MainActivity : FlutterActivity() {
     // Thread Separation: Multiplexer channel for incoming MIDI event batches.
     private val eventMultiplexer = Channel<LongArray>(capacity = Channel.UNLIMITED)
     private val emptyBuffers = Channel<LongArray>(capacity = 8)
+    private val nextPortGeneration = java.util.concurrent.atomic.AtomicLong()
+    private var useMidiBatchV2 = false
     private val incomingPeripheralUmpChannel = Channel<Long>(capacity = Channel.UNLIMITED)
 
     // Per-port sharded processing session state
     private class ActivePortSession(
-        val backendId: String,
+        val generation: Long,
         val buffer: MidiParser.IncomingEventsBuffer,
         val job: Job
     )
@@ -86,14 +88,7 @@ class MainActivity : FlutterActivity() {
     private val activeSessions = ConcurrentHashMap<String, ActivePortSession>()
  
     init {
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
-        emptyBuffers.trySend(LongArray(2000))
+        repeat(8) { emptyBuffers.trySend(LongArray(3003)) }
     }
 
     private var batchDispatchJob: Job? = null
@@ -101,16 +96,20 @@ class MainActivity : FlutterActivity() {
         // Consumer coroutine: processes batches produced by sharded parsing coroutines
         for (payload in eventMultiplexer) {
             try {
-                val usedLongs = payload[0].toInt().coerceIn(0, payload.size - 1)
-                if (usedLongs > 0) {
-                    // Slice to active payload size so JNI StandardMessageCodec does not serialize
-                    // the full 16 KB buffer on every batch, while preserving [usedLongs, ump, ts...].
-                    val trimmed = payload.copyOf(1 + usedLongs)
-                    // Phase 1: Switch to Main Thread context for all Flutter Channel interactions.
-                    // withContext(Dispatchers.Main) is safer than handler.post as it suspends the worker loop
-                    // until the UI thread has acknowledged the message, preventing queue flooding.
+                val count = payload[2].toInt()
+                if (count > 0) {
                     withContext(Dispatchers.Main.immediate) {
-                        eventSink?.success(trimmed)
+                        if (activeSessions.values.any { it.generation == payload[1] }) {
+                            val sink = eventSink
+                            if (sink != null) {
+                                if (useMidiBatchV2) {
+                                    sink.success(payload.copyOf(3 + count * 3))
+                                } else {
+                                    val legacy = toLegacyMidiBatch(payload, count)
+                                    if (legacy[0] > 0) sink.success(legacy)
+                                }
+                            }
+                        }
                     }
                 }
             } finally {
@@ -121,6 +120,19 @@ class MainActivity : FlutterActivity() {
             }
         }
     }
+    private fun toLegacyMidiBatch(payload: LongArray, count: Int): LongArray {
+        val legacy = LongArray(1 + count * 2)
+        var writeIndex = 1
+        for (i in 3 until 3 + count * 3 step 3) {
+            val word0 = payload[i]
+            if (word0 ushr 28 != 0x2L) continue
+            legacy[writeIndex++] = word0
+            legacy[writeIndex++] = (payload[i + 2] / 1_000_000L) and 0xFFFFFFFFL
+        }
+        legacy[0] = (writeIndex - 1).toLong()
+        return if (writeIndex == legacy.size) legacy else legacy.copyOf(writeIndex)
+    }
+
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private var lastUsbStateIsConnected = false
@@ -133,6 +145,7 @@ class MainActivity : FlutterActivity() {
     private val duplicateDeviceEventWindowMs = 1000L
     private val legacyMsgBuffer = ByteArray(3)
     private val umpMsgBuffer = ByteArray(4)
+    private val midi2MsgBuffer = ByteArray(8)
 
     private fun shouldSuppressDuplicateDeviceEvent(type: String, id: String): Boolean {
         val nowMs = SystemClock.elapsedRealtime()
@@ -218,27 +231,18 @@ class MainActivity : FlutterActivity() {
                 deviceInfo.inputPortCount > 0 && deviceInfo.outputPortCount > 0
     }
 
-    private fun getAvailableMidiDevices(): Array<MidiDeviceInfo>? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val merged = LinkedHashMap<Int, MidiDeviceInfo>()
+    private data class AvailableMidiDevice(val info: MidiDeviceInfo, val isUmp: Boolean)
 
-            midiManager
-                ?.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS)
-                ?.forEach { device ->
-                    merged[device.id] = device
-                }
-
-            midiManager
-                ?.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM)
-                ?.forEach { device ->
-                    merged[device.id] = device
-                }
-
-            merged.values.toTypedArray()
-        } else {
-            @Suppress("DEPRECATION")
-            midiManager?.getDevices()
+    private fun getAvailableMidiDevices(): Collection<AvailableMidiDevice> {
+        val manager = midiManager ?: return emptyList()
+        val merged = LinkedHashMap<Int, AvailableMidiDevice>()
+        manager.getDevicesForTransport(MidiManager.TRANSPORT_UNIVERSAL_MIDI_PACKETS).forEach { device ->
+            merged[device.id] = AvailableMidiDevice(device, isUmp = true)
         }
+        manager.getDevicesForTransport(MidiManager.TRANSPORT_MIDI_BYTE_STREAM).forEach { device ->
+            merged[device.id] = AvailableMidiDevice(device, isUmp = false)
+        }
+        return merged.values
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -290,6 +294,7 @@ class MainActivity : FlutterActivity() {
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENTS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    useMidiBatchV2 = arguments == 2
                     eventSink = events
                     startBatchDispatchTimer()
                 }
@@ -380,6 +385,9 @@ class MainActivity : FlutterActivity() {
                     disconnectDevice()
                     result.success(null)
                 }
+                "moveToBackground" -> {
+                    result.success(moveTaskToBack(true))
+                }
                 "sendMidiCC" -> {
                     val cc = call.argument<Int>("cc")
                     val value = call.argument<Int>("value")
@@ -411,13 +419,16 @@ class MainActivity : FlutterActivity() {
                     val events = call.argument<LongArray>("events")
                     if (events != null) {
                         try {
-                            for (i in 0 until events.size step 2) {
-                                val umpInt = events[i].toInt()
-                                val flags = events[i + 1]
-                                val isFinal = (flags and 1L) != 0L
-                                val acceptFeedback = (flags and 2L) != 0L
-                                // Use individual timestamp per event to maintain order and length
-                                processMidiEvent(umpInt, isFinal, System.nanoTime(), acceptFeedback)
+                            withUsbCcBatch { batch ->
+                                for (i in 0 until events.size step 2) {
+                                    val umpInt = events[i].toInt()
+                                    val flags = events[i + 1]
+                                    val isFinal = (flags and 1L) != 0L
+                                    val acceptFeedback = (flags and 2L) != 0L
+                                    processMidiEvent(
+                                        umpInt, isFinal, System.nanoTime(), acceptFeedback, usbCcBatch = batch
+                                    )
+                                }
                             }
                             result.success(true)
                         } catch (e: Exception) {
@@ -425,6 +436,54 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.error("INVALID_ARGUMENT", "Events batch is required", null)
+                    }
+                }
+                "getMcuRouteGeneration" -> {
+                    val host = hostMidiBackend
+                    val group = call.argument<Int>("group") ?: 0
+                    result.success(
+                        if (host != null && host.inputPort != null &&
+                            host.outputPort != null && !host.supportsMidi2 &&
+                            group in 0..15 && (host.isUmp || group == 0)
+                        ) activeSessions[host.portId]?.generation else null
+                    )
+                }
+                "sendMcuBatch" -> {
+                    val generation = call.argument<Number>("generation")?.toLong()
+                    val events = call.argument<LongArray>("events")
+                    val host = hostMidiBackend
+                    if (generation == null || host == null || host.supportsMidi2 ||
+                        activeSessions[host.portId]?.generation != generation
+                    ) {
+                        result.error("MCU_ROUTE_CHANGED", "The selected MCU port is unavailable", null)
+                    } else if (events == null || !isValidMcuBatch(events, host.isUmp)) {
+                        result.error("INVALID_ARGUMENT", "Invalid MCU voice batch", null)
+                    } else {
+                        sendMcuBatch(host, events)
+                        result.success(true)
+                    }
+                }
+                "sendMidiBatchV2" -> {
+                    val events = call.argument<LongArray>("events")
+                    if (events == null || !isValidMidi2Batch(events)) {
+                        result.error("INVALID_ARGUMENT", "Invalid versioned MIDI batch", null)
+                    } else {
+                        withUsbCcBatch { batch ->
+                            for (i in 1 until events.size step 3) {
+                                val word0 = events[i].toInt()
+                                val word1 = events[i + 1].toInt()
+                                val flags = events[i + 2]
+                                val isFinal = (flags and 1L) != 0L
+                                val acceptFeedback = (flags and 2L) != 0L
+                                val nowNs = System.nanoTime()
+                                if (word0 ushr 28 == 4) {
+                                    processMidi2Controller(word0, word1, isFinal, nowNs, acceptFeedback, batch)
+                                } else {
+                                    processMidiEvent(word0, isFinal, nowNs, acceptFeedback, usbCcBatch = batch)
+                                }
+                            }
+                        }
+                        result.success(true)
                     }
                 }
                 "vibrate" -> {
@@ -458,36 +517,127 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isValidMcuBatch(events: LongArray, isUmp: Boolean): Boolean {
+        if (events.isEmpty() || events.size % 2 != 0) return false
+        for (i in events.indices step 2) {
+            val word = events[i]
+            val status = (word ushr 16) and 0xF0
+            if (word ushr 28 != 2L || (word and 0x8080L) != 0L ||
+                (!isUmp && (word and 0x0F000000L) != 0L) ||
+                (status != 0x80L && status != 0x90L && status != 0xB0L && status != 0xE0L)
+            ) return false
+        }
+        return true
+    }
+
+    private fun sendMcuBatch(host: NativeAndroidMidiBackend, events: LongArray) {
+        for (i in events.indices step 2) {
+            val word = events[i].toInt()
+            val bytes = if (host.isUmp) {
+                MidiChannelVoiceEncoding.writeWord(word, umpMsgBuffer)
+                umpMsgBuffer
+            } else {
+                legacyMsgBuffer[0] = (word ushr 16).toByte()
+                legacyMsgBuffer[1] = (word ushr 8).toByte()
+                legacyMsgBuffer[2] = word.toByte()
+                legacyMsgBuffer
+            }
+            // Remote-surface edges and relative ticks retain order and bypass generic echo history.
+            host.send(bytes, 0, bytes.size, System.nanoTime())
+        }
+    }
+
+    private fun isValidMidi2Batch(events: LongArray): Boolean {
+        if (events.size < 4 || events[0] != -2L || (events.size - 1) % 3 != 0) return false
+        for (i in 1 until events.size step 3) {
+            if (events[i] !in 0L..0xFFFFFFFFL || events[i + 1] !in 0L..0xFFFFFFFFL ||
+                events[i + 2] !in 0L..3L
+            ) return false
+            val word0 = events[i].toInt()
+            when (word0 ushr 28) {
+                2 -> {
+                    val status = (word0 ushr 16) and 0xF0
+                    if (events[i + 1] != 0L || (word0 and 0x8080) != 0 ||
+                        (status != 0x80 && status != 0x90 && status != 0xB0 && status != 0xE0)
+                    ) return false
+                }
+                4 -> if (!MidiChannelVoiceEncoding.supportsMidi2Controller(word0)) return false
+                else -> return false
+            }
+        }
+        return true
+    }
+
+    private inline fun withUsbCcBatch(dispatch: (UsbMidiCcBatch?) -> Unit) {
+        val batch = hostMidiBackend?.usbCcBatch
+        try {
+            dispatch(batch)
+        } finally {
+            batch?.flush()
+        }
+    }
+
+    private fun processMidi2Controller(
+        word0: Int, word1: Int, isFinal: Boolean, nowNs: Long, acceptFeedback: Boolean,
+        usbCcBatch: UsbMidiCcBatch?,
+    ) {
+        val host = hostMidiBackend
+        val nativeMidi2 = host?.supportsMidi2 == true
+        if (host != null && nativeMidi2) {
+            MidiChannelVoiceEncoding.writeWord(word0, midi2MsgBuffer)
+            MidiChannelVoiceEncoding.writeWord(word1, midi2MsgBuffer, 4)
+            host.send(midi2MsgBuffer, 0, midi2MsgBuffer.size, nowNs)
+        }
+
+        processMidiEvent(
+            MidiChannelVoiceEncoding.toMidi1Controller(word0, word1),
+            isFinal, nowNs, acceptFeedback, sendToHost = !nativeMidi2, usbCcBatch = usbCcBatch
+        )
+    }
+
     private fun processMidiEvent(
         umpInt: Int,
         isFinal: Boolean,
         nowNs: Long,
         acceptFeedback: Boolean = false,
+        sendToHost: Boolean = true,
+        usbCcBatch: UsbMidiCcBatch? = null,
     ) {
         val status = (umpInt ushr 16) and 0xFF
         val data1 = (umpInt ushr 8) and 0xFF
         val data2 = umpInt and 0xFF
 
         if (sendHistory.shouldSend(status, data1, data2, isFinal, nowNs, acceptFeedback)) {
-            sendToBackends(umpInt, status, data1, data2, nowNs)
+            sendToBackends(umpInt, status, data1, data2, nowNs, sendToHost, isFinal, usbCcBatch)
         }
     }
 
-    private fun sendToBackends(umpInt: Int, status: Int, data1: Int, data2: Int, timestamp: Long) {
+    private fun sendToBackends(
+        umpInt: Int,
+        status: Int,
+        data1: Int,
+        data2: Int,
+        timestamp: Long,
+        sendToHost: Boolean,
+        isFinal: Boolean,
+        usbCcBatch: UsbMidiCcBatch?,
+    ) {
         legacyMsgBuffer[0] = status.toByte()
         legacyMsgBuffer[1] = data1.toByte()
         legacyMsgBuffer[2] = data2.toByte()
 
-        umpMsgBuffer[0] = (umpInt ushr 24).toByte()
-        umpMsgBuffer[1] = (umpInt ushr 16).toByte()
-        umpMsgBuffer[2] = (umpInt ushr 8).toByte()
-        umpMsgBuffer[3] = umpInt.toByte()
+        MidiChannelVoiceEncoding.writeWord(umpInt, umpMsgBuffer)
 
-        // Send to physically connected hardware (if any)
-        if (hostMidiBackend != null) {
-            hostMidiBackend?.send(legacyMsgBuffer, 0, legacyMsgBuffer.size, timestamp)
+        val host = hostMidiBackend
+        if (sendToHost && host != null) {
+            val bytes = if (host.isUmp) umpMsgBuffer else legacyMsgBuffer
+            if (usbCcBatch != null) {
+                usbCcBatch.send(bytes, timestamp, bufferCc = !isFinal && (status and 0xF0) == 0xB0)
+            } else {
+                host.send(bytes, 0, bytes.size, timestamp)
+            }
         }
-        
+
         // Selective Dispatch: Avoid internal routing loops in Peripheral Mode
         if (currentUsbMode != "peripheral") {
             // Send to virtual DAW out (e.g. FL Studio Mobile) only when in Host mode
@@ -514,7 +664,7 @@ class MainActivity : FlutterActivity() {
         val devicesList = mutableListOf<Map<String, Any>>()
         val devices = getAvailableMidiDevices()
 
-        devices?.forEach { deviceInfo ->
+        devices.forEach { (deviceInfo) ->
             val id = deviceInfo.id.toString()
             val properties = deviceInfo.properties
             val name = properties.getString(MidiDeviceInfo.PROPERTY_NAME) ?: "Unknown MIDI Device"
@@ -604,14 +754,14 @@ class MainActivity : FlutterActivity() {
 
     private fun connectToDevice(id: String, inputPortNumber: Int?, outputPortNumber: Int?, result: MethodChannel.Result) {
         val devices = getAvailableMidiDevices()
-        val deviceInfo = devices?.find { it.id.toString() == id }
+        val selectedDevice = devices.find { it.info.id.toString() == id }
 
-        if (deviceInfo == null) {
+        if (selectedDevice == null) {
             result.error("DEVICE_NOT_FOUND", "Could not find device with ID: $id", null)
             return
         }
 
-        midiManager?.openDevice(deviceInfo, { device ->
+        midiManager?.openDevice(selectedDevice.info, { device ->
             if (isDestroyed || isFinishing) {
                 device?.close()
                 return@openDevice
@@ -635,8 +785,11 @@ class MainActivity : FlutterActivity() {
                     inputPort = device.openInputPort(inPortToOpen)
                 }
 
-                hostMidiBackend = NativeAndroidMidiBackend(device, inputPort, outputPort)
-                setupMidiReceiver()
+                hostMidiBackend = NativeAndroidMidiBackend(
+                    device, inputPort, outputPort, selectedDevice.isUmp,
+                    isUsbPeripheral = isUsbPeripheral(selectedDevice.info),
+                )
+                setupMidiReceiver(selectedDevice.isUmp)
 
                 result.success(true)
             } else {
@@ -681,7 +834,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setupMidiReceiver() {
+    private fun setupMidiReceiver(isUmp: Boolean) {
         val backend = hostMidiBackend ?: return
         val backendId = backend.portId
 
@@ -690,12 +843,13 @@ class MainActivity : FlutterActivity() {
 
         val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
         val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+        val generation = nextPortGeneration.incrementAndGet()
 
         val portJob = coroutineScope.launch {
             for (notification in notifier) {
                 while (!portBuffer.isEmpty()) {
                     val batch = emptyBuffers.receive()
-                    portBuffer.drainToBatch(batch)
+                    portBuffer.drainToBatch(batch, generation)
                     eventMultiplexer.send(batch)
 
                     // Batching yield: maintains UI smoothness (~120Hz) and prevents CPU spinning
@@ -704,19 +858,31 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        activeSessions[backendId] = ActivePortSession(backendId, portBuffer, portJob)
+        activeSessions[backendId] = ActivePortSession(generation, portBuffer, portJob)
 
+        val umpDecoder = if (isUmp) UmpStreamDecoder() else null
+        val forwardUmp: (Int, Int, Long) -> Unit = { word0, word1, timestamp ->
+            MidiParser.processChannelVoice(
+                word0, word1, timestamp, false, portBuffer, suppressionWindowNs, lastSentTime
+            )
+        }
         backend.startReceiving { msg, offset, count, timestamp ->
+            if (umpDecoder != null) {
+                val nowNs = if (timestamp == 0L) System.nanoTime() else timestamp
+                umpDecoder.read(msg, offset, count, nowNs, forwardUmp)
+                return@startReceiving
+            }
             MidiParser.processMidiPayload(
                 msg = msg,
                 offset = offset,
                 count = count,
-                timestamp = timestamp,
+                timestamp = if (timestamp == 0L) System.nanoTime() else timestamp,
                 isVirtual = false,
                 incomingEventsSink = portBuffer,
                 suppressionWindowNs = suppressionWindowNs,
                 lastSentTime = lastSentTime,
-                isDebug = BuildConfig.DEBUG
+                isDebug = BuildConfig.DEBUG,
+                isUmpTransport = false
             )
         }
     }
@@ -724,22 +890,23 @@ class MainActivity : FlutterActivity() {
     private fun getOrCreateVirtualSession(isVirtual: Boolean): MidiParser.IncomingEventsBuffer {
         val sessionId = if (isVirtual) "virtual_daw" else "peripheral_host"
 
-        val session = activeSessions.computeIfAbsent(sessionId) { id ->
+        val session = activeSessions.computeIfAbsent(sessionId) {
             val notifier = Channel<Unit>(capacity = Channel.CONFLATED)
             val portBuffer = MidiParser.IncomingEventsBuffer(1000, notifier)
+            val generation = nextPortGeneration.incrementAndGet()
 
             val portJob = coroutineScope.launch {
                 for (notification in notifier) {
                     while (!portBuffer.isEmpty()) {
                         val batch = emptyBuffers.receive()
-                        portBuffer.drainToBatch(batch)
+                        portBuffer.drainToBatch(batch, generation)
                         eventMultiplexer.send(batch)
 
                         delay(8)
                     }
                 }
             }
-            ActivePortSession(id, portBuffer, portJob)
+            ActivePortSession(generation, portBuffer, portJob)
         }
         return session.buffer
     }

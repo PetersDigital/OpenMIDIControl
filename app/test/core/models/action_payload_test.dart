@@ -48,6 +48,12 @@ void main() {
       'fastForward',
       'bankLeft',
       'bankRight',
+      'up',
+      'left',
+      'right',
+      'down',
+      'channelLeft',
+      'channelRight',
     ]);
     for (final action in TransportAction.values) {
       final json = {

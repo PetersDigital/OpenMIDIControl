@@ -12,7 +12,7 @@ import 'package:app/ui/layout_state.dart';
 void main() {
   group('FactoryPageTemplates catalog', () {
     test('all templates are immutable, valid, and have explicit payloads', () {
-      expect(FactoryPageTemplates.all.length, 4);
+      expect(FactoryPageTemplates.all.length, 5);
       expect(
         () => FactoryPageTemplates.all.add(
           FactoryPageTemplates.byId(PageTemplateId.factoryFaderBank),
@@ -73,6 +73,22 @@ void main() {
       expect(mixer.gridColumns, 8);
       expect(mixer.gridRows, 6);
       expect(mixer.controlCount, 24);
+
+      final mcu = FactoryPageTemplates.byId(PageTemplateId.mcuMixer8Track);
+      expect((mcu.gridColumns, mcu.gridRows, mcu.controlCount), (9, 9, 49));
+      expect(mcu.controls.last.payload, const McuActionPayload.fader(8));
+      expect(
+        mcu.controls.where((c) => c.type == ControlType.encoder),
+        hasLength(8),
+      );
+      expect(
+        mcu.controls.where((c) => c.type == ControlType.trigger),
+        hasLength(32),
+      );
+      expect(
+        mcu.controls.where((c) => c.type == ControlType.fader),
+        hasLength(9),
+      );
     });
 
     test('instantiated page round-trips through JSON cleanly', () {

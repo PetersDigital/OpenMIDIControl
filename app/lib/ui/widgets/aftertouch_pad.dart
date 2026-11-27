@@ -205,9 +205,13 @@ class _AftertouchPadState extends ConsumerState<AftertouchPad>
                           Center(
                             child: Text(
                               '$value',
-                              style: AppText.performance(
-                                color: Colors.white,
-                              ).copyWith(fontFamily: style.fontFamily),
+                              style: AppText.performance(color: Colors.white)
+                                  .copyWith(
+                                    fontFamily: style.fontFamily,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
                             ),
                           ),
                       ],

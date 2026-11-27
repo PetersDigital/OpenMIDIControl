@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/midi_utils.dart';
 import '../../core/models/action_payload.dart';
+import '../../core/models/midi_event.dart';
 
 enum _MidiMessageType {
   unassigned('Unassigned'),
@@ -29,6 +30,8 @@ class MidiActionDraft {
     this.allowUnassigned = false,
     this.ccAndNoteOnly = false,
     this.noteOnly = false,
+    this.supportsMidi2 = false,
+    this.mcuTarget,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -51,6 +54,10 @@ class MidiActionDraft {
     _pitchValue = TextEditingController(
       text: (payload is PitchBendPayload ? payload.value : 8192).toString(),
     );
+    _midi2 = switch (payload) {
+      CcPayload(:final midi2) || PitchBendPayload(:final midi2) => midi2,
+      _ => false,
+    };
     _highResolution = payload is CcPayload && payload.highResolution;
     _velocityMode = payload is NotePayload
         ? payload.velocityMode
@@ -66,20 +73,31 @@ class MidiActionDraft {
         ? payload.encoding
         : RelativeCcEncoding.signedBit;
     _mcuPayload = payload is McuActionPayload ? payload : null;
+    _mcuStrip = _mcuPayload?.strip ?? 0;
+    _mcuButton = _mcuPayload?.button ?? McuChannelButton.mute;
   }
 
   late _MidiMessageType _type;
   final bool allowUnassigned;
   final bool ccAndNoteOnly;
   final bool noteOnly;
+  final bool supportsMidi2;
+  final McuTarget? mcuTarget;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
   late bool _highResolution;
+  late bool _midi2;
   late NoteVelocityMode _velocityMode;
   late NoteVelocityCurve _velocityCurve;
   late RelativeCcEncoding _encoding;
   late final McuActionPayload? _mcuPayload;
+  late int _mcuStrip;
+  late McuChannelButton _mcuButton;
+
+  bool get _canEditMcu =>
+      mcuTarget != null &&
+      (_mcuPayload == null || _mcuPayload.target == mcuTarget);
 
   bool _canSelect(_MidiMessageType type) => switch (type) {
     _MidiMessageType.unassigned => allowUnassigned,
@@ -87,7 +105,7 @@ class MidiActionDraft {
     _MidiMessageType.note => true,
     _MidiMessageType.pitchBend ||
     _MidiMessageType.relativeCc => !ccAndNoteOnly && !noteOnly,
-    _MidiMessageType.mcu => false,
+    _MidiMessageType.mcu => _canEditMcu,
   };
 
   int? _parseNumber(String text, int max) {
@@ -102,6 +120,12 @@ class MidiActionDraft {
           ? 'Enter a note name or a number from 0 to 127'
           : null;
     }
+    if (_type == _MidiMessageType.cc && _midi2) {
+      final cc = _parseNumber(input, 127);
+      return cc != null && MidiEvent.isMidi2AbsoluteCc(cc)
+          ? null
+          : 'Enter a CC from 64 to 95 or 102 to 119';
+    }
     final max = _type == _MidiMessageType.cc && _highResolution ? 31 : 127;
     return _parseNumber(input, max) == null
         ? 'Enter a CC number from 0 to $max'
@@ -114,7 +138,8 @@ class MidiActionDraft {
     _MidiMessageType.cc => CcPayload(
       channel: channel,
       cc: int.parse(_identifier.text.trim(), radix: 10),
-      highResolution: _highResolution,
+      highResolution: _highResolution && !_midi2,
+      midi2: _midi2,
     ),
     _MidiMessageType.note => NotePayload(
       channel: channel,
@@ -124,6 +149,7 @@ class MidiActionDraft {
     ),
     _MidiMessageType.pitchBend => PitchBendPayload(
       channel: channel,
+      midi2: _midi2,
       value: int.parse(_pitchValue.text.trim(), radix: 10),
     ),
     _MidiMessageType.relativeCc => RelativeCcPayload(
@@ -131,7 +157,15 @@ class MidiActionDraft {
       cc: int.parse(_identifier.text.trim(), radix: 10),
       encoding: _encoding,
     ),
-    _MidiMessageType.mcu => _mcuPayload!,
+    _MidiMessageType.mcu => switch (_canEditMcu ? mcuTarget : null) {
+      McuTarget.fader => McuActionPayload.fader(_mcuStrip),
+      McuTarget.vPot => McuActionPayload.vPot(_mcuStrip),
+      McuTarget.channelButton => McuActionPayload.channelButton(
+        _mcuStrip,
+        _mcuButton,
+      ),
+      _ => _mcuPayload!,
+    },
   };
 
   void dispose() {
@@ -237,7 +271,9 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           onChanged: (value) => _draft._type = value,
           isEnabled: _draft._canSelect,
         ),
-        if (_draft._canSelect(type) && type != _MidiMessageType.unassigned) ...[
+        if (_draft._canSelect(type) &&
+            type != _MidiMessageType.unassigned &&
+            type != _MidiMessageType.mcu) ...[
           const SizedBox(height: 12),
           _dropdown(
             label: 'MIDI Channel',
@@ -246,6 +282,34 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
             optionLabel: (channel) => 'Channel ${channel + 1}',
             onChanged: (value) => _draft.channel = value,
           ),
+        ],
+        if (type == _MidiMessageType.mcu && _draft._canEditMcu) ...[
+          const SizedBox(height: 12),
+          _dropdown(
+            label: 'MCU Strip',
+            value: _draft._mcuStrip,
+            values: Iterable<int>.generate(
+              _draft.mcuTarget == McuTarget.fader ? 9 : 8,
+            ),
+            optionLabel: (strip) =>
+                strip == 8 ? 'Master' : 'Track ${strip + 1}',
+            onChanged: (strip) => _draft._mcuStrip = strip,
+          ),
+          if (_draft.mcuTarget == McuTarget.channelButton) ...[
+            const SizedBox(height: 12),
+            _dropdown(
+              label: 'MCU Button',
+              value: _draft._mcuButton,
+              values: McuChannelButton.values,
+              optionLabel: (button) => switch (button) {
+                McuChannelButton.recordArm => 'Record Arm',
+                McuChannelButton.solo => 'Solo',
+                McuChannelButton.mute => 'Mute',
+                McuChannelButton.select => 'Select',
+              },
+              onChanged: (button) => _draft._mcuButton = button,
+            ),
+          ],
         ],
         if (_draft._canSelect(type) &&
             type == _MidiMessageType.pitchBend &&
@@ -268,6 +332,8 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           _numberField(
             label: type == _MidiMessageType.note
                 ? 'MIDI Note (e.g., C3 or 60)'
+                : _draft._midi2 && type == _MidiMessageType.cc
+                ? 'CC Number (64–95 or 102–119)'
                 : _draft._highResolution && type == _MidiMessageType.cc
                 ? 'CC Number (0-31)'
                 : 'CC Number (0-127)',
@@ -278,7 +344,22 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
                 : TextInputType.number,
           ),
         ],
-        if (type == _MidiMessageType.cc)
+        if (_draft.supportsMidi2 &&
+            (type == _MidiMessageType.cc || type == _MidiMessageType.pitchBend))
+          CheckboxListTile(
+            title: const Text(
+              '32-bit MIDI 2.0',
+              style: TextStyle(color: Colors.white),
+            ),
+            value: _draft._midi2,
+            onChanged: (value) => setState(() {
+              _draft._midi2 = value ?? false;
+              if (_draft._midi2) _draft._highResolution = false;
+            }),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        if (type == _MidiMessageType.cc && !_draft._midi2)
           CheckboxListTile(
             title: const Text(
               '14-bit CC',

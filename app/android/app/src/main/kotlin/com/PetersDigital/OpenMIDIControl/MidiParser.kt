@@ -9,6 +9,9 @@ object MidiParser {
 
     interface IncomingEventsSink {
         fun trySend(packedEvent: Long): Boolean
+
+        fun trySendUmp(word0: Int, word1: Int, timestampNs: Long): Boolean =
+            word0 ushr 28 == 0x2 && trySend((word0.toLong() shl 32) or ((timestampNs / 1_000_000L) and 0xFFFFFFFFL))
     }
 
     class IncomingEventsBuffer(
@@ -17,51 +20,52 @@ object MidiParser {
     ) : IncomingEventsSink {
         private val headPointer = AtomicLong(0)
         private val tailPointer = AtomicLong(0)
-        @Volatile private var isFull = false
         private val ringBuffer = LongArray(capacity)
+        private val timestamps = LongArray(capacity)
+
+        override fun trySend(packedEvent: Long): Boolean =
+            trySendUmp((packedEvent ushr 32).toInt(), 0, (packedEvent and 0xFFFFFFFFL) * 1_000_000L)
 
         @Synchronized
-        override fun trySend(packedEvent: Long): Boolean {
+        override fun trySendUmp(word0: Int, word1: Int, timestampNs: Long): Boolean {
             val currentTail = tailPointer.get()
             val nextTail = (currentTail + 1) % ringBuffer.size
             if (nextTail == headPointer.get()) {
-                isFull = true
                 return false
             }
-            ringBuffer[currentTail.toInt()] = packedEvent
+            ringBuffer[currentTail.toInt()] = (word0.toLong() shl 32) or (word1.toLong() and 0xFFFFFFFFL)
+            timestamps[currentTail.toInt()] = timestampNs
             tailPointer.set(nextTail)
             notifier?.trySend(Unit)
             return true
         }
 
-        fun drainToBatch(batch: LongArray) {
-            var writeIndex = 1
-            var usedDataLongs = 0
-
+        fun drainToBatch(batch: LongArray, generation: Long = 0L) {
+            var writeIndex = 3
             var currentHead = headPointer.get()
             val currentTail = tailPointer.get()
 
-            while (currentHead != currentTail && writeIndex + 1 < batch.size) {
+            while (currentHead != currentTail && writeIndex + 2 < batch.size) {
                 val packed = ringBuffer[currentHead.toInt()]
-                batch[writeIndex++] = (packed shr 32) and 0xFFFFFFFFL
+                batch[writeIndex++] = packed ushr 32
                 batch[writeIndex++] = packed and 0xFFFFFFFFL
+                batch[writeIndex++] = timestamps[currentHead.toInt()]
                 currentHead = (currentHead + 1) % ringBuffer.size
-                usedDataLongs += 2
             }
 
             headPointer.set(currentHead)
-            batch[0] = usedDataLongs.toLong()
+            batch[0] = -2L
+            batch[1] = generation
+            batch[2] = ((writeIndex - 3) / 3).toLong()
         }
 
         fun isEmpty(): Boolean = headPointer.get() == tailPointer.get()
     }
 
     /**
-     * Reconstructs 32-bit UMP integers or handles legacy byte streams,
-     * applies bitwise filtering (dropping Real-Time spam like 0xF8/0xFE),
-     * and queues packed UMP+timestamp values to the given sink.
-     * Packing: upper 32 bits = UMP, lower 32 bits = timestamp (lower 32 bits of nanosecond time).
-     * This eliminates Pair<Long, Long> allocation churn (~5,760 bytes/sec at 50-120 events/sec).
+     * Parses complete UMPs or legacy voice messages from one callback.
+     * A port that can split UMP packets across callbacks should retain its own decoder.
+     * The sink receives both packet words and the monotonic timestamp in nanoseconds.
      */
     fun processMidiPayload(
         msg: ByteArray,
@@ -72,46 +76,21 @@ object MidiParser {
         incomingEventsSink: IncomingEventsSink,
         suppressionWindowNs: Long,
         lastSentTime: LongArray,
-        isDebug: Boolean = false
+        isDebug: Boolean = false,
+        isUmpTransport: Boolean? = null
     ) {
-        // SECURITY: Defense-in-depth bounds checking to prevent DoS via malformed MIDI packets
-        if (offset < 0 || count < 0 || offset + count > msg.size) return
+        if (offset < 0 || count < 0 || offset > msg.size - count) return
 
-        // Check for UMP alignment and validate Message Type (MT) to prevent false positives
-        val isUmp = if (count >= 4 && count % 4 == 0) {
-            val firstUmpWord = ((msg[offset].toInt() and 0xFF) shl 24) or
-                               ((msg[offset + 1].toInt() and 0xFF) shl 16) or
-                               ((msg[offset + 2].toInt() and 0xFF) shl 8) or
-                               (msg[offset + 3].toInt() and 0xFF)
-            val firstMessageType = (firstUmpWord ushr 28) and 0xF
-            firstMessageType in 0x0..0x5
-        } else false
+        // Callers with a known transport bypass the compatibility heuristic.
+        val isUmp = isUmpTransport ?: (
+            count >= 4 && count % 4 == 0 && ((msg[offset].toInt() and 0xFF) ushr 4) <= 0x5
+        )
 
         if (isUmp) {
-            // Process each 32-bit UMP word independently to avoid misalignment churn.
-            var i = offset
-            while (i + 3 < offset + count) {
-                val byte1 = msg[i].toInt() and 0xFF
-                val byte2 = msg[i + 1].toInt() and 0xFF
-                val byte3 = msg[i + 2].toInt() and 0xFF
-                val byte4 = msg[i + 3].toInt() and 0xFF
-
-                val umpInt = (byte1 shl 24) or (byte2 shl 16) or (byte3 shl 8) or byte4
-                processSingleUmp(umpInt, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
-
-                val messageType = (umpInt ushr 28) and 0xF
-                val wordCount = when (messageType) {
-                    0x0, 0x1, 0x2 -> 1
-                    0x3, 0x4 -> 2
-                    0x5 -> 4
-                    0x6, 0x7 -> 1
-                    0x8, 0x9 -> 2
-                    0xA, 0xB -> 3
-                    0xC, 0xD, 0xE, 0xF -> 4
-                    else -> 1
-                }
-                // Silently drop other words for multi-word messages as they are currently unsupported
-                i += wordCount * 4
+            UmpStreamDecoder().read(msg, offset, count, timestamp) { word0, word1, packetTimestamp ->
+                processChannelVoice(
+                    word0, word1, packetTimestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime
+                )
             }
         } else {
             // Process Legacy Byte Stream (Fallback)
@@ -140,10 +119,6 @@ object MidiParser {
     }
 }
 
-    /**
-     * Processes a single 32-bit UMP word.
-     * Extracts message type, group, and status to forward valid MIDI 1.0 voice messages.
-     */
     fun processSingleUmp(
         umpInt: Int,
         timestamp: Long,
@@ -152,25 +127,30 @@ object MidiParser {
         suppressionWindowNs: Long,
         lastSentTime: LongArray
     ) {
-        val messageType = (umpInt ushr 28) and 0xF
-        if (messageType == 0x1) {
-            // MT 0x1: System Real-Time / System Common
-            val status = (umpInt ushr 16) and 0xFF
-            // Drop Timing Clock (0xF8) and Active Sensing (0xFE).
-            if (status == 0xF8 || status == 0xFE) {
-                return
-            }
-        } else if (messageType == 0x2) {
-            // MT 0x2: MIDI 1.0 Channel Voice
-            val group = (umpInt ushr 24) and 0xF
-            val status = (umpInt ushr 16) and 0xFF
-            val statusNibble = status and 0xF0
+        if (umpInt ushr 28 == 0x2) {
+            processChannelVoice(umpInt, 0, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
+        }
+    }
 
-            if (statusNibble == 0x80 || statusNibble == 0x90 || statusNibble == 0xB0 || statusNibble == 0xE0) {
-                val data1 = (umpInt ushr 8) and 0xFF
-                val data2 = umpInt and 0xFF
-                forwardMidiEvent(group, status, data1, data2, timestamp, isVirtual, incomingEventsSink, suppressionWindowNs, lastSentTime)
-            }
+    internal fun processChannelVoice(
+        word0: Int,
+        word1: Int,
+        timestamp: Long,
+        isVirtual: Boolean,
+        sink: IncomingEventsSink,
+        suppressionWindowNs: Long,
+        lastSentTime: LongArray
+    ) {
+        if (word0 ushr 28 == 0x4) {
+            sink.trySendUmp(word0, word1, timestamp)
+            return
+        }
+        val status = (word0 ushr 16) and 0xFF
+        when (status and 0xF0) {
+            0x80, 0x90, 0xB0, 0xE0 -> forwardMidiEvent(
+                (word0 ushr 24) and 0xF, status, (word0 ushr 8) and 0xFF, word0 and 0xFF,
+                timestamp, isVirtual, sink, suppressionWindowNs, lastSentTime
+            )
         }
     }
 
@@ -211,10 +191,6 @@ object MidiParser {
                      ((data1.toLong() and 0xFFL) shl 8) or 
                      (data2.toLong() and 0xFFL)
  
-        // Pack UMP (upper 32 bits) + timestamp in ms (lower 32 bits) into a single Long.
-        // Rule: Mask both the 32-bit payload and the 32-bit timestamp with 0xFFFFFFFFL 
-        // before shifting to prevent sign extension from corrupting the combined payload.
-        val packed = ((umpInt and 0xFFFFFFFFL) shl 32) or ((timestamp / 1_000_000L) and 0xFFFFFFFFL)
-        incomingEventsSink.trySend(packed)
+        incomingEventsSink.trySendUmp(umpInt.toInt(), 0, timestamp)
     }
 }

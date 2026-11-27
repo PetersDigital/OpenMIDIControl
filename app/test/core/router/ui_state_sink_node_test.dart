@@ -20,6 +20,57 @@ void main() {
   }
 
   group('UiStateSinkNode', () {
+    test('preserves adjacent 32-bit controller values and legacy fallback', () {
+      final updates = <Map<String, dynamic>>[];
+      final node = UiStateSinkNode(onStateUpdate: updates.add);
+
+      node.executeSingle(const MidiEvent(0x40B04A00, 0, umpWord1: 0x80000001));
+      node.executeSingle(const MidiEvent(0x40B04A00, 0, umpWord1: 0x80000002));
+      node.executeSingle(const MidiEvent(0x40E00000, 0, umpWord1: 0xFFFFFFFF));
+      node.executeSingle(const MidiEvent(0x20E00000, 0));
+
+      expect(updates.map((update) => update['controllers']), [
+        {'cc32:0:74': 0x80000001},
+        {'cc32:0:74': 0x80000002},
+        {'bend:0': 0xFFFFFFFF},
+        {'bend:0': 0},
+      ]);
+    });
+
+    test(
+      'decodes observed Cubase 16 MT=0x4 note off, bend and ring feedback',
+      () {
+        final updates = <Map<String, dynamic>>[];
+        final node = UiStateSinkNode(onStateUpdate: updates.add);
+        addTearDown(node.dispose);
+
+        node.executeSingle(
+          const MidiEvent(0x40905E00, 0, umpWord1: 0xFFFF0000),
+        );
+        expect(updates.last['buttons'], {'note:0:94': true});
+        expect(updates.last['notes'], {
+          0: [94],
+        });
+
+        // Cubase 16 emits explicit MT=0x4 Note Off with non-zero release velocity.
+        node.executeSingle(
+          const MidiEvent(0x40805E00, 1, umpWord1: 0x80000000),
+        );
+        expect(updates.last['buttons'], {'note:0:94': false});
+        expect(updates.last['notes'], {0: isEmpty});
+
+        node.executeSingle(
+          const MidiEvent(0x40E70000, 2, umpWord1: 0xBE31F18F),
+        );
+        expect(updates.last['controllers'], {'bend:7': 0xBE31F18F});
+
+        node.executeSingle(
+          const MidiEvent(0x40B03000, 3, umpWord1: 0xACB2CB2C),
+        );
+        expect(updates.last['ccs'], {'0:48': 0x56});
+      },
+    );
+
     test(
       'emits updates for state-changing events (CC, Note) but ignores system real-time',
       () {

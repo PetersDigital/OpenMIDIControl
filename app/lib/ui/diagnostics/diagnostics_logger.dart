@@ -90,6 +90,12 @@ class DiagnosticLogEntry {
         ? 'Port ${event.sourceId} | '
         : '';
 
+    if (event.umpWord1 case final word1?) {
+      final first = event.ump.toRadixString(16).padLeft(8, '0');
+      final second = word1.toRadixString(16).padLeft(8, '0');
+      return '[$timeStr] MIDI IN: ${portStr}UMP $first $second';
+    }
+
     final status = event.legacyStatusByte;
     if (status >= 0xB0 && status <= 0xBF) {
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | CC ${event.data1} | Val ${event.data2}';
@@ -99,6 +105,8 @@ class DiagnosticLogEntry {
     } else if (status >= 0x80 && status <= 0x8F) {
       final noteName = MidiUtils.getNoteName(event.data1);
       return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Note Off $noteName (${event.data1}) | Vel ${event.data2}';
+    } else if (status >= 0xE0 && status <= 0xEF) {
+      return '[$timeStr] MIDI IN: ${portStr}Ch ${event.channel + 1} | Pitch Bend ${event.pitchBend14 ?? ((event.data2 << 7) | event.data1)}';
     } else {
       return '[$timeStr] MIDI IN: ${portStr}Type 0x${event.messageType.toRadixString(16)} | Ch ${event.channel + 1} | D1 ${event.data1} | D2 ${event.data2}';
     }

@@ -17,8 +17,8 @@ OpenMIDIControl is a performance-first, multi-touch MIDI control surface.
 
 ## Current Status
 
-- **v0.4.4** is the current released baseline (Modular Engine Core & MCU Prerequisites), adding polymorphic `ActionPayload` & schema `v2`, global 3×3 header transport assignments, Factory Page Templates, and per-control `WidgetStyle` customization.
-- **v0.4.5** (Visual Sovereignty & Expressive Pads — `Global UI Scaling`, `AftertouchPad`, `LatchPad`) is implemented and hardware-verified on `dev`, ahead of **v0.5.x (MCU/HUI & High-Res UMP)**.
+- **v0.5.0** is the current released milestone (**Basic MCU Protocol Mapping & Native High-Res UMP**), adding 64-bit `MT=0x4` / 14-bit UMP transport, the pure-Dart `McuCodec` / `McuProtocolNode` engine, persistent Generic/MCU mode selection, the `MCU 8-Track Mixer` starter template, adaptive `ControlValueFormatter` readouts, batched wired USB MIDI 1.0 controller writes, and Android Back/Recents session preservation.
+- Next focus: **v0.5.1** (**Surface Discovery, SysEx7 & UMP Endpoint Configuration** — bidirectional DAW SysEx handshake, LCD scribble-strip decoding, and HUI support).
 - See [IMPLEMENTATION.md](IMPLEMENTATION.md) for the detailed phased roadmap.
 
 ## Core Docs

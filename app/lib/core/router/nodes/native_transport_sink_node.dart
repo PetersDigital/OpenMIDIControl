@@ -13,6 +13,7 @@ import 'sink_node.dart';
 void _nativeTransportWorker(List<dynamic> args) {
   final SendPort sendPort = args[0] as SendPort;
   final RootIsolateToken token = args[1] as RootIsolateToken;
+  final generation = args[2] as int?;
 
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
   const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
@@ -23,29 +24,45 @@ void _nativeTransportWorker(List<dynamic> args) {
   receivePort.listen((message) {
     if (message is TransferableTypedData) {
       final batch = message.materialize().asInt64List();
-      channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((
-        e,
-      ) {
-        debugPrint('Worker: Failed to send MIDI CC batch: $e');
-      });
+      _sendBatch(channel, batch, generation);
     }
   });
 }
 
+void _sendBatch(MethodChannel channel, Int64List batch, int? generation) {
+  final method = generation != null
+      ? 'sendMcuBatch'
+      : batch[0] == -2
+      ? 'sendMidiBatchV2'
+      : 'sendMidiCCBatch';
+  unawaited(
+    channel
+        .invokeMethod<bool>(method, {
+          'events': batch,
+          'generation': ?generation,
+        })
+        .then<void>(
+          (_) {},
+          onError: (Object error) =>
+              debugPrint('Failed to send MIDI batch: $error'),
+        ),
+  );
+}
+
 class NativeTransportSinkNode extends SinkNode {
   final MethodChannel channel;
+  final int? mcuGeneration;
 
   static const int _maxBufferSize = 10;
   static const Duration _flushInterval = Duration(milliseconds: 16);
 
-  static final Int64List _sharedBuffer = Int64List(
-    16000,
-  ); // 8000 events slots (2 entries per event)
+  static final Int64List _sharedBuffer = Int64List(1 + 8000 * 3);
 
   @visibleForTesting
   static int get sharedBufferCapacity => _sharedBuffer.length;
 
   final List<MidiEvent> _eventBuffer = [];
+  bool _usesMidi2 = false;
   Timer? _flushTimer;
 
   SendPort? _workerSendPort;
@@ -56,6 +73,7 @@ class NativeTransportSinkNode extends SinkNode {
 
   NativeTransportSinkNode({
     required this.channel,
+    this.mcuGeneration,
     this.useBackgroundWorker = true,
   }) {
     if (useBackgroundWorker) {
@@ -73,6 +91,7 @@ class NativeTransportSinkNode extends SinkNode {
       _workerIsolate = await Isolate.spawn(_nativeTransportWorker, [
         receivePort.sendPort,
         token,
+        mcuGeneration,
       ], debugName: 'NativeTransportWorker');
 
       if (_isDisposed) {
@@ -91,6 +110,7 @@ class NativeTransportSinkNode extends SinkNode {
 
   void _queue(MidiEvent event) {
     _eventBuffer.add(event);
+    _usesMidi2 |= event.messageType == 4;
     if (_eventBuffer.length > 6400) {
       _flush();
       if (_eventBuffer.length > 6400) {
@@ -101,13 +121,7 @@ class NativeTransportSinkNode extends SinkNode {
 
   @override
   void executeSingle(MidiEvent event) {
-    // Filter out non-MIDI 1.0 voice messages
-    final statusNibble = event.legacyStatusByte & 0xF0;
-    if (event.messageType == 0x2 &&
-        (statusNibble == 0x80 ||
-            statusNibble == 0x90 ||
-            statusNibble == 0xB0 ||
-            statusNibble == 0xE0)) {
+    if (_supports(event)) {
       _queue(event);
 
       if (_flushTimer == null || !_flushTimer!.isActive) {
@@ -126,15 +140,8 @@ class NativeTransportSinkNode extends SinkNode {
   void execute(List<MidiEvent> events) {
     if (events.isEmpty) return;
 
-    for (var event in events) {
-      final statusNibble = event.legacyStatusByte & 0xF0;
-      if (event.messageType == 0x2 &&
-          (statusNibble == 0x80 ||
-              statusNibble == 0x90 ||
-              statusNibble == 0xB0 ||
-              statusNibble == 0xE0)) {
-        _queue(event);
-      }
+    for (final event in events) {
+      if (_supports(event)) _queue(event);
     }
 
     if (_eventBuffer.isEmpty) return;
@@ -158,35 +165,51 @@ class NativeTransportSinkNode extends SinkNode {
       return;
     }
 
-    final int count = _eventBuffer.length;
-    final int requiredCapacity = count * 2;
+    final worker = _workerSendPort;
+    final count = _eventBuffer.length;
+    final stride = _usesMidi2 ? 3 : 2;
+    final requiredCapacity = count * stride + (_usesMidi2 ? 1 : 0);
+    final batch = worker == null
+        ? Int64List.sublistView(_sharedBuffer, 0, requiredCapacity)
+        : Int64List(requiredCapacity);
 
-    if (_workerSendPort != null) {
-      // Background isolate path: allocate new buffer and transfer ownership to avoid GC churn in main isolate
-      final buffer = Int64List(requiredCapacity);
-      for (int i = 0; i < count; i++) {
-        buffer[i * 2] = _eventBuffer[i].ump;
-        buffer[i * 2 + 1] = _transportFlags(_eventBuffer[i]);
-      }
-      final transferable = TransferableTypedData.fromList([buffer]);
-      _workerSendPort!.send(transferable);
-    } else {
-      // Main isolate fallback (used during startup or in tests)
-      for (int i = 0; i < count; i++) {
-        _sharedBuffer[i * 2] = _eventBuffer[i].ump;
-        _sharedBuffer[i * 2 + 1] = _transportFlags(_eventBuffer[i]);
-      }
-
-      final batch = Int64List.sublistView(_sharedBuffer, 0, requiredCapacity);
-
-      channel.invokeMethod('sendMidiCCBatch', {'events': batch}).catchError((
-        e,
-      ) {
-        debugPrint('Failed to send MIDI CC batch: $e');
-      });
+    var offset = 0;
+    if (_usesMidi2) batch[offset++] = -2;
+    for (final event in _eventBuffer) {
+      batch[offset++] = event.ump;
+      if (_usesMidi2) batch[offset++] = event.umpWord1 ?? 0;
+      batch[offset++] = _transportFlags(event);
     }
 
+    if (worker == null) {
+      _sendBatch(channel, batch, mcuGeneration);
+    } else {
+      worker.send(TransferableTypedData.fromList([batch]));
+    }
     _eventBuffer.clear();
+    _usesMidi2 = false;
+  }
+
+  bool _supports(MidiEvent event) {
+    if (event.messageType == 2) {
+      return switch (event.status) {
+        0x80 || 0x90 || 0xB0 || 0xE0 => true,
+        _ => false,
+      };
+    }
+    final value = event.umpWord1;
+    if (mcuGeneration != null ||
+        event.messageType != 4 ||
+        value == null ||
+        value < 0 ||
+        value > 0xFFFFFFFF) {
+      return false;
+    }
+    return switch (event.status) {
+      0xE0 => event.ump & 0xFFFF == 0,
+      0xB0 => event.data2 == 0 && MidiEvent.isMidi2AbsoluteCc(event.data1),
+      _ => false,
+    };
   }
 
   static int _transportFlags(MidiEvent event) =>

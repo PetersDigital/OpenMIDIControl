@@ -5,8 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'diagnostics/diagnostics_console.dart';
 import 'midi_service.dart';
-import 'midi_settings_state.dart'
-    show manualPortSelectionProvider, usbModeProvider, UsbMode;
+import 'midi_settings_state.dart';
 import 'design_system.dart';
 import 'side_panel_state.dart';
 
@@ -26,6 +25,10 @@ class MidiSettingsScreen extends ConsumerWidget {
     );
     final midiStatus = ref.watch(midiStatusProvider);
     final midiDevicesAsyncValue = ref.watch(midiDevicesProvider);
+    final protocol = ref.watch(midiProtocolModeProvider).value;
+    final mcuActive =
+        protocol == MidiProtocolMode.mcu &&
+        (ref.watch(mcuRouteActiveProvider).value ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -91,6 +94,50 @@ class MidiSettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            title: const Text('MIDI protocol'),
+            subtitle: protocol == MidiProtocolMode.mcu
+                ? Text(
+                    mcuActive
+                        ? 'MCU port ready'
+                        : 'Connect a compatible bidirectional MIDI port',
+                  )
+                : null,
+            trailing: DropdownButton<MidiProtocolMode>(
+              value: protocol,
+              items: const [
+                DropdownMenuItem(
+                  value: MidiProtocolMode.generic,
+                  child: Text('Generic'),
+                ),
+                DropdownMenuItem(
+                  value: MidiProtocolMode.mcu,
+                  child: Text('MCU'),
+                ),
+              ],
+              onChanged: protocol == null
+                  ? null
+                  : (mode) async {
+                      if (mode == null) return;
+                      try {
+                        await ref
+                            .read(midiProtocolModeProvider.notifier)
+                            .setMode(mode);
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Could not save the MIDI protocol mode.',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+            ),
+          ),
           Builder(
             builder: (ctx) {
               final usbMode = ref.watch(usbModeProvider);

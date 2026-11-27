@@ -255,7 +255,8 @@ class _TemplateItem extends ConsumerWidget {
       PageTemplateId.factoryFaderBank => Icons.tune,
       PageTemplateId.drumGrid4x4 => Icons.grid_view_rounded,
       PageTemplateId.xyAndEncoders => Icons.gamepad,
-      PageTemplateId.mixerStub8Track => Icons.view_column,
+      PageTemplateId.mixerStub8Track ||
+      PageTemplateId.mcuMixer8Track => Icons.view_column,
     };
   }
 

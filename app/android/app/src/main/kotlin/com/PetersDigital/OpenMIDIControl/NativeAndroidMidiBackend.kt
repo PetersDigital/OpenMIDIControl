@@ -13,8 +13,22 @@ import java.io.IOException
 class NativeAndroidMidiBackend(
     val device: MidiDevice,
     val inputPort: MidiInputPort?,
-    val outputPort: MidiOutputPort?
+    val outputPort: MidiOutputPort?,
+    val isUmp: Boolean,
+    isUsbPeripheral: Boolean,
 ) : MidiPortBackend {
+
+    val supportsMidi2: Boolean = isUmp && when (device.info.defaultProtocol) {
+        MidiDeviceInfo.PROTOCOL_UMP_MIDI_2_0,
+        MidiDeviceInfo.PROTOCOL_UMP_MIDI_2_0_AND_JRTS -> true
+        else -> false
+    }
+
+    internal val usbCcBatch = if (isUsbPeripheral && !isUmp && inputPort != null) {
+        UsbMidiCcBatch(this)
+    } else {
+        null
+    }
 
     private var midiReceiver: MidiReceiver? = null
 
@@ -78,5 +92,32 @@ class NativeAndroidMidiBackend(
         safeExecute { outputPort?.close() }
         safeExecute { inputPort?.close() }
         safeExecute { device.close() }
+    }
+}
+
+/** Buffers complete USB MIDI 1.0 CC messages within one synchronous dispatch. */
+internal class UsbMidiCcBatch(private val backend: MidiPortBackend) {
+    private val buffer = ByteArray(8 * 3)
+    private var size = 0
+    private var firstTimestamp = 0L
+
+    fun send(bytes: ByteArray, timestamp: Long, bufferCc: Boolean) {
+        if (!bufferCc) {
+            flush()
+            backend.send(bytes, 0, bytes.size, timestamp)
+            return
+        }
+
+        if (size == 0) firstTimestamp = timestamp
+        bytes.copyInto(buffer, destinationOffset = size)
+        size += bytes.size
+        if (size == buffer.size) flush()
+    }
+
+    fun flush() {
+        val count = size
+        if (count == 0) return
+        size = 0
+        backend.send(buffer, 0, count, firstTimestamp)
     }
 }
