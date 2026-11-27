@@ -776,6 +776,15 @@ class MidiService {
     }
   }
 
+  Future<void> moveToBackground() async {
+    if (_isDisposed) return;
+    try {
+      await _channel.invokeMethod('moveToBackground');
+    } catch (e) {
+      debugPrint('Failed to move app to background: $e');
+    }
+  }
+
   Future<void> sendCC(
     int cc,
     int value, {

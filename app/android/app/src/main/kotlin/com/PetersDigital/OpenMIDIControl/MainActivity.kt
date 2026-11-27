@@ -385,6 +385,9 @@ class MainActivity : FlutterActivity() {
                     disconnectDevice()
                     result.success(null)
                 }
+                "moveToBackground" -> {
+                    result.success(moveTaskToBack(true))
+                }
                 "sendMidiCC" -> {
                     val cc = call.argument<Int>("cc")
                     val value = call.argument<Int>("value")

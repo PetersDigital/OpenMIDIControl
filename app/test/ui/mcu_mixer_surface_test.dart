@@ -4,6 +4,7 @@
 import 'dart:typed_data';
 
 import 'package:app/core/models/page_templates.dart';
+import 'package:app/ui/editor_state.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/layout_state.dart';
 import 'package:app/ui/midi_service.dart';
@@ -211,4 +212,143 @@ void main() {
       expect(find.bySemanticsLabel('Monitor OFF'), findsNWidgets(8));
     },
   );
+
+  testWidgets(
+    'HybridTouchFader snaps to cached MCU feedback when resumed from pause',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(384, 832);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
+      const eventsChannel = EventChannel(
+        'com.petersdigital.openmidicontrol/midi_events',
+      );
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      late MockStreamHandlerEventSink native;
+      messenger.setMockStreamHandler(
+        eventsChannel,
+        MockStreamHandler.inline(
+          onListen: (_, sink) {
+            native = sink;
+          },
+        ),
+      );
+      addTearDown(() => messenger.setMockStreamHandler(eventsChannel, null));
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getMcuRouteGeneration') return 42;
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      final midi = MidiService(useBackgroundWorker: false);
+      addTearDown(midi.dispose);
+      final container = ProviderContainer.test(
+        overrides: [midiServiceProvider.overrideWithValue(midi)],
+      );
+      container
+          .read(layoutStateProvider.notifier)
+          .addPageFromTemplate(
+            FactoryPageTemplates.byId(PageTemplateId.mcuMixer8Track),
+          );
+      expect(await midi.startMcuSession(), isTrue);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(body: PerformanceZone(isMobile: true)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Deliver -20.0 dB feedback, freeze mid-animation by pausing, then resume.
+      native.success(Int64List.fromList([-2, 42, 1, 0x20E02035, 0, 1]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 5));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+      expect(find.text('-20.0'), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.text('-20.0'), findsOneWidget);
+    },
+  );
+
+  testWidgets('root Back dismisses overlays before moving app to background', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(384, 832);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({'hasLaunched': true});
+    const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
+    const eventsChannel = EventChannel(
+      'com.petersdigital.openmidicontrol/midi_events',
+    );
+    const systemChannel = EventChannel(
+      'com.petersdigital.openmidicontrol/system_events',
+    );
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockStreamHandler(
+      eventsChannel,
+      MockStreamHandler.inline(onListen: (_, _) {}),
+    );
+    messenger.setMockStreamHandler(
+      systemChannel,
+      MockStreamHandler.inline(onListen: (_, _) {}),
+    );
+    addTearDown(() {
+      messenger.setMockStreamHandler(eventsChannel, null);
+      messenger.setMockStreamHandler(systemChannel, null);
+    });
+    var moveToBackgroundCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'moveToBackground') {
+        moveToBackgroundCalls++;
+        return true;
+      }
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    final midi = MidiService(useBackgroundWorker: false);
+    addTearDown(midi.dispose);
+    final container = ProviderContainer.test(
+      overrides: [midiServiceProvider.overrideWithValue(midi)],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: OpenMIDIMainScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    container
+        .read(editorOverlayProvider.notifier)
+        .toggle(EditorOverlay.palette);
+    await tester.pump();
+    expect(container.read(editorOverlayProvider), EditorOverlay.palette);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(container.read(editorOverlayProvider), EditorOverlay.none);
+    expect(moveToBackgroundCalls, 0);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(moveToBackgroundCalls, 1);
+  });
 }

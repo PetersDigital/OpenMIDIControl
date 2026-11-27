@@ -240,6 +240,14 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     if (state != AppLifecycleState.resumed) {
       _finishGesture();
       _animationController.stop();
+    } else if (widget.isActive) {
+      final hotValue = _readFeedback();
+      if (hotValue != null) {
+        final target = _normalizeFeedback(hotValue);
+        if (_animationController.value != target) {
+          _animationController.value = target;
+        }
+      }
     }
   }
 

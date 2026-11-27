@@ -255,34 +255,49 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
       }
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF111318),
-      resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                // Adaptive layout selection
-                if (isLandscape) {
-                  return _LandscapeLayout(
-                    isMobile: !isTablet || constraints.maxWidth <= 900,
-                  );
-                }
-                // Default portrait for mobile
-                return const _MobilePortraitLayout();
-              },
-            ),
-            const DeviceOfflineOverlay(),
-            if (isLandscape) const _SidePanelOverlay(),
-            const Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: EdgeInsets.only(bottom: 24.0),
-                child: DynamicConnectionIsland(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (ref.read(sidePanelProvider).type != SidePanelType.none) {
+          ref.read(sidePanelProvider.notifier).hide();
+          return;
+        }
+        if (ref.read(editorOverlayProvider) != EditorOverlay.none) {
+          ref.read(editorOverlayProvider.notifier).hide();
+          return;
+        }
+        ref.read(midiServiceProvider).moveToBackground();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF111318),
+        resizeToAvoidBottomInset: false,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Adaptive layout selection
+                  if (isLandscape) {
+                    return _LandscapeLayout(
+                      isMobile: !isTablet || constraints.maxWidth <= 900,
+                    );
+                  }
+                  // Default portrait for mobile
+                  return const _MobilePortraitLayout();
+                },
               ),
-            ),
-          ],
+              const DeviceOfflineOverlay(),
+              if (isLandscape) const _SidePanelOverlay(),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 24.0),
+                  child: DynamicConnectionIsland(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
