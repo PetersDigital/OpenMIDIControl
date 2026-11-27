@@ -38,6 +38,40 @@ void main() {
     });
 
     test(
+      'decodes observed Cubase 16 MT=0x4 note off, bend and ring feedback',
+      () {
+        final updates = <Map<String, dynamic>>[];
+        final node = UiStateSinkNode(onStateUpdate: updates.add);
+        addTearDown(node.dispose);
+
+        node.executeSingle(
+          const MidiEvent(0x40905E00, 0, umpWord1: 0xFFFF0000),
+        );
+        expect(updates.last['buttons'], {'note:0:94': true});
+        expect(updates.last['notes'], {
+          0: [94],
+        });
+
+        // Cubase 16 emits explicit MT=0x4 Note Off with non-zero release velocity.
+        node.executeSingle(
+          const MidiEvent(0x40805E00, 1, umpWord1: 0x80000000),
+        );
+        expect(updates.last['buttons'], {'note:0:94': false});
+        expect(updates.last['notes'], {0: isEmpty});
+
+        node.executeSingle(
+          const MidiEvent(0x40E70000, 2, umpWord1: 0xBE31F18F),
+        );
+        expect(updates.last['controllers'], {'bend:7': 0xBE31F18F});
+
+        node.executeSingle(
+          const MidiEvent(0x40B03000, 3, umpWord1: 0xACB2CB2C),
+        );
+        expect(updates.last['ccs'], {'0:48': 0x56});
+      },
+    );
+
+    test(
       'emits updates for state-changing events (CC, Note) but ignores system real-time',
       () {
         var updateCount = 0;
