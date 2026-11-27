@@ -223,6 +223,18 @@ void main() {
     );
   });
 
+  testWidgets('Inspector can assign a fader to the MCU master', (tester) async {
+    final container = await openInspector(tester, 'fader_0');
+    await select(tester, 'CC', 'MCU');
+    await select(tester, 'Track 1', 'Master');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(layoutStateProvider).getControlById('fader_0')!.payload,
+      const McuActionPayload.fader(8),
+    );
+  });
+
   testWidgets('validates the pitch bend value on a trigger', (tester) async {
     final container = await openInspector(tester, 'trigger_0');
     await select(tester, 'CC', 'Pitch Bend');

@@ -71,6 +71,12 @@ class _ControlConfigModalState extends ConsumerState<ControlConfigModal> {
       noteOnly: _isAftertouch,
       ccAndNoteOnly: _isLatch,
       supportsMidi2: _controlType == ControlType.fader,
+      mcuTarget: switch (_controlType) {
+        ControlType.fader => McuTarget.fader,
+        ControlType.encoder => McuTarget.vPot,
+        ControlType.trigger || ControlType.toggle => McuTarget.channelButton,
+        _ => null,
+      },
     );
 
     final name = control?.customName;

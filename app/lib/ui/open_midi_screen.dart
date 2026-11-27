@@ -11,7 +11,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/lifecycle/app_lifecycle_manager.dart';
 import '../core/models/action_payload.dart';
 import '../core/protocol/mcu/mcu_codec.dart';
 import 'global_ui_scale_state.dart';
@@ -21,7 +20,7 @@ import 'midi_service.dart';
 import 'midi_settings_state.dart'
     show
         MidiProtocolMode,
-        mcuLampProvider,
+        mcuLampLitProvider,
         mcuRouteActiveProvider,
         midiProtocolModeProvider;
 import 'performance_ticker_mixin.dart';
@@ -1107,16 +1106,6 @@ class _DynamicConnectionIslandState
   }
 }
 
-final _mcuLampBlinkProvider = StreamProvider.autoDispose<bool>((ref) {
-  if (ref.watch(appLifecycleStateProvider) != AppLifecycleState.resumed) {
-    return Stream.value(false);
-  }
-  return Stream.periodic(
-    const Duration(milliseconds: 500),
-    (tick) => tick.isOdd,
-  );
-});
-
 class _GridButton extends ConsumerStatefulWidget {
   final HeaderTransportRole role;
   final IconData icon;
@@ -1236,20 +1225,14 @@ class _GridButtonState extends ConsumerState<_GridButton>
           );
     final address = HeaderTransportMappingsNotifier.feedbackAddress(payload);
     final enabled = mcuTarget != null || (address != null && payload != null);
-    final lamp = mcuTarget == null
-        ? null
-        : ref.watch(mcuLampProvider(McuCodec.switchNote(mcuTarget))).value;
-    final isLit = switch (lamp) {
-      McuLampState.on => true,
-      McuLampState.flashing => ref.watch(_mcuLampBlinkProvider).value ?? true,
-      _ =>
-        address != null &&
-            ref.watch(
-              controlStateProvider.select(
-                (state) => state.buttonStates[address] ?? false,
-              ),
-            ),
-    };
+    final isLit = mcuTarget != null
+        ? ref.watch(mcuLampLitProvider(McuCodec.switchNote(mcuTarget)))
+        : address != null &&
+              ref.watch(
+                controlStateProvider.select(
+                  (state) => state.buttonStates[address] ?? false,
+                ),
+              );
     final isPressed = _pointer != null;
     final accent = widget.role == HeaderTransportRole.record
         ? const Color(0xFFFFB59E)

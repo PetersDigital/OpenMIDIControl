@@ -7,6 +7,9 @@ import 'package:collection/collection.dart';
 import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
 import '../../core/models/widget_style.dart';
+import '../../core/protocol/mcu/mcu_codec.dart';
+import '../midi_settings_state.dart'
+    show mcuLampLitProvider, mcuRouteActiveProvider;
 import '../design_system.dart';
 import 'config_gesture_wrapper.dart';
 
@@ -41,11 +44,13 @@ class Trigger extends ConsumerStatefulWidget {
     required this.controlId,
     required this.pageId,
     this.mode = MidiButtonMode.cc,
+    this.isActive = true,
     this.activeColor = const Color(0xFFA6C9F8),
     this.inactiveColor = const Color(0xFF282A2E),
   });
 
   final String pageId;
+  final bool isActive;
 
   @override
   ConsumerState<Trigger> createState() => _TriggerState();
@@ -64,6 +69,20 @@ class _TriggerState extends ConsumerState<Trigger>
   void initState() {
     super.initState();
     initPerformanceMixin();
+  }
+
+  @override
+  void didUpdateWidget(Trigger oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isActive && _midiGate.heldPayload is McuActionPayload) {
+      _resetPress();
+      _midiGate.release();
+    }
+  }
+
+  void _resetPress() {
+    _activePointer = null;
+    _isPressed = false;
   }
 
   @override
@@ -109,13 +128,18 @@ class _TriggerState extends ConsumerState<Trigger>
 
   @override
   Widget build(BuildContext context) {
-    final control = ref.watch(
-      layoutStateProvider.select((s) {
-        final page = s.pages.firstWhereOrNull((p) => p.id == widget.pageId);
-        if (page == null) return null;
-        return page.controls.firstWhereOrNull((c) => c.id == widget.controlId);
-      }),
-    );
+    final selection = layoutStateProvider.select((s) {
+      final page = s.pages.firstWhereOrNull((p) => p.id == widget.pageId);
+      return page?.controls.firstWhereOrNull((c) => c.id == widget.controlId);
+    });
+    final control = ref.watch(selection);
+    ref.listen(selection, (_, next) {
+      if (_midiGate.heldPayload case final McuActionPayload held
+          when next?.payload != held) {
+        setState(_resetPress);
+        _midiGate.release();
+      }
+    });
 
     if (control == null) return const SizedBox.shrink();
 
@@ -125,26 +149,49 @@ class _TriggerState extends ConsumerState<Trigger>
     final channel = control.payload?.midiChannel ?? control.channel;
     final identifier = control.defaultCc;
     final payload = _buttonPayload(control, widget.mode);
+    final isMcu = payload is McuActionPayload;
+    final mcuTarget = switch (payload) {
+      final McuActionPayload target
+          when target.target == McuTarget.channelButton ||
+              target.target == McuTarget.transport =>
+        target,
+      _ => null,
+    };
+    final mcuReady =
+        mcuTarget != null &&
+        widget.isActive &&
+        (ref.watch(mcuRouteActiveProvider).value ?? false);
+    if (isMcu) {
+      ref.listen(mcuRouteActiveProvider, (_, next) {
+        if (next.value == false && _isPressed) {
+          setState(_resetPress);
+          _midiGate.release();
+        }
+      });
+    }
+    final mcuLit =
+        mcuReady &&
+        ref.watch(mcuLampLitProvider(McuCodec.switchNote(mcuTarget)));
     final isUnassigned = identifier == -1 && payload == null;
     final label = control.displayName;
 
     return RepaintBoundary(
       child: Listener(
-        onPointerDown: isUnassigned
+        onPointerDown: isUnassigned || (isMcu && !mcuReady)
             ? null
             : (e) => _handlePointerDown(e, payload),
         onPointerUp: _handlePointerUp,
         onPointerCancel: _handlePointerUp,
         behavior: HitTestBehavior.opaque,
         child: Opacity(
-          opacity: isUnassigned ? 0.3 : 1.0,
+          opacity: isUnassigned || (isMcu && !mcuReady) ? 0.3 : 1.0,
           child: _MidiButtonFace(
             wrapperKey: ValueKey('config_wrapper_trigger_${control.id}'),
             configId: 'trigger_${control.id}',
             onConfigRequested: isLocked
                 ? null
                 : () => showUtilityConfigModal(context, ref, control.id),
-            isLit: _isPressed,
+            isLit: isMcu ? mcuLit : _isPressed,
             activeColor: widget.activeColor,
             inactiveColor: widget.inactiveColor,
             defaultActiveFg: const Color(0xFF033258),
@@ -152,9 +199,11 @@ class _TriggerState extends ConsumerState<Trigger>
             style: control.effectiveStyle,
             headerText: isUnassigned
                 ? 'UNASSIGNED'
+                : isMcu
+                ? ''
                 : control.payload?.displayLabel ?? 'CC $identifier',
             label: label,
-            channelText: isUnassigned ? null : 'CH${channel + 1}',
+            channelText: isUnassigned || isMcu ? null : 'CH${channel + 1}',
           ),
         ),
       ),
@@ -185,11 +234,13 @@ class Toggle extends ConsumerStatefulWidget {
     required this.controlId,
     required this.pageId,
     this.mode = MidiButtonMode.cc,
+    this.isActive = true,
     this.activeColor = const Color(0xFFFFB59E), // Distinct color for toggles
     this.inactiveColor = const Color(0xFF282A2E),
   });
 
   final String pageId;
+  final bool isActive;
 
   @override
   ConsumerState<Toggle> createState() => _ToggleState();
@@ -268,6 +319,17 @@ class _ToggleState extends ConsumerState<Toggle>
     final channel = control.payload?.midiChannel ?? control.channel;
     final identifier = control.defaultCc;
     final payload = _buttonPayload(control, widget.mode);
+    if (payload is McuActionPayload) {
+      return Trigger(
+        controlId: widget.controlId,
+        pageId: widget.pageId,
+        isActive: widget.isActive,
+        mode: widget.mode,
+        activeColor: widget.activeColor,
+        inactiveColor: widget.inactiveColor,
+      );
+    }
+
     final isUnassigned = identifier == -1 && payload == null && !_isActive;
     final label = control.displayName;
 
@@ -363,7 +425,7 @@ class _MidiButtonFace extends StatelessWidget {
             configId: configId,
             onConfigRequested: onConfigRequested,
             text: headerText,
-            visible: style.showNumericReadout,
+            visible: style.showNumericReadout && headerText.isNotEmpty,
             fontFamily: fontFamily,
             color: isLit
                 ? activeFg.withValues(alpha: 0.6)

@@ -31,6 +31,7 @@ class MidiActionDraft {
     this.ccAndNoteOnly = false,
     this.noteOnly = false,
     this.supportsMidi2 = false,
+    this.mcuTarget,
   }) {
     _type = switch (payload) {
       CcPayload() => _MidiMessageType.cc,
@@ -72,6 +73,8 @@ class MidiActionDraft {
         ? payload.encoding
         : RelativeCcEncoding.signedBit;
     _mcuPayload = payload is McuActionPayload ? payload : null;
+    _mcuStrip = _mcuPayload?.strip ?? 0;
+    _mcuButton = _mcuPayload?.button ?? McuChannelButton.mute;
   }
 
   late _MidiMessageType _type;
@@ -79,6 +82,7 @@ class MidiActionDraft {
   final bool ccAndNoteOnly;
   final bool noteOnly;
   final bool supportsMidi2;
+  final McuTarget? mcuTarget;
   late int channel;
   late final TextEditingController _identifier;
   late final TextEditingController _pitchValue;
@@ -88,6 +92,12 @@ class MidiActionDraft {
   late NoteVelocityCurve _velocityCurve;
   late RelativeCcEncoding _encoding;
   late final McuActionPayload? _mcuPayload;
+  late int _mcuStrip;
+  late McuChannelButton _mcuButton;
+
+  bool get _canEditMcu =>
+      mcuTarget != null &&
+      (_mcuPayload == null || _mcuPayload.target == mcuTarget);
 
   bool _canSelect(_MidiMessageType type) => switch (type) {
     _MidiMessageType.unassigned => allowUnassigned,
@@ -95,7 +105,7 @@ class MidiActionDraft {
     _MidiMessageType.note => true,
     _MidiMessageType.pitchBend ||
     _MidiMessageType.relativeCc => !ccAndNoteOnly && !noteOnly,
-    _MidiMessageType.mcu => false,
+    _MidiMessageType.mcu => _canEditMcu,
   };
 
   int? _parseNumber(String text, int max) {
@@ -147,7 +157,15 @@ class MidiActionDraft {
       cc: int.parse(_identifier.text.trim(), radix: 10),
       encoding: _encoding,
     ),
-    _MidiMessageType.mcu => _mcuPayload!,
+    _MidiMessageType.mcu => switch (_canEditMcu ? mcuTarget : null) {
+      McuTarget.fader => McuActionPayload.fader(_mcuStrip),
+      McuTarget.vPot => McuActionPayload.vPot(_mcuStrip),
+      McuTarget.channelButton => McuActionPayload.channelButton(
+        _mcuStrip,
+        _mcuButton,
+      ),
+      _ => _mcuPayload!,
+    },
   };
 
   void dispose() {
@@ -253,7 +271,9 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
           onChanged: (value) => _draft._type = value,
           isEnabled: _draft._canSelect,
         ),
-        if (_draft._canSelect(type) && type != _MidiMessageType.unassigned) ...[
+        if (_draft._canSelect(type) &&
+            type != _MidiMessageType.unassigned &&
+            type != _MidiMessageType.mcu) ...[
           const SizedBox(height: 12),
           _dropdown(
             label: 'MIDI Channel',
@@ -262,6 +282,34 @@ class _MidiActionFieldsState extends State<MidiActionFields> {
             optionLabel: (channel) => 'Channel ${channel + 1}',
             onChanged: (value) => _draft.channel = value,
           ),
+        ],
+        if (type == _MidiMessageType.mcu && _draft._canEditMcu) ...[
+          const SizedBox(height: 12),
+          _dropdown(
+            label: 'MCU Strip',
+            value: _draft._mcuStrip,
+            values: Iterable<int>.generate(
+              _draft.mcuTarget == McuTarget.fader ? 9 : 8,
+            ),
+            optionLabel: (strip) =>
+                strip == 8 ? 'Master' : 'Track ${strip + 1}',
+            onChanged: (strip) => _draft._mcuStrip = strip,
+          ),
+          if (_draft.mcuTarget == McuTarget.channelButton) ...[
+            const SizedBox(height: 12),
+            _dropdown(
+              label: 'MCU Button',
+              value: _draft._mcuButton,
+              values: McuChannelButton.values,
+              optionLabel: (button) => switch (button) {
+                McuChannelButton.recordArm => 'Record Arm',
+                McuChannelButton.solo => 'Solo',
+                McuChannelButton.mute => 'Mute',
+                McuChannelButton.select => 'Select',
+              },
+              onChanged: (button) => _draft._mcuButton = button,
+            ),
+          ],
         ],
         if (_draft._canSelect(type) &&
             type == _MidiMessageType.pitchBend &&

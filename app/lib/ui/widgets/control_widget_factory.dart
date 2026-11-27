@@ -4,6 +4,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/action_payload.dart';
 import '../../core/models/layout_models.dart';
 import '../hybrid_touch_fader.dart';
 import 'aftertouch_pad.dart';
@@ -84,6 +85,7 @@ class ControlWidgetFactory {
         return LatchPad(key: key, control: control, isActive: isActive);
 
       case ControlType.encoder:
+        final isVPot = control.payload is McuActionPayload;
         final cc = control.defaultCc;
         final channel = control.payload?.midiChannel ?? control.channel;
         final isUnassigned = cc == -1 && control.payload == null;
@@ -110,6 +112,7 @@ class ControlWidgetFactory {
                       channel: channel == -1 ? 0 : channel,
                       cc: cc,
                       payload: control.payload,
+                      sensitivity: isVPot ? 6.0 : 1.5,
                       showChannelLabel: false,
                       isActive: isActive,
                       accentColor: accentColor,
@@ -133,18 +136,19 @@ class ControlWidgetFactory {
                             ),
                           ),
                     child: Container(
-                      padding: const EdgeInsets.only(
-                        top: 4,
-                        left: 6,
-                        bottom: 20,
-                        right: 20,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 64,
-                        minHeight: 60,
-                      ),
+                      padding: isVPot
+                          ? const EdgeInsets.all(3)
+                          : const EdgeInsets.only(
+                              top: 4,
+                              left: 6,
+                              bottom: 20,
+                              right: 20,
+                            ),
+                      constraints: isVPot
+                          ? const BoxConstraints()
+                          : const BoxConstraints(minWidth: 64, minHeight: 60),
                       alignment: Alignment.topLeft,
-                      child: style.showNumericReadout
+                      child: style.showNumericReadout && !isVPot
                           ? Text(
                               isUnassigned
                                   ? 'UNASSIGNED'
@@ -153,7 +157,7 @@ class ControlWidgetFactory {
                                 color: const Color(
                                   0xFFC3C7CA,
                                 ).withValues(alpha: 0.3),
-                                fontSize: 12,
+                                fontSize: isVPot ? 9 : 12,
                                 fontWeight: FontWeight.bold,
                               ).copyWith(fontFamily: style.fontFamily),
                             )
@@ -186,7 +190,7 @@ class ControlWidgetFactory {
                               )
                             : const SizedBox.shrink(),
                       ),
-                      if (!isUnassigned && style.showNumericReadout)
+                      if (!isUnassigned && !isVPot && style.showNumericReadout)
                         Text(
                           'CH${channel + 1}',
                           style: TextStyle(
@@ -212,6 +216,7 @@ class ControlWidgetFactory {
           controlId: control.id,
           pageId: pageId,
           mode: MidiButtonMode.cc,
+          isActive: isActive,
         );
 
       case ControlType.toggle:
@@ -220,6 +225,7 @@ class ControlWidgetFactory {
           controlId: control.id,
           pageId: pageId,
           mode: MidiButtonMode.cc,
+          isActive: isActive,
         );
     }
   }
