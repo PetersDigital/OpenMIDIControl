@@ -230,7 +230,9 @@ Following the [Version Roadmap](README.md#version-roadmap-v0.1.0-to-v1.0.0), the
 
 Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin v0.5.0 Phase 1. Keep handshake work in v0.5.1. MCU ingress must decode MT 2 and MT 4 bend, Note and CC feedback, including channel 16 time digits. Use the [series implementation and verification plan](docs/V0.5.x-V0.6.x_IMPLEMENTATION.md) for the released-code audit, wire vectors, commit boundaries and hardware criteria. The local [reference index](REFERENCES.md) and [bundled Cubase mappings](references/cubase/README.md) provide background. For the November 2026 bench, record the installed Windows service, Preview 14 components, native endpoint format, Cubase build and script revision separately. Cubase 16 adds Windows MIDI Services and independently updatable factory scripts. [Microsoft Preview 14](https://github.com/microsoft/MIDI/releases/tag/inbox-preview-14) · [Steinberg Cubase 16 release notes](https://www.steinberg.net/cubase/release-notes/16/)
 
-##### Phase 1 – Native Kotlin & Core Dart High-Res UMP Foundation
+##### ✅ Phase 1 – Native Kotlin & Core Dart High-Res UMP Foundation
+
+*Complete (`1753e876`..`af498344`). See [completion record](docs/V0.5.0_QUALIFICATION_FINDINGS.md#9-phase-1--phase-2-completion-record).*
 
 - **Pitch Bend Echo Suppression (`app/android/.../MidiParser.kt`):**
   - *(Baseline channel-keyed `0xE0` normalization shipped in `v0.4.4`; verify 14-bit high-res round-trip coverage here.)* Normalize suppression key to `data1 = 0` whenever `(status and 0xF0) == 0xE0` so changing LSB ticks never bypass bidirectional echo suppression.
@@ -241,7 +243,9 @@ Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin
   - Retain 14-bit MCU bend and unsigned 32-bit native bend/CC values through immutable state. Scope feedback to the selected port, group and channel.
   - Pre-allocate precision-appropriate typed buffers with dirty masks in `UiStateSinkNode` and support two-word events in both paths of `NativeTransportSinkNode`.
 
-##### Phase 2 – Pure-Dart MCU Core Protocol Module (`app/lib/core/protocol/mcu/`)
+##### ✅ Phase 2 – Pure-Dart MCU Core Protocol Module (`app/lib/core/protocol/mcu/`)
+
+*Complete (`b85bf3e9`, `ce9a299d`). See [completion record](docs/V0.5.0_QUALIFICATION_FINDINGS.md#9-phase-1--phase-2-completion-record).*
 
 - **`mcu_constants.dart` — Standard Mackie Control Universal Map:**
   - **Faders (14-bit Pitch Bend):** Ch `0..7` (`0xE0..0xE7`) = Tracks 1–8. Ch `8` (`0xE8`) = Master. Range `0..16383`. Verify the host's unity-gain position in Cubase.
