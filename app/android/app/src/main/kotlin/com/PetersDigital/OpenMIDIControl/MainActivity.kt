@@ -432,6 +432,31 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "Events batch is required", null)
                     }
                 }
+                "getMcuRouteGeneration" -> {
+                    val host = hostMidiBackend
+                    val group = call.argument<Int>("group") ?: 0
+                    result.success(
+                        if (host != null && host.inputPort != null &&
+                            host.outputPort != null && !host.supportsMidi2 &&
+                            group in 0..15 && (host.isUmp || group == 0)
+                        ) activeSessions[host.portId]?.generation else null
+                    )
+                }
+                "sendMcuBatch" -> {
+                    val generation = call.argument<Number>("generation")?.toLong()
+                    val events = call.argument<LongArray>("events")
+                    val host = hostMidiBackend
+                    if (generation == null || host == null || host.supportsMidi2 ||
+                        activeSessions[host.portId]?.generation != generation
+                    ) {
+                        result.error("MCU_ROUTE_CHANGED", "The selected MCU port is unavailable", null)
+                    } else if (events == null || !isValidMcuBatch(events, host.isUmp)) {
+                        result.error("INVALID_ARGUMENT", "Invalid MCU voice batch", null)
+                    } else {
+                        sendMcuBatch(host, events)
+                        result.success(true)
+                    }
+                }
                 "sendMidiBatchV2" -> {
                     val events = call.argument<LongArray>("events")
                     if (events == null || !isValidMidi2Batch(events)) {
@@ -481,6 +506,36 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    private fun isValidMcuBatch(events: LongArray, isUmp: Boolean): Boolean {
+        if (events.isEmpty() || events.size % 2 != 0) return false
+        for (i in events.indices step 2) {
+            val word = events[i]
+            val status = (word ushr 16) and 0xF0
+            if (word ushr 28 != 2L || (word and 0x8080L) != 0L ||
+                (!isUmp && (word and 0x0F000000L) != 0L) ||
+                (status != 0x80L && status != 0x90L && status != 0xB0L && status != 0xE0L)
+            ) return false
+        }
+        return true
+    }
+
+    private fun sendMcuBatch(host: NativeAndroidMidiBackend, events: LongArray) {
+        for (i in events.indices step 2) {
+            val word = events[i].toInt()
+            val bytes = if (host.isUmp) {
+                MidiChannelVoiceEncoding.writeWord(word, umpMsgBuffer)
+                umpMsgBuffer
+            } else {
+                legacyMsgBuffer[0] = (word ushr 16).toByte()
+                legacyMsgBuffer[1] = (word ushr 8).toByte()
+                legacyMsgBuffer[2] = word.toByte()
+                legacyMsgBuffer
+            }
+            // Remote-surface edges and relative ticks retain order and bypass generic echo history.
+            host.send(bytes, 0, bytes.size, System.nanoTime())
         }
     }
 
