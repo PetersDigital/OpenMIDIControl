@@ -35,6 +35,8 @@ class MidiEvent {
   static bool isMidi2AbsoluteCc(int cc) =>
       cc >= 64 && cc <= 119 && (cc < 96 || cc > 101);
 
+  int? get pitchBend14 =>
+      messageType == 2 && status == 0xE0 ? (data2 << 7) | data1 : null;
   int? get pitchBend32 => messageType == 4 && status == 0xE0 ? umpWord1 : null;
   int? get ccValue32 => messageType == 4 && status == 0xB0 ? umpWord1 : null;
   int? get noteVelocity16 {
