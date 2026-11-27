@@ -15,6 +15,7 @@ import '../layout_state.dart';
 import '../../core/models/layout_models.dart';
 import '../../core/models/action_payload.dart';
 import '../../core/models/widget_style.dart';
+import '../../core/utils/control_value_formatter.dart';
 
 class HybridXYPad extends ConsumerStatefulWidget {
   final String id;
@@ -453,19 +454,29 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: ValueListenableBuilder<Offset>(
                                     valueListenable: _posNotifier,
                                     builder: (_, pos, _) {
-                                      final val =
-                                          ((invertX ? (1.0 - pos.dx) : pos.dx) *
-                                                  127)
-                                              .round()
-                                              .toString()
-                                              .padLeft(3, '0');
-                                      return Text(
-                                        val,
-                                        style: TextStyle(
-                                          fontFamily:
-                                              style.fontFamily ?? 'DSEG7Modern',
-                                          color: accentColor,
-                                          fontSize: 16,
+                                      final normX = invertX
+                                          ? (1.0 - pos.dx)
+                                          : pos.dx;
+                                      return FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          ControlValueFormatter.formatContinuous(
+                                            control?.payload,
+                                            normX,
+                                          ),
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          style: TextStyle(
+                                            fontFamily:
+                                                style.fontFamily ??
+                                                'Space Grotesk',
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                            color: accentColor,
+                                            fontSize: 15,
+                                          ),
                                         ),
                                       );
                                     },
@@ -515,19 +526,29 @@ class _HybridXYPadState extends ConsumerState<HybridXYPad>
                                   child: ValueListenableBuilder<Offset>(
                                     valueListenable: _posNotifier,
                                     builder: (_, pos, _) {
-                                      final val =
-                                          ((invertY ? (1.0 - pos.dy) : pos.dy) *
-                                                  127)
-                                              .round()
-                                              .toString()
-                                              .padLeft(3, '0');
-                                      return Text(
-                                        val,
-                                        style: TextStyle(
-                                          fontFamily:
-                                              style.fontFamily ?? 'DSEG7Modern',
-                                          color: accentColor,
-                                          fontSize: 16,
+                                      final normY = invertY
+                                          ? (1.0 - pos.dy)
+                                          : pos.dy;
+                                      return FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          ControlValueFormatter.formatContinuous(
+                                            _yPayload,
+                                            normY,
+                                          ),
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          style: TextStyle(
+                                            fontFamily:
+                                                style.fontFamily ??
+                                                'Space Grotesk',
+                                            fontWeight: FontWeight.w700,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                            color: accentColor,
+                                            fontSize: 15,
+                                          ),
                                         ),
                                       );
                                     },
