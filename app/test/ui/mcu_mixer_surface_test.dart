@@ -215,7 +215,7 @@ void main() {
   );
 
   testWidgets(
-    'MCU fader restores feedback after pause and a covered mixer route',
+    'MCU faders await feedback and restore the host position after pause',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(384, 832);
@@ -266,6 +266,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('—'), findsNWidgets(9));
+      native.success(Int64List.fromList([-2, 42, 1, 0x20E00000, 0, 1]));
+      await tester.pumpAndSettle();
+      expect(find.text('-∞'), findsOneWidget);
+      expect(find.text('—'), findsNWidgets(8));
+
       // Deliver -20.0 dB feedback, freeze mid-animation by pausing, then resume.
       native.success(Int64List.fromList([-2, 42, 1, 0x20E02035, 0, 1]));
       await tester.pump();
@@ -308,6 +314,10 @@ void main() {
         ),
       );
       expect(track.heightFactor, 12864 / 16383);
+
+      midi.stopMcuSession();
+      await tester.pumpAndSettle();
+      expect(find.text('—'), findsNWidgets(9));
     },
   );
 

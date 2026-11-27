@@ -84,6 +84,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   SpringSimulation? _springSimulation;
   int? _lastPolledValue;
+  bool _hasMcuPosition = false;
   ProviderSubscription<LayoutControl?>? _layoutSubscription;
 
   Timer? _stateDebounceTimer;
@@ -121,9 +122,12 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
     // Restore value from session state if available, otherwise use initialValue
     final hotValue = _readFeedback();
+    _hasMcuPosition = _mcuFaderStrip != null && hotValue != null;
     final startValue = hotValue != null
         ? _normalizeFeedback(hotValue)
-        : widget.initialValue;
+        : _mcuFaderStrip == null
+        ? widget.initialValue
+        : 0.0;
 
     _animationController = AnimationController(
       vsync: this,
@@ -172,6 +176,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
           _pendingIncomingNormalized = null;
           _animationController.stop();
           _lastPolledValue = null;
+          if (_mcuFaderStrip != null) _restoreFeedback();
           if (widget.isActive) {
             _setupMidiListeners();
           }
@@ -202,19 +207,48 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
     _ => value / 127.0,
   };
 
+  void _setMcuPositionKnown(bool known) {
+    if (_hasMcuPosition == known) return;
+    setState(() => _hasMcuPosition = known);
+  }
+
+  void _restoreFeedback() {
+    final value = _readFeedback();
+    if (_mcuFaderStrip != null) {
+      _setMcuPositionKnown(value != null);
+      _pendingIncomingNormalized = null;
+      _animationController.stop();
+      _animationController.value = value == null
+          ? 0
+          : _normalizeFeedback(value);
+    } else if (value != null) {
+      final target = _normalizeFeedback(value);
+      if (_animationController.value != target) {
+        _animationController.value = target;
+      }
+    }
+  }
+
   void _setupMidiListeners() {
     clearManagedSubscriptions();
     if (_mcuFaderStrip case final strip?) {
       addManagedSubscription(
         ref.listenManual(mcuFaderProvider(strip), (_, next) {
           if (next.value case final value? when widget.isActive) {
-            _handleCcUpdate(value);
+            if (_hasMcuPosition) {
+              _handleCcUpdate(value);
+            } else {
+              _restoreFeedback();
+            }
           }
         }),
       );
       addManagedSubscription(
         ref.listenManual(mcuRouteActiveProvider, (_, next) {
-          if (next.value == false) _midiAction.end();
+          if (next.value == false) {
+            _midiAction.end();
+            _restoreFeedback();
+          }
         }),
       );
       return;
@@ -241,13 +275,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
       _finishGesture();
       _animationController.stop();
     } else if (widget.isActive) {
-      final hotValue = _readFeedback();
-      if (hotValue != null) {
-        final target = _normalizeFeedback(hotValue);
-        if (_animationController.value != target) {
-          _animationController.value = target;
-        }
-      }
+      _restoreFeedback();
     }
   }
 
@@ -259,13 +287,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
         // Re-setup listeners
         _setupMidiListeners();
         // Re-sync value when coming back to foreground
-        final hotValue = _readFeedback();
-        if (hotValue != null) {
-          final target = _normalizeFeedback(hotValue);
-          if (_animationController.value != target) {
-            _animationController.value = target;
-          }
-        }
+        _restoreFeedback();
       } else {
         // Suspend heavy resources
         clearManagedSubscriptions();
@@ -323,7 +345,11 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
     if (_mcuFaderStrip != null) _animationController.stop();
-    if (widget.behavior == FaderBehavior.jump ||
+    if (_mcuFaderStrip != null && !_hasMcuPosition) {
+      _isCatchingUp = false;
+      _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
+      _setMcuPositionKnown(true);
+    } else if (widget.behavior == FaderBehavior.jump ||
         (widget.behavior == FaderBehavior.catchUp && !_isCatchingUp)) {
       _applyAbsolutePosition(details.localPosition.dy, constraints.maxHeight);
     }
@@ -496,6 +522,7 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
 
   @override
   Widget build(BuildContext context) {
+    final waitingForMcu = _mcuFaderStrip != null && !_hasMcuPosition;
     final canPerform =
         _mcuFaderStrip == null ||
         (ref.watch(mcuRouteActiveProvider).value ?? false);
@@ -566,7 +593,9 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                     AnimatedBuilder(
                       animation: _animationController,
                       builder: (context, child) => FractionallySizedBox(
-                        heightFactor: _animationController.value,
+                        heightFactor: waitingForMcu
+                            ? 0
+                            : _animationController.value,
                         widthFactor: 1.0,
                         alignment: Alignment.bottomCenter,
                         child: activeTrack,
@@ -594,10 +623,12 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
                                   child: AnimatedBuilder(
                                     animation: _animationController,
                                     builder: (context, child) => Text(
-                                      ControlValueFormatter.formatContinuous(
-                                        _payload,
-                                        _animationController.value,
-                                      ),
+                                      waitingForMcu
+                                          ? '—'
+                                          : ControlValueFormatter.formatContinuous(
+                                              _payload,
+                                              _animationController.value,
+                                            ),
                                       maxLines: 1,
                                       softWrap: false,
                                       textAlign: TextAlign.center,
