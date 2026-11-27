@@ -12,7 +12,7 @@ abstract final class ControlValueFormatter {
     (0.05, -60.0),
     (0.15, -40.0),
     (0.41604, -20.0),
-    (0.789, 0.0),
+    (12864 / 16383, 0.0), // Cubase MCU feedback at unity gain.
     (1.0, 6.02),
   ];
 

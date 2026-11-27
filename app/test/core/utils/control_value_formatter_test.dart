@@ -16,7 +16,10 @@ void main() {
         ControlValueFormatter.formatContinuous(mcuFader, 6816 / 16383),
         '-20.0',
       );
-      expect(ControlValueFormatter.formatContinuous(mcuFader, 0.789), '0.00');
+      expect(
+        ControlValueFormatter.formatContinuous(mcuFader, 12864 / 16383),
+        '0.00',
+      );
       expect(ControlValueFormatter.formatContinuous(mcuFader, 1.0), '+6.02');
 
       for (var i = 0; i <= 100; i++) {

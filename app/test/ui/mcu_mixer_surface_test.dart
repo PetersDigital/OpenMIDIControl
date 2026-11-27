@@ -4,6 +4,7 @@
 import 'dart:typed_data';
 
 import 'package:app/core/models/page_templates.dart';
+import 'package:app/ui/diagnostics/diagnostics_console.dart';
 import 'package:app/ui/editor_state.dart';
 import 'package:app/ui/hybrid_touch_fader.dart';
 import 'package:app/ui/layout_state.dart';
@@ -214,7 +215,7 @@ void main() {
   );
 
   testWidgets(
-    'HybridTouchFader snaps to cached MCU feedback when resumed from pause',
+    'MCU fader restores feedback after pause and a covered mixer route',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(384, 832);
@@ -280,6 +281,33 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       expect(find.text('-20.0'), findsOneWidget);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      navigator.push<void>(
+        MaterialPageRoute(
+          builder: (_) => const Scaffold(body: DiagnosticsConsole()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      native.success(Int64List.fromList([-2, 42, 1, 0x20E04064, 0, 2]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('Pitch Bend 12864'), findsOneWidget);
+
+      navigator.pop();
+      await tester.pumpAndSettle();
+      final firstFader = find.byType(HybridTouchFader).first;
+      expect(
+        find.descendant(of: firstFader, matching: find.text('0.00')),
+        findsOneWidget,
+      );
+      final track = tester.widget<FractionallySizedBox>(
+        find.descendant(
+          of: firstFader,
+          matching: find.byType(FractionallySizedBox),
+        ),
+      );
+      expect(track.heightFactor, 12864 / 16383);
     },
   );
 

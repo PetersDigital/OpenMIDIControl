@@ -477,24 +477,21 @@ class _HybridTouchFaderState extends ConsumerState<HybridTouchFader>
   );
 
   void _animateToIncomingValue(double incomingNormalized) {
-    if (_springSimulation == null) {
-      _springSimulation = SpringSimulation(
-        _springDesc,
-        _animationController.value,
-        incomingNormalized,
-        0.0,
-      );
-      _animationController.animateWith(_springSimulation!);
-    } else {
-      // Retarget the existing simulation
-      _springSimulation = SpringSimulation(
-        _springDesc,
-        _animationController.value,
-        incomingNormalized,
-        _animationController.velocity,
-      );
-      _animationController.animateWith(_springSimulation!);
-    }
+    final velocity = _springSimulation == null
+        ? 0.0
+        : _animationController.velocity;
+    // MCU readouts need the exact host position when the spring settles.
+    final createSpring = _mcuFaderStrip == null
+        ? SpringSimulation.new
+        : ScrollSpringSimulation.new;
+    final simulation = createSpring(
+      _springDesc,
+      _animationController.value,
+      incomingNormalized,
+      velocity,
+    );
+    _springSimulation = simulation;
+    _animationController.animateWith(simulation);
   }
 
   @override
