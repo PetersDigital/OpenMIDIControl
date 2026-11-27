@@ -11,11 +11,19 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/lifecycle/app_lifecycle_manager.dart';
 import '../core/models/action_payload.dart';
+import '../core/protocol/mcu/mcu_codec.dart';
 import 'global_ui_scale_state.dart';
 import 'header_transport_state.dart';
 import 'midi_action_dispatcher.dart';
 import 'midi_service.dart';
+import 'midi_settings_state.dart'
+    show
+        MidiProtocolMode,
+        mcuLampProvider,
+        mcuRouteActiveProvider,
+        midiProtocolModeProvider;
 import 'performance_ticker_mixin.dart';
 import 'layout_document_state.dart';
 import 'settings_screen.dart';
@@ -223,6 +231,7 @@ class _OpenMIDIMainScreenState extends ConsumerState<OpenMIDIMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(midiProtocolModeProvider);
     final orientation = MediaQuery.orientationOf(context);
     final size = MediaQuery.sizeOf(context);
     final isLandscape = orientation == Orientation.landscape;
@@ -1098,6 +1107,16 @@ class _DynamicConnectionIslandState
   }
 }
 
+final _mcuLampBlinkProvider = StreamProvider.autoDispose<bool>((ref) {
+  if (ref.watch(appLifecycleStateProvider) != AppLifecycleState.resumed) {
+    return Stream.value(false);
+  }
+  return Stream.periodic(
+    const Duration(milliseconds: 500),
+    (tick) => tick.isOdd,
+  );
+});
+
 class _GridButton extends ConsumerStatefulWidget {
   final HeaderTransportRole role;
   final IconData icon;
@@ -1155,24 +1174,52 @@ class _GridButtonState extends ConsumerState<_GridButton>
     _gate.release();
   }
 
-  void _handlePointerDown(PointerDownEvent event, ActionPayload payload) {
+  void _handlePointerDown(PointerDownEvent event, ActionPayload? payload) {
     if (_pointer != null || event.buttons != kPrimaryButton) return;
     setState(() => _pointer = event.pointer);
-    _gate.press(ref.read(midiServiceProvider), payload);
+    if (payload != null) _gate.press(ref.read(midiServiceProvider), payload);
   }
 
-  void _handlePointerUp(PointerEvent event) {
-    if (event.pointer == _pointer) setState(_release);
+  void _handlePointerUp(PointerEvent event, McuActionPayload? mcuTarget) {
+    if (event.pointer != _pointer) return;
+    setState(_release);
+    final bounds = context.size;
+    if (event is PointerUpEvent &&
+        mcuTarget != null &&
+        bounds != null &&
+        (Offset.zero & bounds).contains(event.localPosition)) {
+      ref.read(midiServiceProvider).tapMcuSwitch(mcuTarget);
+    }
   }
 
-  void _activate(ActionPayload payload) {
+  void _activate(ActionPayload? payload, McuActionPayload? mcuTarget) {
     if (_pointer != null) return;
-    _gate.press(ref.read(midiServiceProvider), payload);
-    _gate.release();
+    final midi = ref.read(midiServiceProvider);
+    if (mcuTarget != null) {
+      midi.tapMcuSwitch(mcuTarget);
+    } else if (payload != null) {
+      _gate.press(midi, payload);
+      _gate.release();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isMcu =
+        ref.watch(midiProtocolModeProvider).value == MidiProtocolMode.mcu;
+    ref.listen(midiProtocolModeProvider, (previous, next) {
+      if (previous?.value != next.value && _pointer != null) setState(_release);
+    });
+    final mcuReady =
+        isMcu && (ref.watch(mcuRouteActiveProvider).value ?? false);
+    if (isMcu) {
+      ref.listen(mcuRouteActiveProvider, (_, next) {
+        if (next.value == false && _pointer != null) setState(_release);
+      });
+    }
+    final mcuTarget = mcuReady
+        ? McuActionPayload.transport(McuCodec.headerActions[widget.role.index])
+        : null;
     ref.listen<ActionPayload?>(
       headerTransportMappingsProvider.select((m) => m[widget.role]),
       (previous, next) {
@@ -1182,18 +1229,27 @@ class _GridButtonState extends ConsumerState<_GridButton>
       },
     );
 
-    final payload = ref.watch(
-      headerTransportMappingsProvider.select((m) => m[widget.role]),
-    );
+    final payload = isMcu
+        ? null
+        : ref.watch(
+            headerTransportMappingsProvider.select((m) => m[widget.role]),
+          );
     final address = HeaderTransportMappingsNotifier.feedbackAddress(payload);
-    final enabled = address != null && payload != null;
-    final isLit =
-        enabled &&
-        ref.watch(
-          controlStateProvider.select(
-            (state) => state.buttonStates[address] ?? false,
-          ),
-        );
+    final enabled = mcuTarget != null || (address != null && payload != null);
+    final lamp = mcuTarget == null
+        ? null
+        : ref.watch(mcuLampProvider(McuCodec.switchNote(mcuTarget))).value;
+    final isLit = switch (lamp) {
+      McuLampState.on => true,
+      McuLampState.flashing => ref.watch(_mcuLampBlinkProvider).value ?? true,
+      _ =>
+        address != null &&
+            ref.watch(
+              controlStateProvider.select(
+                (state) => state.buttonStates[address] ?? false,
+              ),
+            ),
+    };
     final isPressed = _pointer != null;
     final accent = widget.role == HeaderTransportRole.record
         ? const Color(0xFFFFB59E)
@@ -1237,7 +1293,7 @@ class _GridButtonState extends ConsumerState<_GridButton>
       label: widget.role.label,
       enabled: enabled,
       selected: isLit,
-      onTap: enabled ? () => _activate(payload) : null,
+      onTap: enabled ? () => _activate(payload, mcuTarget) : null,
       child: ExcludeSemantics(
         child: RepaintBoundary(
           child: Listener(
@@ -1245,8 +1301,8 @@ class _GridButtonState extends ConsumerState<_GridButton>
             onPointerDown: enabled
                 ? (event) => _handlePointerDown(event, payload)
                 : null,
-            onPointerUp: _handlePointerUp,
-            onPointerCancel: _handlePointerUp,
+            onPointerUp: (event) => _handlePointerUp(event, mcuTarget),
+            onPointerCancel: (event) => _handlePointerUp(event, null),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final baseSize = constraints.smallest.shortestSide;

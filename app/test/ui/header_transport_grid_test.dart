@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:app/core/lifecycle/app_lifecycle_manager.dart';
 import 'package:app/core/models/action_payload.dart';
 import 'package:app/core/models/control_state.dart';
+import 'package:app/core/protocol/mcu/mcu_codec.dart';
 import 'package:app/ui/header_transport_state.dart';
 import 'package:app/ui/midi_service.dart';
+import 'package:app/ui/midi_settings_state.dart';
 import 'package:app/ui/open_midi_screen.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -65,6 +68,128 @@ void main() {
   }
 
   group('MidiTransportGrid header transport wiring', () {
+    testWidgets(
+      'MCU reuses the nine cells and switching back restores Generic',
+      (tester) async {
+        const genericPlay = NotePayload(channel: 4, note: 33);
+        await seedMappings({HeaderTransportRole.play: genericPlay});
+        final prefs = await SharedPreferences.getInstance();
+        final savedAssignments = prefs.getString(
+          HeaderTransportMappingsNotifier.storageKey,
+        );
+        const eventsChannel = EventChannel(
+          'com.petersdigital.openmidicontrol/midi_events',
+        );
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        late MockStreamHandlerEventSink native;
+        messenger.setMockStreamHandler(
+          eventsChannel,
+          MockStreamHandler.inline(
+            onListen: (_, sink) {
+              native = sink;
+            },
+          ),
+        );
+        addTearDown(() => messenger.setMockStreamHandler(eventsChannel, null));
+        final midi = MidiService(useBackgroundWorker: false);
+        addTearDown(midi.dispose);
+        final packets = <List<int>>[];
+        const channel = MethodChannel('com.petersdigital.openmidicontrol/midi');
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              if (call.method == 'getMcuRouteGeneration') return 42;
+              if (call.method == 'sendMcuBatch' ||
+                  call.method == 'sendMidiCCBatch') {
+                final entries = call.arguments['events'] as Int64List;
+                packets.add([
+                  for (var i = 0; i < entries.length; i += 2) entries[i],
+                ]);
+              }
+              return null;
+            });
+        final container = ProviderContainer(
+          overrides: [midiServiceProvider.overrideWithValue(midi)],
+        );
+        addTearDown(container.dispose);
+        await container
+            .read(headerTransportMappingsProvider.notifier)
+            .ensureLoaded();
+        expect(
+          await container.read(midiProtocolModeProvider.future),
+          MidiProtocolMode.generic,
+        );
+        await container
+            .read(midiProtocolModeProvider.notifier)
+            .setMode(MidiProtocolMode.mcu);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              home: Scaffold(body: MidiTransportGrid(square: false)),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(midi.hasMcuRoute, isTrue);
+        expect(container.read(mcuRouteActiveProvider).value, isTrue);
+
+        native.success(Int64List.fromList([-2, 42, 1, 0x20905E7F, 0, 1]));
+        await tester.pump();
+        await tester.pump();
+        expect(midi.mcuLampState(0x5E), McuLampState.on);
+        expect(container.read(mcuLampProvider(0x5E)).value, McuLampState.on);
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel('Play'))
+              .flagsCollection
+              .isSelected,
+          Tristate.isTrue,
+        );
+        expect(packets, isEmpty);
+
+        for (final role in HeaderTransportRole.values) {
+          await tester.tap(find.bySemanticsLabel(role.label));
+        }
+        const addresses = [
+          0x5B,
+          0x60,
+          0x5F,
+          0x62,
+          0x5D,
+          0x63,
+          0x5C,
+          0x61,
+          0x5E,
+        ];
+        expect(packets, [
+          for (final note in addresses)
+            [0x2090007F | (note << 8), 0x20800000 | (note << 8)],
+        ]);
+
+        final held = await tester.startGesture(
+          tester.getCenter(find.bySemanticsLabel('Play')),
+        );
+        await held.cancel();
+        expect(packets, hasLength(9));
+        expect(prefs.getString(MidiProtocolModeNotifier.storageKey), 'mcu');
+        await container
+            .read(midiProtocolModeProvider.notifier)
+            .setMode(MidiProtocolMode.generic);
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('Play'));
+        expect(packets.sublist(9).expand((batch) => batch), [
+          0x2094217F,
+          0x20842100,
+        ]);
+        expect(
+          prefs.getString(HeaderTransportMappingsNotifier.storageKey),
+          savedAssignments,
+        );
+      },
+    );
+
     testWidgets(
       'square=false and square=true send momentary CC/Note and skip unassigned cells',
       (tester) async {
