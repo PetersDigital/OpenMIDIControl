@@ -227,6 +227,13 @@ bool isPeripheralPort(MidiDevice device) {
       (name.contains('usb') && name.contains('midi'));
 }
 
+class _HeldMcuGesture {
+  _HeldMcuGesture(this.owner);
+
+  final Object owner;
+  int? position;
+}
+
 class MidiService {
   static const MethodChannel _channel = MethodChannel(
     'com.petersdigital.openmidicontrol/midi',
@@ -254,6 +261,8 @@ class MidiService {
   final _mcuFaders = <int, int>{};
   final _mcuLamps = <int, McuLampState>{};
   final _mcuTimeDigits = <int, int>{};
+  final _mcuVPotRings = <int, McuVPotRingFeedback>{};
+  final _heldMcuGestures = <McuActionPayload, _HeldMcuGesture>{};
   McuProtocolNode? _mcuProtocol;
   int _mcuSessionRequest = 0;
   bool _mcuModeRequested = false;
@@ -271,6 +280,7 @@ class MidiService {
   int? mcuFaderValue(int strip) => _mcuFaders[strip];
   McuLampState? mcuLampState(int note) => _mcuLamps[note];
   int? mcuTimeDigit(int digit) => _mcuTimeDigits[digit];
+  McuVPotRingFeedback? mcuVPotRing(int strip) => _mcuVPotRings[strip];
 
   late final StreamController<Map<String, dynamic>> _uiStateController;
   Stream<Map<String, dynamic>> get uiStateUpdates => _uiStateController.stream;
@@ -424,6 +434,8 @@ class MidiService {
             _mcuLamps[note] = state;
           case McuTimeDigitFeedback(:final digit, :final value):
             _mcuTimeDigits[digit] = value;
+          case McuVPotRingFeedback(:final strip):
+            _mcuVPotRings[strip] = feedback;
         }
         _mcuFeedback.add(feedback);
       },
@@ -434,7 +446,8 @@ class MidiService {
       NativeTransportSinkNode(
         channel: _channel,
         mcuGeneration: generation,
-        useBackgroundWorker: useBackgroundWorker,
+        // Keep releases ordered before a native port disconnect or rebind.
+        useBackgroundWorker: false,
       ),
     );
     _mcuProtocol = protocol;
@@ -442,9 +455,15 @@ class MidiService {
     return true;
   }
 
-  void stopMcuSession() {
+  void stopMcuSession({bool releaseGestures = true}) {
     _mcuSessionRequest++;
     final hadRoute = hasMcuRoute;
+    if (releaseGestures) {
+      for (final target in _heldMcuGestures.keys.toList(growable: false)) {
+        endMcuGesture(target, _heldMcuGestures[target]!.owner);
+      }
+    }
+    _heldMcuGestures.clear();
     _mcuProtocol = null;
     _mcuIngress.removeNode('protocol');
     final sink = outgoingRouter.getNode('mcuNativeSink');
@@ -453,7 +472,37 @@ class MidiService {
     _mcuFaders.clear();
     _mcuLamps.clear();
     _mcuTimeDigits.clear();
+    _mcuVPotRings.clear();
     if (hadRoute) _mcuRouteChanges.add(false);
+  }
+
+  bool beginMcuGesture(McuActionPayload target, Object owner) {
+    if (!hasMcuRoute || _heldMcuGestures.containsKey(target)) return false;
+    _heldMcuGestures[target] = _HeldMcuGesture(owner);
+    sendMcuSwitch(target, pressed: true);
+    return true;
+  }
+
+  void updateMcuFaderGesture(
+    McuActionPayload target,
+    Object owner,
+    int value, {
+    required bool isFinal,
+  }) {
+    final gesture = _heldMcuGestures[target];
+    if (gesture == null || !identical(gesture.owner, owner)) return;
+    gesture.position = value;
+    if (!isFinal) sendMcuFader(target.strip!, value);
+  }
+
+  void endMcuGesture(McuActionPayload target, Object owner) {
+    final gesture = _heldMcuGestures[target];
+    if (gesture == null || !identical(gesture.owner, owner)) return;
+    _heldMcuGestures.remove(target);
+    if (gesture.position case final position?) {
+      sendMcuFader(target.strip!, position, isFinal: true);
+    }
+    sendMcuSwitch(target, pressed: false);
   }
 
   void sendMcuSwitch(McuActionPayload target, {required bool pressed}) {
@@ -1252,7 +1301,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         if (state.connectedDevice?.id == id || type == 'DISCONNECT') {
           final isTargetDevice = id == null || state.connectedDevice?.id == id;
           if (isTargetDevice) {
-            service.stopMcuSession();
+            service.stopMcuSession(releaseGestures: false);
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],
@@ -1300,7 +1349,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // Only trigger "Connection Lost" if we were actually connected to something.
           // This prevents the overlay from appearing on every app launch when no device is present.
           if (state.connectedDevice != null) {
-            service.stopMcuSession();
+            service.stopMcuSession(releaseGestures: false);
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],

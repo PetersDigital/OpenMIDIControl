@@ -31,12 +31,24 @@ final class McuTimeDigitFeedback extends McuFeedback {
   final int value;
 }
 
+final class McuVPotRingFeedback extends McuFeedback {
+  const McuVPotRingFeedback(this.strip, this.rawValue);
+
+  final int strip;
+  final int rawValue;
+
+  bool get indicatorLit => (rawValue & 0x40) != 0;
+  int get mode => (rawValue >>> 4) & 0x03;
+  int get position => rawValue & 0x0F;
+}
+
 abstract final class McuCodec {
   static const trackCount = 8;
   static const faderMax = 0x3FFF;
   static const _touchBase = 0x68;
   static const _vPotTurnBase = 0x10;
   static const _vPotPushBase = 0x20;
+  static const _vPotRingBase = 0x30;
   static const _timeDigitBase = 0x40;
   static const _timeDigitCount = 6;
   static const _transportNotes = {
@@ -154,6 +166,16 @@ abstract final class McuCodec {
         digit < _timeDigitCount) {
       return McuTimeDigitFeedback(
         digit,
+        midi2 ? event.umpWord1! >>> 25 : event.data2,
+      );
+    }
+    final ringStrip = event.data1 - _vPotRingBase;
+    if (status == 0xB0 &&
+        event.channel == 0 &&
+        ringStrip >= 0 &&
+        ringStrip < trackCount) {
+      return McuVPotRingFeedback(
+        ringStrip,
         midi2 ? event.umpWord1! >>> 25 : event.data2,
       );
     }

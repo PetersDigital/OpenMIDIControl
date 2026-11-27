@@ -54,8 +54,8 @@ void _sendMidiGate(
       if (pressed || relativeOnRelease) {
         service.sendRelativeCc(relative, pressed ? 1 : -1);
       }
-    case final McuActionPayload target:
-      service.sendMcuSwitch(target, pressed: pressed);
+    case McuActionPayload():
+      break;
   }
 }
 
@@ -77,8 +77,13 @@ class MidiGate {
     bool isFinal = true,
   }) {
     if (_heldPayload != null) return;
+    if (payload is McuActionPayload &&
+        !service.beginMcuGesture(payload, this)) {
+      return;
+    }
     _service = service;
     _heldPayload = payload;
+    if (payload is McuActionPayload) return;
     if (_transport) {
       service.sendTransportButton(payload, pressed: true);
       return;
@@ -97,6 +102,10 @@ class MidiGate {
       final service = _service!;
       _heldPayload = null;
       _service = null;
+      if (payload is McuActionPayload) {
+        service.endMcuGesture(payload, this);
+        return;
+      }
       if (_transport) {
         service.sendTransportButton(payload, pressed: false);
         return;
@@ -115,9 +124,14 @@ class MidiGate {
 class MidiActionDispatcher {
   int? _lastPosition;
   final _noteGate = MidiGate();
+  bool get holdsMcuFader => _noteGate.heldPayload is McuActionPayload;
 
   void begin(MidiService service, ActionPayload? payload, double position) {
     _lastPosition = (position * 127).round();
+    if (payload case McuActionPayload(target: McuTarget.fader)) {
+      _noteGate.press(service, payload);
+      return;
+    }
     if (payload case final NotePayload note) {
       final velocity = note.velocityMode == NoteVelocityMode.fixed
           ? 127
@@ -187,9 +201,10 @@ class MidiActionDispatcher {
         final delta = relativeDelta ?? (step - (_lastPosition ?? step));
         _lastPosition = step;
         if (delta != 0) service.sendRelativeCc(relative, delta);
-      case McuActionPayload(target: McuTarget.fader, :final strip):
-        service.sendMcuFader(
-          strip!,
+      case McuActionPayload(target: McuTarget.fader):
+        service.updateMcuFaderGesture(
+          payload,
+          _noteGate,
           (position * 16383).round(),
           isFinal: isFinal,
         );
@@ -213,7 +228,16 @@ class MidiActionDispatcher {
     if (isFinal) end();
   }
 
-  void end() {
+  void end({double? mcuPosition}) {
+    if (_noteGate.heldPayload case final McuActionPayload target
+        when mcuPosition != null) {
+      _noteGate._service!.updateMcuFaderGesture(
+        target,
+        _noteGate,
+        (mcuPosition * 16383).round(),
+        isFinal: true,
+      );
+    }
     _noteGate.release();
     _lastPosition = null;
   }

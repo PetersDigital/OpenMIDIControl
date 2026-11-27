@@ -12,6 +12,7 @@ enum PageTemplateId {
   drumGrid4x4,
   xyAndEncoders,
   mixerStub8Track,
+  mcuMixer8Track,
 }
 
 /// Immutable blueprint for a single control inside a [PageTemplate].
@@ -376,11 +377,65 @@ abstract final class FactoryPageTemplates {
     ],
   );
 
+  static final PageTemplate _mcuMixer8Track = PageTemplate(
+    id: PageTemplateId.mcuMixer8Track,
+    name: 'MCU 8-Track Mixer',
+    defaultPageName: 'MCU MIXER',
+    description:
+        'Eight strips and master. Select MCU in MIDI Ports Configuration.',
+    pageType: PageType.fader,
+    gridColumns: 9,
+    gridRows: 9,
+    controls: [
+      for (var strip = 0; strip < 8; strip++) ...[
+        TemplateControlSpec(
+          idPrefix: 'mcu_vpot',
+          type: ControlType.encoder,
+          defaultCc: -1,
+          channel: 0,
+          customName: 'V${strip + 1}',
+          payload: McuActionPayload.vPot(strip),
+          x: strip,
+          y: 0,
+        ),
+        for (final button in McuChannelButton.values)
+          TemplateControlSpec(
+            idPrefix: 'mcu_${button.name}',
+            type: ControlType.trigger,
+            defaultCc: -1,
+            channel: 0,
+            customName: switch (button) {
+              McuChannelButton.recordArm => 'REC',
+              McuChannelButton.solo => 'SOLO',
+              McuChannelButton.mute => 'MUTE',
+              McuChannelButton.select => 'SEL',
+            },
+            payload: McuActionPayload.channelButton(strip, button),
+            x: strip,
+            y: button.index + 1,
+          ),
+      ],
+      for (var strip = 0; strip <= 8; strip++)
+        TemplateControlSpec(
+          idPrefix: 'mcu_fader',
+          type: ControlType.fader,
+          defaultCc: -1,
+          channel: 0,
+          customName: strip == 8 ? 'MASTER' : 'CH ${strip + 1}',
+          payload: McuActionPayload.fader(strip),
+          x: strip,
+          y: 5,
+          height: 4,
+        ),
+    ],
+  );
+
   static final List<PageTemplate> all = List<PageTemplate>.unmodifiable([
     _factoryFaderBank,
     _drumGrid4x4,
     _xyAndEncoders,
     _mixerStub8Track,
+    _mcuMixer8Track,
   ]);
 
   static PageTemplate byId(PageTemplateId id) {

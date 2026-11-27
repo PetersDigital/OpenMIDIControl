@@ -1,8 +1,11 @@
 // Copyright (c) 2026 Peters Digital
 // SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-Commercial
+import 'dart:ui' show AppLifecycleState;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/lifecycle/app_lifecycle_manager.dart';
 import '../core/protocol/mcu/mcu_codec.dart';
 import 'midi_service.dart';
 
@@ -60,14 +63,72 @@ final mcuLampProvider = StreamProvider.autoDispose.family<McuLampState?, int>((
   note,
 ) {
   final service = ref.watch(midiServiceProvider);
+  return _mcuValueStream(
+    service,
+    initial: () => service.mcuLampState(note),
+    readFeedback: (event) => switch (event) {
+      McuLampFeedback(note: final address, :final state) when address == note =>
+        state,
+      _ => null,
+    },
+  );
+});
+
+final _mcuLampBlinkProvider = StreamProvider.autoDispose<bool>((ref) {
+  if (ref.watch(appLifecycleStateProvider) != AppLifecycleState.resumed) {
+    return Stream.value(false);
+  }
+  return Stream.periodic(
+    const Duration(milliseconds: 500),
+    (tick) => tick.isOdd,
+  );
+});
+
+final mcuLampLitProvider = Provider.autoDispose.family<bool, int>((ref, note) {
+  return switch (ref.watch(mcuLampProvider(note)).value) {
+    McuLampState.on => true,
+    McuLampState.flashing => ref.watch(_mcuLampBlinkProvider).value ?? true,
+    _ => false,
+  };
+});
+
+final mcuFaderProvider = StreamProvider.autoDispose.family<int?, int>((
+  ref,
+  strip,
+) {
+  final service = ref.watch(midiServiceProvider);
+  return _mcuValueStream(
+    service,
+    initial: () => service.mcuFaderValue(strip),
+    readFeedback: (event) => switch (event) {
+      McuFaderFeedback(strip: final track, :final value) when track == strip =>
+        value,
+      _ => null,
+    },
+  );
+});
+
+final mcuVPotRingProvider = StreamProvider.autoDispose
+    .family<McuVPotRingFeedback?, int>((ref, strip) {
+      final service = ref.watch(midiServiceProvider);
+      return _mcuValueStream(
+        service,
+        initial: () => service.mcuVPotRing(strip),
+        readFeedback: (event) => switch (event) {
+          McuVPotRingFeedback(strip: final track) when track == strip => event,
+          _ => null,
+        },
+      );
+    });
+
+Stream<T?> _mcuValueStream<T>(
+  MidiService service, {
+  required T? Function() initial,
+  required T? Function(McuFeedback) readFeedback,
+}) {
   return Stream.multi((listener) {
     final subscription = service.mcuFeedback.listen((event) {
-      if (event case McuLampFeedback(
-        note: final address,
-        :final state,
-      ) when address == note) {
-        listener.addSync(state);
-      }
+      if (readFeedback(event) case final value?) listener.addSync(value);
     }, onDone: listener.closeSync);
     final routes = service.mcuRouteChanges.listen((active) {
       if (!active) listener.addSync(null);
@@ -76,9 +137,9 @@ final mcuLampProvider = StreamProvider.autoDispose.family<McuLampState?, int>((
       await subscription.cancel();
       await routes.cancel();
     };
-    listener.addSync(service.mcuLampState(note));
+    listener.addSync(initial());
   });
-});
+}
 
 // ---------------------------------------------------------------------------
 // State: USB Peripheral/Host Mode

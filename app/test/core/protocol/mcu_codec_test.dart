@@ -106,6 +106,28 @@ void main() {
       final digit = McuCodec.decode(event)! as McuTimeDigitFeedback;
       expect((digit.digit, digit.value), (5, 0x31));
     }
+    final ringOff =
+        McuCodec.decode(const MidiEvent(0x20B03016, 0))! as McuVPotRingFeedback;
+    expect(
+      (ringOff.strip, ringOff.indicatorLit, ringOff.mode, ringOff.position),
+      (0, false, 1, 6),
+    );
+    final ringOnMt2 =
+        McuCodec.decode(const MidiEvent(0x20B03056, 0))! as McuVPotRingFeedback;
+    expect(
+      (ringOnMt2.strip, ringOnMt2.indicatorLit, ringOnMt2.position),
+      (0, true, 6),
+    );
+    final ringOnMt4 =
+        McuCodec.decode(const MidiEvent(0x40B03000, 0, umpWord1: 0xACB2CB2C))!
+            as McuVPotRingFeedback;
+    expect(
+      (ringOnMt4.strip, ringOnMt4.rawValue, ringOnMt4.indicatorLit),
+      (0, 0x56, true),
+    );
+    final ringStrip7 =
+        McuCodec.decode(const MidiEvent(0x20B03756, 0))! as McuVPotRingFeedback;
+    expect((ringStrip7.strip, ringStrip7.indicatorLit), (7, true));
     expect(McuCodec.decode(const MidiEvent(0x20913C7F, 0)), isNull);
   });
 }
