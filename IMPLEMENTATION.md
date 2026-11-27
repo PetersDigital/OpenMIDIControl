@@ -317,11 +317,11 @@ Gate 0 passed on Cubase 15.0.40.324 and 16.0.5.174 per bench verification. Begin
 
 | Milestone | Planned capability | Release evidence |
 | --- | --- | --- |
-| v0.7.0 | Network MIDI 2.0 over UDP with DNS-SD discovery and bidirectional UMP on the Galaxy | Preserve adjacent 32-bit values end to end on Wi-Fi. Record Cubase 15 and 16 results per backend, and qualify macOS and Linux peers individually. |
+| v0.7.0 | Network MIDI 2.0 over UDP with DNS-SD discovery and an independent Windows MCU/HUI route alongside wired Generic MIDI | Verify both routes working concurrently without cross-routing. Preserve adjacent 32-bit values end to end on Wi-Fi. Record Cubase 15 and 16 results per backend, and qualify macOS and Linux peers individually. |
 | v0.7.x | Polyphonic MPE grid and multi-touch XY/XYZ morph pads | Independent per-finger pitch, timbre and pressure, reliable note release and reproducible interpolation across saved snapshots. |
 | v0.7.x | Haptic detents, accessible values and optional audio/visual cues | Verify calibrated unity and center feedback, TalkBack operation and MIDI timing under automation on the Galaxy. |
 | v0.8.0 | Browser layout editor served by the phone on the LAN | Pair a desktop browser, edit with live preview and round-trip a saved layout through disconnect and concurrent edits. |
 | v0.8.x | GitHub-backed community layout exchange | Review, verify, preview and import a template while preserving customized local copies and offline access. |
 | v0.8.x | Foldable, DeX and multi-window dual-pane layouts | Operate an MCU mixer and a second page through one MIDI session with the existing 3×3 transport. Verify resize, focus and gesture cleanup. |
 
-The Galaxy S24 Ultra's verified Android 17 USB peripheral route remains MIDI 1.0. The proposed Wi-Fi transport provides a separate path to qualify native MIDI 2.0. Detailed steps, source references and acceptance tests are in the [v0.7.x–v0.8.x implementation plan](docs/V0.7.x-V0.8.x_IMPLEMENTATION.md).
+The Galaxy S24 Ultra's verified Android 17 USB peripheral route remains MIDI 1.0. Through v0.6.x, finish and qualify the wired modes while keeping route bindings separate from layouts and control-surface codecs independent of transport. Beginning with v0.7.0, use USB for Generic MIDI and Network MIDI 2.0 through Windows MIDI Services for the simultaneous MCU/HUI route. Detailed steps, source references and acceptance tests are in the [v0.7.x–v0.8.x implementation plan](docs/V0.7.x-V0.8.x_IMPLEMENTATION.md).
