@@ -250,13 +250,24 @@ class MidiService {
 
   final _mcuIngress = MidiRouter();
   final _mcuFeedback = StreamController<McuFeedback>.broadcast();
+  final _mcuRouteChanges = StreamController<bool>.broadcast();
   final _mcuFaders = <int, int>{};
   final _mcuLamps = <int, McuLampState>{};
   final _mcuTimeDigits = <int, int>{};
   McuProtocolNode? _mcuProtocol;
   int _mcuSessionRequest = 0;
+  bool _mcuModeRequested = false;
 
   Stream<McuFeedback> get mcuFeedback => _mcuFeedback.stream;
+  bool get hasMcuRoute => _mcuProtocol != null;
+  Stream<bool> get mcuRouteChanges => Stream.multi((listener) {
+    final subscription = _mcuRouteChanges.stream.listen(
+      listener.addSync,
+      onDone: listener.closeSync,
+    );
+    listener.onCancel = subscription.cancel;
+    listener.addSync(hasMcuRoute);
+  });
   int? mcuFaderValue(int strip) => _mcuFaders[strip];
   McuLampState? mcuLampState(int note) => _mcuLamps[note];
   int? mcuTimeDigit(int digit) => _mcuTimeDigits[digit];
@@ -371,6 +382,15 @@ class MidiService {
     );
   }
 
+  Future<void> setMcuMode(bool enabled) async {
+    _mcuModeRequested = enabled;
+    if (enabled) {
+      await startMcuSession();
+    } else {
+      stopMcuSession();
+    }
+  }
+
   Future<bool> startMcuSession({int group = 0}) async {
     RangeError.checkValueInInterval(group, 0, 15, 'group');
     if (_isDisposed) return false;
@@ -418,11 +438,13 @@ class MidiService {
       ),
     );
     _mcuProtocol = protocol;
+    _mcuRouteChanges.add(true);
     return true;
   }
 
   void stopMcuSession() {
     _mcuSessionRequest++;
+    final hadRoute = hasMcuRoute;
     _mcuProtocol = null;
     _mcuIngress.removeNode('protocol');
     final sink = outgoingRouter.getNode('mcuNativeSink');
@@ -431,6 +453,7 @@ class MidiService {
     _mcuFaders.clear();
     _mcuLamps.clear();
     _mcuTimeDigits.clear();
+    if (hadRoute) _mcuRouteChanges.add(false);
   }
 
   void sendMcuSwitch(McuActionPayload target, {required bool pressed}) {
@@ -630,6 +653,7 @@ class MidiService {
     _isDisposed = true;
     stopMcuSession();
     _mcuFeedback.close();
+    _mcuRouteChanges.close();
     _initTimer?.cancel();
     _rawStreamSubscription?.cancel();
     _incomingFallbackSink?.dispose();
@@ -684,6 +708,9 @@ class MidiService {
         {'id': id, 'inputPort': inputPort, 'outputPort': outputPort}
           ..removeWhere((key, value) => value == null),
       );
+      if (result == true && _mcuModeRequested && !_isDisposed) {
+        await startMcuSession();
+      }
       return result ?? false;
     } catch (e) {
       debugPrint('Failed to connect to device $id: $e');
@@ -1225,6 +1252,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
         if (state.connectedDevice?.id == id || type == 'DISCONNECT') {
           final isTargetDevice = id == null || state.connectedDevice?.id == id;
           if (isTargetDevice) {
+            service.stopMcuSession();
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],
@@ -1272,6 +1300,7 @@ class ConnectedMidiDeviceNotifier extends Notifier<MidiConnectionState> {
           // Only trigger "Connection Lost" if we were actually connected to something.
           // This prevents the overlay from appearing on every app launch when no device is present.
           if (state.connectedDevice != null) {
+            service.stopMcuSession();
             state = state.disconnect(connectionLost: true);
             service.vibrate(
               pattern: [0, 100, 100, 100],

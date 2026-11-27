@@ -3,7 +3,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:app/ui/midi_service.dart';
 import 'package:app/ui/midi_settings_state.dart';
 
 void main() {
@@ -24,6 +26,45 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
   });
+
+  test(
+    'restored MCU preference opens the route when the MIDI port reconnects',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        MidiProtocolModeNotifier.storageKey: 'mcu',
+      });
+      int? connectedGeneration;
+      var nextGeneration = 40;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            channel,
+            (call) async => switch (call.method) {
+              'getMcuRouteGeneration' => connectedGeneration,
+              'connectToDevice' => (connectedGeneration = ++nextGeneration) > 0,
+              'disconnectDevice' => connectedGeneration = null,
+              _ => null,
+            },
+          );
+      final service = MidiService(useBackgroundWorker: false);
+      addTearDown(service.dispose);
+      final container = ProviderContainer(
+        overrides: [midiServiceProvider.overrideWithValue(service)],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(midiProtocolModeProvider.future),
+        MidiProtocolMode.mcu,
+      );
+      expect(service.hasMcuRoute, isFalse);
+      expect(await service.connectToDevice('usb'), isTrue);
+      expect(service.hasMcuRoute, isTrue);
+      await service.disconnectDevice();
+      expect(service.hasMcuRoute, isFalse);
+      expect(await service.connectToDevice('usb'), isTrue);
+      expect(service.hasMcuRoute, isTrue);
+    },
+  );
 
   group('UsbModeNotifier', () {
     test('defaults to peripheral mode', () {
